@@ -84,6 +84,6 @@ victim firebreak.
 ## Counts
 
 11 scenarios (4 core, 7 edge). 9 invariants. Item 47 opened and closed in
-SPEC.md. Two distinct birth arrows in one tick (disconnected components, so
-each seed must fire) are pinned by the invariant suite. No new §11 gap. No
-unexpected cost.
+SPEC.md. Two distinct birth arrows in one tick (disconnected *trail*
+components, so each seed must fire) are pinned by the invariant suite. No new
+§11 gap. No unexpected cost.

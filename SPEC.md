@@ -358,7 +358,7 @@ There are exactly **two** ways to hurt a player.
 
 An enemy head crosses your open trail at a **point**. If the crossing succeeds, the trail **evaporates in both directions from the cut point** — forward with the grain, and backward against it.
 
-That destruction is reused. A **territory-root cut**, a **combat wipe**, a **convert wipe**, and a **birth on open trail** (below) start the same fronts from a point or from an arrow. They are not a second kind of hurt, and they do not invent a second evaporation.
+That destruction is reused. A **territory-root cut**, a **combat wipe**, a **convert wipe**, and a **birth onto another player's open trail** (below) start the same fronts from a point or from an arrow. They are not a second kind of hurt, and they do not invent a second evaporation.
 
 Evaporation **does not kill heads** — that job is combat's (§6.2). Each front only destroys trail:
 
