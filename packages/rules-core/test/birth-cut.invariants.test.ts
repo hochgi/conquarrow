@@ -10,6 +10,7 @@ import { orderedBorders } from '../src/economy';
 import {
   A,
   B,
+  MINIMAL_DIAMETER,
   anArrow,
   anExitFrom,
   headsOn,
@@ -19,6 +20,7 @@ import {
   ownerOf,
   snapshot,
   stateOf,
+  twoDisjointPaths,
 } from './support';
 
 const aSpawnerOn = (
@@ -83,5 +85,53 @@ describe('birth-cut invariants', () => {
     expect(isTrail(final, A, feed)).toBe(false);
     expect(snapshot(replay(table.rules, initial, [...moves]))).toEqual(snapshot(final));
     expect(replayIsDeterministic(table.rules, initial, [...moves], snapshot)).toBe(true);
+  });
+
+  it('cuts each disconnected birth arrow when two spawners emit in one tick', () => {
+    const table = onBoard();
+    const [path0, path1] = twoDisjointPaths(table.geometry, [1, 1], MINIMAL_DIAMETER);
+    const feed0 = path0[0];
+    const feed1 = path1[0];
+    if (feed0 === undefined || feed1 === undefined) {
+      throw new Error('setup: disjoint paths did not yield two arrows');
+    }
+
+    const feedOf = (arrow: ArrowId, avoid?: VertexId) => {
+      const vertex = table.geometry.flankVertices(arrow).find((candidate) => candidate !== avoid);
+      if (vertex === undefined) throw new Error('setup: arrow has no usable flank vertex');
+      const borders = orderedBorders(table.geometry, vertex);
+      const phase = borders.indexOf(arrow);
+      if (phase < 0) throw new Error('setup: flank vertex does not border the feed');
+      return { vertex, phase, borders };
+    };
+
+    const first = feedOf(feed0);
+    const second = feedOf(feed1, first.vertex);
+    const aShare = first.borders.find((arrow) => arrow !== feed0 && arrow !== feed1);
+    if (aShare === undefined) throw new Error('setup: need an A share on the first vertex');
+
+    const before = stateOf([], A, {
+      trail: { A: [feed0, feed1] },
+      territory: [...owned([feed0, feed1], B), ...owned([aShare], A)],
+      accumulators: [
+        [feed0, rational(2, 3)],
+        [feed1, rational(2, 3)],
+      ],
+      spawners: [
+        [first.vertex, { force: rational(1, 3), phase: first.phase }],
+        [second.vertex, { force: rational(1, 3), phase: second.phase }],
+      ],
+    });
+    const headsBefore = totalHeads(before);
+
+    const after = table.rules.apply(table.rules.apply(before, endTurn()), endTurn());
+
+    expect(isTrail(after, A, feed0)).toBe(false);
+    expect(isTrail(after, A, feed1)).toBe(false);
+    expect(ownerOf(after, feed0)).toBe(B);
+    expect(ownerOf(after, feed1)).toBe(B);
+    expect(headsOn(after, feed0)).toBe(1);
+    expect(headsOn(after, feed1)).toBe(1);
+    expect(totalHeads(after)).toBe(headsBefore + 2);
   });
 });

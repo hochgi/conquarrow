@@ -1,24 +1,26 @@
-# cuts — evaporating a trail from a crossing
+# cuts — evaporating a trail
 
 **Packet:** [P13 — Trail fire & anchors](../../design/packets/P12-trail-fire-anchors.md)
 (was P06 for the original kill-per-front rule)
-**SPEC:** §6.1, §6.1a, §2, §11 items 8, 24, 26, 27, 28 (P12 re-resolutions)
+**SPEC:** §6.1, §6.1a, §2, §11 items 8, 24, 26, 27, 28 (P12 re-resolutions), item 47 (P40)
 **Features:** [core](./cuts.core.feature) · [edge cases](./cuts.edge-cases.feature)
-**Sibling:** [combat](../combat/combat.md)
+**Sibling:** [combat](../combat/combat.md) · [birth-cut](../birth-cut/birth-cut.md)
 **Builds on:** [crossings](../crossings/crossings.md)
 
 ## Purpose
 
-An enemy traversal that crosses your trail **cuts** it. Evaporation clears trail
-paint in both directions from the cut point until a garrison or territory stops
-it. **It does not kill heads** — combat does.
+An enemy traversal that crosses your trail **cuts** it. Combat wipe, convert
+wipe, and birth on foreign trail ([P40](../birth-cut/birth-cut.md)) start the
+same evaporation from an **arrow** (`evaporateFromArrow`); a territory-root cut
+starts it from a **point**. Evaporation clears trail paint in both directions
+until a garrison or territory stops it. **It does not kill heads** — combat does.
 
 ## Terms
 
 | Term | Means |
 |---|---|
-| **cut** | a step whose traversal crosses a victim's trail, or a territory-root cut at `P0` |
-| **cut point** | the point evaporation starts from |
+| **cut** | a crossing step, a territory-root cut at `P0`, a combat wipe, a convert wipe, or a birth on foreign trail — anything that starts evaporation |
+| **cut point** | the point evaporation starts from, when the seed is a crossing or a territory-root cut |
 | **front** | one advancing edge of evaporation (no kill) |
 | **firebreak** | the first occupied arrow a front would enter — halt; arrow and stack survive |
 | **region** | trail between two firebreaks, or a firebreak and territory |
@@ -28,9 +30,12 @@ it. **It does not kill heads** — combat does.
 
 ```mermaid
 flowchart TD
-  S["step / wipe / last feeder mark"] --> P["cut point P"]
-  P --> F["forward fronts on every trail out of P"]
-  P --> B["backward fronts on every trail in of P"]
+  Cross["crossing step / last feeder mark"] --> P["evaporate from point"]
+  Wipe["combat wipe / convert wipe / birth"] --> A["evaporate from arrow"]
+  P --> F["forward fronts on every trail continuation"]
+  A --> F
+  P --> B["backward fronts on every trail continuation"]
+  A --> B
   F --> E["enter arrow: if victim stack on it, halt without destroying"]
   B --> E
   E --> R["else remove arrow from trail #59; fan to continuations"]
