@@ -10,6 +10,8 @@ import { orderedBorders } from '../src/economy';
 import {
   A,
   B,
+  MINIMAL_DIAMETER,
+  allArrows,
   anArrow,
   anExitFrom,
   headsOn,
@@ -83,5 +85,86 @@ describe('birth-cut invariants', () => {
     expect(isTrail(final, A, feed)).toBe(false);
     expect(snapshot(replay(table.rules, initial, [...moves]))).toEqual(snapshot(final));
     expect(replayIsDeterministic(table.rules, initial, [...moves], snapshot)).toBe(true);
+  });
+
+  it('cuts each disconnected birth arrow when two spawners emit in one tick', () => {
+    const table = onBoard();
+    const sharesEndpoint = (left: ArrowId, right: ArrowId): boolean => {
+      const origin = table.geometry.origin(left);
+      const target = table.geometry.target(left);
+      return (
+        origin === table.geometry.origin(right) ||
+        origin === table.geometry.target(right) ||
+        target === table.geometry.origin(right) ||
+        target === table.geometry.target(right)
+      );
+    };
+
+    const arrows = allArrows(table.geometry, MINIMAL_DIAMETER);
+    let feed0: ArrowId | undefined;
+    let feed1: ArrowId | undefined;
+    for (const first of arrows) {
+      for (const second of arrows) {
+        if (first === second || sharesEndpoint(first, second)) continue;
+        const vertex0 = table.geometry.flankVertices(first)[0];
+        const vertex1 = table.geometry.flankVertices(second).find((vertex) => vertex !== vertex0);
+        if (vertex0 === undefined || vertex1 === undefined) continue;
+        feed0 = first;
+        feed1 = second;
+        break;
+      }
+      if (feed0 !== undefined) break;
+    }
+    if (feed0 === undefined || feed1 === undefined) {
+      throw new Error('setup: no two arrows with disjoint endpoints and distinct flanks');
+    }
+
+    const endpoints = new Set([
+      String(table.geometry.origin(feed0)),
+      String(table.geometry.target(feed0)),
+      String(table.geometry.origin(feed1)),
+      String(table.geometry.target(feed1)),
+    ]);
+    if (endpoints.size !== 4) {
+      throw new Error('setup: chosen arrows share an endpoint — one wipe could reach both');
+    }
+
+    const feedOf = (arrow: ArrowId, avoid?: VertexId) => {
+      const vertex = table.geometry.flankVertices(arrow).find((candidate) => candidate !== avoid);
+      if (vertex === undefined) throw new Error('setup: arrow has no usable flank vertex');
+      const borders = orderedBorders(table.geometry, vertex);
+      const phase = borders.indexOf(arrow);
+      if (phase < 0) throw new Error('setup: flank vertex does not border the feed');
+      return { vertex, phase, borders };
+    };
+
+    const first = feedOf(feed0);
+    const second = feedOf(feed1, first.vertex);
+    const aShare = first.borders.find((arrow) => arrow !== feed0 && arrow !== feed1);
+    if (aShare === undefined) throw new Error('setup: need an A share on the first vertex');
+
+    const before = stateOf([], A, {
+      trail: { A: [feed0, feed1] },
+      territory: [...owned([feed0, feed1], B), ...owned([aShare], A)],
+      accumulators: [
+        [feed0, rational(2, 3)],
+        [feed1, rational(2, 3)],
+      ],
+      spawners: [
+        [first.vertex, { force: rational(1, 3), phase: first.phase }],
+        [second.vertex, { force: rational(1, 3), phase: second.phase }],
+      ],
+    });
+    const headsBefore = totalHeads(before);
+
+    const after = table.rules.apply(table.rules.apply(before, endTurn()), endTurn());
+
+    expect(isTrail(after, A, feed0)).toBe(false);
+    expect(isTrail(after, A, feed1)).toBe(false);
+    expect(ownerOf(after, feed0)).toBe(B);
+    expect(ownerOf(after, feed1)).toBe(B);
+    expect(headsOn(after, feed0)).toBe(1);
+    expect(headsOn(after, feed1)).toBe(1);
+    expect(totalHeads(after)).toBe(headsBefore + 2);
   });
 });
