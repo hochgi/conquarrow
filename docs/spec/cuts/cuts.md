@@ -9,17 +9,19 @@
 
 ## Purpose
 
-An enemy traversal that crosses your trail **cuts** it. Combat wipe, convert
-wipe, and birth on foreign trail ([P40](../birth-cut/birth-cut.md)) start the
-same evaporation from an **arrow** (`evaporateFromArrow`); a territory-root cut
-starts it from a **point**. Evaporation clears trail paint in both directions
-until a garrison or territory stops it. **It does not kill heads** — combat does.
+An enemy traversal that crosses your trail **cuts** it. A territory-root feeder
+mark is a cut at `P0`. A birth onto foreign trail is also a cut
+([P40](../birth-cut/birth-cut.md)), started from the birth arrow. Combat wipe
+and convert wipe start the **same** evaporation from an arrow
+(`evaporateFromArrow`); they are not a second destruction, and they are not
+named a cut. Evaporation clears trail paint in both directions until a garrison
+or territory stops it. **It does not kill heads** — combat does.
 
 ## Terms
 
 | Term | Means |
 |---|---|
-| **cut** | a crossing step, a territory-root cut at `P0`, a combat wipe, a convert wipe, or a birth on foreign trail — anything that starts evaporation |
+| **cut** | a crossing step, a territory-root cut at `P0`, or a birth on foreign trail |
 | **cut point** | the point evaporation starts from, when the seed is a crossing or a territory-root cut |
 | **front** | one advancing edge of evaporation (no kill) |
 | **firebreak** | the first occupied arrow a front would enter — halt; arrow and stack survive |
@@ -31,7 +33,8 @@ until a garrison or territory stops it. **It does not kill heads** — combat do
 ```mermaid
 flowchart TD
   Cross["crossing step / last feeder mark"] --> P["evaporate from point"]
-  Wipe["combat wipe / convert wipe / birth"] --> A["evaporate from arrow"]
+  Birth["birth on foreign trail"] --> A["evaporate from arrow"]
+  Wipe["combat wipe / convert wipe"] --> A
   P --> F["forward fronts on every trail continuation"]
   A --> F
   P --> B["backward fronts on every trail continuation"]
