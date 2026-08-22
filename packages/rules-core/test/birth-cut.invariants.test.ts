@@ -11,6 +11,7 @@ import {
   A,
   B,
   MINIMAL_DIAMETER,
+  allArrows,
   anArrow,
   anExitFrom,
   headsOn,
@@ -20,7 +21,6 @@ import {
   ownerOf,
   snapshot,
   stateOf,
-  twoDisjointPaths,
 } from './support';
 
 const aSpawnerOn = (
@@ -89,11 +89,44 @@ describe('birth-cut invariants', () => {
 
   it('cuts each disconnected birth arrow when two spawners emit in one tick', () => {
     const table = onBoard();
-    const [path0, path1] = twoDisjointPaths(table.geometry, [1, 1], MINIMAL_DIAMETER);
-    const feed0 = path0[0];
-    const feed1 = path1[0];
+    const sharesEndpoint = (left: ArrowId, right: ArrowId): boolean => {
+      const origin = table.geometry.origin(left);
+      const target = table.geometry.target(left);
+      return (
+        origin === table.geometry.origin(right) ||
+        origin === table.geometry.target(right) ||
+        target === table.geometry.origin(right) ||
+        target === table.geometry.target(right)
+      );
+    };
+
+    const arrows = allArrows(table.geometry, MINIMAL_DIAMETER);
+    let feed0: ArrowId | undefined;
+    let feed1: ArrowId | undefined;
+    for (const first of arrows) {
+      for (const second of arrows) {
+        if (first === second || sharesEndpoint(first, second)) continue;
+        const vertex0 = table.geometry.flankVertices(first)[0];
+        const vertex1 = table.geometry.flankVertices(second).find((vertex) => vertex !== vertex0);
+        if (vertex0 === undefined || vertex1 === undefined) continue;
+        feed0 = first;
+        feed1 = second;
+        break;
+      }
+      if (feed0 !== undefined) break;
+    }
     if (feed0 === undefined || feed1 === undefined) {
-      throw new Error('setup: disjoint paths did not yield two arrows');
+      throw new Error('setup: no two arrows with disjoint endpoints and distinct flanks');
+    }
+
+    const endpoints = new Set([
+      String(table.geometry.origin(feed0)),
+      String(table.geometry.target(feed0)),
+      String(table.geometry.origin(feed1)),
+      String(table.geometry.target(feed1)),
+    ]);
+    if (endpoints.size !== 4) {
+      throw new Error('setup: chosen arrows share an endpoint — one wipe could reach both');
     }
 
     const feedOf = (arrow: ArrowId, avoid?: VertexId) => {
