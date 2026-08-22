@@ -1,6 +1,6 @@
 # cuts — evaporating a trail
 
-**Packet:** [P13 — Trail fire & anchors](../../design/packets/P12-trail-fire-anchors.md)
+**Packet:** [P13 — Trail fire & anchors](../../design/packets/P13-trail-fire-anchors.md)
 (was P06 for the original kill-per-front rule)
 **SPEC:** §6.1, §6.1a, §2, §11 items 8, 24, 26, 27, 28 (P12 re-resolutions), item 47 (P40)
 **Features:** [core](./cuts.core.feature) · [edge cases](./cuts.edge-cases.feature)
