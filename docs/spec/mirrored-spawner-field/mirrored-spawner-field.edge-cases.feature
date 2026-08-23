@@ -42,9 +42,9 @@ Feature: The mirrored spawner field — edge cases
     And every home vertex carries a spawner
 
   Scenario: Anti-grain travel costs double
-    Given a stack that has walked k steps in a grain direction
-    When it returns to its starting arrow
-    Then it has taken exactly 2k further steps
+    Given a net displacement of k against a grain direction
+    When the walk is measured on the oriented graph
+    Then it has taken exactly 2k steps
     And the order in which the two anti-grain directions were used does not matter
 
   Scenario: A walk that returns to where it started is balanced
