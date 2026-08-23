@@ -37,7 +37,7 @@ const seatName = (index: number): string => {
 const clockOf = (state: GameState): readonly (readonly [string, number])[] =>
   [...state.starvationStreaks.entries()]
     .map(([player, streak]) => [String(player), streak] as const)
-    .toSorted((left, right) => (left[0] < right[0] ? -1 : 1));
+    .toSorted((left, right) => (left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : 0));
 
 const hydrated = (rec: Record<string, unknown>): GameState => {
   const state = hydrateState(rec);

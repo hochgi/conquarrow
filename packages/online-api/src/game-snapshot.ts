@@ -9,6 +9,7 @@ import type {
   VertexId,
 } from '@conquarrow/contracts';
 import { mintArrowId, mintPlayerId, mintVertexId, rational } from '@conquarrow/contracts';
+import { compareStrings } from './hashing';
 import { asRecord } from './invite-record';
 
 export type StateSnapshot = {
@@ -74,19 +75,19 @@ export const snapshotState = (state: GameState): StateSnapshot => {
               speedOverride: group.speedOverride,
             },
       )
-      .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+      .toSorted((left, right) => compareStrings(left.arrow, right.arrow)),
     trails: [...state.trails.entries()]
       .map(([player, arrows]) => ({
         player: String(player),
         arrows: [...arrows].map(String).toSorted(),
       }))
-      .toSorted((left, right) => (left.player < right.player ? -1 : 1)),
+      .toSorted((left, right) => compareStrings(left.player, right.player)),
     territory: [...state.territory.entries()]
       .map(([arrow, owner]) => ({ arrow: String(arrow), owner: String(owner) }))
-      .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+      .toSorted((left, right) => compareStrings(left.arrow, right.arrow)),
     accumulators: [...state.accumulators.entries()]
       .map(([arrow, r]) => ({ arrow: String(arrow), num: r.num, den: r.den }))
-      .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+      .toSorted((left, right) => compareStrings(left.arrow, right.arrow)),
     spawners: [...state.spawners.entries()]
       .map(([vertex, spawner]) => ({
         vertex: String(vertex),
@@ -94,10 +95,10 @@ export const snapshotState = (state: GameState): StateSnapshot => {
         den: spawner.force.den,
         phase: spawner.phase,
       }))
-      .toSorted((left, right) => (left.vertex < right.vertex ? -1 : 1)),
+      .toSorted((left, right) => compareStrings(left.vertex, right.vertex)),
     starvationStreaks: [...state.starvationStreaks.entries()]
       .map(([player, streak]) => ({ player: String(player), streak }))
-      .toSorted((left, right) => (left.player < right.player ? -1 : 1)),
+      .toSorted((left, right) => compareStrings(left.player, right.player)),
     dominationN: state.dominationN,
   };
   if (state.winner !== undefined) {

@@ -12,6 +12,7 @@
 
 import type { ArrowId, GameState, GeometryPort, PlayerId, Rational, VertexId } from '@conquarrow/contracts';
 import { add, wholeSteps } from '@conquarrow/contracts';
+import { compareArrows, comparePlayers, compareVertices } from '@conquarrow/rules-core';
 
 /** Why a share is not accruing this round, when it is not. */
 export type ShareStatus =
@@ -71,9 +72,7 @@ export const spawnerInfoAt = (
   const spawner = state.spawners.get(vertex);
   if (spawner === undefined) return undefined;
 
-  const borders = [...geometry.borderArrows(vertex)].toSorted((l, r) =>
-    String(l) < String(r) ? -1 : 1,
-  );
+  const borders = [...geometry.borderArrows(vertex)].toSorted(compareArrows);
   const phase = ((spawner.phase % borders.length) + borders.length) % borders.length;
 
   const shares: ShareInfo[] = borders.map((arrow, k) => {
@@ -109,7 +108,7 @@ export const spawnerInfoAt = (
     roundsPerShare: (3 * spawner.force.den) / spawner.force.num,
     shares,
     held: [...thirds.values()].toSorted(
-      (l, r) => r.thirds - l.thirds || (String(l.player) < String(r.player) ? -1 : 1),
+      (l, r) => r.thirds - l.thirds || comparePlayers(l.player, r.player),
     ),
     yielding: shares.filter((s) => s.status === 'earning').length / shares.length,
   };
@@ -143,15 +142,11 @@ export const yieldSoonByArrow = (
   state: GameState,
 ): ReadonlyMap<ArrowId, YieldSoon> => {
   const out = new Map<ArrowId, YieldSoon>();
-  const vertices = [...state.spawners.keys()].toSorted((a, b) =>
-    String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0,
-  );
+  const vertices = [...state.spawners.keys()].toSorted(compareVertices);
   for (const vertex of vertices) {
     const spawner = state.spawners.get(vertex);
     if (spawner === undefined) continue;
-    const borders = [...geometry.borderArrows(vertex)].toSorted((l, r) =>
-      String(l) < String(r) ? -1 : 1,
-    );
+    const borders = [...geometry.borderArrows(vertex)].toSorted(compareArrows);
     if (borders.length !== 3) continue;
     const phase = ((spawner.phase % 3) + 3) % 3;
     for (let offset = 0; offset < 2; offset += 1) {

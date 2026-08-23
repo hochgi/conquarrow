@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { compareArrows } from '@conquarrow/rules-core';
 import { makeLayout, makeTiling } from '@conquarrow/geometry-tiling';
 import { compassDeg, polygonCentroid, shareArcSpan } from '../src/shareArc';
 
@@ -22,9 +23,7 @@ describe('share arcs face their bordering tiles', () => {
     if (vertex === undefined) return;
 
     const centre = layout.vertexPosition(vertex);
-    const borders = [...geometry.borderArrows(vertex)].toSorted((l, r) =>
-      String(l) < String(r) ? -1 : 1,
-    );
+    const borders = [...geometry.borderArrows(vertex)].toSorted(compareArrows);
     expect(borders).toHaveLength(3);
 
     const bearings = borders.map((arrow) => {
