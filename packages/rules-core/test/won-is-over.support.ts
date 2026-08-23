@@ -48,7 +48,7 @@ import type {
   RulesPort,
   StepMove,
 } from '@conquarrow/contracts';
-import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
+import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
 import { headsOf, isLost, territoryCountOf } from '../src/victory';
 import { playtestLog } from './immediate.support';
@@ -455,7 +455,7 @@ export const theReportedLog = (): ReportedLog => {
     const log = playtestLog();
     const geometry = makeTiling();
     return {
-      initial: makeMatch(log.config),
+      initial: log.opening,
       moves: log.moves,
       rules: makeRules(geometry),
       geometry,

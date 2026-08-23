@@ -287,6 +287,44 @@ A move names a **source arrow, a destination out-arrow, and a count** — nothin
 - **Sending different portions to different out-arrows is how a fork is made** — two moves from the same source, each with its own count. The pincer (§7) needs no special move.
 - **The turn ends when the player ends it**, or when no unit has a whole step left.
 
+### What travel costs, and what closure costs
+
+The out-set at every point is `{N, SE, SW}` (§11 item 1) and those three unit
+vectors sum to zero. Two consequences, and they pull in opposite directions.
+
+- **Travel is anisotropic — 1 step with the grain, 2 against.** A net
+  displacement of *k* in an anti-grain direction costs exactly *2k* steps: *k* of
+  one cheap direction plus *k* of the other, **in any order**. Walk 5 N and it is
+  10 steps home. Three directions are cheap and three cost double, so *where you
+  are going* is a real part of what a move costs.
+- **A closed walk is balanced.** A walk returning to the arrow it left needs
+  `a·N + b·SE + c·SW = 0` with non-negative counts, and the only such combination
+  is `a = b = c` — so it has length 3k with equal counts of each direction. This
+  is what fixes girth at 3 (§2) and the U-turn at 3 steps (§11 item 5), and it is
+  **all** it fixes.
+
+**A claim is not a closed walk, so claiming is anisotropic too.** Closure (§7)
+departs your territory and lands back on it — two *different* arrows of a region.
+The loop is closed by the boundary you already own, not by the trail, so the trail
+is free of the balance constraint above. A frontier the cheap directions sweep
+across encloses at 1 step per unit; the same ground behind an unfavourably
+oriented frontier costs 2.
+
+**So the anisotropy touches everything: reach, return, and claim.** Walking out
+to the contested centre, walking home from it, and closing around what you took
+are three separately-priced journeys, and a seat can be handed an advantage in any
+of them. There is no cheap scalar that captures it — which is exactly why §7's
+field is mirrored rather than balanced to a tolerance (§11 item 48). An
+automorphism of the oriented graph equalises **all** directed path lengths at
+once; a threshold on a distance equalises one and silently trades the rest.
+
+**The trade this makes, said out loud.** Cheap-out/dear-back and
+dear-out/cheap-back are genuinely different strategic postures — one seat better
+placed to strike, the other to consolidate. A 180° board would hand the two seats
+opposite postures, which is more interesting than a mirror and is *not fair*: 180°
+is not an automorphism (it maps N to S). The mirror gives both seats the **same**
+posture. That is the flavour the fairness costs.
+
 **Ordering within your own turn is therefore a real tactic.** Stepping one head onto a stack to reinforce it before another head commits to a crossing is a legal and intended play — though §3's merge rule means the reinforced stack pays for it in tempo.
 
 **Illegal steps are refused, never applied.** A step against the grain, an overdraw, or a grain step onto another player's territory without territory-grade protection from the source (§6.3) is illegal: `legalMoves` omits it and `apply` throws. The stack does not move, does not fight, and does not convert.
@@ -674,7 +712,7 @@ A starting point for the first playtest, not a result. What they are chosen to p
 
 **Bands rather than a smooth curve, deliberately.** A continuous *f*(*r*) would need a rounding rule to land on a rational, and §7 requires exact rationals with small coprime denominators — the whole coprime-denominator rhythm depends on 1/9 against 1/12 rather than on 1/9 against 0.1083. Bands keep the values authored. Post-MVP jitter is compatible with all of this on one condition: it must be a **pure function of the vertex and a setup seed**, never a draw from an RNG, or it takes determinism (ADR 0001) with it.
 
-**And that condition is already load-bearing, because density below 1 needs it.** A band that keeps half its vertices has to decide *which* half, and there is no authored table for that — the disc holds hundreds. Setup therefore takes a **pure hash of the vertex's own coordinates and a `spawnerSeed`**, which satisfies the rule above rather than bending it: two calls on one vertex agree forever, so a replay cannot drift, and two adjacent vertices do not, so the survivors cluster irregularly instead of landing on a sublattice. That irregular clustering is what produces double-fed arrows, which is the second half of §7's density argument — a regular thinning would space spawners out and destroy the overlap it was supposed to preserve. Changing the seed reshuffles which vertices carry one without changing how many, so it is a *map*, not a balance knob.
+**And that condition is already load-bearing, because density below 1 needs it.** A band that keeps half its vertices has to decide *which* half, and there is no authored table for that — the disc holds hundreds. Setup therefore takes a **pure hash of a vertex and a `spawnerSeed`**, sampled at the vertex's reflection-orbit representative so a vertex and its mirror always keep or drop together (P41 / §11 item 48). That still satisfies the rule above rather than bending it: two calls on one vertex agree forever, so a replay cannot drift; two adjacent vertices that are not mirrors of each other do not, so the survivors still cluster irregularly instead of landing on a sublattice. That irregular clustering is what produces double-fed arrows, which is the second half of §7's density argument — a regular thinning would space spawners out and destroy the overlap it was supposed to preserve. Changing the seed reshuffles which vertices carry one without changing how many, so it is a *map*, not a balance knob. Halving the independent samples makes the clusters a little coarser at the same nominal density; that texture is for playtest, not a count to pin.
 
 ### Placement and force are setup data, not rules
 
@@ -1068,6 +1106,30 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
     After the birth is applied (end of the full-round accrual tick), if the birth arrow is in another player's trail set, evaporate that trail from the birth arrow under the same halt-at-first rule as a combat wipe (`evaporateFromArrow`). The newborn is not the victim's firebreak. Friendly birth onto own trail merges and does not cut. All births in the tick complete before any cut; then birth arrows in arrow-id order, victims in player-id order. → **§6.1**, → **§7**, → **P40**.
 
+48. ~~**Should the spawner field be random, symmetric, or fair-by-search?**~~ —
+    **resolved: mirrored.** The homes were already mirror images of each other
+    (§2) while the field around them was not, so two exactly-symmetric seats sat
+    in an asymmetric economy and an opening force edge compounded under the
+    accumulator. Three options were weighed: a per-match seed with no fairness
+    constraint, one fixed canonical board, and a tolerance-and-search over seeds.
+
+    **The travel anisotropy decided it** (§4, *what travel costs*). The unfairness
+    is a *directed, out-and-back* cost, which an automorphism of the oriented
+    graph equalises for free and a distance threshold only approximates. The
+    point group preserving the out-set is *D*₃ — identity, ±120°, and the three
+    mirrors through the grain directions — so exact fairness is available for 2
+    seats (a mirror), 3 (120°) or 6 (the group), and **not** for two seats placed
+    opposite each other by 180°, which is not an automorphism at all: it maps N to
+    S. Implementation is one line — sample the thinning hash at the orbit
+    representative rather than at the vertex. See P41.
+
+    **Parked, not a gap:** the 120° construction for 3 seats. MVP is 2 players
+    (§4), and the mirror is the 2-seat case of the same idea.
+
+    **Known cost:** halving the independent samples makes the field cluster a
+    little more coarsely at the same nominal density. The density target is
+    unchanged; the texture is lumpier. For playtest, not for a test.
+
 **Spawner accrual timing and spawn-merge — resolved by P08**
 
 41. ~~When does accrual tick, and does a birth pay merge cost?~~ — **resolved.**
@@ -1109,7 +1171,12 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 ---
 
-## Appendix A: Drafted Opening (deferred)
+## Appendix A: Drafted Opening (~~deferred~~ — **sunset**)
+
+> **Sunset, and not merely deferred.** The game is rich enough without it, and
+> the constant home triangle around a starting spawner is worth more than the
+> draft's opening decision was. Kept for the record because two of its
+> prerequisites turned into real questions of their own — see below.
 
 Designed, viable, and shelved until there's a real game to test it against.
 
@@ -1120,5 +1187,5 @@ Designed, viable, and shelved until there's a real game to test it against.
 **Prerequisites before building it**
 
 1. ~~Girth must be 3~~ — **confirmed**, so a minimum island costs 3 heads and the phase is affordable.
-2. **The map must become varied.** A symmetric map makes the draft nearly pointless — each player takes their mirrored half and only the centre is contested. (For two players that symmetry is a *reflection*, not a rotation; §2, map symmetry. The point stands either way, and "mirrored half" is now literal.) A draft and a symmetric map are substitutes; running both means paying for a phase that isn't earning its keep. Choosing the draft means dropping symmetry and letting snake order do the balancing, Catan-style.
-3. **Guardrail against zero territory.** A player who miscounts or gets blocked can finish setup owning nothing, which under §7 is an unplayable position reachable through ordinary bad play. Fix: enforce that each player's first placements form a legal loop, then free-place the remainder.
+2. ~~The map must become varied.~~ — **answered elsewhere, and no longer a prerequisite for anything.** Variety comes from the setup seed and fairness from the mirror, not from a draft — see §11 item 48 and P41. Originally: A symmetric map makes the draft nearly pointless — each player takes their mirrored half and only the centre is contested. (For two players that symmetry is a *reflection*, not a rotation; §2, map symmetry. The point stands either way, and "mirrored half" is now literal.) A draft and a symmetric map are substitutes; running both means paying for a phase that isn't earning its keep. Choosing the draft means dropping symmetry and letting snake order do the balancing, Catan-style.
+3. ~~Guardrail against zero territory.~~ — **dissolved with the draft.** There is no placement phase to miscount in: homes are constant, symmetric, and each opens with a pinwheel of territory and a 3-stack (§8). Originally: A player who miscounts or gets blocked can finish setup owning nothing, which under §7 is an unplayable position reachable through ordinary bad play. Fix: enforce that each player's first placements form a legal loop, then free-place the remainder.

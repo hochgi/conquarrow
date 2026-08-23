@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { endTurn, skip, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, GeometryPort, PlayerId } from '@conquarrow/contracts';
-import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
+import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
 import { headsOf, isLost, resolveLosses, territoryCountOf } from '../src/victory';
 import {
@@ -468,7 +468,7 @@ describe('item 44’s chain is pinned, not merely argued', () => {
     // having one, whoever that is, in every state a real record passes through.
     const log = playtestLog();
     const geometry: GeometryPort = makeTiling();
-    const initial = makeMatch(log.config);
+    const initial = log.opening;
     const rules = makeRules(geometry);
 
     const { stops } = statesAlong(rules, initial, log.moves);
@@ -495,7 +495,7 @@ describe('item 44’s chain is pinned, not merely argued', () => {
   it('never reaches a state with no seat left', () => {
     const log = playtestLog();
     const geometry: GeometryPort = makeTiling();
-    const initial = makeMatch(log.config);
+    const initial = log.opening;
     const rules = makeRules(geometry);
 
     const { stops } = statesAlong(rules, initial, log.moves);
@@ -515,7 +515,7 @@ describe('item 44’s chain is pinned, not merely argued', () => {
     // a live assertion: the antecedent is the thing being denied.
     const log = playtestLog();
     const geometry: GeometryPort = makeTiling();
-    const initial = makeMatch(log.config);
+    const initial = log.opening;
     const rules = makeRules(geometry);
 
     const { stops } = statesAlong(rules, initial, log.moves);

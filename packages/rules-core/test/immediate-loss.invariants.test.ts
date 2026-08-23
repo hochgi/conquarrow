@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ContractViolation, endTurn, skip, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, Move, PlayerId } from '@conquarrow/contracts';
-import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
+import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
 import { headsOf, isLost, shareCountOf, territoryCountOf } from '../src/victory';
 import {
@@ -494,7 +494,7 @@ describe('the item-44 chain, over every state a replay passes through', () => {
   }[] => {
     const log = playtestLog();
     const geometry = makeTiling();
-    const opening = makeMatch(log.config);
+    const opening = log.opening;
     const rules = makeRules(geometry);
     const reported = statesAlong(rules, opening, log.moves);
     const states = [opening, ...reported.stops.map((stop) => stop.state)];
