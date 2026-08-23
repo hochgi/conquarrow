@@ -38,6 +38,15 @@ import { makeTiling } from './tiling';
 /** Grain-preserving reflection `(i,j) ↦ (i+j, −j)` (§2). Kept for tests. */
 export const reflectCell = ({ i, j }: Cell): Cell => ({ i: i + j, j: -j });
 
+/**
+ * Loud check that `map` is an involution at `cell` (P41, EARS 13).
+ *
+ * @throws ContractViolation iff `map(map(cell))` is not `cell`.
+ */
+export const assertInvolution = (_map: (cell: Cell) => Cell, _cell: Cell): void => {
+  throw new Error('not implemented');
+};
+
 const compareIds = (left: string, right: string): number => {
   if (left < right) return -1;
   if (left > right) return 1;
