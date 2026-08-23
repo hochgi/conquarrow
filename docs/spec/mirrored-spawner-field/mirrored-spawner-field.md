@@ -93,3 +93,7 @@ every directed path length at once.
 - **Nothing about clustering texture.** Halving the independent samples makes the
   field lumpier at the same nominal density. That is expected, is a matter of
   feel, and is for playtest rather than for a test.
+- **Nothing about 4-player M-invariance of the finished field.** Four-player
+  homes are not a union of M-orbits; the home override (unchanged) can punch a
+  hole. Thinning itself is still M-invariant at every player count. MVP is 2
+  seats (§4).

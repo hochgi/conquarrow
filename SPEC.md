@@ -712,7 +712,7 @@ A starting point for the first playtest, not a result. What they are chosen to p
 
 **Bands rather than a smooth curve, deliberately.** A continuous *f*(*r*) would need a rounding rule to land on a rational, and §7 requires exact rationals with small coprime denominators — the whole coprime-denominator rhythm depends on 1/9 against 1/12 rather than on 1/9 against 0.1083. Bands keep the values authored. Post-MVP jitter is compatible with all of this on one condition: it must be a **pure function of the vertex and a setup seed**, never a draw from an RNG, or it takes determinism (ADR 0001) with it.
 
-**And that condition is already load-bearing, because density below 1 needs it.** A band that keeps half its vertices has to decide *which* half, and there is no authored table for that — the disc holds hundreds. Setup therefore takes a **pure hash of the vertex's own coordinates and a `spawnerSeed`**, which satisfies the rule above rather than bending it: two calls on one vertex agree forever, so a replay cannot drift, and two adjacent vertices do not, so the survivors cluster irregularly instead of landing on a sublattice. That irregular clustering is what produces double-fed arrows, which is the second half of §7's density argument — a regular thinning would space spawners out and destroy the overlap it was supposed to preserve. Changing the seed reshuffles which vertices carry one without changing how many, so it is a *map*, not a balance knob.
+**And that condition is already load-bearing, because density below 1 needs it.** A band that keeps half its vertices has to decide *which* half, and there is no authored table for that — the disc holds hundreds. Setup therefore takes a **pure hash of a vertex and a `spawnerSeed`**, sampled at the vertex's reflection-orbit representative so a vertex and its mirror always keep or drop together (P41 / §11 item 48). That still satisfies the rule above rather than bending it: two calls on one vertex agree forever, so a replay cannot drift; two adjacent vertices that are not mirrors of each other do not, so the survivors still cluster irregularly instead of landing on a sublattice. That irregular clustering is what produces double-fed arrows, which is the second half of §7's density argument — a regular thinning would space spawners out and destroy the overlap it was supposed to preserve. Changing the seed reshuffles which vertices carry one without changing how many, so it is a *map*, not a balance knob. Halving the independent samples makes the clusters a little coarser at the same nominal density; that texture is for playtest, not a count to pin.
 
 ### Placement and force are setup data, not rules
 
@@ -1104,6 +1104,8 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 47. ~~Does an enemy head that *spawns* onto open trail count as a cut?~~ — **resolved: yes.** Playtest: a unit appeared on the observer's trail (bare marks, no garrison) and the trail stayed intact. Item 15 already says an enemy *stack* on the feed arrow halts accrual; a mark is not a stack, so the birth is legal. Movement onto the same arrow would have been a cut. Leaving the birth as a silent occupancy was the only remaining way an enemy could stand on open trail without paying that price.
 
+    After the birth is applied (end of the full-round accrual tick), if the birth arrow is in another player's trail set, evaporate that trail from the birth arrow under the same halt-at-first rule as a combat wipe (`evaporateFromArrow`). The newborn is not the victim's firebreak. Friendly birth onto own trail merges and does not cut. All births in the tick complete before any cut; then birth arrows in arrow-id order, victims in player-id order. → **§6.1**, → **§7**, → **P40**.
+
 48. ~~**Should the spawner field be random, symmetric, or fair-by-search?**~~ —
     **resolved: mirrored.** The homes were already mirror images of each other
     (§2) while the field around them was not, so two exactly-symmetric seats sat
@@ -1127,8 +1129,6 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
     **Known cost:** halving the independent samples makes the field cluster a
     little more coarsely at the same nominal density. The density target is
     unchanged; the texture is lumpier. For playtest, not for a test.
-
-    After the birth is applied (end of the full-round accrual tick), if the birth arrow is in another player's trail set, evaporate that trail from the birth arrow under the same halt-at-first rule as a combat wipe (`evaporateFromArrow`). The newborn is not the victim's firebreak. Friendly birth onto own trail merges and does not cut. All births in the tick complete before any cut; then birth arrows in arrow-id order, victims in player-id order. → **§6.1**, → **§7**, → **P40**.
 
 **Spawner accrual timing and spawn-merge — resolved by P08**
 

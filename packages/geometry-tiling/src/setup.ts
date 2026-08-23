@@ -36,7 +36,7 @@ import {
 import type { Cell, VertexCell } from './cells';
 import { makeTiling } from './tiling';
 
-/** Grain-preserving reflection `(i,j) ↦ (i+j, −j)` (§2). Kept for tests. */
+/** Grain-preserving reflection `(i,j) ↦ (i+j, −j)` (§2). Homes and thinning both use it. */
 export const reflectCell = ({ i, j }: Cell): Cell => ({ i: i + j, j: -j });
 
 /**
