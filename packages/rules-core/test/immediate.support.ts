@@ -10,8 +10,11 @@
  *    keeps the whole trace.
  * 2. **The reported playtest log**, replayed from the repo rather than from a
  *    download. `playtestLog` reads a committed fixture and rebuilds the opening
- *    with `makeMatch(config)` exactly as the adapter did, so the regression the
- *    packet was filed for is a test and not an anecdote.
+ *    with `makeMatch(config)` plus the frozen 2026-08-20 spawner field, so the
+ *    regression the packet was filed for is a test and not an anecdote. The
+ *    snapshot is the board as played that day — **not** what current
+ *    `makeMatch` emits after P41's orbit-representative thinning. P41's own
+ *    tests use live `makeMatch`.
  *
  * Same standing rules as the rest of the suite: states are hand-authored and
  * boards are not, and a setup failure throws a plain `Error` so it can never be
@@ -21,7 +24,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { endTurn, mintArrowId, movesEqual, rational, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, mintVertexId, movesEqual, rational, skip, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -30,8 +33,10 @@ import type {
   Move,
   PlayerId,
   RulesPort,
+  Spawner,
+  VertexId,
 } from '@conquarrow/contracts';
-import { makeTiling } from '@conquarrow/geometry-tiling';
+import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
 import { isLost, shareCountOf } from '../src/victory';
 import { A, B, C, D, aBoard, aVertex, bareArrow, held, seatState, shareArrow } from './losing.support';
@@ -60,13 +65,45 @@ export interface PlaytestLog {
   readonly moves: readonly Move[];
   /** The winner the adapter recorded when the match ended. */
   readonly winner: string;
+  /**
+   * Opening board for **this** log. Homes/groups/territory come from live
+   * `makeMatch`; spawners are the frozen 2026-08-20 field.
+   */
+  readonly opening: GameState;
 }
+
+interface FrozenSpawner {
+  readonly force: { readonly num: number; readonly den: number };
+  readonly phase: number;
+}
+
+/**
+ * The 2026-08-20 opening spawners, as played. Sampled at each vertex itself
+ * (pre-P41), not at the orbit representative. Not what live `makeMatch` emits.
+ */
+const frozenPlaytestSpawners = (): Map<VertexId, Spawner> => {
+  const raw = readFileSync(
+    new URL('./fixtures/playtest-2026-08-20-D-wins.spawners.json', import.meta.url),
+    'utf8',
+  );
+  const entries = JSON.parse(raw) as readonly (readonly [string, FrozenSpawner])[];
+  return new Map(
+    entries.map(([id, spawner]) => [
+      mintVertexId(id),
+      { force: rational(spawner.force.num, spawner.force.den), phase: spawner.phase },
+    ]),
+  );
+};
 
 /**
  * The 2026-08-20 six-seat hot-seat log the packet was filed for, as moves.
  *
  * Committed under `test/fixtures/` on purpose: a test that read `~/Downloads`
  * would pass on one machine and be a missing-file error everywhere else.
+ *
+ * `opening` is the choke point for this log: every P37/P38 consumer must use
+ * it rather than `makeMatch(log.config)`, which would rebuild today's mirrored
+ * field and refuse the recorded steps around ply 459.
  */
 export const playtestLog = (): PlaytestLog => {
   const raw = readFileSync(
@@ -75,10 +112,12 @@ export const playtestLog = (): PlaytestLog => {
   );
   const parsed = JSON.parse(raw) as LoggedMatch;
   if (parsed.winner === undefined) throw new Error('setup: that log records no winner');
+  const opening = makeMatch(parsed.config);
   return {
     config: parsed.config,
     moves: parsed.moves.map(asMove),
     winner: parsed.winner,
+    opening: { ...opening, spawners: frozenPlaytestSpawners() },
   };
 };
 

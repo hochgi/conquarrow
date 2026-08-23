@@ -33,7 +33,7 @@
 import { describe, expect, it } from 'vitest';
 import { ContractViolation, endTurn } from '@conquarrow/contracts';
 import type { GameState, Move } from '@conquarrow/contracts';
-import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
+import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
 import { replay, replayIsDeterministic } from '../src/replay';
 import { isLost, territoryCountOf } from '../src/victory';
@@ -68,7 +68,7 @@ const theReportedMatch = (): ReportedMatch => {
     const log = playtestLog();
     const geometry = makeTiling();
     return {
-      initial: makeMatch(log.config),
+      initial: log.opening,
       moves: log.moves,
       rules: makeRules(geometry),
       geometry,
