@@ -35,11 +35,11 @@ Feature: The mirrored spawner field — edge cases
     Then every spawner's force is the band force for its radius
     And no test pins the number of spawners in any band
 
-  Scenario: A single seat still gets a field
-    Given a match with 1 seat
+  Scenario: A seating that is not the two-player mirror still gets a field
+    Given a match with 3 seats
     When the field is built
     Then the field is invariant under M
-    And the home vertex carries a spawner
+    And every home vertex carries a spawner
 
   Scenario: Anti-grain travel costs double
     Given a stack that has walked k steps in a grain direction

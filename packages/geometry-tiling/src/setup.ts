@@ -231,7 +231,16 @@ const placeSpawners = (
   homes: readonly Cell[],
   config: MatchConfig,
 ): Map<VertexId, Spawner> => {
-  assertInvolution(reflectCell, { i: 1, j: 1 });
+  // Origin, axis, and two off-axis cells: a map that is an involution at only
+  // one of them still fails the spec's "fail loudly" guard (EARS 13).
+  for (const cell of [
+    { i: 0, j: 0 },
+    { i: 2, j: 0 },
+    { i: 1, j: 1 },
+    { i: 0, j: 3 },
+  ] as const) {
+    assertInvolution(reflectCell, cell);
+  }
   const spawners = new Map<VertexId, Spawner>();
   for (const vertex of vertices) {
     const cell = vertexCell(vertex);

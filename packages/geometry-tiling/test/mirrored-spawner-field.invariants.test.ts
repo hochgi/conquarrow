@@ -265,6 +265,8 @@ describe('mirrored spawner field invariants', () => {
       expect(at).toBe(cellPoint(-k, 0));
       expect(i).toBe(-k);
       expect(j).toBe(0);
+      const dist = directedDistancesFrom(geometry, cellPoint(0, 0), 2 * k);
+      expect(dist.get(String(at))).toBe(2 * k);
     }
   });
 

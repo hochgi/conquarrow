@@ -163,7 +163,7 @@ describe('the mirrored spawner field — edge cases', () => {
     }
   });
 
-  it('a single seat still gets a field', () => {
+  it('a seating that is not the two-player mirror still gets a field', () => {
     expect(MIN_PLAYERS).toBe(2);
     const config = { ...DEFAULT_MATCH_CONFIG, playerCount: 3 };
     const state = makeMatch(config);
