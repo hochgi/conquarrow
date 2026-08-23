@@ -9,10 +9,11 @@ import tseslint from 'typescript-eslint';
  * contains no randomness by design, and the appeal of the multi-prong bonus and
  * the spawner rhythm is that an attentive player can compute them.
  *
- * This catches the loud violations. It does NOT catch the realistic ones —
- * iteration over an unordered collection feeding an ordered decision, or a
- * `sort` whose ties break on identity. Those pass every unit test and surface
- * only as replay drift, which is why P10 lands early.
+ * This catches the loud violations. It does NOT catch every realistic one —
+ * iteration over an unordered collection feeding an ordered decision still
+ * slips through. The `? -1 : 1` sort shape is now a syntax error below; other
+ * ties that break on identity still pass every unit test and surface only as
+ * replay drift, which is why P10 lands early.
  */
 const impureGlobals = [
   { name: 'Date', message: 'The core is pure (ADR 0001). No clocks.' },
@@ -69,6 +70,19 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // `a < b ? -1 : 1` is not a total order: equal keys return 1, so a sort
+      // is formally free to shuffle them. ADR 0001 names that as the realistic
+      // determinism failure — it passes every unit test and shows up as replay
+      // drift. Return 0 for equals (`a < b ? -1 : a > b ? 1 : 0`).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "ConditionalExpression[consequent.type='UnaryExpression'][consequent.operator='-'][consequent.argument.raw='1'][alternate.raw='1']",
+          message:
+            'Sort comparators must be total (ADR 0001): return 0 for equal keys. `a < b ? -1 : 1` claims a strict order between equals.',
+        },
       ],
     },
   },

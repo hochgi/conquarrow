@@ -452,19 +452,19 @@ export const snapshot = (
   players: [...state.players],
   groups: [...state.groups.entries()]
     .map(([arrow, group]) => ({ arrow: String(arrow), ...group, owner: String(group.owner) }))
-    .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+    .toSorted((left, right) => byId(left.arrow, right.arrow)),
   trails: [...state.trails.entries()]
     .map(([player, arrows]) => ({
       player: String(player),
       arrows: [...arrows].map(String).toSorted(),
     }))
-    .toSorted((left, right) => (left.player < right.player ? -1 : 1)),
+    .toSorted((left, right) => byId(left.player, right.player)),
   territory: [...state.territory.entries()]
     .map(([arrow, owner]) => ({ arrow: String(arrow), owner: String(owner) }))
-    .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+    .toSorted((left, right) => byId(left.arrow, right.arrow)),
   accumulators: [...state.accumulators.entries()]
     .map(([arrow, r]) => ({ arrow: String(arrow), num: r.num, den: r.den }))
-    .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+    .toSorted((left, right) => byId(left.arrow, right.arrow)),
   spawners: [...state.spawners.entries()]
     .map(([vertex, s]) => ({
       vertex: String(vertex),
@@ -472,10 +472,10 @@ export const snapshot = (
       den: s.force.den,
       phase: s.phase,
     }))
-    .toSorted((left, right) => (left.vertex < right.vertex ? -1 : 1)),
+    .toSorted((left, right) => byId(left.vertex, right.vertex)),
   starvationStreaks: [...state.starvationStreaks.entries()]
     .map(([player, streak]) => ({ player: String(player), streak }))
-    .toSorted((left, right) => (left.player < right.player ? -1 : 1)),
+    .toSorted((left, right) => byId(left.player, right.player)),
   dominationN: state.dominationN,
   winner: state.winner === undefined ? undefined : String(state.winner),
 });
@@ -848,7 +848,7 @@ export const aRingWithAnInside = (
     .filter(
       (a) => points.has(String(geometry.origin(a))) && points.has(String(geometry.target(a))),
     )
-    .toSorted((l, r) => (String(l) < String(r) ? -1 : 1));
+    .toSorted(byId);
   const first = inside[0];
   if (first === undefined) throw new Error('setup: that ring has no interior arrow');
 

@@ -657,7 +657,7 @@ export const collectFindings = (
       }))
       .filter((g) => g.d > 0 && g.d <= caps.distCap)
       .toSorted((a, b) =>
-        a.d !== b.d ? a.d - b.d : String(a.goal) < String(b.goal) ? -1 : 1,
+        a.d !== b.d ? a.d - b.d : compareIds(String(a.goal), String(b.goal)),
       )
       .slice(0, 3);
     for (const { goal, d: d0 } of nearestGoals) {

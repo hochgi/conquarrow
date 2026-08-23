@@ -37,7 +37,7 @@ import type {
 import { orderedBorders } from '../src/economy';
 import { compareArrows } from '../src/order';
 import { headsOf, isLost, shareCountOf, territoryCountOf } from '../src/victory';
-import { A, B, MINIMAL_DIAMETER, allArrows, onBoard } from './support';
+import { A, B, MINIMAL_DIAMETER, allArrows, byId, onBoard } from './support';
 import type { Table } from './support';
 
 export const C: PlayerId = mintPlayerId('C');
@@ -352,7 +352,7 @@ export const stacksHeldBy = (
   [...state.groups.entries()]
     .filter(([, group]) => group.owner === player)
     .map(([arrow, group]) => ({ arrow: String(arrow), heads: group.heads }))
-    .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1));
+    .toSorted((left, right) => byId(left.arrow, right.arrow));
 
 /** Everything one seat holds — the projection *"unchanged"* means. */
 export const holdingsOf = (

@@ -15,6 +15,7 @@ import type {
   RulesPort,
 } from '@conquarrow/contracts';
 import { endTurn } from '@conquarrow/contracts';
+import { compareArrows } from '@conquarrow/rules-core';
 import type { ByokConfig } from './byokConfig';
 import {
   BYOK_UPSTREAM_HEADER,
@@ -151,9 +152,7 @@ export const snapshotForPrompt = (
     String(a[0]) < String(b[0]) ? -1 : String(a[0]) > String(b[0]) ? 1 : 0,
   );
   for (const [vertex, spawner] of spawnerEntries) {
-    const borders = [...geometry.borderArrows(vertex)].toSorted((l, r) =>
-      String(l) < String(r) ? -1 : 1,
-    );
+    const borders = [...geometry.borderArrows(vertex)].toSorted(compareArrows);
     const held: Record<string, number> = {};
     let unclaimed = 0;
     for (const arrow of borders) {

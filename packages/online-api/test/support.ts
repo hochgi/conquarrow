@@ -723,6 +723,16 @@ export type StateSnapshot = {
   readonly winner?: string;
 };
 
+/**
+ * Total string order. `a < b ? -1 : 1` is not total (ADR 0001). Kept local
+ * because this file's hashing assertions must not import production hashing.
+ */
+const byKey = (left: string, right: string): number => {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+};
+
 export const snapshotState = (state: GameState): StateSnapshot => {
   const snap: {
     players: readonly string[];
@@ -755,19 +765,19 @@ export const snapshotState = (state: GameState): StateSnapshot => {
               speedOverride: group.speedOverride,
             },
       )
-      .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+      .toSorted((left, right) => byKey(left.arrow, right.arrow)),
     trails: [...state.trails.entries()]
       .map(([player, arrows]) => ({
         player: String(player),
         arrows: [...arrows].map(String).toSorted(),
       }))
-      .toSorted((left, right) => (left.player < right.player ? -1 : 1)),
+      .toSorted((left, right) => byKey(left.player, right.player)),
     territory: [...state.territory.entries()]
       .map(([arrow, owner]) => ({ arrow: String(arrow), owner: String(owner) }))
-      .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+      .toSorted((left, right) => byKey(left.arrow, right.arrow)),
     accumulators: [...state.accumulators.entries()]
       .map(([arrow, r]) => ({ arrow: String(arrow), num: r.num, den: r.den }))
-      .toSorted((left, right) => (left.arrow < right.arrow ? -1 : 1)),
+      .toSorted((left, right) => byKey(left.arrow, right.arrow)),
     spawners: [...state.spawners.entries()]
       .map(([vertex, spawner]) => ({
         vertex: String(vertex),
@@ -775,10 +785,10 @@ export const snapshotState = (state: GameState): StateSnapshot => {
         den: spawner.force.den,
         phase: spawner.phase,
       }))
-      .toSorted((left, right) => (left.vertex < right.vertex ? -1 : 1)),
+      .toSorted((left, right) => byKey(left.vertex, right.vertex)),
     starvationStreaks: [...state.starvationStreaks.entries()]
       .map(([player, streak]) => ({ player: String(player), streak }))
-      .toSorted((left, right) => (left.player < right.player ? -1 : 1)),
+      .toSorted((left, right) => byKey(left.player, right.player)),
     dominationN: state.dominationN,
   };
   if (state.winner !== undefined) {
@@ -904,7 +914,7 @@ const shareFreeArrows = (howMany: number): readonly ArrowId[] => {
   const free = geometry
     .window(geometry.seedPoint(), 3)
     .arrows.filter((arrow) => !shares.has(String(arrow)) && !opening.territory.has(arrow))
-    .toSorted((left, right) => (String(left) < String(right) ? -1 : 1));
+    .toSorted((left, right) => byKey(String(left), String(right)));
   if (free.length < howMany) throw new Error('setup: not enough share-free arrows');
   return free.slice(0, howMany);
 };
