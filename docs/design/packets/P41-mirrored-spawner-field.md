@@ -25,17 +25,21 @@ displacement of *k* in an anti-grain direction costs exactly *2k* steps: *k* SE
 plus *k* SW, in any order. Walking 5 N and coming back is 5 out, 10 home. The
 three grain directions are cheap and the three anti-grain directions cost double.
 
-**2. Closure is isotropic.** For a *closed* walk the counts must satisfy
-`a·N + b·SE + c·SW = 0` with `a, b, c ≥ 0`, and those three vectors admit no
-non-negative null combination except `a = b = c`. So **every loop has length 3k
-with equal counts of each direction** — independent of its orientation, its
-shape, and where on the board it sits. Girth 3 (§2) is the *k* = 1 case of this.
+**2. A closed walk is balanced — and that is all it settles.** A walk back to the
+arrow it left needs `a·N + b·SE + c·SW = 0` with non-negative counts, forcing
+`a = b = c`: length 3*k*, equal counts of each direction. That fixes girth 3 and
+the 3-step U-turn. It does **not** say anything about claiming, because **a claim
+is not a closed walk**: closure (§7) leaves your territory and lands back on it at
+a *different* arrow, and the boundary you already own closes the loop. The trail
+is unconstrained, so a favourably oriented frontier encloses at 1 step per unit
+and an unfavourable one pays 2.
 
-Together: **the anisotropy can advantage reaching ground, never taking it.** A
-seat cannot be handed a cheaper closure; it can only be handed a cheaper walk to
-the ground worth closing. That is the whole axis on which a spawner field can be
-unfair, and it is a *directed, out-and-back* cost — not the undirected distance a
-naive fairness metric would reach for.
+**So the anisotropy prices three separate journeys** — walking out to the centre,
+walking home, and closing around the ground taken — and a seat can be handed an
+edge in any of them, independently. There is no single scalar that captures it.
+That is the argument for symmetry: an automorphism equalises every directed path
+length at once, while a threshold fixes whichever quantity it happens to measure
+and silently trades the others away.
 
 ## Why symmetry rather than a fairness threshold
 

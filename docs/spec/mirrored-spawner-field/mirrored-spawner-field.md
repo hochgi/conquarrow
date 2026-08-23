@@ -40,12 +40,15 @@ tolerance.
 ## What fairness means here, precisely
 
 Travel is anisotropic: 1 step per unit with the grain, 2 against, because
-`N + SE + SW = 0` (packet, *what travel actually costs*). Closure is **not**
-anisotropic — every closed walk has equal counts of the three directions and
-length 3*k*. So the only thing an asymmetric field can hand a seat is a cheaper
-*walk to* contested ground, never a cheaper *claim* of it. An automorphism
-equalises directed path length in both senses at once, which is why this spec
-asserts symmetry rather than measuring a distance.
+`N + SE + SW = 0`. That prices three separate journeys — out to the contested
+centre, home again, and the closure around what was taken. A claim is **not** a
+closed walk (§7 closure departs territory and lands back on it at a different
+arrow, with the owned boundary closing the loop), so the balance property of
+closed walks does not exempt claiming from the anisotropy either.
+
+No single scalar captures all three, which is why this spec asserts symmetry
+rather than measuring a distance: an automorphism of the oriented graph equalises
+every directed path length at once.
 
 ## EARS invariants
 
@@ -71,11 +74,11 @@ asserts symmetry rather than measuring a distance.
     spawners within *R* shall be equal. *(The fairness statement the packet is
     for. It follows from 1, 2 and *M* being an automorphism, and is worth
     asserting directly because it is the property a playtest would notice.)*
-11. **Ubiquitous** — every closed walk on the board shall have equal counts of
-    the three grain directions and therefore length 3*k*. *(Not a consequence of
-    this packet — a standing property of the tiling, asserted here because it is
-    what bounds how unfair a field can be. Belongs to the geometry conformance
-    suite.)*
+11. **Ubiquitous** — every walk that returns to the arrow it left shall have
+    equal counts of the three grain directions and therefore length 3*k*. *(A
+    standing property of the tiling, not of this packet, and it constrains only
+    closed walks — **not** claims, which land on a different arrow of the same
+    region. Belongs to the geometry conformance suite.)*
 12. **Ubiquitous** — a net displacement of *k* against the grain shall cost
     exactly 2*k* steps, independent of the order of the steps taken.
 13. **Unwanted** — if the reflection helper does not satisfy invariant 4, then

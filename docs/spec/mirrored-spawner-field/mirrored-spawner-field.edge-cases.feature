@@ -47,8 +47,8 @@ Feature: The mirrored spawner field — edge cases
     Then it has taken exactly 2k further steps
     And the order in which the two anti-grain directions were used does not matter
 
-  Scenario: Every closed walk is balanced
-    Given any closed walk on the board
+  Scenario: A walk that returns to where it started is balanced
+    Given any walk that returns to the arrow it left
     When its steps are counted by direction
     Then the three counts are equal
     And its length is three times that count

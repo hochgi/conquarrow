@@ -297,16 +297,33 @@ vectors sum to zero. Two consequences, and they pull in opposite directions.
   one cheap direction plus *k* of the other, **in any order**. Walk 5 N and it is
   10 steps home. Three directions are cheap and three cost double, so *where you
   are going* is a real part of what a move costs.
-- **Closure is isotropic.** A *closed* walk needs `a·N + b·SE + c·SW = 0` with
-  non-negative counts, and the only such combination is `a = b = c`. So **every
-  loop has length 3k with equal counts of each direction**, whatever its shape,
-  orientation, or position. Girth 3 (§2) is the *k* = 1 case.
+- **A closed walk is balanced.** A walk returning to the arrow it left needs
+  `a·N + b·SE + c·SW = 0` with non-negative counts, and the only such combination
+  is `a = b = c` — so it has length 3k with equal counts of each direction. This
+  is what fixes girth at 3 (§2) and the U-turn at 3 steps (§11 item 5), and it is
+  **all** it fixes.
 
-**So the anisotropy can make ground cheaper to reach, never cheaper to take.** A
-seat can be handed a shorter walk to the contested centre; it cannot be handed a
-shorter closure. That is the entire axis on which a map can be unfair, and it is
-why §7's field is mirrored rather than merely balanced to a tolerance
-(§11 item 48).
+**A claim is not a closed walk, so claiming is anisotropic too.** Closure (§7)
+departs your territory and lands back on it — two *different* arrows of a region.
+The loop is closed by the boundary you already own, not by the trail, so the trail
+is free of the balance constraint above. A frontier the cheap directions sweep
+across encloses at 1 step per unit; the same ground behind an unfavourably
+oriented frontier costs 2.
+
+**So the anisotropy touches everything: reach, return, and claim.** Walking out
+to the contested centre, walking home from it, and closing around what you took
+are three separately-priced journeys, and a seat can be handed an advantage in any
+of them. There is no cheap scalar that captures it — which is exactly why §7's
+field is mirrored rather than balanced to a tolerance (§11 item 48). An
+automorphism of the oriented graph equalises **all** directed path lengths at
+once; a threshold on a distance equalises one and silently trades the rest.
+
+**The trade this makes, said out loud.** Cheap-out/dear-back and
+dear-out/cheap-back are genuinely different strategic postures — one seat better
+placed to strike, the other to consolidate. A 180° board would hand the two seats
+opposite postures, which is more interesting than a mirror and is *not fair*: 180°
+is not an automorphism (it maps N to S). The mirror gives both seats the **same**
+posture. That is the flavour the fairness costs.
 
 **Ordering within your own turn is therefore a real tactic.** Stepping one head onto a stack to reinforce it before another head commits to a crossing is a legal and intended play — though §3's merge rule means the reinforced stack pays for it in tempo.
 
