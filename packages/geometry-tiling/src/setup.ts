@@ -7,6 +7,7 @@
  */
 
 import {
+  ContractViolation,
   DEFAULT_MATCH_CONFIG,
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -43,14 +44,34 @@ export const reflectCell = ({ i, j }: Cell): Cell => ({ i: i + j, j: -j });
  *
  * @throws ContractViolation iff `map(map(cell))` is not `cell`.
  */
-export const assertInvolution = (_map: (cell: Cell) => Cell, _cell: Cell): void => {
-  throw new Error('not implemented');
+export const assertInvolution = (map: (cell: Cell) => Cell, cell: Cell): void => {
+  const twice = map(map(cell));
+  if (twice.i !== cell.i || twice.j !== cell.j) {
+    throw new ContractViolation(
+      `map is not an involution at (${String(cell.i)},${String(cell.j)})`,
+    );
+  }
 };
 
 const compareIds = (left: string, right: string): number => {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;
+};
+
+/**
+ * The orbit representative of a vertex cell under grain-preserving reflection M
+ * `(i,j) ↦ (i+j, −j)` with **parity kept**. Thinning is sampled here so a
+ * vertex and its mirror always keep-or-drop together (P41).
+ *
+ * Total id order, not sign of `j`: `rep(v)` is whichever of `v` and `M(v)`
+ * sorts first. On the axis `M(v) = v`, so the representative is itself.
+ */
+const orbitRepresentative = (cell: VertexCell): VertexCell => {
+  const mirroredCell: VertexCell = { ...reflectCell(cell), parity: cell.parity };
+  const vertex = cellVertex(cell.i, cell.j, cell.parity);
+  const mirroredVertex = cellVertex(mirroredCell.i, mirroredCell.j, mirroredCell.parity);
+  return compareIds(String(vertex), String(mirroredVertex)) <= 0 ? cell : mirroredCell;
 };
 
 /** Cube/hex distance on the triangular lattice from the origin. */
@@ -167,6 +188,72 @@ const garrison = (owner: PlayerId, arrow: ArrowId): readonly [ArrowId, Group] =>
   { owner, heads: 3, spent: 0 },
 ];
 
+const placeHomes = (
+  players: readonly PlayerId[],
+  homes: readonly Cell[],
+): {
+  readonly territory: Map<ArrowId, PlayerId>;
+  readonly groups: Map<ArrowId, Group>;
+  readonly homeVertices: VertexId[];
+} => {
+  const territory = new Map<ArrowId, PlayerId>();
+  const groups = new Map<ArrowId, Group>();
+  const homeVertices: VertexId[] = [];
+  for (let i = 0; i < players.length; i += 1) {
+    const player = players[i];
+    const home = homes[i];
+    if (player === undefined || home === undefined) {
+      throw new Error('setup: missing player or home');
+    }
+    const vertex = cellVertex(home.i, home.j, 'up');
+    homeVertices.push(vertex);
+    const borders = orderedBordersOf(vertex);
+    const tip = borders[0];
+    if (tip === undefined) throw new Error('setup: home pinwheel has no border arrows');
+    for (const arrow of borders) territory.set(arrow, player);
+    groups.set(tip, garrison(player, tip)[1]);
+  }
+  return { territory, groups, homeVertices };
+};
+
+const forceOn = (r: number, R: number): Spawner => {
+  const { num, den } = forceAtRadius(r, R);
+  return { force: rational(num, den), phase: 0 };
+};
+
+/**
+ * Thin inside *R*, sampling at the orbit representative so *v* and *M(v)*
+ * keep or drop together. Home vertices are then forced on, thinning or not.
+ */
+const placeSpawners = (
+  vertices: readonly VertexId[],
+  homeVertices: readonly VertexId[],
+  homes: readonly Cell[],
+  config: MatchConfig,
+): Map<VertexId, Spawner> => {
+  assertInvolution(reflectCell, { i: 1, j: 1 });
+  const spawners = new Map<VertexId, Spawner>();
+  for (const vertex of vertices) {
+    const cell = vertexCell(vertex);
+    const r = Math.round(cellDistance(cell));
+    if (r > config.R) continue;
+    const density = densityAtRadius(r, config.R);
+    // Exact rational comparison rather than a float ratio: `sample * den < num`.
+    if (thinningSample(orbitRepresentative(cell), config.spawnerSeed) * density.den >= density.num) {
+      continue;
+    }
+    spawners.set(vertex, forceOn(r, config.R));
+  }
+  for (let i = 0; i < homeVertices.length; i += 1) {
+    const vertex = homeVertices[i];
+    const home = homes[i];
+    if (vertex === undefined || home === undefined) continue;
+    const r = Math.min(config.R, Math.round(cellDistance(home)));
+    spawners.set(vertex, forceOn(r, config.R));
+  }
+  return spawners;
+};
+
 /**
  * A vertex's place in `[0, 1)` — the deterministic thinning sample.
  *
@@ -194,7 +281,9 @@ export const thinningSample = ({ i, j, parity }: VertexCell, seed: number): numb
  * - Each home: 3-arrow pinwheel + 3-stack (§8).
  * - Spawners inside graph distance *R*, thinned and paced by the radial bands
  *   (`SPAWNER_BANDS`) — full density and 1/3 at the centre, an eighth and 1/12 at
- *   the rim. Which vertices survive the thinning is {@link thinningSample}.
+ *   the rim. Which vertices survive the thinning is {@link thinningSample} at
+ *   the reflection-orbit representative (parity kept), so the field is invariant
+ *   under M.
  *
  * **A home vertex always carries one, thinning or not.** A seat that opened with no
  * income at all is not a harder start, it is a different game, and the thinning is a
@@ -209,45 +298,14 @@ export const makeMatch = (config: MatchConfig = DEFAULT_MATCH_CONFIG): GameState
     throw new Error('setup: home count does not match player count');
   }
 
-  const territory = new Map<ArrowId, PlayerId>();
-  const groups = new Map<ArrowId, Group>();
-  const homeVertices: VertexId[] = [];
-
-  for (let i = 0; i < players.length; i += 1) {
-    const player = players[i];
-    const home = homes[i];
-    if (player === undefined || home === undefined) {
-      throw new Error('setup: missing player or home');
-    }
-    const vertex = cellVertex(home.i, home.j, 'up');
-    homeVertices.push(vertex);
-    const borders = orderedBordersOf(vertex);
-    const tip = borders[0];
-    if (tip === undefined) throw new Error('setup: home pinwheel has no border arrows');
-    for (const arrow of borders) territory.set(arrow, player);
-    groups.set(tip, garrison(player, tip)[1]);
-  }
-
-  const spawners = new Map<VertexId, Spawner>();
+  const { territory, groups, homeVertices } = placeHomes(players, homes);
   const win = geometry.window(geometry.seedPoint(), config.R + 1);
-  for (const vertex of [...win.vertices].toSorted((a, b) => compareIds(String(a), String(b)))) {
-    const cell = vertexCell(vertex);
-    const r = Math.round(cellDistance(cell));
-    if (r > config.R) continue;
-    const density = densityAtRadius(r, config.R);
-    // Exact rational comparison rather than a float ratio: `sample * den < num`.
-    if (thinningSample(cell, config.spawnerSeed) * density.den >= density.num) continue;
-    const { num, den } = forceAtRadius(r, config.R);
-    spawners.set(vertex, { force: rational(num, den), phase: 0 });
-  }
-  for (let i = 0; i < homeVertices.length; i += 1) {
-    const vertex = homeVertices[i];
-    const home = homes[i];
-    if (vertex === undefined || home === undefined) continue;
-    const r = Math.min(config.R, Math.round(cellDistance(home)));
-    const { num, den } = forceAtRadius(r, config.R);
-    spawners.set(vertex, { force: rational(num, den), phase: 0 });
-  }
+  const spawners = placeSpawners(
+    [...win.vertices].toSorted((a, b) => compareIds(String(a), String(b))),
+    homeVertices,
+    homes,
+    config,
+  );
 
   const first = players[0];
   if (first === undefined) throw new Error('setup: no players');
