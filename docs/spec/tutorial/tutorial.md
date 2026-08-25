@@ -30,8 +30,10 @@ In: a lesson data format and step machine (`packages/web/src/tutorial/`); a
 restriction decorator over the existing `InputMode`; a goal-predicate registry;
 demo playback through the ordinary commit path; Lobby entry (**Learn**, beside
 Local | Online) and a dismissible first-run card; lesson controls (restart,
-skip, progress dots, reset); practice-board labelling; a headless golden-path
-validator test per lesson; completion flags in `localStorage`.
+skip); practice-board labelling; a headless golden-path validator test per
+lesson; completion flags in `localStorage`. Progress-dot state and reset
+progress are shipped as tested helpers (`progressDots`, `store.reset`); HUD
+dots, a Lobby reset button, and hosting the hint ladder are follow-ups.
 
 Out: any change to `contracts` / `rules-core`; an AI opponent during lessons;
 localization; voiceover; achievements; online sync; post-MVP specials; keyboard
@@ -48,7 +50,7 @@ navigation; screenshots regression; a written manual page.
 | **demo** | the engine plays given moves through the ordinary commit path, paced like bot playback; effects use the standard fx vocabulary |
 | **expect** | a **rail**: the learner must perform a specific legal action; everything else gets the **coach line** |
 | **objective** | free play until a **goal predicate** holds; a **hint ladder** ends in *show me* |
-| **goal predicate** | pure function `GameState → boolean` from a fixed registry |
+| **goal predicate** | pure function `(before, after, moves) → boolean` from a fixed registry; goals about *what happened* read the committed batch, not a single snapshot |
 | **coach line** | tutorial-side guidance attached to a refused or off-rail click; never a substitute for the engine's own refusal |
 | **golden path** | the lesson's intended click/move sequence; replayed headlessly by the validator |
 | **practice board** | a lesson whose config differs from `DEFAULT_MATCH_CONFIG`; labelled in the HUD |
@@ -111,6 +113,9 @@ except where a lesson intends it (L7); P38's terminality applies unchanged.
    acts; there is no passing banner and no seat gate.
 7. **Show-me is a demo**: revealing a golden answer applies it through the same
    commit path as any demo, so its effects play like everything else.
+8. **Completing a lesson auto-advances.** Dismissing the end summary persists
+   the completion flag and starts the next lesson (Lobby after L7). There is no
+   separate lesson-list screen in this packet.
 
 ## Invariants (EARS)
 
@@ -130,7 +135,8 @@ except where a lesson intends it (L7); P38's terminality applies unchanged.
 - *Event-driven*: When an objective's goal predicate holds on committed state,
   the system shall advance to the next step.
 - *Event-driven*: When a lesson reaches its end step, the system shall persist
-  its completion flag before returning to the lesson list.
+  its completion flag and shall start the next lesson (or return to the Lobby
+  after the last).
 - *Unwanted*: If a demo move is refused by the engine at application time, the
   system shall halt the session with a visible error and shall not skip it.
 - *Unwanted*: If a lesson's config differs from `DEFAULT_MATCH_CONFIG`, the

@@ -18,19 +18,6 @@ import {
   routeMoves,
   structuralEq,
 } from './tutorial.support';
-import type { GameState } from '@conquarrow/contracts';
-
-const playLesson = (id: string): { state: GameState; steps: readonly number[] } => {
-  const driven = driveTo(id, () => false);
-  // Re-fold from scratch through the session transcript: the golden answers are
-  // already folded inside driveTo; here we assert the end state is reachable
-  // and stable by replaying the whole lesson once more and comparing.
-  const again = driveTo(id, () => false);
-  return {
-    state: driven.state,
-    steps: again.session.stepIndex() === driven.session.stepIndex() ? [driven.session.stepIndex()] : [-1],
-  };
-};
 
 describe('every lesson is an exact replay', () => {
   it('driving each lesson twice reproduces its final state exactly', () => {
@@ -41,7 +28,6 @@ describe('every lesson is an exact replay', () => {
       expect(second.session.finished()).toBe(true);
       expect(structuralEq(first.state, second.state)).toBe(true);
     }
-    void playLesson;
   });
 
   it('openings fold deterministically', () => {

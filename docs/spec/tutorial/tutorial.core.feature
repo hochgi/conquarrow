@@ -125,7 +125,7 @@ Feature: Learn conquarrow through scripted lessons on the real engine
       Given the L0 session is on its end step
       When the summary is dismissed
       Then completion for L0 is persisted
-      And the session returns to the lesson list
+      And the session starts the next lesson
 
     Scenario: Completion survives reload
       Given completion for L0 was persisted
@@ -135,7 +135,7 @@ Feature: Learn conquarrow through scripted lessons on the real engine
 
     Scenario: Progress dots reflect the eight lessons
       Given completions for L0 and L1 exist
-      When the lesson list renders
+      When progress-dot state is computed for current L2
       Then L0 and L1 are filled, L2 is current, and L3 through L7 are locked
 
   Rule: Lessons are deterministic and self-validating

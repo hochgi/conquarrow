@@ -16,8 +16,9 @@ export const firstRunCardVisible = (store: ProgressStore): boolean =>
 export type DotState = 'complete' | 'current' | 'locked';
 
 /**
- * Dot states for the ordered lesson ids: everything below the furthest
- * incomplete lesson is complete, that lesson is current, the rest locked.
+ * Dot states for the ordered lesson ids: an id in `completions` is complete,
+ * `current` is current, everything else is locked. Completions are a set, not
+ * a prefix — skip leaves a hollow dot behind the current lesson.
  */
 export const progressDots = (
   ids: readonly string[],
