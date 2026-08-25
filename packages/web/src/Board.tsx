@@ -64,6 +64,8 @@ export interface BoardProps {
   readonly movable: ReadonlySet<ArrowId>;
   /** The spawner under the cursor, if any — ringed here, detailed in `SpawnerTip`. */
   readonly hoveredSpawner?: VertexId;
+  /** Narrate focus rings (P43) — named arrows only, never a second selection. */
+  readonly focus?: ReadonlySet<ArrowId>;
   /**
    * Live gameplay effects, resolved from state transitions (see `fx/events.ts`).
    *
@@ -390,6 +392,7 @@ export const Board = ({
   route,
   movable,
   hoveredSpawner,
+  focus,
   effects,
   victory: fx,
   onPointerDown,
@@ -480,7 +483,9 @@ export const Board = ({
               data-arrow={String(arrow)}
               style={flags.refused ? { cursor: 'not-allowed' } : undefined}
             />
-            {flags.selectedEmphasis ? <SelectedWash points={points} /> : null}
+            {flags.selectedEmphasis || focus?.has(arrow) === true ? (
+              <SelectedWash points={points} />
+            ) : null}
             {pulse ? (
               <polygon
                 points={points}
@@ -537,7 +542,7 @@ export const Board = ({
                 style={{ pointerEvents: 'none' }}
               />
             ) : null}
-            {flags.selectedEmphasis ? (
+            {flags.selectedEmphasis || focus?.has(arrow) === true ? (
               <polygon
                 points={points}
                 fill="none"

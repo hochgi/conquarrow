@@ -51,6 +51,10 @@ export interface LobbyProps {
   readonly onPlan: (next: SeatPlan) => void;
   readonly onStart: () => void;
   readonly online?: LobbyOnline;
+  /** Starts L0. Omitted only in tests that do not host a walkthrough. */
+  readonly onLearn?: () => void;
+  readonly learnCardVisible?: boolean;
+  readonly onDismissLearnCard?: () => void;
 }
 
 const PLACEMENT_BLURB: Record<PlaytestPlayerCount, string> = {
@@ -64,7 +68,15 @@ const KIND_OPTIONS: readonly { value: SeatKind; label: string }[] = [
   { value: 'byok', label: 'BYOK LLM' },
 ];
 
-export const Lobby = ({ plan, onPlan, onStart, online }: LobbyProps): ReactElement => {
+export const Lobby = ({
+  plan,
+  onPlan,
+  onStart,
+  online,
+  onLearn,
+  learnCardVisible,
+  onDismissLearnCard,
+}: LobbyProps): ReactElement => {
   const incomplete = !seatPlanReady(plan);
   const onlineMode = online?.offered === true && online.mode === 'online';
   const startDisabled = onlineMode ? !online.startOffered : incomplete;
@@ -103,7 +115,31 @@ export const Lobby = ({ plan, onPlan, onStart, online }: LobbyProps): ReactEleme
       <div className="lobby-card lobby-card-wide">
         <h1>Conquarrow</h1>
         <p className="lobby-lead">Playtest match on the arrow tiling</p>
-        {online?.offered === true ? <OnlineChrome online={online} /> : null}
+        {online?.offered === true ? (
+          <OnlineChrome online={online} {...(onLearn === undefined ? {} : { onLearn })} />
+        ) : onLearn === undefined ? null : (
+          <button type="button" className="lobby-start" onClick={onLearn}>
+            Learn
+          </button>
+        )}
+        {learnCardVisible === true && onLearn !== undefined ? (
+          <div className="lobby-learn-card">
+            <p className="lobby-lead">
+              Eight short lessons on the real board — grain, trail, closure, cuts, combat,
+              encirclement, spawners, and winning.
+            </p>
+            <div className="lobby-online-row">
+              <button type="button" className="lobby-start" onClick={onLearn}>
+                Start walkthrough
+              </button>
+              {onDismissLearnCard === undefined ? null : (
+                <button type="button" className="lobby-byok-test" onClick={onDismissLearnCard}>
+                  Dismiss
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         <label className="lobby-count">
           Players (3 or 6 — rotationally fair)
@@ -409,7 +445,13 @@ const goneCopy = (reason: 'revoked' | 'started' | undefined): string => {
   return 'This invite is gone.';
 };
 
-const OnlineChrome = ({ online }: { readonly online: LobbyOnline }): ReactElement => (
+const OnlineChrome = ({
+  online,
+  onLearn,
+}: {
+  readonly online: LobbyOnline;
+  readonly onLearn?: () => void;
+}): ReactElement => (
   <div className="lobby-online">
     <div className="lobby-mode" role="group" aria-label="Play mode">
       <button
@@ -430,6 +472,11 @@ const OnlineChrome = ({ online }: { readonly online: LobbyOnline }): ReactElemen
       >
         Online
       </button>
+      {onLearn === undefined ? null : (
+        <button type="button" className="lobby-mode-btn" onClick={onLearn}>
+          Learn
+        </button>
+      )}
     </div>
     {online.mode === 'online' ? (
       <>

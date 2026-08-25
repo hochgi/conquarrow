@@ -584,6 +584,45 @@ body,
   font-weight: 600;
 }
 
+.lobby-learn-card {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tutorial-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(6, 8, 12, 0.42);
+  pointer-events: none;
+}
+
+.tutorial-overlay {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(28rem, calc(100% - 2rem));
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tutorial-overlay p {
+  margin: 0;
+  line-height: 1.4;
+}
+
 .lobby-online-row {
   display: flex;
   flex-wrap: wrap;
