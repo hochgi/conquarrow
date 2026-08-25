@@ -1,10 +1,10 @@
 # language: en
-# See docs/spec/trails-simple/trails-simple.md (P22 beta)
+# See docs/spec/trails-simple/trails-simple.md (P22 + P42)
 
-Feature: Simple trails — free branching and legal dormant marks
-  As a player on the P22 beta rules
-  I want free joins/splits and persistent cut tails
-  So that tips do not freeze and trail marks stay readable until cut or re-attach
+Feature: Simple trails — free branching, legal dormant marks, full claim walk
+  As a player on the P22 rules as amended by P42
+  I want free joins/splits, persistent cut tails, and a claim walk that ignores firebreaks
+  So that tips do not freeze, trail marks stay readable, and landing home paints the whole upstream trail
 
   Background:
     Given a conformant fixture board
@@ -49,7 +49,7 @@ Feature: Simple trails — free branching and legal dormant marks
       Then trail between the cut and Mid is gone
       And Mid and the distal stretch toward Tip remain in A's trail if not entered by a front
 
-  Rule: Land on territory still paints
+  Rule: Land on territory paints the full against-grain walk
 
     Scenario: Territory-rooted land bridge claims the full path
       Given player A has a territory-rooted open trail from home to tip
@@ -62,3 +62,12 @@ Feature: Simple trails — free branching and legal dormant marks
       When the tip lands on A's territory
       Then the claim walk becomes territory
       And the enclosed pocket becomes A's territory
+
+    Scenario: Stack-grade tip lands home — full walk including the sentry
+      Given player A has a stack-grade fragment with sentry S on arrow Fire
+      And tip T beyond Fire with trail arrows between Fire and T
+      And the fragment has no territory-grade path before the landing
+      When T steps onto A's territory and closes
+      Then every arrow on the against-grain walk from the departure, including Fire, becomes A's territory
+      And S still stands on Fire
+      And Fire is A's territory, not trail

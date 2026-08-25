@@ -2,6 +2,7 @@
  * EARS invariants from docs/spec/trails-simple/trails-simple.md as properties.
  *
  * Deterministic enumeration over fixture boards — no PRNG (ADR 0001).
+ * Claim-walk cases run on the tiling (fill / reconnect need the plane).
  *
  * @see docs/spec/trails-simple/trails-simple.md — "Invariants"
  */
@@ -9,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { step } from '@conquarrow/contracts';
 import type { ArrowId, GameState } from '@conquarrow/contracts';
+import { compareArrows } from '../src/order';
 import {
   A,
   B,
@@ -20,7 +22,9 @@ import {
   allArrows,
   anArrow,
   anExitFrom,
+  anInterleaving,
   arrowAt,
+  claimKeys,
   headsOn,
   isTrail,
   onBoard,
@@ -30,6 +34,7 @@ import {
   pick,
   stateOf,
   territoryOf,
+  totalHeads,
 } from './support';
 
 const BOARDS = [
@@ -193,20 +198,73 @@ describe('P22 — territory-rooted claim is uncapped', () => {
   });
 });
 
-describe('P22 — unanchored reconnect is firebreak-capped', () => {
-  it('stops the claim walk before the firebreak on an unanchored landing', () => {
-    // WHEN landing from a non-territory-grade component, SHALL claim only until would enter firebreak.
+describe('P42 — claim walk includes occupied trail arrows', () => {
+  it('paints every against-grain predecessor, including the sentry, for each spine length', () => {
+    // WHEN a head lands on own territory with trail behind, SHALL claim every arrow
+    // reached walking against the grain from `from`, including owner-occupied trail.
     const table = onTiling();
-    const { run } = aRunFromHome(table.geometry, 4);
-    const fire = arrowAt(run, 0);
-    const mid = arrowAt(run, 1);
-    const tip = arrowAt(run, 2);
-    const landing = anExitFrom(table.geometry, tip);
-    const distal = pick(
-      table.geometry.inArrows(table.geometry.origin(fire)).filter((a) => a !== fire),
-      0,
-    );
+    for (const length of [3, 4, 5] as const) {
+      const { fire, run, tip, landing, before } = aStackGradeSpine(table, length);
+      expect(table.rules.anchorGrade(before, tip, A)).not.toBe('territory');
 
+      const after = table.rules.apply(before, step(tip, landing, 1));
+
+      for (let i = run.length - 1; i >= 0; i -= 1) {
+        const arrow = arrowAt(run, i);
+        expect(territoryOf(after, arrow), `length ${String(length)} ${String(arrow)}`).toBe(A);
+        expect(isTrail(after, A, arrow)).toBe(false);
+      }
+      expect(headsOn(after, fire)).toBe(1);
+    }
+  });
+});
+
+describe('P42 — pre-landing grade does not change the claimed set', () => {
+  it('paints the same run whether the fragment was stack-grade or territory-rooted', () => {
+    // Pre-landing grade SHALL NOT change the set claimed.
+    const table = onTiling();
+    for (const length of [3, 4] as const) {
+      const stack = aStackGradeSpine(table, length);
+      const { home, run } = aRunFromHome(table.geometry, length);
+      const fire = arrowAt(run, 0);
+      const tip = arrowAt(run, length - 1);
+      const landing = anExitFrom(table.geometry, tip);
+      const rooted = stateOf(
+        [
+          { arrow: fire, owner: A, heads: 1 },
+          { arrow: tip, owner: A, heads: 1 },
+        ],
+        A,
+        {
+          trail: { A: [...run] },
+          territory: owned([home, landing], A),
+        },
+      );
+      expect(table.rules.anchorGrade(stack.before, stack.tip, A)).not.toBe('territory');
+      expect(table.rules.anchorGrade(rooted, tip, A)).toBe('territory');
+
+      const afterStack = table.rules.apply(stack.before, step(stack.tip, stack.landing, 1));
+      const afterRooted = table.rules.apply(rooted, step(tip, landing, 1));
+
+      for (const arrow of run) {
+        expect(territoryOf(afterStack, arrow)).toBe(A);
+        expect(territoryOf(afterRooted, arrow)).toBe(A);
+      }
+    }
+  });
+});
+
+describe('P42 — a fork’s other arm stays trail because it is downstream', () => {
+  it('leaves every non-closing out-arrow of the fork as trail', () => {
+    // WHEN a fork arm is downstream of the closing step, SHALL leave that arm as trail.
+    const table = onTiling();
+    const { run } = aRunFromHome(table.geometry, 3);
+    const stem = arrowAt(run, 0);
+    const fire = arrowAt(run, 1);
+    const tip = arrowAt(run, 2);
+    const forkPoint = table.geometry.target(stem);
+    const otherArms = table.geometry.outArrows(forkPoint).filter((a) => a !== fire);
+    const landing = anExitFrom(table.geometry, tip);
     const before = stateOf(
       [
         { arrow: fire, owner: A, heads: 1 },
@@ -214,18 +272,142 @@ describe('P22 — unanchored reconnect is firebreak-capped', () => {
       ],
       A,
       {
-        trail: { A: [fire, mid, tip, distal] },
+        trail: { A: [stem, fire, tip, ...otherArms] },
         territory: owned([landing], A),
       },
     );
-    expect(table.rules.anchorGrade(before, tip, A)).not.toBe('territory');
 
     const after = table.rules.apply(before, step(tip, landing, 1));
 
-    expect(territoryOf(after, mid)).toBe(A);
-    expect(territoryOf(after, fire)).toBeUndefined();
-    expect(isTrail(after, A, fire)).toBe(true);
-    expect(isTrail(after, A, distal)).toBe(true);
+    for (const arm of otherArms) {
+      expect(isTrail(after, A, arm)).toBe(true);
+      expect(territoryOf(after, arm)).toBeUndefined();
+    }
+    expect(territoryOf(after, fire), 'sentry on closing arm').toBe(A);
+    expect(territoryOf(after, stem), 'stem upstream of the sentry').toBe(A);
+  });
+});
+
+describe('P42 — a merge claims every trail in-arrow', () => {
+  it('paints each in-arrow of the merge whether that in-arrow is occupied', () => {
+    // WHEN the walk transits a merge, SHALL claim every trail in-arrow, occupied or not.
+    const table = onTiling();
+    const { run } = aRunFromHome(table.geometry, 2);
+    const first = arrowAt(run, 0);
+    const onward = arrowAt(run, 1);
+    const mergePoint = table.geometry.target(first);
+    const ins = table.geometry.inArrows(mergePoint);
+    const landing = anExitFrom(table.geometry, onward);
+
+    for (const occupied of ins) {
+      const before = stateOf(
+        [
+          { arrow: occupied, owner: A, heads: 1 },
+          { arrow: onward, owner: A, heads: 1 },
+        ],
+        A,
+        {
+          trail: { A: [...ins, onward] },
+          territory: owned([landing], A),
+        },
+      );
+      const after = table.rules.apply(before, step(onward, landing, 1));
+      for (const incoming of ins) {
+        if (incoming !== occupied) expect(territoryOf(after, incoming)).toBe(A);
+      }
+      expect(territoryOf(after, occupied), 'occupied merge in-arrow').toBe(A);
+      expect(headsOn(after, occupied)).toBe(1);
+    }
+  });
+});
+
+describe('P42 — evaporation still halt-at-first', () => {
+  it.each(BOARDS)(
+    'a movement cut does not enter the firebreak on $name',
+    ({ description, diameter }) => {
+      // WHEN a front would enter an owner-occupied trail arrow, SHALL halt.
+      const table = onBoard(description);
+      const { trailIn, trailOut: mid, ourIn, ourExit } = anInterleaving(
+        table.geometry,
+        diameter,
+      );
+      const tip = anExitFrom(table.geometry, mid);
+      const home = pick(table.geometry.inArrows(table.geometry.origin(trailIn)), 0);
+      const before = stateOf(
+        [
+          { arrow: ourIn, owner: B, heads: 1 },
+          { arrow: mid, owner: A, heads: 1 },
+          { arrow: tip, owner: A, heads: 1 },
+        ],
+        B,
+        {
+          trail: { A: [trailIn, mid, tip], B: [ourIn] },
+          territory: [{ arrow: home, owner: A }],
+        },
+      );
+
+      const after = table.rules.apply(before, step(ourIn, ourExit, 1));
+
+      expect(isTrail(after, A, mid)).toBe(true);
+      expect(headsOn(after, mid)).toBe(1);
+      expect(isTrail(after, A, tip)).toBe(true);
+    },
+  );
+});
+
+describe('P42 — head count is conserved across a claim that paints occupied arrows', () => {
+  it('keeps the same total heads after a stack-grade landing through a sentry', () => {
+    // The system SHALL preserve total head count across a claim that paints occupied arrows.
+    const table = onTiling();
+    for (const length of [3, 4, 5] as const) {
+      const { fire, tip, landing, before } = aStackGradeSpine(table, length);
+      const heads = totalHeads(before);
+      const after = table.rules.apply(before, step(tip, landing, 1));
+      expect(totalHeads(after)).toBe(heads);
+      expect(headsOn(after, fire)).toBe(1);
+      expect(headsOn(after, landing)).toBe(1);
+    }
+  });
+});
+
+describe('P42 — claim walk is ordered by compareArrows, not insertion order', () => {
+  it('returns the same compareArrows-sorted path for reversed trail insertion', () => {
+    // SHALL NOT consult Date, Math.random, or insertion order; walk result ordered by compareArrows.
+    const table = onTiling();
+    const { home, run } = aRunFromHome(table.geometry, 4);
+    const fire = arrowAt(run, 0);
+    const mid = arrowAt(run, 1);
+    const tip = arrowAt(run, 2);
+    const landing = anExitFrom(table.geometry, tip);
+    const distal = pick(
+      table.geometry.inArrows(table.geometry.origin(fire)).filter((a) => a !== home && a !== fire),
+      0,
+    );
+    const arrows = [fire, mid, tip, distal];
+    const placements = [
+      { arrow: fire, owner: A, heads: 1 },
+      { arrow: tip, owner: A, heads: 1 },
+    ] as const;
+    const groundFor = (trail: readonly ArrowId[]) => ({
+      trail: { A: trail },
+      territory: owned([landing], A),
+    });
+    const forward = stateOf(placements, A, groundFor(arrows));
+    const reversed = stateOf(placements, A, groundFor([...arrows].toReversed()));
+    const move = step(tip, landing, 1);
+
+    const left = table.rules.closureOf(forward, move, A);
+    const right = table.rules.closureOf(reversed, move, A);
+    expect(left).toBeDefined();
+    expect(right).toBeDefined();
+    if (left === undefined || right === undefined) return;
+
+    expect(claimKeys(left).path).toEqual(claimKeys(right).path);
+    expect(left.path).toEqual([...left.path].toSorted(compareArrows));
+    expect(right.path).toEqual([...right.path].toSorted(compareArrows));
+    for (const arrow of arrows) {
+      expect(left.path.map(String)).toContain(String(arrow));
+    }
   });
 });
 
@@ -290,3 +472,31 @@ describe('P22 — conversion predicate (territory-grade only)', () => {
     expect(headsOn(converted, tip)).toBe(1);
   });
 });
+
+const aStackGradeSpine = (
+  table: ReturnType<typeof onTiling>,
+  length: 3 | 4 | 5,
+): {
+  readonly fire: ArrowId;
+  readonly run: readonly ArrowId[];
+  readonly tip: ArrowId;
+  readonly landing: ArrowId;
+  readonly before: GameState;
+} => {
+  const { run } = aRunFromHome(table.geometry, length);
+  const fire = arrowAt(run, 0);
+  const tip = arrowAt(run, length - 1);
+  const landing = anExitFrom(table.geometry, tip);
+  const before = stateOf(
+    [
+      { arrow: fire, owner: A, heads: 1 },
+      { arrow: tip, owner: A, heads: 1 },
+    ],
+    A,
+    {
+      trail: { A: [...run] },
+      territory: owned([landing], A),
+    },
+  );
+  return { fire, run, tip, landing, before };
+};

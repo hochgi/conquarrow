@@ -67,8 +67,8 @@ and the two halves of a closure are not worth testing on different boards.
 flowchart TD
   S["a step lands on the mover's own territory"] --> T{"is the departed arrow<br/>in the mover's trail?"}
   T -- no --> N["nothing #59; free movement inside<br/>your own land (§5)"]
-  T -- yes --> W["walk the trail backwards along the grain<br/>until territory or the trail's stack anchor"]
-  W --> C["claim every arrow walked"]
+  T -- yes --> W["walk the trail backwards along the grain<br/>every predecessor trail arrow"]
+  W --> C["claim every arrow walked<br/>occupation does not cap #59; P42"]
   C --> P["ask fill what the claimed ground now rings<br/>— pockets that cannot reach infinity"]
   P --> R["claim those too #59; claimed arrows<br/>leave the mover's trail"]
 ```
@@ -78,6 +78,11 @@ anything else falls out is [fill](../fill/fill.md)'s question — a pocket of
 non-territory that cannot reach infinity is enclosed, and a strip simply rings nothing
 (§11 item 36). §7's *land bridge* is therefore a description of an outcome rather than
 a branch in the rules.
+
+Occupation does not cap the walk ([trails-simple](../trails-simple/trails-simple.md)
+P42 / §11 item 49). A garrison on an upstream trail arrow is claimed with the path;
+the stack stays, now on land. Firebreaks halt evaporation only
+([cuts](../cuts/cuts.md)).
 
 [trails](../trails/trails.md)' `anchorGrade` is deliberately **not** consulted. It is
 almost the same question and it is undirected — §6.1 re-attaches a fragment against

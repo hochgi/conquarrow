@@ -47,7 +47,6 @@ import type {
 } from '@conquarrow/contracts';
 import { resetAccumulatorsOnCapture } from './economy';
 import { compareArrows } from './order';
-import { makeTrailRules } from './trails';
 
 const reject = (message: string): never => {
   throw new ContractViolation(message);
@@ -92,8 +91,6 @@ const radiusCeiling = (wallSize: number): number => 2 * wallSize;
  * to enumerate a bounded region of an unbounded lattice (§11 item 4).
  */
 export const makeClosureRules = (geometry: GeometryPort): ClosureRules => {
-  const trails = makeTrailRules(geometry);
-
   const chordAt = (point: PointId, into: ArrowId, out: ArrowId): Chord =>
     chord(geometry.slotOf(point, into), geometry.slotOf(point, out));
 
@@ -143,22 +140,11 @@ export const makeClosureRules = (geometry: GeometryPort): ClosureRules => {
    * is trail and `target(Y) === origin(X)`. At a merge, every in-arrow — the set
    * holds no pairing (§11 item 26).
    *
-   * P22 firebreak cap: when `stopAtFirebreak`, do not enter an owner-occupied trail
-   * arrow (symmetric with cut halt). The departure `root` is always claimed.
+   * P42: occupation is not a stop. Firebreaks halt evaporation, not the claim
+   * walk. The departure `root` is always claimed; every against-grain trail
+   * predecessor is too.
    */
-  const walkBack = (
-    root: ArrowId,
-    trail: ReadonlySet<ArrowId>,
-    state: GameState,
-    mover: PlayerId,
-    stopAtFirebreak: boolean,
-  ): readonly ArrowId[] => {
-    const isFirebreak = (arrow: ArrowId): boolean => {
-      if (!trail.has(arrow)) return false;
-      const standing = state.groups.get(arrow);
-      return standing !== undefined && standing.owner === mover && standing.heads > 0;
-    };
-
+  const walkBack = (root: ArrowId, trail: ReadonlySet<ArrowId>): readonly ArrowId[] => {
     const reached = new Set<ArrowId>();
     const pending: ArrowId[] = [root];
     for (let here = pending.pop(); here !== undefined; here = pending.pop()) {
@@ -166,7 +152,6 @@ export const makeClosureRules = (geometry: GeometryPort): ClosureRules => {
       reached.add(here);
       for (const pred of geometry.inArrows(geometry.origin(here))) {
         if (!trail.has(pred) || reached.has(pred)) continue;
-        if (stopAtFirebreak && isFirebreak(pred)) continue;
         pending.push(pred);
       }
     }
@@ -313,10 +298,8 @@ export const makeClosureRules = (geometry: GeometryPort): ClosureRules => {
     const trail = state.trails.get(mover);
     if (trail === undefined || !trail.has(stepMove.from)) return undefined;
 
-    // P22 §11 item 42: unanchored reconnect stops before the first firebreak;
-    // territory-rooted landings claim the full upstream walk.
-    const territoryRooted = trails.anchorGrade(state, stepMove.from, mover) === 'territory';
-    const path = walkBack(stepMove.from, trail, state, mover, !territoryRooted);
+    // P42: the claim walk never stops for an owner-occupied trail arrow.
+    const path = walkBack(stepMove.from, trail);
     const ground = moverGround(state, mover);
     for (const arrow of path) ground.add(arrow);
     return { path, enclosed: enclosedBy(ground, mover) };

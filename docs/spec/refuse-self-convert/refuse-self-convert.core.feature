@@ -66,7 +66,7 @@ Feature: Refuse self-convert — unprotected entry onto foreign territory is ill
       Given A's stack-grade fragment has a grain out that is A's territory
       When A lists legal moves
       Then a step onto that out is offered
-      # Closure / firebreak-capped paint stay P22; this packet does not touch them.
+      # Closure / claim walk stay P05b + P42; this packet does not touch them.
 
   Rule: Neutral is not the trap
 
