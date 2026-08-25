@@ -1,7 +1,6 @@
 # P42 — Claim walk ignores firebreaks
 
-> **Status:** ready to ship (packet only — `/spec-to-ship` from a laptop).
-> **Depends on:** P05b (against-grain claim walk), P22 (simple trails; this
+> **Status:** shipping in this PR. **Depends on:** P05b (against-grain claim walk), P22 (simple trails; this
 > repeals D5 / item 42 only).
 >
 > Playtest 2026-08-23 (`conquarrow-match-2026-08-23T181014-387Z`, human seat F):
@@ -80,13 +79,13 @@ wrong: evaporation destroys until it would enter an occupied arrow; claim
 
 ## Definition of done
 
-- [ ] Packet index row present (this PR).
-- [ ] `/spec-to-ship` this packet: SPEC §6.1 / §7 prose + item 42 struck /
+- [x] Packet index row present (this PR).
+- [x] `/spec-to-ship` this packet: SPEC §6.1 / §7 prose + item 42 struck /
       item 49; Gherkin in `docs/spec/trails-simple/` flipped from "paint stops
       before firebreak" to "paint continues through the sentry";
       `walkBack(..., stopAtFirebreak)` removed or always false.
-- [ ] `pnpm verify` green.
-- [ ] Playtest case (F's landing paints only three arrows) cannot be
+- [x] `pnpm verify` green.
+- [x] Playtest case (F's landing paints only three arrows) cannot be
       reproduced: the six-arrow spine is F territory after the close.
-- [ ] Cut / wipe / convert / birth-cut still halt at a garrison.
-- [ ] No nondeterminism introduced.
+- [x] Cut / wipe / convert / birth-cut still halt at a garrison.
+- [x] No nondeterminism introduced.

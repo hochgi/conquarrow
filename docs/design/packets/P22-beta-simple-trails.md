@@ -34,7 +34,7 @@ is free and cut tails persist as marks?
 
 - `SPEC.md` prose + §11 re-resolutions
 - `docs/spec/trails-simple/` (Gherkin + EARS)
-- `packages/rules-core` — remove toll / freeze / `scrubDormant`; capped claim walk in `closure.ts`
+- `packages/rules-core` — remove toll / freeze / `scrubDormant`; ~~capped claim walk in `closure.ts`~~ **P42** removed the cap
 - Thin web adapter: drop toll / merge-trap red paint in `reach.ts` / Board / Hud
 
 ## Out of scope

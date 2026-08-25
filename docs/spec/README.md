@@ -39,18 +39,19 @@ behaviour is not here, it will not be built.**
 | [ray-run-input](./ray-run-input/ray-run-input.md) | P34 | §5 (one prose edit), §3/§4 (read) | 86 | — | 21 |
 | [seat-vanish-fx](./seat-vanish-fx/seat-vanish-fx.md) | P39 | §9, §6.1, §11 item 45 | 28 | — | 16 |
 | [birth-cut](./birth-cut/birth-cut.md) | P40 | §6.1, §7, item 47 | 11 | — | 9 |
+| [trails-simple](./trails-simple/trails-simple.md) | P22, P42 | §5–7, items 42, 49 | 20 | — | 11 |
 
-611 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
+631 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
 **58 belong to P03**, **18 to P02**, **30 to P04**, **58 to P05**, **49 to P05b**,
 **32 to P06**, **16 to P07**, **10 to P08**, **25 to P28**, **19 to P29**,
 **16 to P30**, **24 to P31** (22 of them now `@superseded-P34`), **26 to P32**,
-**11 to P33**, **86 to P34**, **28 to P39**, and **11 to P40**.
-621 concrete cases once `Examples` rows are expanded (combat Examples add more),
-304 invariants.
+**11 to P33**, **86 to P34**, **28 to P39**, **11 to P40**, and **20 to P22/P42**.
+641 concrete cases once `Examples` rows are expanded (combat Examples add more),
+315 invariants.
 
-**This index is not complete.** The online packets (`online-*`), the planner
-directories (`findings-planner`, `intercept-findings`) and `trails-simple` have
-never had rows, and the event-legibility work shipped its tests
+**This index is not complete.** The online packets (`online-*`) and the planner
+directories (`findings-planner`, `intercept-findings`) have never had rows, and
+the event-legibility work shipped its tests
 (`packages/web/test/event-legibility.*`) with no `docs/spec` directory at all —
 so the rule below cannot be checked against it. Both gaps predate P34 and are
 recorded here rather than papered over.

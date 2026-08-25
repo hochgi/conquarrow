@@ -172,16 +172,15 @@ above is about trail-to-trail; it does not say what it means for a stretch to *r
 the player's territory, and the two available answers are told apart by an approved
 scenario (*a trail touching your territory and a fragment touching only a stack*).
 The answer is that the stretch must **leave** ground the player already owns — some
-arrow of it departs a point one of their own territory arrows feeds. §7 requires
-this outright: *"A fragment that survived a cut is anchored on its own stack. Drive
-it into your territory and you claim the path itself — a land bridge — but it
-encloses nothing, because enclosure requires territory at **both** ends."* So
-arriving at territory does **not** promote a stretch; if it did, that fragment would
-enclose rather than earn a land bridge. §6.1 says the same from the other side — a
-deep cut takes *"the region touching the victim's territory"* and leaves the rest
-with *"territory anchor gone"*, which is only a demotion if the anchor was the
-departure. §6.3 completes it: a raider's trail earns no territory anchor however
-well it is garrisoned.
+arrow of it departs a point one of their own territory arrows feeds. §7: *"Drive a
+fragment into your territory and you claim along the walk. Ordinarily it encloses
+nothing: a strip has no inside."* Pre-landing grade does not cap that walk (P42).
+Arriving at territory does **not** promote a stretch; grade is the departure. If
+arriving promoted, this scenario's two-stretch contrast would vanish. §6.1 says the
+same from the other side — a deep cut takes *"the region touching the victim's
+territory"* and leaves the rest with *"territory anchor gone"*, which is only a
+demotion if the anchor was the departure. §6.3 completes it: a raider's trail earns
+no territory anchor however well it is garrisoned.
 
 ## Invariants
 

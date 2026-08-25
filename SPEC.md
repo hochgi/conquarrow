@@ -404,6 +404,8 @@ Evaporation **does not kill heads** — that job is combat's (§6.2). Each front
 
 So **any garrison is a firebreak.** Sentry *size* matters for contact combat, not for surviving a cut. (P12; was: one kill per front, bleed the first head, halt at the second.)
 
+**A firebreak stops evaporation, not paint (P42).** Cuts, combat wipes, convert wipes, and birth-cuts halt when a front would enter an owner-occupied trail arrow. The claim walk (§7) does not consult occupation: landing home claims every against-grain trail arrow reached, including garrisons; those stacks stay, now on land.
+
 - **A point is all-to-all.** Where the trail has `i` in-arrows and `o` out-arrows at a point, that point is a join followed by a split: **every in feeds every out**. Not a convention picked to break a tie — the arrow set holds no pairing to recover (§6.1a), and a set with `i` ins and `o` outs simply *is* a join-then-split.
 - **A front per branch.** A forward front reaching a point continues into *every* out-arrow and a backward front into *every* in-arrow. A cut under a fork clears every arm until each arm's first garrison (or territory).
 - **A front halts per arrow, not per point.** It stops when it would enter an arrow that holds the victim's heads. A head does *not* shield the point ahead of it against evaporation — that range belongs to combat (§6.2), and the two jobs sit on different axes.
@@ -417,7 +419,7 @@ So **any garrison is a firebreak.** Sentry *size* matters for contact combat, no
 
 **Wipe starts evaporation.** When combat reduces a stack on an arrow to **0** heads (attacker and/or defender), that owner's trail evaporates from that arrow in both directions (one direction at a tip) under the same halt rule. **Convert reuses that wipe** (§6.3 / P33): after ownership flips, evaporate from each converted arrow; converted stacks are no longer the victim's, so they are not firebreaks. **Birth on open trail reuses it too** (P40 / §11 item 47): after a spawner emits a head onto an arrow that is in another player's trail set, evaporate that trail from the birth arrow; the newborn is not the victim's, so it is not a firebreak. Bare marks do not occupy the arrow and do not halt accrual (item 15); a garrison of the trail owner still does.
 
-**Two grades of anchor, and the difference is load-bearing.** A trail anchored to your **territory** is fully live: it can close and claim everything it encloses (§7), and heads on it are not encircled (§6.3). A trail anchored only on a **stack** is live but lesser — it can be extended and driven home for a *land bridge*, but it encloses nothing, and it does not save a head from conversion inside enemy territory. Without that distinction a parked stack would be a founding site, which §7 forbids outright.
+**Two grades of anchor, and the difference is load-bearing.** Territory-grade trail can close, and heads on it are not encircled (§6.3). Stack-grade trail is live but lesser: it can be extended and driven home; that landing paints the full against-grain walk (§7 / P42) — ordinarily a land bridge, a pocket if the claimed ground rings one — and it does **not** save a head from conversion inside enemy territory. Pre-landing grade is not a paint cap. Without keeping the grades apart for *conversion* and *founding*, a parked stack would be a second home (§7 forbids it: closure still requires landing on own territory) and a garrisoned raider would be immune to encirclement.
 
 **Fragments are re-attachable, and this needs no special machinery.** The ordinary rule already covers it: a path counts once it runs continuously from your territory to your territory. Lay a fresh path from home that reconnects to a stack-anchored fragment and the whole chain is promoted back to the full grade. Nothing floats, nothing is tracked separately — a demoted fragment is simply a wall waiting for a road.
 
@@ -547,21 +549,21 @@ This is the hexa.io / splix.io rule, not "any cycle of your own trail."
 
 - **An unanchored loop is nothing until it lands.** A trail that never lands on your territory claims no ground. Dormant marks alone do not found islands (§6.1 / P22).
 - **A path that encloses nothing becomes a thin strip.** Travel from one holding of yours to another without surrounding anything and you have built a **land bridge** — the arrow chain itself becomes territory, one tile wide.
-- **A stack-anchored fragment driven home pays the path (or a capped prefix).** Drive a fragment into your territory and you claim along the walk (§6.1). Ordinarily it encloses nothing: a strip has no inside. What it cannot do is *found* territory out of open ground. **P22:** if that component was **not territory-rooted before the landing**, claim only **up to the last firebreak** on the walk; trail beyond the firebreak stays marked until re-attach or cut. Territory-rooted landings still claim the full upstream walk.
+- **A stack-anchored fragment driven home pays the path.** Drive a fragment into your territory and you claim along the walk (§6.1). Ordinarily it encloses nothing: a strip has no inside. What it cannot do is *found* territory out of open ground. ~~**P22:** if that component was **not territory-rooted before the landing**, claim only **up to the last firebreak** on the walk; trail beyond the firebreak stays marked until re-attach or cut. Territory-rooted landings still claim the full upstream walk.~~ — **withdrawn by P42.** Pre-landing grade does not change how much is painted. Stack-grade reconnect and territory-rooted landing both claim the full upstream walk (and fill if the claimed ground rings a pocket). Territory-grade still matters for **conversion resistance** (§6.3 / P22 D6).
 - **Self-crossings claim what they ring.** Crossing your own trail doesn't close anything on the spot. It matters when you land: the path becomes territory, and a loop the path made is then a ring of *your own ground* with a bounded inside — so that inside is yours too. Figure-eights and crossovers resolve without a special case, and an open trail that would have been a bare bridge can loop onto itself to claim something.
 - **The test is reachability, not parity.** After the path is claimed, any pocket of non-territory that cannot reach infinity is enclosed and becomes yours. An earlier draft said *even-odd fill* and that was wrong twice over: a claim is bounded by the trail on one side and by your existing territory on the other, so it is not a closed curve to take a parity of — and where the two do differ, on a trail that rings a region with two separate loops, parity would report the core *outside* while it is plainly surrounded. See §11 item 36.
 
 **Which arrows the landing claims: walk the trail backwards along the grain.**
 
-> **From the arrow the closing step departed, follow trail arrows *against* the grain — `Y` precedes `X` when `Y` is trail and `target(Y)` is `origin(X)`. Everything reached is claimed — unless the **firebreak cap** applies (below). Nothing else is.**
+> **From the arrow the closing step departed, follow trail arrows *against* the grain — `Y` precedes `X` when `Y` is trail and `target(Y)` is `origin(X)`. Everything reached is claimed. Nothing else is.**
 
-**Firebreak-capped paint (P22 beta).** When the trail component that lands was **not** territory-grade *before* the landing step, the claim walk **stops at the first firebreak** it would enter walking against the grain (an arrow of that trail occupied by the owner's stack). The walk claims arrows from the departure arrow upstream **until it would enter the firebreak arrow**; the firebreak arrow itself and distal trail **remain trail**. (Symmetric with cut halt: fronts destroy until they would enter the occupied arrow. → §11 item 42.)
+~~**Firebreak-capped paint (P22 beta).** When the trail component that lands was **not** territory-grade *before* the landing step, the claim walk **stops at the first firebreak** it would enter walking against the grain (an arrow of that trail occupied by the owner's stack). The walk claims arrows from the departure arrow upstream **until it would enter the firebreak arrow**; the firebreak arrow itself and distal trail **remain trail**. (Symmetric with cut halt: fronts destroy until they would enter the occupied arrow. → §11 item 42.)~~ — **withdrawn by P42.** Occupation never caps the claim walk. A garrison on the walk becomes territory; the stack stays. Firebreaks remain the halt for evaporation only (§6.1). → §11 items 42, 49.
 
 The trail is a set with no memory (§6.1a), so "the path you walked" is not recorded — but it does not need to be. The grain recovers it: every arrow the closing head *could* have come through is upstream of the landing, and nothing else is. Three consequences, and they are the reason this is the rule rather than *claim the whole connected stretch*:
 
 - **A fork's other arm is downstream, so it is not claimed.** It stays an open trail, now rooted on ground that has just become territory — which is exactly what the pincer below needs in order to have anything left to enclose.
-- **A cut fragment driven home is upstream.** Territory-rooted salvage claims all of it. **Unanchored reconnect (P22)** claims only up to the last firebreak; distal marks remain.
-- **At a merge, every trail in-arrow is claimed** (subject to the cap). The set holds no pairing to prefer one by (§6.1a, §11 item 26), and a point is all-to-all in this direction for the same reason it is for evaporation.
+- **A cut fragment driven home is upstream.** Salvage claims all of it, occupied arrows included. ~~**Unanchored reconnect (P22)** claims only up to the last firebreak; distal marks remain.~~ — **withdrawn by P42.**
+- **At a merge, every trail in-arrow is claimed** (occupied or not). The set holds no pairing to prefer one by (§6.1a, §11 item 26), and a point is all-to-all in this direction for the same reason it is for evaporation.
 
 ~~**The same walk says whether the landing encloses anything.**~~ — **withdrawn with even-odd (§11 item 36).** There is **no enclose-or-strip gate**: the walk claims the path either way, and what the claimed ground then rings is asked separately and answered by reachability above. A walk that dead-ends claims a strip because *a strip rings nothing*, not because a second test refused it — and a dead-ending walk that crossed itself on the way home claims the loop's inside all the same. The old wording justified "encloses nothing" by *enclosure requires territory at both ends*, which was a proxy for *the curve must close*, and a self-loop closes it.
 
@@ -986,10 +988,10 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 28. ~~Can something other than territory anchor a trail?~~ — **resolved: a stack can, at a lesser grade.** Trail beyond a halting stack is anchored on that stack — live, extendable, defendable — rather than dormant. But the grades are not interchangeable, and keeping them apart is what holds two other rules up:
 
-    - **Territory grade** — closes and claims everything enclosed (§7); heads on it are not encircled (§6.3).
-    - **Stack grade** — can be driven home for a **land bridge**, claiming the path and nothing else. Encloses nothing, and does **not** save a head from conversion inside enemy ground.
+    - **Territory grade** — closes and claims the full against-grain walk and whatever that ground rings (§7); heads on it are not encircled (§6.3).
+    - **Stack grade** — can be driven home; that landing claims the same walk (P42), ordinarily a land bridge, and fill if the claimed ground rings a pocket. Does **not** save a head from conversion inside enemy ground.
 
-    Collapsing them would let a stack parked in open ground found an island (§7 forbids it outright) and make any raider with a sentry behind it immune to encirclement, which would take §9's decisive move with it.
+    Collapsing them would let a stack parked in open ground found an island (§7 forbids it outright — closure still requires landing on own territory) and make any raider with a sentry behind it immune to encirclement, which would take §9's decisive move with it.
 
 29. ~~Must every board be alternating, or only the generated one?~~ — **resolved: every board.** Resolving item 1 turned the orientation pattern from a measurement into a rule and nothing enforced it: the conformance suite asserted a point's six arrows get six *distinct* slots, never that in and out alternate, so a fixture board with three-consecutive in-slots passed the whole suite while contradicting §2. Now a conformance invariant (§2).
 
@@ -1036,7 +1038,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
     **The answer removes the curve rather than closing it**, in two passes:
 
-    1. **Claim the path.** From the closing arrow, follow the trail backwards along the grain — ordinarily the full upstream walk. **P22 / item 42:** when the component was not territory-grade *before* the landing, stop before the first firebreak on that walk; otherwise claim the full walk (including through mid sentries). Every arrow walked is claimed.
+    1. **Claim the path.** From the closing arrow, follow the trail backwards along the grain — the full upstream walk, including through mid sentries (P42; ~~P22 / item 42 firebreak cap~~ withdrawn). Every arrow walked is claimed.
     2. **Claim what the claimed ground rings.** With the path now territory, any pocket of non-territory that **cannot reach infinity** is enclosed and claimed too.
 
     So there is no parity, no territory-outline arc to trace, and no degenerate ray to perturb — which matters, because `GeometryPort` exposes no coordinate to perturb *with*. What survives unchanged is §2's chord test: reachability is over arrows, and two of your arrows meeting at one point form a barrier though no tile sits in the gap, or every enclosure leaks through the seam.
@@ -1086,9 +1088,9 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
     → **§6.3**, → **P07**, → **P22**, → **P33**.
 
-**P22 beta — firebreak-capped paint**
+**P22 beta — firebreak-capped paint — re-resolved by P42**
 
-42. ~~When an unanchored fragment lands home, how much of the trail becomes territory?~~ — **resolved by P22.** If the component was **not** territory-rooted before landing, the claim walk against the grain **stops before entering the first firebreak** (owner-occupied trail arrow); that firebreak and distal marks remain trail. Territory-rooted landings claim the full upstream walk (and fill if enclosed). Paint trigger remains: head lands on own territory. → **§7**, → **P22**.
+42. ~~When an unanchored fragment lands home, how much of the trail becomes territory?~~ — ~~resolved by P22: if the component was **not** territory-rooted before landing, the claim walk against the grain **stops before entering the first firebreak** (owner-occupied trail arrow); that firebreak and distal marks remain trail. Territory-rooted landings claim the full upstream walk.~~ — **re-resolved by P42: the full against-grain walk, occupied arrows included.** Pre-landing grade no longer changes paint amount. Firebreaks halt evaporation only. Paint trigger unchanged: head lands on own territory with trail behind. See item 49. → **§6.1**, → **§7**, → **P42**.
 
 **Self-convert steps — resolved by P28: illegal, not a suicide move**
 
@@ -1129,6 +1131,23 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
     **Known cost:** halving the independent samples makes the field cluster a
     little more coarsely at the same nominal density. The density target is
     unchanged; the texture is lumpier. For playtest, not for a test.
+
+**Claim walk and firebreaks — resolved by P42: paint ignores occupation**
+
+49. ~~Does a garrison on the claim walk stop paint, and does pre-landing grade change how much is claimed?~~ —
+    **resolved: no.** Playtest 2026-08-23 (`conquarrow-match-2026-08-23T181014-387Z`,
+    human seat F): a stack-grade tip landed home and P22 D5 / item 42 painted only
+    the empty arrows up to a mid sentry; the occupied arrow and the distal tail
+    stayed trail. Designer: a firebreak stops **evaporation**, not tile claim.
+
+    The against-grain walk from the closing step's `from` claims everything
+    reached, including owner-occupied trail arrows; those stacks stay, now on
+    land. Grade still governs **conversion resistance** (P22 D6), not paint
+    amount. Paint trigger unchanged (P22 D4). A fork's other arm stays trail
+    because it is *downstream*, not because it is a firebreak. At a merge, every
+    trail in-arrow is claimed. Evaporation halt-at-first is unchanged (movement
+    cut, combat wipe, convert wipe, birth-cut). No new port method. → **§6.1**,
+    → **§7**, → **P42**.
 
 **Spawner accrual timing and spawn-merge — resolved by P08**
 
