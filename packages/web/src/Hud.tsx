@@ -32,6 +32,15 @@ export interface HudProps {
   readonly onDownloadLog: () => void;
   readonly onNewMatch: () => void;
   readonly illegal: string | undefined;
+  readonly tutorial?: TutorialHud;
+}
+
+export interface TutorialHud {
+  readonly title: string;
+  readonly practice: boolean;
+  readonly coach: string | undefined;
+  readonly onRestart: () => void;
+  readonly onSkipLesson: () => void;
 }
 
 const phaseHint = (
@@ -98,6 +107,7 @@ export const Hud = ({
   onDownloadLog,
   onNewMatch,
   illegal,
+  tutorial,
 }: HudProps): ReactElement => {
   const active = styleFor(state.activePlayer);
   // Read off `winner`, never off the celebration (P38 invariant 12). While the
@@ -109,7 +119,12 @@ export const Hud = ({
   return (
     <aside className="hud">
       <h1>Conquarrow</h1>
-      {victory.kind === 'over' ? (
+      {tutorial !== undefined ? (
+        <p className="banner">
+          Learn: <strong>{tutorial.title}</strong>
+          {tutorial.practice ? ' · practice board' : null}
+        </p>
+      ) : victory.kind === 'over' ? (
         <p className="banner win">{victory.banner}</p>
       ) : (
         <p className="banner" style={{ borderColor: active.fill }}>
@@ -123,6 +138,7 @@ export const Hud = ({
           ? victory.hint
           : phaseHint(phase, movableCount, botBusy, vsBot, byokActive)}
       </p>
+      {tutorial?.coach !== undefined ? <p className="hint byok-status">{tutorial.coach}</p> : null}
       {refusalNote !== undefined ? <p className="hint byok-status">{refusalNote}</p> : null}
       {byokStatus !== undefined ? <p className="hint byok-status">{byokStatus}</p> : null}
       {illegal !== undefined ? <p className="hint lobby-byok-warn">{illegal}</p> : null}
@@ -158,6 +174,16 @@ export const Hud = ({
         <button type="button" onClick={onNewMatch}>
           Lobby
         </button>
+        {tutorial === undefined ? null : (
+          <>
+            <button type="button" onClick={tutorial.onRestart}>
+              Restart lesson
+            </button>
+            <button type="button" onClick={tutorial.onSkipLesson}>
+              Skip lesson
+            </button>
+          </>
+        )}
         {/* Sound reinforces the five events that decide matches; it never carries
             information the board does not already show, which is why off is a fine
             default and why it is a toggle rather than a settings screen. */}

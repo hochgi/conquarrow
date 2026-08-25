@@ -3,6 +3,7 @@ import type { PointerEvent, ReactElement, WheelEvent } from 'react';
 import {
   DEFAULT_MATCH_CONFIG,
   GOOGLE_ID_TOKEN_SESSION_KEY,
+  endTurn,
   type ArrowId,
   type GameState,
   type MatchConfig,
@@ -18,9 +19,11 @@ import { Board } from './Board';
 import { cullArrows, cullVertices } from './cull';
 import { hitArrow, hitSpawnerVertex } from './hit';
 import { Hud } from './Hud';
+import type { TutorialHud } from './Hud';
 import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
 import { Lobby } from './Lobby';
+import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
 import { parsePagesHash } from './online-hash';
 import { isCallerToMove } from './online-pages';
@@ -81,10 +84,31 @@ import { spawnerInfoAt } from './spawnerInfo';
 import { SpawnerTip } from './SpawnerTip';
 import type { Viewport } from './viewport';
 import { ZOOM, centerOn, createViewport, panBy, resize, toScreen, zoomAt } from './viewport';
+import { LESSONS, lessonById } from './tutorial/catalogue';
+import { firstRunCardVisible, practiceBoard } from './tutorial/chrome';
+import { decorateInputMode, restrictionFor } from './tutorial/restrict';
+import type { TutoredSnapshot } from './tutorial/restrict';
+import { TutorialSession } from './tutorial/session';
+import { createProgressStore } from './tutorial/storage';
+import type { Lesson } from './tutorial/types';
+import { openingOf } from './tutorial/validate';
 
 const geometry = makeTiling();
 const layout = makeLayout();
 const rules = makeRules(geometry);
+
+const TUTORIAL_PROGRESS_KEY = 'conquarrow:tutorial-progress';
+
+const tutorialBacking = {
+  read: (): string | undefined => {
+    if (typeof localStorage === 'undefined') return undefined;
+    return localStorage.getItem(TUTORIAL_PROGRESS_KEY) ?? undefined;
+  },
+  write: (value: string): void => {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(TUTORIAL_PROGRESS_KEY, value);
+  },
+};
 
 const pointerKindOf = (pointerType: string): PointerKind =>
   pointerType === 'touch' || pointerType === 'pen' ? 'coarse' : 'fine';
@@ -210,9 +234,23 @@ export const App = (): ReactElement => {
   const onlinePlayRef = useRef(false);
   const [lobbyMode, setLobbyMode] = useState<PagesLobbyMode>('local');
   const [seatPlan, setSeatPlan] = useState<SeatPlan>(() => loadSeatPlan());
+  const [tutorialStore] = useState(() => createProgressStore(tutorialBacking));
+  const [learnEpoch, setLearnEpoch] = useState(0);
+  const [tutorial, setTutorial] = useState<{ lesson: Lesson; session: TutorialSession } | undefined>(
+    undefined,
+  );
+  const tutorialRef = useRef(tutorial);
+  tutorialRef.current = tutorial;
+  const [tutorialGen, setTutorialGen] = useState(0);
+  const demoKeyRef = useRef<string | undefined>(undefined);
+  const [mode] = useState<InputMode>(() => createInputMode(geometry));
+  const inputRef = useRef<InputMode>(mode);
+  const liveInput = (): InputMode => inputRef.current;
+  const bumpTutorial = (): void => {
+    setTutorialGen((n) => n + 1);
+  };
   const [state, setState] = useState<GameState | undefined>(undefined);
   const [log, setLog] = useState<MatchLog | undefined>(undefined);
-  const [mode] = useState<InputMode>(() => createInputMode(geometry));
   const [snap, setSnap] = useState<InputSnapshot>(idleSnap);
   const [viewport, setViewport] = useState<Viewport>(() => createViewport(800, 600));
   const [hover, setHover] = useState<
@@ -399,6 +437,11 @@ export const App = (): ReactElement => {
       setState(next);
       setSnap(mode.reset());
       setRefusalNote(undefined);
+      const play = tutorialRef.current;
+      if (play !== undefined && before !== undefined) {
+        play.session.onCommitted(before, next, moves);
+        setTutorialGen((n) => n + 1);
+      }
     },
     [mode, record, pushFx],
   );
@@ -421,6 +464,7 @@ export const App = (): ReactElement => {
   useEffect(() => {
     if (state === undefined) return;
     if (onlinePlayRef.current) return;
+    if (tutorialRef.current !== undefined) return;
     if (state.winner !== undefined) {
       softLockKey.current = null;
       return;
@@ -458,6 +502,80 @@ export const App = (): ReactElement => {
       passEpoch.current += 1;
     };
   }, [state, snap.phase.kind, commitApplied]);
+
+  useEffect(() => {
+    const play = tutorial;
+    if (play === undefined) {
+      inputRef.current = mode;
+      return;
+    }
+    const restriction = restrictionFor(play.session.step());
+    inputRef.current = restriction === undefined ? mode : decorateInputMode(mode, restriction);
+  }, [tutorial, tutorialGen, mode]);
+
+  const demoStepKey =
+    tutorial !== undefined && tutorial.session.step().kind === 'demo'
+      ? `${tutorial.lesson.id}:${String(tutorial.session.stepIndex())}`
+      : '';
+
+  useEffect(() => {
+    if (demoStepKey === '') return;
+    const play = tutorialRef.current;
+    if (play === undefined) return;
+    if (play.session.halted()) return;
+    const pending = play.session.demoPending();
+    if (pending === undefined || pending.length === 0) return;
+    if (demoKeyRef.current === demoStepKey) return;
+    demoKeyRef.current = demoStepKey;
+    const run = { cancelled: false, finished: false };
+    void (async () => {
+      for (const move of pending) {
+        await adapterSleep(BOT_PLAYBACK_GAP_MS);
+        if (run.cancelled) return;
+        const before = stateRef.current;
+        if (before === undefined) return;
+        try {
+          const after = rules.apply(before, move);
+          commitApplied([move], after);
+        } catch (cause) {
+          play.session.onDemoHalted(move, cause);
+          setTutorialGen((n) => n + 1);
+          return;
+        }
+      }
+      if (run.cancelled) return;
+      play.session.next();
+      run.finished = true;
+      setTutorialGen((n) => n + 1);
+    })();
+    return () => {
+      run.cancelled = true;
+      if (!run.finished) demoKeyRef.current = undefined;
+    };
+  }, [demoStepKey, commitApplied]);
+
+  useEffect(() => {
+    const play = tutorial;
+    if (play === undefined || state === undefined) return;
+    if (play.session.halted()) return;
+    // Only auto-pass B while the learner is on the board. Passing during
+    // narrate would consume B's demo (L5 stages B to move).
+    const kind = play.session.step().kind;
+    if (kind !== 'expect' && kind !== 'objective') return;
+    const human = state.players[0];
+    if (human === undefined || state.activePlayer === human) return;
+    const handle = window.setTimeout(() => {
+      if (stateRef.current !== state) return;
+      try {
+        commitApplied([endTurn()], rules.apply(state, endTurn()));
+      } catch {
+        /* B cannot pass */
+      }
+    }, 0);
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [tutorial, tutorialGen, state, commitApplied]);
 
   useEffect(() => {
     if (state === undefined || !onlinePlayRef.current) return;
@@ -746,6 +864,7 @@ export const App = (): ReactElement => {
 
       // Auto-pick the next stack that can still step — after a trip *or* a skip.
       if (applied.winner !== undefined) return;
+      if (tutorialRef.current !== undefined) return;
       if (aiSeatsRef.current.has(String(applied.activePlayer))) return;
       if (!hasLegalStep(rules, applied)) return;
       if (!moves.some((m) => m.kind === 'step' || m.kind === 'skip')) return;
@@ -789,7 +908,7 @@ export const App = (): ReactElement => {
 
   const setCarry = useCallback(
     (n: number) => {
-      setSnap(mode.setCarry(n));
+      setSnap(liveInput().setCarry(n));
     },
     [mode],
   );
@@ -803,7 +922,7 @@ export const App = (): ReactElement => {
   useEffect(() => {
     if (snap.phase.kind !== 'route') return;
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') commitSnap(mode.cancel());
+      if (e.key === 'Escape') commitSnap(liveInput().cancel());
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -827,12 +946,116 @@ export const App = (): ReactElement => {
     setRefusalNote(undefined);
     clearTargetLocks();
     setSnap(mode.reset());
+    setTutorial(undefined);
+    demoKeyRef.current = undefined;
     softLockKey.current = null;
+  };
+
+  const lookAt = (arrow: ArrowId): void => {
+    const at = arrowCentroid(arrow);
+    setViewport((v) => centerOn(v, at.x, at.y));
+  };
+
+  const lookAtLesson = (lesson: Lesson, opening: GameState): void => {
+    const narrate0 = lesson.steps[0];
+    const named =
+      narrate0?.kind === 'narrate' && narrate0.focus !== undefined ? narrate0.focus[0] : undefined;
+    const human = opening.players[0];
+    let home: ArrowId | undefined;
+    if (human !== undefined) {
+      for (const [arrow, group] of opening.groups) {
+        if (group.owner === human) {
+          home = arrow;
+          break;
+        }
+      }
+    }
+    const look = named ?? home;
+    if (look !== undefined) lookAt(look);
+  };
+
+  const startLesson = (id: Lesson['id']): void => {
+    const lesson = lessonById(id) ?? LESSONS[0];
+    if (lesson === undefined) return;
+    onlinePlayRef.current = false;
+    const opening = openingOf(lesson);
+    const session = TutorialSession.start(lesson);
+    const human = opening.players[0];
+    if (human === undefined) return;
+    const seatLogs: SeatDriverLog[] = opening.players.map((player) => ({
+      player,
+      kind: 'human',
+    }));
+    aiSeatsRef.current = new Set();
+    seatConfigsRef.current = new Map();
+    clearTargetLocks();
+    const nextLog = createMatchLog({
+      config: lesson.config,
+      vsBot: false,
+      botMode: 'human-hotseat',
+      seats: seatLogs,
+      humanSeat: human,
+      botSeat: undefined,
+    });
+    saveMatchLog(nextLog);
+    setLog(nextLog);
+    setByokStatus(undefined);
+    setFx(emptyQueue());
+    setRefusalNote(undefined);
+    stateRef.current = opening;
+    setState(opening);
+    setSnap(mode.reset());
+    setTutorial({ lesson, session });
+    demoKeyRef.current = undefined;
+    setTutorialGen((n) => n + 1);
+    softLockKey.current = null;
+    lookAtLesson(lesson, opening);
+  };
+
+  const restartLesson = (): void => {
+    const play = tutorialRef.current;
+    if (play === undefined) return;
+    play.session.restart();
+    const opening = openingOf(play.lesson);
+    stateRef.current = opening;
+    setState(opening);
+    setSnap(mode.reset());
+    setFx(emptyQueue());
+    setRefusalNote(undefined);
+    demoKeyRef.current = undefined;
+    bumpTutorial();
+    lookAtLesson(play.lesson, opening);
+  };
+
+  const skipLesson = (): void => {
+    const play = tutorialRef.current;
+    if (play === undefined) return;
+    const index = LESSONS.findIndex((entry) => entry.id === play.lesson.id);
+    const next = index >= 0 ? LESSONS[index + 1] : undefined;
+    if (next === undefined) {
+      returnToLobby();
+      return;
+    }
+    startLesson(next.id);
+  };
+
+  const advanceTutorial = (): void => {
+    const play = tutorialRef.current;
+    if (play === undefined) return;
+    play.session.next();
+    if (play.session.completed()) {
+      tutorialStore.markComplete(play.session.id);
+      skipLesson();
+      return;
+    }
+    bumpTutorial();
   };
 
   const startMatch = (plan: SeatPlan): void => {
     if (!seatPlanReady(plan)) return;
     onlinePlayRef.current = false;
+    setTutorial(undefined);
+    demoKeyRef.current = undefined;
     const config: MatchConfig = {
       ...DEFAULT_MATCH_CONFIG,
       playerCount: plan.playerCount,
@@ -896,6 +1119,14 @@ export const App = (): ReactElement => {
           void host?.start();
           startMatch(seatPlan);
         }}
+        onLearn={() => {
+          startLesson('L0');
+        }}
+        learnCardVisible={learnEpoch >= 0 && firstRunCardVisible(tutorialStore)}
+        onDismissLearnCard={() => {
+          tutorialStore.dismissCard();
+          setLearnEpoch((n) => n + 1);
+        }}
         {...(host === undefined
           ? {}
           : {
@@ -956,7 +1187,11 @@ export const App = (): ReactElement => {
   const activeSeat = seatConfigsRef.current.get(String(state.activePlayer));
   const byokActive = activeSeat?.kind === 'byok' && isByokReady(byokConfigForSeat(activeSeat));
 
-  const inputLocked = botBusy || activeIsAi || state.winner !== undefined;
+  const inputLocked =
+    botBusy ||
+    activeIsAi ||
+    state.winner !== undefined ||
+    (tutorial !== undefined && !tutorial.session.boardInputOpen());
   /**
    * The docked count control's model, or `undefined` when there is nothing to ask.
    *
@@ -1073,7 +1308,7 @@ export const App = (): ReactElement => {
     const sy = e.clientY - rect.top;
     const arrow = hitArrow(layout, viewport, sx, sy, arrows);
     if (arrow === undefined) {
-      commitSnap(mode.onBackgroundClick());
+      commitSnap(liveInput().onBackgroundClick());
       return;
     }
     // Drop capture so the tip control owns the next events (and the ghost tap from
@@ -1082,7 +1317,7 @@ export const App = (): ReactElement => {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
     pointers.current.clear();
-    commitSnap(mode.onArrowClick(arrow, state, rules));
+    commitSnap(liveInput().onArrowClick(arrow, state, rules));
   };
 
   const onPointerLeave = (): void => {
@@ -1105,6 +1340,24 @@ export const App = (): ReactElement => {
     hoverArrow === undefined
       ? undefined
       : convertTooltip(state, geometry, rules, selectedFrom, hoverArrow.arrow);
+  const tutorialCoach = tutorial === undefined ? undefined : (snap as TutoredSnapshot).coach;
+  const tutorialStep = tutorial?.session.step();
+  const tutorialFocus =
+    tutorialStep?.kind === 'narrate' &&
+    tutorialStep.focus !== undefined &&
+    tutorialStep.focus.length > 0
+      ? new Set(tutorialStep.focus)
+      : undefined;
+  const tutorialHud: TutorialHud | undefined =
+    tutorial === undefined
+      ? undefined
+      : {
+          title: tutorial.lesson.title,
+          practice: practiceBoard(tutorial.lesson.config),
+          coach: tutorialCoach,
+          onRestart: restartLesson,
+          onSkipLesson: skipLesson,
+        };
 
   return (
     <div className="app">
@@ -1113,7 +1366,7 @@ export const App = (): ReactElement => {
         victory={victory}
         phase={snap.phase}
         movableCount={movable.size}
-        vsBot={log.vsBot}
+        vsBot={tutorial !== undefined ? false : log.vsBot}
         byokActive={byokActive}
         byokStatus={byokStatus ?? log.byokStats?.lastError}
         botBusy={botBusy}
@@ -1131,17 +1384,18 @@ export const App = (): ReactElement => {
         }}
         onEndTurn={() => {
           if (inputLocked) return;
-          commitSnap(mode.requestEndTurn());
+          commitSnap(liveInput().requestEndTurn());
         }}
         onSkip={() => {
           if (inputLocked) return;
-          commitSnap(mode.requestSkip(state, rules));
+          commitSnap(liveInput().requestSkip(state, rules));
         }}
         onDownloadLog={() => {
           downloadMatchLog(withWinner(log, state.winner));
         }}
         onNewMatch={returnToLobby}
         illegal={host?.illegal()}
+        {...(tutorialHud === undefined ? {} : { tutorial: tutorialHud })}
       />
       <div className="stage" ref={shellRef}>
         {/* Whose turn it is, and whether the board is still resolving — an edge
@@ -1152,12 +1406,14 @@ export const App = (): ReactElement => {
             once per change of hands; the inner one only exists while the board is
             resolving. One node carrying both classes would restart the handover
             sweep every time an effect finished. */}
-        <div
-          key={`turn-${String(state.activePlayer)}`}
-          className="turn-ring handover"
-          style={{ ['--turn-tint' as string]: styleFor(state.activePlayer).fill }}
-          aria-hidden
-        />
+        {tutorial === undefined ? (
+          <div
+            key={`turn-${String(state.activePlayer)}`}
+            className="turn-ring handover"
+            style={{ ['--turn-tint' as string]: styleFor(state.activePlayer).fill }}
+            aria-hidden
+          />
+        ) : null}
         {resolving ? (
           <div
             className="turn-ring resolving"
@@ -1179,12 +1435,28 @@ export const App = (): ReactElement => {
           effects={fx}
           victory={victory}
           {...(hover === undefined ? {} : { hoveredSpawner: hover.vertex })}
+          {...(tutorialFocus === undefined ? {} : { focus: tutorialFocus })}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerLeave}
           onWheel={onWheel}
         />
+        {tutorial === undefined ? null : (
+          <>
+            {tutorial.session.halted() ||
+            tutorial.session.step().kind === 'narrate' ||
+            tutorial.session.step().kind === 'end' ? (
+              <div className="tutorial-dim" aria-hidden />
+            ) : null}
+            <TutorialOverlay
+              step={tutorial.session.step()}
+              halted={tutorial.session.halted()}
+              haltDetail={tutorial.session.halted() ? tutorial.session.haltDetail() : undefined}
+              onNext={advanceTutorial}
+            />
+          </>
+        )}
         {convertCopy !== undefined && hoverArrow !== undefined ? (
           <ConvertTip
             text={convertCopy}
@@ -1212,10 +1484,10 @@ export const App = (): ReactElement => {
         control={dock}
         onCount={setCarry}
         onSend={() => {
-          commitSnap(mode.send());
+          commitSnap(liveInput().send());
         }}
         onCancel={() => {
-          commitSnap(mode.cancel());
+          commitSnap(liveInput().cancel());
         }}
       />
     </div>
