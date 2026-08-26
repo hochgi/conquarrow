@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_MATCH_CONFIG } from '@conquarrow/contracts';
-import { decorateInputMode } from '../src/tutorial/restrict';
+import { decorateInputMode, restrictionFor } from '../src/tutorial/restrict';
 import type { RailRestriction, TutoredSnapshot } from '../src/tutorial/restrict';
 import { TutorialSession } from '../src/tutorial/session';
 import {
@@ -223,6 +223,21 @@ describe('rails narrow choice to the action being taught', () => {
     const after = fold(before, routeMoves(before, step));
     driven.session.onCommitted(before, after, routeMoves(before, step));
     expect(driven.session.stepIndex()).toBe(driven.index + 1);
+  });
+
+  it('landing the L2 rail onto the occupied home still commits', () => {
+    const driven = driveToKind('L2', 'expect');
+    const step = driven.session.step() as ExpectStep;
+    const restriction = restrictionFor(step);
+    if (restriction === undefined) throw new Error('setup: L2 expect has no rail');
+    const exit = step.action.exits[0];
+    if (exit === undefined) throw new Error('setup: L2 expect has no exit');
+    expect(driven.state.groups.get(exit)?.owner).toBe(driven.state.activePlayer);
+    const decorated = decorateInputMode(new GalconInput(geometry), restriction);
+    decorated.onArrowClick(step.action.from, driven.state, rules);
+    const after = decorated.onArrowClick(exit, driven.state, rules);
+    expect(after.pending?.some((move) => move.kind === 'step' && move.exit === exit)).toBe(true);
+    expect(after.phase.kind).toBe('idle');
   });
 
   it('cancel exits a rail cleanly and the step re-arms', () => {
