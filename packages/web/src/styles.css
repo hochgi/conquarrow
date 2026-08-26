@@ -188,6 +188,10 @@ body,
   pointer-events: none;
 }
 
+.lesson-target {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 70%, transparent));
+}
+
 @keyframes yield-shine-sweep {
   from {
     transform: translate(-35%, -35%);
@@ -596,9 +600,11 @@ body,
 .tutorial-dim {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 8;
   background: rgba(6, 8, 12, 0.42);
-  pointer-events: none;
+  /* Capture board taps while a narrate/end card is up — otherwise SVG polygons
+     steal the Next/Done click (P44 mobile playtest). */
+  pointer-events: auto;
 }
 
 .tutorial-overlay {
@@ -606,7 +612,7 @@ body,
   left: 50%;
   top: 12%;
   transform: translateX(-50%);
-  z-index: 4;
+  z-index: 9;
   width: min(28rem, calc(100% - 2rem));
   padding: 1rem 1.1rem;
   background: var(--panel);
@@ -616,9 +622,44 @@ body,
   flex-direction: column;
   gap: 0.75rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.tutorial-overlay-placed {
+  transform: none;
+  overflow: auto;
 }
 
 .tutorial-overlay p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.tutorial-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 9;
+  width: min(28rem, calc(100% - 2rem));
+  padding: 0.65rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.tutorial-banner-title {
+  margin: 0;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.tutorial-banner p {
   margin: 0;
   line-height: 1.4;
 }

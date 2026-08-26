@@ -11,8 +11,9 @@
  * sees it plus the teacher's line, never a fabricated phase.
  */
 
-import type { ArrowId } from '@conquarrow/contracts';
+import type { ArrowId, Move } from '@conquarrow/contracts';
 import type { InputMode, InputSnapshot } from '../input/modes';
+import { draftExits } from '../route';
 import type { LessonStep } from './types';
 
 export interface RailRestriction {
@@ -34,6 +35,25 @@ export interface TutoredSnapshot extends InputSnapshot {
 const withCoach = (snap: InputSnapshot, coach: string | undefined): TutoredSnapshot => {
   if (coach === undefined) return snap;
   return { ...snap, coach };
+};
+
+/** Same predicate as `railAutoSends`, read off the restriction the decorator already holds. */
+const restrictionAutoSends = (restriction: RailRestriction): boolean =>
+  restriction.clickable !== undefined &&
+  restriction.clickable.size === 1 &&
+  (restriction.carryAllow === undefined || restriction.carryAllow.length === 1);
+
+const draftMatchesRail = (
+  draft: readonly Move[],
+  clickable: ReadonlySet<ArrowId> | undefined,
+): boolean => {
+  if (clickable === undefined) return false;
+  const exits = draftExits(draft);
+  if (exits.length !== clickable.size) return false;
+  for (const exit of exits) {
+    if (!clickable.has(exit)) return false;
+  }
+  return true;
 };
 
 /** Rail for an expect step; `undefined` on every other kind (free play / no board). */
@@ -69,6 +89,16 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
   const isOwnGroup = (state: Parameters<InputMode['onArrowClick']>[1], arrow: ArrowId): boolean =>
     state.groups.get(arrow)?.owner === state.activePlayer;
 
+  const maybeAutoSend = (snap: InputSnapshot): InputSnapshot => {
+    if (snap.pending !== undefined) return snap;
+    if (snap.phase.kind !== 'route') return snap;
+    if (!restrictionAutoSends(restriction)) return snap;
+    if (!draftMatchesRail(snap.phase.draft, restriction.clickable)) return snap;
+    return delegate(() => withCoach(inner.send(), restriction.coach()));
+  };
+
+  const afterClick = (produce: () => InputSnapshot): InputSnapshot => maybeAutoSend(delegate(produce));
+
   const clickWhileIdle = (
     arrow: ArrowId,
     state: Parameters<InputMode['onArrowClick']>[1],
@@ -79,9 +109,9 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
       if (selectable !== undefined && !selectable.has(arrow)) {
         return withCoach(last, restriction.coach(arrow));
       }
-      return delegate(() => inner.onArrowClick(arrow, state, rules));
+      return afterClick(() => inner.onArrowClick(arrow, state, rules));
     }
-    return delegate(() => withCoach(inner.onArrowClick(arrow, state, rules), restriction.coach(arrow)));
+    return afterClick(() => withCoach(inner.onArrowClick(arrow, state, rules), restriction.coach(arrow)));
   };
 
   return {
@@ -102,13 +132,15 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
         const draftedOrSource =
           arrow === phase.from ||
           phase.draft.some((move) => move.kind === 'step' && move.exit === arrow);
-        if (draftedOrSource) return delegate(() => inner.onArrowClick(arrow, state, rules));
+        if (draftedOrSource) return afterClick(() => inner.onArrowClick(arrow, state, rules));
 
         const engineOffersIt = phase.offer.clickable.has(arrow);
         const onRail = restriction.clickable?.has(arrow) ?? true;
         if (!engineOffersIt && !isOwnGroup(state, arrow)) {
           // The engine would refuse anyway: engine speaks, teacher beneath.
-          return delegate(() => withCoach(inner.onArrowClick(arrow, state, rules), restriction.coach(arrow)));
+          return afterClick(() =>
+            withCoach(inner.onArrowClick(arrow, state, rules), restriction.coach(arrow)),
+          );
         }
         if (engineOffersIt && !onRail) {
           // Legal and reachable, but not what this step teaches: coach only.
@@ -120,7 +152,7 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
             return withCoach(last, restriction.coach(arrow));
           }
         }
-        return delegate(() => inner.onArrowClick(arrow, state, rules));
+        return afterClick(() => inner.onArrowClick(arrow, state, rules));
       }
       return clickWhileIdle(arrow, state, rules);
     },

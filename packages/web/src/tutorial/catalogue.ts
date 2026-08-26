@@ -34,7 +34,7 @@ const L0: Lesson = {
     },
     {
       kind: 'narrate',
-      text: 'Three heads walk two steps this turn: speed is 1 + ⌊log₂ heads⌋, so a pair already matches two singles.',
+      text: `${renderCopy('speed-three', DEFAULT_MATCH_CONFIG)} ${renderCopy('speed-pair', DEFAULT_MATCH_CONFIG)}`,
     },
     {
       kind: 'expect',
@@ -44,7 +44,7 @@ const L0: Lesson = {
         from: arrow('tiling:a:0,5,0'),
         exits: [arrow('tiling:a:1,5,1')],
       },
-      coach: 'Select that stack and send it along the lit grain — one arrow, then Send.',
+      coach: 'Select that stack and send it along the lit grain — one arrow.',
     },
     {
       kind: 'end',
@@ -195,7 +195,7 @@ const L4: Lesson = {
     },
     {
       kind: 'narrate',
-      text: 'The fight resolves in the step under the threat-weighted floor rule. Equals favour the attacker; the attack costs one step of allowance.',
+      text: 'The fight finishes in that step. Equals favour the attacker; the attack costs one step of allowance.',
     },
     {
       kind: 'end',
