@@ -70,7 +70,9 @@ scheduled early in the first place.
 | P39 | Flicker-then-fade on vanish | adapter | §9, §11 45 | P36, P38 | **[packet](./packets/P39-seat-vanish-fx.md).** Resolves §11 item 45: a lost seat's trail still *clears* (no new §6.1 trigger). The adapter names `seatVanished` from the diff and presents flicker-then-fade, all remnant cells together — not `cutSnap` + `evaporate`. P32's cut proxy ignores a vanished seat's trail drop. |
 | P40 | Birth on open trail is a cut | rules | §6.1, §7, §11 47 | P08, P13, P22 | **[packet](./packets/P40-birth-on-trail-is-cut.md).** Playtest: enemy spawn on bare trail left the trail intact. Birth onto another player's trail is `evaporateFromArrow` at the birth arrow; blockade and friendly merge unchanged. |
 | P41 | Mirrored spawner field | setup | §2, §4, §7, §11 48 | P03, P08, P36 | **[packet](./packets/P41-mirrored-spawner-field.md).** Sample the thinning hash at the reflection orbit representative so the field is exactly mirror-symmetric like the homes. Density/force tables untouched; 120° parked. |
-| P42 | Claim walk ignores firebreaks | rules | §6.1, §7, §11 42/49 | P05b, P22 | **[packet](./packets/P42-claim-walk-ignores-firebreaks.md).** Playtest: unanchored landing painted only up to a mid sentry. Repeals P22 D5 / item 42 — firebreaks halt evaporation, not the claim walk. Spec-to-ship in this PR. |
+| P42 | Claim walk ignores firebreaks | rules | §6.1, §7, §11 42/49 | P05b, P22 | **[packet](./packets/P42-claim-walk-ignores-firebreaks.md).** Playtest: unanchored landing painted only up to a mid sentry. Repeals P22 D5 / item 42 — firebreaks halt evaporation, not the claim walk. **Landed.** |
+| P43 | Interactive walkthrough tutorial | adapter | §4–§9 (read) | P11, P31, P34, P35 | **[packet](./packets/P43-tutorial.md).** **Landed** (`#29`). Eight lessons on the real engine. Rails never fake legality. |
+| P44 | Tutorial mobile input + plain copy | adapter | — | P43, P31, P35 | **[packet](./packets/P44-tutorial-mobile-copy.md).** Playtest: fat-finger misses, Send undiscoverable, log formula in L0. Coarse `hitArrow` padding, rail auto-Send, stage banner, pan-to-from, plain copy. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -115,6 +117,10 @@ flowchart TD
   P07 --> P33["P33 encircled path"]
   P13["P13 trail fire"] --> P33
   P22 --> P33
+  P11 --> P43["P43 tutorial"]
+  P43 --> P44["P44 tutorial mobile + copy"]
+  P31 --> P44
+  P35["P35 count after route"] --> P44
 ```
 
 ## Build order and why

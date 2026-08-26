@@ -15,6 +15,7 @@ const TEMPLATES: Record<string, (config: MatchConfig) => string> = {
   girth: () =>
     'The smallest pinwheel is 3 arrows around one vertex — and it captures that whole spawner.',
   'speed-pair': () => 'Two heads move as fast as two singles: doubling a stack adds one step.',
+  'speed-three': () => 'Three heads take two steps this turn.',
 };
 
 /** Render the copy template `key` against `config`. */

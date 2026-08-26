@@ -183,8 +183,20 @@ const tileStrokeColor = (
   return baseStroke;
 };
 
-const SelectedWash = ({ points }: { readonly points: string }): ReactElement => (
-  <polygon points={points} fill={SELECTED_WASH} stroke="none" style={{ pointerEvents: 'none' }} />
+const SelectedWash = ({
+  points,
+  className,
+}: {
+  readonly points: string;
+  readonly className?: string;
+}): ReactElement => (
+  <polygon
+    points={points}
+    fill={SELECTED_WASH}
+    stroke="none"
+    {...(className === undefined ? {} : { className })}
+    style={{ pointerEvents: 'none' }}
+  />
 );
 
 /**
@@ -484,7 +496,10 @@ export const Board = ({
               style={flags.refused ? { cursor: 'not-allowed' } : undefined}
             />
             {flags.selectedEmphasis || focus?.has(arrow) === true ? (
-              <SelectedWash points={points} />
+              <SelectedWash
+                points={points}
+                {...(focus?.has(arrow) === true ? { className: 'lesson-target' } : {})}
+              />
             ) : null}
             {pulse ? (
               <polygon
@@ -548,6 +563,7 @@ export const Board = ({
                 fill="none"
                 stroke={SELECTED_HALO_STROKE}
                 strokeWidth={SELECTED_STROKE_WIDTH}
+                {...(focus?.has(arrow) === true ? { className: 'lesson-target' } : {})}
                 style={{ pointerEvents: 'none' }}
               />
             ) : null}

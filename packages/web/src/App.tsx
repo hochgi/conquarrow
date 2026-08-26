@@ -17,7 +17,7 @@ import { styleFor } from './colors';
 import { hasLegalStep, onlinePassMove, passIfExhausted } from './autoEndTurn';
 import { Board } from './Board';
 import { cullArrows, cullVertices } from './cull';
-import { hitArrow, hitSpawnerVertex } from './hit';
+import { COARSE_HIT_PADDING_PX, hitArrow, hitSpawnerVertex } from './hit';
 import { Hud } from './Hud';
 import type { TutorialHud } from './Hud';
 import type { InputMode, InputSnapshot } from './input/modes';
@@ -88,6 +88,7 @@ import { LESSONS, lessonById } from './tutorial/catalogue';
 import { firstRunCardVisible, practiceBoard } from './tutorial/chrome';
 import { decorateInputMode, restrictionFor } from './tutorial/restrict';
 import type { TutoredSnapshot } from './tutorial/restrict';
+import { lessonTargets, narrateCardBox, shouldPanToExpect } from './tutorial/stage';
 import { TutorialSession } from './tutorial/session';
 import { createProgressStore } from './tutorial/storage';
 import type { Lesson } from './tutorial/types';
@@ -112,6 +113,9 @@ const tutorialBacking = {
 
 const pointerKindOf = (pointerType: string): PointerKind =>
   pointerType === 'touch' || pointerType === 'pen' ? 'coarse' : 'fine';
+
+const hitPadding = (pointerType: string): { readonly paddingPx: number } | undefined =>
+  pointerKindOf(pointerType) === 'coarse' ? { paddingPx: COARSE_HIT_PADDING_PX } : undefined;
 
 /** Layout-space centroid of an arrow tile — same space as `viewport.cx/cy`. */
 const arrowCentroid = (arrow: ArrowId): { x: number; y: number } => {
@@ -512,6 +516,26 @@ export const App = (): ReactElement => {
     const restriction = restrictionFor(play.session.step());
     inputRef.current = restriction === undefined ? mode : decorateInputMode(mode, restriction);
   }, [tutorial, tutorialGen, mode]);
+
+  const expectPanKey =
+    tutorial !== undefined && tutorial.session.step().kind === 'expect'
+      ? `${tutorial.lesson.id}:${String(tutorial.session.stepIndex())}`
+      : '';
+
+  useEffect(() => {
+    if (expectPanKey === '') return;
+    const play = tutorialRef.current;
+    if (play === undefined) return;
+    const step = play.session.step();
+    if (step.kind !== 'expect') return;
+    const from = step.action.from;
+    setViewport((v) => {
+      const at = arrowCentroid(from);
+      const fromScreen = toScreen(v, at.x, at.y);
+      if (!shouldPanToExpect({ step, draftLength: 0, fromScreen, viewport: v })) return v;
+      return centerOn(v, at.x, at.y);
+    });
+  }, [expectPanKey]);
 
   const demoStepKey =
     tutorial !== undefined && tutorial.session.step().kind === 'demo'
@@ -1275,9 +1299,13 @@ export const App = (): ReactElement => {
     }
 
     if (drag.current === null) {
+      // Inspect tips are a fine-pointer read-out. On touch they pin after the
+      // first move event and cover the rail (P44 mobile playtest: the share
+      // label "NEXT" reads as the lesson button).
+      if (pointerKindOf(e.pointerType) === 'coarse') return;
       const vertex = hitSpawnerVertex(layout, viewport, x, y, spawnerVertices, 16);
       setHover(vertex === undefined ? undefined : { vertex, x, y });
-      const over = hitArrow(layout, viewport, x, y, arrows);
+      const over = hitArrow(layout, viewport, x, y, arrows, hitPadding(e.pointerType));
       // Hover is a *lookup*: `routePaint` reads the preview out of the offer the
       // phase already carries, so a fine-pointer sweep costs no measurement (P34).
       setHoverArrow(over === undefined ? undefined : { arrow: over, x, y });
@@ -1302,11 +1330,15 @@ export const App = (): ReactElement => {
     const wasDrag = drag.current?.moved === true;
     const hadPointer = drag.current !== null;
     drag.current = null;
+    if (pointerKindOf(e.pointerType) === 'coarse') {
+      setHover(undefined);
+      setHoverArrow(undefined);
+    }
     if (pinched || !hadPointer || wasDrag || inputLocked) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
-    const arrow = hitArrow(layout, viewport, sx, sy, arrows);
+    const arrow = hitArrow(layout, viewport, sx, sy, arrows, hitPadding(e.pointerType));
     if (arrow === undefined) {
       commitSnap(liveInput().onBackgroundClick());
       return;
@@ -1340,14 +1372,29 @@ export const App = (): ReactElement => {
     hoverArrow === undefined
       ? undefined
       : convertTooltip(state, geometry, rules, selectedFrom, hoverArrow.arrow);
-  const tutorialCoach = tutorial === undefined ? undefined : (snap as TutoredSnapshot).coach;
   const tutorialStep = tutorial?.session.step();
+  const snapCoach = tutorial === undefined ? undefined : (snap as TutoredSnapshot).coach;
+  const tutorialCoach =
+    snapCoach ?? (tutorialStep?.kind === 'expect' ? tutorialStep.coach : undefined);
+  const restriction = tutorialStep === undefined ? undefined : restrictionFor(tutorialStep);
+  const railTargets = restriction === undefined ? undefined : lessonTargets(restriction);
   const tutorialFocus =
     tutorialStep?.kind === 'narrate' &&
     tutorialStep.focus !== undefined &&
     tutorialStep.focus.length > 0
       ? new Set(tutorialStep.focus)
+      : railTargets !== undefined && railTargets.size > 0
+        ? railTargets
+        : undefined;
+  const focusArrow =
+    tutorialStep?.kind === 'narrate' && tutorialStep.focus !== undefined
+      ? tutorialStep.focus[0]
       : undefined;
+  const narrateBox = ((): ReturnType<typeof narrateCardBox> | undefined => {
+    if (focusArrow === undefined) return undefined;
+    const at = arrowCentroid(focusArrow);
+    return narrateCardBox(viewport, toScreen(viewport, at.x, at.y));
+  })();
   const tutorialHud: TutorialHud | undefined =
     tutorial === undefined
       ? undefined
@@ -1454,6 +1501,8 @@ export const App = (): ReactElement => {
               halted={tutorial.session.halted()}
               haltDetail={tutorial.session.halted() ? tutorial.session.haltDetail() : undefined}
               onNext={advanceTutorial}
+              {...(tutorialCoach === undefined ? {} : { coach: tutorialCoach })}
+              {...(narrateBox === undefined ? {} : { cardBox: narrateBox })}
             />
           </>
         )}
