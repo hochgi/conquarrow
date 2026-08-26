@@ -235,9 +235,10 @@ describe('rails narrow choice to the action being taught', () => {
     expect(driven.state.groups.get(exit)?.owner).toBe(driven.state.activePlayer);
     const decorated = decorateInputMode(new GalconInput(geometry), restriction);
     decorated.onArrowClick(step.action.from, driven.state, rules);
-    const after = decorated.onArrowClick(exit, driven.state, rules);
+    const after = decorated.onArrowClick(exit, driven.state, rules) as TutoredSnapshot;
     expect(after.pending?.some((move) => move.kind === 'step' && move.exit === exit)).toBe(true);
     expect(after.phase.kind).toBe('idle');
+    expect(after.coach).toBeUndefined();
   });
 
   it('cancel exits a rail cleanly and the step re-arms', () => {
