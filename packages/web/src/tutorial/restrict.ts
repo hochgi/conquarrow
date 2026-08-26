@@ -146,6 +146,12 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
           // Legal and reachable, but not what this step teaches: coach only.
           return withCoach(last, restriction.coach(arrow));
         }
+        // An on-rail exit may already hold an own head (L2: the stay-behind on
+        // home). That is a landing, not a stack switch — the selectable guard
+        // must not swallow it or the expect never commits.
+        if (onRail) {
+          return afterClick(() => inner.onArrowClick(arrow, state, rules));
+        }
         if (isOwnGroup(state, arrow)) {
           const selectable = restriction.selectable;
           if (selectable !== undefined && !selectable.has(arrow)) {

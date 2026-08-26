@@ -94,6 +94,13 @@ Feature: Learn conquarrow through scripted lessons on the real engine
       Then the batch applies like any sent route
       And the session advances to the next step
 
+    Scenario: Landing the rail onto occupied own home still commits
+      Given the L2 expect step whose exit is the home arrow
+      And that home still holds the stay-behind head
+      When player A selects the rail tip and clicks that home arrow
+      Then the landing commits through the ordinary send path
+      And the rail does not treat the home as an off-rail stack switch
+
     Scenario: Cancel exits a rail cleanly and re-arms
       Given an L0 expect step with a partially drafted route
       When player A presses Escape
