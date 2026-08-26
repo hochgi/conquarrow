@@ -33,18 +33,14 @@ export const learnerStringsOf = (lesson: Lesson): readonly string[] => {
 
 /**
  * Every shipped learner string: catalogue fields plus `copy.ts` templates
- * rendered against `DEFAULT_MATCH_CONFIG`. Unknown template keys are skipped
- * so a not-yet-authored `speed-three` does not fail the scan for setup.
+ * rendered against `DEFAULT_MATCH_CONFIG`. `COPY_KEYS` is authored here, so a
+ * missing template is a broken scan, not a skip.
  */
 export const learnerStrings = (): readonly string[] => {
   const out: string[] = [];
   for (const lesson of LESSONS) out.push(...learnerStringsOf(lesson));
   for (const key of COPY_KEYS) {
-    try {
-      out.push(renderCopy(key, DEFAULT_MATCH_CONFIG));
-    } catch {
-      // template not yet authored
-    }
+    out.push(renderCopy(key, DEFAULT_MATCH_CONFIG));
   }
   return out;
 };
