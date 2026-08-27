@@ -521,20 +521,13 @@ export const myGamesScript = (
   games: readonly {
     readonly groupHash: string;
     readonly gameNumber: string;
-    readonly status?: LibraryGameStatus;
+    readonly status: LibraryGameStatus;
   }[],
 ): ScriptedFetch => ({
   method: 'GET',
   path: '/my-games',
   status: 200,
-  body: {
-    lobbies: [],
-    games: games.map((row) => ({
-      groupHash: row.groupHash,
-      gameNumber: row.gameNumber,
-      status: row.status ?? 'waiting',
-    })),
-  },
+  body: { lobbies: [], games },
 });
 
 export const goneInviteEmptyBodyScript = (token: string): ScriptedFetch => ({

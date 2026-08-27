@@ -75,7 +75,7 @@ describe('Lobby chrome', () => {
   });
 
   it('Library row opens the game hash', async () => {
-    const listed = { groupHash: 'G', gameNumber: GAME_ONE };
+    const listed = { groupHash: 'G', gameNumber: GAME_ONE, status: 'waiting' as const };
     const h = makeHostHarness({
       sessionToken: ALICE.bearer,
       fetchScript: [

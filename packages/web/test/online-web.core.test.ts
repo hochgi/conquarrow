@@ -171,7 +171,7 @@ describe('Play', () => {
 
 describe('Library', () => {
   it('My-games resume opens the stored game hash', async () => {
-    const listed = { groupHash: 'G', gameNumber: GAME_ONE };
+    const listed = { groupHash: 'G', gameNumber: GAME_ONE, status: 'waiting' as const };
     const h = makePagesHarness({
       sessionToken: ALICE.bearer,
       fetchScript: [
