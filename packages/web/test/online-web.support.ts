@@ -7,6 +7,7 @@
 import {
   GOOGLE_ID_TOKEN_SESSION_KEY,
   type InviteSeat,
+  type LibraryGameStatus,
   type OnlineGameBoard,
   type OnlinePagesDeps,
   type OnlinePagesEnv,
@@ -517,7 +518,11 @@ export const postMoveScript = (
 });
 
 export const myGamesScript = (
-  games: readonly { readonly groupHash: string; readonly gameNumber: string }[],
+  games: readonly {
+    readonly groupHash: string;
+    readonly gameNumber: string;
+    readonly status: LibraryGameStatus;
+  }[],
 ): ScriptedFetch => ({
   method: 'GET',
   path: '/my-games',

@@ -31,15 +31,14 @@ import {
   notFound,
   unprocessable,
 } from './json-result';
+import { listLibraryGames } from './library-listing';
 import {
   gameMetaKey,
-  gamesPrefix,
   groupMetaKey,
   inviteKey,
   lobbyKey,
   lobbyPrefix,
   userGroupKey,
-  userGroupPrefix,
 } from './s3-keys';
 import { getObject, listObjects, putObject } from './store-io';
 
@@ -384,28 +383,6 @@ const openLobbyTokens = async (s3: ObjectStore, userHash: string): Promise<reado
   return lobbies;
 };
 
-const GAME_META = /\/games\/(\d{6})\/meta\.json$/;
-
-const startedGames = async (
-  s3: ObjectStore,
-  userHash: string,
-): Promise<readonly { readonly groupHash: string; readonly gameNumber: string }[]> => {
-  const prefix = userGroupPrefix(userHash);
-  const groupKeys = [...(await listObjects(s3, prefix))].sort(compareStrings);
-  const games: { readonly groupHash: string; readonly gameNumber: string }[] = [];
-  for (const key of groupKeys) {
-    const groupHash = lastSegment(key, prefix);
-    if (groupHash === undefined) continue;
-    const gameKeys = [...(await listObjects(s3, gamesPrefix(groupHash)))].sort(compareStrings);
-    for (const gameKey of gameKeys) {
-      const match = GAME_META.exec(gameKey);
-      const gameNumber = match?.[1];
-      if (gameNumber !== undefined) games.push({ groupHash, gameNumber });
-    }
-  }
-  return games;
-};
-
 export const handleMyGames = async (
   deps: OnlineApiDeps,
   request: OnlineRequest,
@@ -413,6 +390,6 @@ export const handleMyGames = async (
   const user = await requireUserHash(deps.google, authorizationOf(request));
   if (!user.ok) return user.result;
   const lobbies = await openLobbyTokens(deps.s3, user.userHash);
-  const games = await startedGames(deps.s3, user.userHash);
+  const games = await listLibraryGames(deps.s3, user.userHash);
   return jsonResult(200, { lobbies, games });
 };

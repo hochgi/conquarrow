@@ -212,7 +212,7 @@ describe('Move errors', () => {
 describe('Library', () => {
   it("Library resume does not apply a previous lobby's seats", async () => {
     const otherTurn = boardAt(0, { activePlayer: 'B', tag: 'other-game-bobs-turn' });
-    const listed = { groupHash: OTHER_GROUP_HASH, gameNumber: GAME_ONE };
+    const listed = { groupHash: OTHER_GROUP_HASH, gameNumber: GAME_ONE, status: 'waiting' as const };
     const h = makePagesHarness({
       sessionToken: ALICE.bearer,
       fetchScript: [

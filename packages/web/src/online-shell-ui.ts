@@ -7,6 +7,8 @@ import {
   DEFAULT_MATCH_CONFIG,
   type GameState,
   type InviteSeat,
+  type LibraryGameStatus,
+  type PagesLobbyMode,
   type PlannedSeatKind,
 } from '@conquarrow/contracts';
 import { createMatchLog, type MatchLog, type SeatDriverLog } from './matchLog';
@@ -15,6 +17,27 @@ import type { SeatPlan } from './seatPlan';
 /** Shell copy while `POST /invites` is in flight (P27). */
 export const CREATING_INVITE_COPY =
   'Creating your unique invite link - this may take a few moments…';
+
+/** Signed-in Online control that lists started rows (P45). */
+export const MY_GAMES_COPY = 'My games';
+
+/** Empty started-games list (P45). */
+export const NO_GAMES_COPY = 'No games yet';
+
+const LIBRARY_LABELS: Record<LibraryGameStatus, string> = {
+  'your-turn': 'Open (your turn)',
+  waiting: 'Open (waiting)',
+  won: 'Won',
+  lost: 'Lost',
+};
+
+export const libraryStatusLabel = (status: LibraryGameStatus): string => LIBRARY_LABELS[status];
+
+export const formatLibraryRow = (status: LibraryGameStatus, gameNumber: string): string =>
+  `${libraryStatusLabel(status)} · ${gameNumber}`;
+
+export const libraryOffered = (mode: PagesLobbyMode, signedIn: boolean): boolean =>
+  mode === 'online' && signedIn;
 
 export const kindsForHost = (
   plan: SeatPlan,
