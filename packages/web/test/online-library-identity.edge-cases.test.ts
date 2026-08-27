@@ -51,4 +51,45 @@ describe('Missing time and parse', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('Out-of-range seatIndex fails the library parse', () => {
+    expect(
+      parseMyGames({
+        lobbies: [],
+        games: [
+          {
+            groupHash: GROUP_HASH,
+            gameNumber: GAME_ONE,
+            status: 'waiting',
+            seats: validSeats,
+            seatIndex: 3,
+          },
+        ],
+      }),
+    ).toBeUndefined();
+  });
+
+  it('More than six seats fails the library parse', () => {
+    const seven = [
+      ...validSeats,
+      { kind: 'human', label: 'Player D', you: false },
+      { kind: 'human', label: 'Player E', you: false },
+      { kind: 'human', label: 'Player F', you: false },
+      { kind: 'heuristic', label: 'AI', you: false },
+    ];
+    expect(
+      parseMyGames({
+        lobbies: [],
+        games: [
+          {
+            groupHash: GROUP_HASH,
+            gameNumber: GAME_ONE,
+            status: 'waiting',
+            seats: seven,
+            seatIndex: 0,
+          },
+        ],
+      }),
+    ).toBeUndefined();
+  });
 });

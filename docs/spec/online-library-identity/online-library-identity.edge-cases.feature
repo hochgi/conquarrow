@@ -59,3 +59,13 @@ Feature: Library row identity — boundaries
       Given a /my-games body whose game row has seats but no seatIndex
       When the adapter parses that body
       Then parseMyGames returns undefined
+
+    Scenario: Out-of-range seatIndex fails the library parse
+      Given a /my-games body whose seatIndex is not a chair on that row
+      When the adapter parses that body
+      Then parseMyGames returns undefined
+
+    Scenario: More than six seats fails the library parse
+      Given a /my-games body whose game row lists seven seats
+      When the adapter parses that body
+      Then parseMyGames returns undefined

@@ -91,10 +91,11 @@ flowchart TD
 - The vs-line shall list every chair except the caller's, in seat order.
 - The shell shall tint a library row from the caller's `seatIndex` board colour and shall not use that colour as the button's entire fill.
 - `formatLibraryStartedAt` shall render UTC, not the operator's local timezone.
+- When `seats` is empty or longer than six, or `seatIndex` is not a chair on that row, the adapter shall treat the library parse as failed.
 
 ## Counts
 
 - Core scenarios: 6
-- Edge-case scenarios: 8
-- Invariants: 11
+- Edge-case scenarios: 10
+- Invariants: 12
 - BSSN in the packet and ADR 0002 (2026-08-27, P46). No SPEC.md §11 item opened or closed.

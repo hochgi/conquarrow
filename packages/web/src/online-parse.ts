@@ -115,6 +115,7 @@ const parseLibrarySeat = (raw: unknown): LibrarySeat | undefined => {
 
 const parseLibrarySeats = (raw: unknown): readonly LibrarySeat[] | undefined => {
   if (!Array.isArray(raw)) return undefined;
+  if (raw.length < 1 || raw.length > 6) return undefined;
   const seats: LibrarySeat[] = [];
   for (const entry of raw) {
     const seat = parseLibrarySeat(entry);
@@ -136,7 +137,12 @@ const parseGameRow = (raw: unknown): StartedGameRow | undefined => {
   const seats = parseLibrarySeats(rec['seats']);
   if (seats === undefined) return undefined;
   const seatIndexRaw = rec['seatIndex'];
-  if (typeof seatIndexRaw !== 'number' || !Number.isInteger(seatIndexRaw) || seatIndexRaw < 0) {
+  if (
+    typeof seatIndexRaw !== 'number' ||
+    !Number.isInteger(seatIndexRaw) ||
+    seatIndexRaw < 0 ||
+    seatIndexRaw >= seats.length
+  ) {
     return undefined;
   }
   const row: StartedGameRow = { groupHash, gameNumber, status, seats, seatIndex: seatIndexRaw };
