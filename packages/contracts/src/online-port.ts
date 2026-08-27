@@ -67,10 +67,24 @@ export interface OpenLobbyRow {
   readonly token: InviteToken;
 }
 
+/**
+ * A chair on a started library row. Never `userHash`, Google `sub`, or email.
+ * `you` is true only on the caller's human chair.
+ */
+export interface LibrarySeat {
+  readonly kind: 'human' | 'heuristic';
+  readonly label: string;
+  readonly you: boolean;
+}
+
 export interface StartedGameRow {
   readonly groupHash: GroupHash;
   readonly gameNumber: GameNumber;
   readonly status: LibraryGameStatus;
+  readonly seats: readonly LibrarySeat[];
+  readonly seatIndex: number;
+  /** ISO-8601 UTC written at Start; omitted on pre-P46 meta. */
+  readonly startedAt?: string;
 }
 
 export interface MyGamesBody {

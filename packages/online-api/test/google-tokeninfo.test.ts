@@ -61,6 +61,19 @@ describe('createGoogleTokenInfoVerifier', () => {
     expect(result).toEqual({ ok: true, sub: 'alice-sub' });
   });
 
+  it('prefers given_name over name as displayName', async () => {
+    const result = await verify(
+      fakeFetch(200, { ...validClaims, given_name: 'Gilad', name: 'Gilad Hoch' }),
+      BEARER,
+    );
+    expect(result).toEqual({ ok: true, sub: 'alice-sub', displayName: 'Gilad' });
+  });
+
+  it('falls back to name when given_name is absent', async () => {
+    const result = await verify(fakeFetch(200, { ...validClaims, name: 'Gilad Hoch' }), BEARER);
+    expect(result).toEqual({ ok: true, sub: 'alice-sub', displayName: 'Gilad Hoch' });
+  });
+
   it('accepts exp encoded as a decimal string', async () => {
     const result = await verify(
       fakeFetch(200, { ...validClaims, exp: String(NOW_S + 60) }),

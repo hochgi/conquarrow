@@ -7,7 +7,13 @@
  */
 
 import { expect } from 'vitest';
-import type { GameState, InviteSeat, LibrarySummary, PlayerId } from '@conquarrow/contracts';
+import type {
+  GameState,
+  InviteSeat,
+  LibrarySeat,
+  LibrarySummary,
+  PlayerId,
+} from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { isLost } from '@conquarrow/rules-core';
 import {
@@ -15,11 +21,13 @@ import {
   GAME_ONE,
   aliceHash,
   bobHash,
+  carolHash,
   gameLogKey,
   gameMetaKey,
   gameStateKey,
   persistEnvelope,
   userGroupKey,
+  userProfileKey,
 } from './support';
 
 export const GAAA = 'a'.repeat(32);
@@ -38,6 +46,18 @@ export const aliceBobHeuristicSeats = (): readonly InviteSeat[] => [
   { kind: 'human', userHash: bobHash() },
   { kind: 'heuristic' },
 ];
+
+export const aliceCarolHeuristicSeats = (): readonly InviteSeat[] => [
+  { kind: 'human', userHash: aliceHash() },
+  { kind: 'human', userHash: carolHash() },
+  { kind: 'heuristic' },
+];
+
+export const threeSeatWaitingSummary = (): LibrarySummary => ({
+  players: ['A', 'B', 'C'],
+  activePlayer: 'A',
+  lostPlayers: [],
+});
 
 /** `lostPlayers` as persist must write them: `isLost` ids, sorted. */
 export const lostPlayerIdsOf = (game: GameState): readonly string[] =>
@@ -106,6 +126,16 @@ export const mergeGameMeta = (
   s3.set(gameMetaKey(groupHash, gameNumber), JSON.stringify({ ...rec, ...extra }));
 };
 
+export const dropGameMetaStartedAt = (
+  s3: Map<string, string>,
+  groupHash: string,
+  gameNumber: string,
+): void => {
+  const rec = { ...gameMetaRecord(s3, groupHash, gameNumber) };
+  delete rec['startedAt'];
+  s3.set(gameMetaKey(groupHash, gameNumber), JSON.stringify(rec));
+};
+
 export const stampLibrarySummary = (
   s3: Map<string, string>,
   groupHash: string,
@@ -166,19 +196,47 @@ export const plantStampedGame = (
   s3.set(gameMetaKey(args.groupHash, args.gameNumber), JSON.stringify(meta));
 };
 
-export const libraryRowOf = (
-  games: readonly {
-    readonly groupHash: string;
-    readonly gameNumber: string;
-    readonly status: string | undefined;
-  }[],
+export const libraryRowOf = <
+  T extends { readonly groupHash: string; readonly gameNumber: string },
+>(
+  games: readonly T[],
   groupHash: string,
   gameNumber: string = GAME_ONE,
-): { readonly groupHash: string; readonly gameNumber: string; readonly status: string | undefined } => {
+): T => {
   const row = games.find((game) => game.groupHash === groupHash && game.gameNumber === gameNumber);
   expect(row, `${groupHash}/${gameNumber}`).toBeDefined();
   if (row === undefined) {
     throw new Error(`setup: expected listed game ${groupHash}/${gameNumber}`);
   }
   return row;
+};
+
+export { userProfileKey };
+
+export const asLibrarySeats = (
+  seats: readonly Record<string, unknown>[],
+): readonly LibrarySeat[] =>
+  seats.map((seat) => ({
+    kind: seat['kind'] === 'heuristic' ? 'heuristic' : 'human',
+    label: typeof seat['label'] === 'string' ? seat['label'] : '',
+    you: seat['you'] === true,
+  }));
+
+export const plantUserProfile = (
+  s3: Map<string, string>,
+  userHash: string,
+  displayName: string,
+): void => {
+  s3.set(userProfileKey(userHash), JSON.stringify({ displayName }));
+};
+
+export const profileDisplayNameOf = (
+  s3: ReadonlyMap<string, string>,
+  userHash: string,
+): string | undefined => {
+  const raw = s3.get(userProfileKey(userHash));
+  if (raw === undefined) return undefined;
+  const rec = asRecord(JSON.parse(raw) as unknown);
+  const displayName = rec['displayName'];
+  return typeof displayName === 'string' ? displayName : undefined;
 };

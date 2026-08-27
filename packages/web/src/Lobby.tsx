@@ -6,7 +6,10 @@ import { DEFAULT_BYOK, isByokReady } from './byokConfig';
 import {
   CREATING_INVITE_COPY,
   formatLibraryRow,
+  formatLibraryStartedAt,
   libraryOffered,
+  libraryRowTint,
+  libraryVsLine,
   MY_GAMES_COPY,
   NO_GAMES_COPY,
   rosterOccupancy,
@@ -449,6 +452,51 @@ const goneCopy = (reason: 'revoked' | 'started' | undefined): string => {
   return 'This invite is gone.';
 };
 
+const LibraryGameRow = ({
+  row,
+  onOpenGame,
+}: {
+  readonly row: StartedGameRow;
+  readonly onOpenGame: (groupHash: string, gameNumber: string) => void;
+}): ReactElement => {
+  const vsLine = libraryVsLine(row.seats);
+  const started = formatLibraryStartedAt(row.startedAt);
+  const tint = libraryRowTint(row.seatIndex);
+  return (
+    <li>
+      <button
+        type="button"
+        className="lobby-byok-test lobby-game-open"
+        style={{ borderLeftColor: tint }}
+        onClick={() => {
+          onOpenGame(row.groupHash, row.gameNumber);
+        }}
+      >
+        <span className="lobby-game-swatches" aria-hidden>
+          {row.seats.map((seat, index) => (
+            <span
+              key={`${seat.kind}:${String(index)}`}
+              className={
+                seat.you
+                  ? 'lobby-game-swatch you'
+                  : seat.kind === 'heuristic'
+                    ? 'lobby-game-swatch ai'
+                    : 'lobby-game-swatch'
+              }
+              style={{ background: styleFor(seatPlayerId(index)).fill }}
+            />
+          ))}
+        </span>
+        <span className="lobby-game-copy">
+          <span>{formatLibraryRow(row.status, row.gameNumber)}</span>
+          {vsLine !== '' ? <span className="lobby-game-vs">{vsLine}</span> : null}
+          {started !== undefined ? <span className="lobby-game-started">{started}</span> : null}
+        </span>
+      </button>
+    </li>
+  );
+};
+
 const MyGamesDisclosure = ({
   games,
   onOpenGame,
@@ -474,17 +522,11 @@ const MyGamesDisclosure = ({
         ) : (
           <ul className="lobby-games">
             {games.map((row) => (
-              <li key={`${row.groupHash}/${row.gameNumber}`}>
-                <button
-                  type="button"
-                  className="lobby-byok-test"
-                  onClick={() => {
-                    onOpenGame(row.groupHash, row.gameNumber);
-                  }}
-                >
-                  {formatLibraryRow(row.status, row.gameNumber)}
-                </button>
-              </li>
+              <LibraryGameRow
+                key={`${row.groupHash}/${row.gameNumber}`}
+                row={row}
+                onOpenGame={onOpenGame}
+              />
             ))}
           </ul>
         )

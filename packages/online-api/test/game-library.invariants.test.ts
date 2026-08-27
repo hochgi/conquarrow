@@ -88,7 +88,7 @@ describe('online-game-library API invariants', () => {
     }
   });
 
-  it('When meta.json lacks a library summary and state.json exists, GET /my-games shall classify from that state and shall not write S3', async () => {
+  it('When meta.json lacks a library summary and state.json exists, GET /my-games shall classify from that state and shall not write game objects', async () => {
     const { api, s3 } = makeHarness();
     await startAliceBob(api);
     const groupHash = aliceBobGroupHash();

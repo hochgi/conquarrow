@@ -2,6 +2,7 @@
 
 **Packet:** [P45 — Game library status](../../design/packets/P45-game-library.md)
 **ADR:** [0002](../../adr/0002-cheap-async-online.md) (amended 2026-08-27, P45)
+**Amended by:** [online-library-identity](../online-library-identity/online-library-identity.md) (P46) — `seats`, `seatIndex`, optional `startedAt`, profile overlay.
 **Amends:** [online-auth-invites](../online-auth-invites/online-auth-invites.md) · [online-moves-ws](../online-moves-ws/online-moves-ws.md) · [online-web](../online-web/online-web.md) · [online-shell](../online-shell/online-shell.md)
 **Features:** [core](./online-game-library.core.feature) · [edge cases](./online-game-library.edge-cases.feature)
 
@@ -36,6 +37,7 @@ call `isLost` when stamping or falling back.
 ```
 
 `status` is required. Open lobby rows are unchanged `{ "token" }`.
+P46 adds required `seats` + `seatIndex` and optional `startedAt` on this row.
 
 ## Classification
 
@@ -55,7 +57,9 @@ No `summary`, or no chair for the caller → `waiting`.
 Every persist of `state.json` writes the library summary onto that game's
 `meta.json` (same object as `seats`; do not drop chairs). `GET /my-games`
 reads meta. Unstamped meta + existing `state.json` → one hydrate, then the
-same classifier. Listing does not write S3.
+same classifier. Listing does not write game objects. P46 may upsert the
+caller's `users/<userHash>/profile.json` on GET; it still must not write
+group or game keys.
 
 ## Shell
 
@@ -89,7 +93,7 @@ flowchart TD
 - When the bearer is in `lostPlayers` and `winner` is unset, the system shall report `lost` and shall not report `waiting` or `your-turn`.
 - When a game has `meta.json` and no `state.json`, the system shall report `waiting` for every bound human.
 - When a persist writes `state.json`, the system shall write `players`, `activePlayer`, and `lostPlayers` onto that game's `meta.json`, and `winner` when it is set, and shall keep `seats`.
-- When `meta.json` lacks a library summary and `state.json` exists, `GET /my-games` shall classify from that state and shall not write S3.
+- When `meta.json` lacks a library summary and `state.json` exists, `GET /my-games` shall classify from that state and shall not write game objects.
 - The system shall not include another user's lobbies or games in `GET /my-games`.
 - When a request has no valid Google ID token, the system shall respond 401 on `GET /my-games`.
 - The system shall sort started rows by status rank `your-turn`, `waiting`, `won`, `lost`, then `groupHash` ascending, then `gameNumber` descending.

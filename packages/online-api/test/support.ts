@@ -141,7 +141,11 @@ export const fixedBytes =
     return out;
   };
 
-export const fakeGoogle = (): GoogleVerifier => ({
+export type FakeGoogleNames = Readonly<
+  Record<string, { readonly given_name?: string; readonly name?: string }>
+>;
+
+export const fakeGoogle = (namesByBearer: FakeGoogleNames = {}): GoogleVerifier => ({
   verify: (authorizationHeader) => {
     if (authorizationHeader === undefined || authorizationHeader === '') {
       return { ok: false, reason: 'missing' };
@@ -161,7 +165,12 @@ export const fakeGoogle = (): GoogleVerifier => ({
     if (user === undefined) {
       return { ok: false, reason: 'invalid' };
     }
-    return { ok: true, sub: user.sub };
+    const claims = namesByBearer[user.bearer];
+    const displayName = claims?.given_name ?? claims?.name;
+    if (displayName === undefined) {
+      return { ok: true, sub: user.sub };
+    }
+    return { ok: true, sub: user.sub, displayName };
   },
 });
 
@@ -274,6 +283,8 @@ export const makeHarness = (overrides?: {
   readonly s3?: Map<string, string>;
   readonly store?: ObjectStore;
   readonly goneConnectionIds?: ReadonlySet<string>;
+  readonly google?: GoogleVerifier;
+  readonly googleNames?: FakeGoogleNames;
 }): {
   api: OnlinePort;
   ws: OnlineWsPort;
@@ -302,7 +313,7 @@ export const makeHarness = (overrides?: {
     return gone.has(connectionId) ? 410 : 200;
   };
   const deps = {
-    google: fakeGoogle(),
+    google: overrides?.google ?? fakeGoogle(overrides?.googleNames ?? {}),
     s3: overrides?.store ?? mapStore(s3),
     clock: overrides?.clock ?? ((): number => 0),
     randomBytes: overrides?.randomBytes ?? sequentialBytes(),
@@ -473,7 +484,7 @@ export const myGamesOf = (
   return { lobbies, games };
 };
 
-/** P45: same membership as {@link myGamesOf}, plus each started row's `status`. */
+/** P45: same membership as {@link myGamesOf}, plus each started row's `status`. P46 fields when present. */
 export const libraryGamesOf = (
   value: unknown,
 ): {
@@ -482,6 +493,9 @@ export const libraryGamesOf = (
     groupHash: string;
     gameNumber: string;
     status: string | undefined;
+    seatIndex: number | undefined;
+    startedAt: string | undefined;
+    seats: readonly Record<string, unknown>[];
   }[];
 } => {
   const base = myGamesOf(value);
@@ -492,14 +506,31 @@ export const libraryGamesOf = (
   const games = base.games.map((row, i) => {
     const recRow = asRecord(gamesRaw[i]);
     const status = recRow['status'];
+    const seatIndex = recRow['seatIndex'];
+    const startedAt = recRow['startedAt'];
+    const seatsRaw = recRow['seats'];
+    const seats = Array.isArray(seatsRaw)
+      ? seatsRaw.map((seat, seatIndexInRow) => {
+          if (typeof seat !== 'object' || seat === null || Array.isArray(seat)) {
+            throw new Error(`expected games[${String(i)}].seats[${String(seatIndexInRow)}] object`);
+          }
+          return seat as Record<string, unknown>;
+        })
+      : [];
     return {
       groupHash: row.groupHash,
       gameNumber: row.gameNumber,
       status: typeof status === 'string' ? status : undefined,
+      seatIndex: typeof seatIndex === 'number' ? seatIndex : undefined,
+      startedAt: typeof startedAt === 'string' ? startedAt : undefined,
+      seats,
     };
   });
   return { lobbies: base.lobbies, games };
 };
+
+export const userProfileKey = (userHash: string): string =>
+  `conquarrow/users/${userHash}/profile.json`;
 
 export const goneReason = (value: unknown): string => {
   const reason = asRecord(value)['reason'];

@@ -41,6 +41,7 @@ import {
   postMoveScript,
   quotedVersion,
   startGameScript,
+  withLibraryIdentity,
 } from './online-web.support';
 
 describe('online-web invariants', () => {
@@ -332,7 +333,11 @@ describe('online-web invariants', () => {
   });
 
   it("Library resume shall open #/g/<groupHash>/<gameNumber> and GET, shall clear invite seats from a previous lobby in this adapter, and the listed rows are that user's /my-games only", async () => {
-    const own = { groupHash: GROUP_HASH, gameNumber: GAME_ONE, status: 'waiting' as const };
+    const own = withLibraryIdentity({
+      groupHash: GROUP_HASH,
+      gameNumber: GAME_ONE,
+      status: 'waiting',
+    });
     const h = makePagesHarness({
       sessionToken: ALICE.bearer,
       fetchScript: [

@@ -56,6 +56,7 @@ export type {
   InviteBody,
   InviteSeat,
   InviteToken,
+  LibrarySeat,
   MeBody,
   MyGamesBody,
   OnlineHeaders,
@@ -76,6 +77,8 @@ export type {
 
 export type { LibraryGameStatus, LibrarySummary } from './library-status';
 export { libraryStatusFor } from './library-status';
+
+export { PLAYER_SEAT_LABELS, libraryVsLine, playerLetterLabel } from './library-row';
 
 export { GOOGLE_ID_TOKEN_SESSION_KEY } from './online-pages-port';
 export type {

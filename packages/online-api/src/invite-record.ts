@@ -191,6 +191,8 @@ export type GameMeta = {
   readonly players?: readonly string[];
   readonly activePlayer?: string;
   readonly lostPlayers?: readonly string[];
+  /** ISO-8601 UTC written at Start; omitted on pre-P46 meta. */
+  readonly startedAt?: string;
 };
 
 const parseStringList = (value: unknown): readonly string[] | undefined => {
@@ -228,10 +230,12 @@ export const parseGameMeta = (raw: string): GameMeta | undefined => {
   if (seats === undefined) return undefined;
   const winner = rec['winner'];
   const inviteToken = rec['inviteToken'];
+  const startedAt = rec['startedAt'];
   return {
     seats,
     ...(typeof winner === 'string' ? { winner } : {}),
     ...(typeof inviteToken === 'string' ? { inviteToken } : {}),
     ...libraryFieldsOf(rec),
+    ...(typeof startedAt === 'string' && startedAt !== '' ? { startedAt } : {}),
   };
 };

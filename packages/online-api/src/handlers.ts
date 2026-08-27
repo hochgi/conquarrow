@@ -1,7 +1,7 @@
 import type { InviteBody, OnlineHttpResult, OnlineRequest } from '@conquarrow/contracts';
 import type { ObjectStore, OnlineApiDeps } from './api-types';
 import { isPreconditionFailed } from './api-types';
-import { authorizationOf, requireUserHash } from './auth';
+import { authorizationOf, requireUserHash, type UserAuth } from './auth';
 import {
   bytesToHex,
   compareStrings,
@@ -41,8 +41,13 @@ import {
   userGroupKey,
 } from './s3-keys';
 import { getObject, listObjects, putObject } from './store-io';
+import { upsertProfileDisplayName } from './user-profile';
 
 const POINTER = '{}';
+
+const upsertCallerProfile = async (s3: ObjectStore, user: Extract<UserAuth, { ok: true }>): Promise<void> => {
+  await upsertProfileDisplayName(s3, user.userHash, user.displayName);
+};
 
 const readInvite = async (
   s3: ObjectStore,
@@ -133,6 +138,7 @@ export const handleCreate = async (
 ): Promise<OnlineHttpResult> => {
   const user = await requireUserHash(deps.google, authorizationOf(request));
   if (!user.ok) return user.result;
+  await upsertCallerProfile(deps.s3, user);
   const args = parseCreateArgs(request.body);
   if (args === undefined) return unprocessable();
   const plan = validatePlan(args.kinds, args.hostSeatIndex);
@@ -166,6 +172,7 @@ export const handleAccept = async (
 ): Promise<OnlineHttpResult> => {
   const user = await requireUserHash(deps.google, authorizationOf(request));
   if (!user.ok) return user.result;
+  await upsertCallerProfile(deps.s3, user);
   for (;;) {
     const raw = await getObject(deps.s3, inviteKey(token));
     if (raw === undefined) return notFound();
@@ -253,8 +260,11 @@ const writeMembership = async (
   }
 };
 
-const gameMetaBody = (seats: InviteRecord['seats'], token: string): string =>
-  JSON.stringify({ seats, inviteToken: token });
+const gameMetaBody = (
+  seats: InviteRecord['seats'],
+  token: string,
+  startedAt: string,
+): string => JSON.stringify({ seats, inviteToken: token, startedAt });
 
 const metaBelongsToInvite = (
   raw: string | undefined,
@@ -272,16 +282,23 @@ const ensureGameMeta = async (
   s3: ObjectStore,
   groupHash: string,
   gameNumber: string,
-  seats: InviteRecord['seats'],
-  token: string,
+  invite: {
+    readonly token: string;
+    readonly seats: InviteRecord['seats'];
+    readonly startedAt: string;
+  },
 ): Promise<'ours' | 'taken'> => {
   const key = gameMetaKey(groupHash, gameNumber);
   try {
-    await putObject(s3, key, gameMetaBody(seats, token), { ifNoneMatch: '*' });
+    await putObject(s3, key, gameMetaBody(invite.seats, invite.token, invite.startedAt), {
+      ifNoneMatch: '*',
+    });
     return 'ours';
   } catch (error: unknown) {
     if (!isPreconditionFailed(error)) throw error;
-    return metaBelongsToInvite(await getObject(s3, key), token, seats) ? 'ours' : 'taken';
+    return metaBelongsToInvite(await getObject(s3, key), invite.token, invite.seats)
+      ? 'ours'
+      : 'taken';
   }
 };
 
@@ -304,6 +321,7 @@ const materialiseGame = async (
   token: string,
   invite: InviteRecord,
   raw: string,
+  clock: () => number,
 ): Promise<{ readonly groupHash: string; readonly gameNumber: string }> => {
   const hashes = boundHumanHashes(invite.seats);
   const groupHash = groupHashFromUserHashes(hashes);
@@ -323,7 +341,11 @@ const materialiseGame = async (
       current = { ...current, gameNumber };
       currentRaw = serializeInvite(current);
     }
-    const owned = await ensureGameMeta(s3, groupHash, gameNumber, current.seats, token);
+    const owned = await ensureGameMeta(s3, groupHash, gameNumber, {
+      token,
+      seats: current.seats,
+      startedAt: new Date(clock()).toISOString(),
+    });
     if (owned === 'taken') {
       n = Number.parseInt(gameNumber, 10) + 1;
       const next = padGameNumber(n);
@@ -354,7 +376,7 @@ export const handleStart = async (
     if (indexOfBoundUser(invite.seats, user.userHash) < 0) return forbidden();
     if (!allHumanSeatsBound(invite.seats)) return conflict();
     try {
-      const started = await materialiseGame(deps.s3, token, invite, raw);
+      const started = await materialiseGame(deps.s3, token, invite, raw, deps.clock);
       return jsonResult(200, started);
     } catch (error: unknown) {
       if (isPreconditionFailed(error)) continue;
@@ -389,6 +411,7 @@ export const handleMyGames = async (
 ): Promise<OnlineHttpResult> => {
   const user = await requireUserHash(deps.google, authorizationOf(request));
   if (!user.ok) return user.result;
+  await upsertCallerProfile(deps.s3, user);
   const lobbies = await openLobbyTokens(deps.s3, user.userHash);
   const games = await listLibraryGames(deps.s3, user.userHash);
   return jsonResult(200, { lobbies, games });
