@@ -73,6 +73,7 @@ scheduled early in the first place.
 | P42 | Claim walk ignores firebreaks | rules | §6.1, §7, §11 42/49 | P05b, P22 | **[packet](./packets/P42-claim-walk-ignores-firebreaks.md).** Playtest: unanchored landing painted only up to a mid sentry. Repeals P22 D5 / item 42 — firebreaks halt evaporation, not the claim walk. **Landed.** |
 | P43 | Interactive walkthrough tutorial | adapter | §4–§9 (read) | P11, P31, P34, P35 | **[packet](./packets/P43-tutorial.md).** **Landed** (`#29`). Eight lessons on the real engine. Rails never fake legality. |
 | P44 | Tutorial mobile input + plain copy | adapter | — | P43, P31, P35 | **[packet](./packets/P44-tutorial-mobile-copy.md).** Playtest: fat-finger misses, Send undiscoverable, log formula in L0. Coarse `hitArrow` padding, rail auto-Send, stage banner, pan-to-from, plain copy. |
+| P45 | Game library status | adapter | — | P17, P18, P25, P27 | **[packet](./packets/P45-game-library.md).** Signed-in Online **My games**: per-caller `won` / `lost` / `waiting` / `your-turn`. Stamp on persist; no new AWS. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -104,7 +105,9 @@ flowchart TD
   P19 --> P25["P25 Pages shell"]
   P25 --> P26["P26 playtest UX"]
   P26 --> P27["P27 lobby follow-up"]
-  P27 -.-> P20["P20+ wishes"]
+  P27 --> P45["P45 game library"]
+  P18 --> P45
+  P45 -.-> P20["P20+ wishes"]
   P07 --> P28["P28 refuse self-convert"]
   P11 --> P28
   P22["P22 simple trails"] --> P28
@@ -186,7 +189,8 @@ harness (P24):
 6. **P25** — Pages shell (GIS, lobby, host events)
 7. **P26** — playtest lobby/HUD (GET seats, frozen roster, peek, 410 ids, online auto-pass)
 8. **P27** — create wait, Online Player floor, GIS chooser after One Tap dismiss
-9. **P20+** — wishes only (viewers, fork, arena, replay button, Elo, online BYOK)
+9. **P45** — My games statuses (won / lost / waiting / your-turn)
+10. **P20+** — wishes only (viewers, fork, arena, replay button, Elo, online BYOK)
 
 One `/spec-to-ship` per packet.
 

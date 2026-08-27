@@ -184,13 +184,38 @@ export const seatsEqual = (
   return true;
 };
 
-export const parseGameMeta = (
-  raw: string,
-): {
+export type GameMeta = {
   readonly seats: readonly InviteSeat[];
   readonly winner?: string;
   readonly inviteToken?: string;
-} | undefined => {
+  readonly players?: readonly string[];
+  readonly activePlayer?: string;
+  readonly lostPlayers?: readonly string[];
+};
+
+const parseStringList = (value: unknown): readonly string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const items: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') return undefined;
+    items.push(item);
+  }
+  return items;
+};
+
+const libraryFieldsOf = (
+  rec: Record<string, unknown>,
+): Pick<GameMeta, 'players' | 'activePlayer' | 'lostPlayers'> => {
+  const players = parseStringList(rec['players']);
+  const lostPlayers = parseStringList(rec['lostPlayers']);
+  const activePlayer = rec['activePlayer'];
+  if (players === undefined || lostPlayers === undefined || typeof activePlayer !== 'string') {
+    return {};
+  }
+  return { players, activePlayer, lostPlayers };
+};
+
+export const parseGameMeta = (raw: string): GameMeta | undefined => {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;
@@ -207,5 +232,6 @@ export const parseGameMeta = (
     seats,
     ...(typeof winner === 'string' ? { winner } : {}),
     ...(typeof inviteToken === 'string' ? { inviteToken } : {}),
+    ...libraryFieldsOf(rec),
   };
 };

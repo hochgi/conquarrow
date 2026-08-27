@@ -6,6 +6,7 @@
 
 import type {
   InviteSeat,
+  LibraryGameStatus,
   MyGamesBody,
   OnlineGameBoard,
   OpenLobbyRow,
@@ -97,14 +98,19 @@ const parseLobbyRow = (raw: unknown): OpenLobbyRow | undefined => {
   return { token };
 };
 
+const isLibraryStatus = (value: unknown): value is LibraryGameStatus =>
+  value === 'your-turn' || value === 'waiting' || value === 'won' || value === 'lost';
+
 const parseGameRow = (raw: unknown): StartedGameRow | undefined => {
   const rec = asRecord(raw);
   if (rec === undefined) return undefined;
   const groupHash = rec['groupHash'];
   const gameNumber = rec['gameNumber'];
+  const status = rec['status'];
   if (typeof groupHash !== 'string' || groupHash === '') return undefined;
   if (typeof gameNumber !== 'string' || gameNumber === '') return undefined;
-  return { groupHash, gameNumber };
+  if (!isLibraryStatus(status)) return undefined;
+  return { groupHash, gameNumber, status };
 };
 
 export const parseMyGames = (raw: unknown): MyGamesBody | undefined => {

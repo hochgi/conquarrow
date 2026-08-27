@@ -74,6 +74,9 @@ export type {
   WsDisconnectRequest,
 } from './online-port';
 
+export type { LibraryGameStatus, LibrarySummary } from './library-status';
+export { libraryStatusFor } from './library-status';
+
 export { GOOGLE_ID_TOKEN_SESSION_KEY } from './online-pages-port';
 export type {
   OnlineGameBoard,

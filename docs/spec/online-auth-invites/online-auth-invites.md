@@ -37,7 +37,7 @@ authenticated route.
 | Method | Path | Auth |
 |---|---|---|
 | GET | `/me` | Bearer |
-| GET | `/my-games` | Bearer |
+| GET | `/my-games` | Bearer | started rows include caller `status` ([P45](../online-game-library/online-game-library.md)) |
 | POST | `/invites` | Bearer |
 | GET | `/invites/:token` | none while open; 410 after revoke/Start |
 | POST | `/invites/:token/accept` | Bearer |
@@ -91,3 +91,4 @@ P17 does **not** write `state.json` or `log.jsonl`.
 - When Start succeeds, the system shall not write `state.json` or `log.jsonl`.
 - The system shall not include another user's lobbies or games in `GET /my-games`.
 - The system shall list that user's open lobbies and started games on `GET /my-games`.
+- When `GET /my-games` lists a started game, the system shall include a caller-relative `status` of `your-turn`, `waiting`, `won`, or `lost` ([P45](../online-game-library/online-game-library.md)).

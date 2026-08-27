@@ -25,6 +25,7 @@ import {
   unprocessable,
 } from './json-result';
 import { notifyOthers } from './notify';
+import { stampLibrarySummary } from './library-listing';
 import { gameLogKey, gameMetaKey, gameStateKey } from './s3-keys';
 import { getObject, putObject } from './store-io';
 
@@ -126,19 +127,6 @@ const appendLog = (existing: string | undefined, moves: readonly Move[]): string
   return existing.endsWith('\n') ? existing + lines : `${existing}\n${lines}`;
 };
 
-const stampWinner = async (
-  s3: ObjectStore,
-  groupHash: string,
-  gameNumber: string,
-  winner: string,
-): Promise<void> => {
-  const key = gameMetaKey(groupHash, gameNumber);
-  const raw = await getObject(s3, key);
-  if (raw === undefined) return;
-  const rec = asRecord(JSON.parse(raw) as unknown) ?? {};
-  await putObject(s3, key, JSON.stringify({ ...rec, winner }));
-};
-
 const persistPosition = async (
   s3: ObjectStore,
   groupHash: string,
@@ -157,9 +145,7 @@ const persistPosition = async (
   const logKey = gameLogKey(groupHash, gameNumber);
   const existingLog = await getObject(s3, logKey);
   await putObject(s3, logKey, appendLog(existingLog, logMoves));
-  if (game.winner !== undefined) {
-    await stampWinner(s3, groupHash, gameNumber, String(game.winner));
-  }
+  await stampLibrarySummary(s3, groupHash, gameNumber, game);
   return body;
 };
 

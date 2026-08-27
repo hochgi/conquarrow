@@ -473,6 +473,34 @@ export const myGamesOf = (
   return { lobbies, games };
 };
 
+/** P45: same membership as {@link myGamesOf}, plus each started row's `status`. */
+export const libraryGamesOf = (
+  value: unknown,
+): {
+  readonly lobbies: readonly string[];
+  readonly games: readonly {
+    groupHash: string;
+    gameNumber: string;
+    status: string | undefined;
+  }[];
+} => {
+  const base = myGamesOf(value);
+  const gamesRaw = asRecord(value)['games'];
+  if (!Array.isArray(gamesRaw)) {
+    throw new Error('expected body.games to be an array');
+  }
+  const games = base.games.map((row, i) => {
+    const recRow = asRecord(gamesRaw[i]);
+    const status = recRow['status'];
+    return {
+      groupHash: row.groupHash,
+      gameNumber: row.gameNumber,
+      status: typeof status === 'string' ? status : undefined,
+    };
+  });
+  return { lobbies: base.lobbies, games };
+};
+
 export const goneReason = (value: unknown): string => {
   const reason = asRecord(value)['reason'];
   if (typeof reason !== 'string') {

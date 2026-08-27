@@ -12,7 +12,10 @@
  * @see docs/spec/online-auth-invites/online-auth-invites.md
  * @see docs/spec/online-moves-ws/online-moves-ws.md
  * @see docs/adr/0002-cheap-async-online.md
+ * @see docs/spec/online-game-library/online-game-library.md
  */
+
+import type { LibraryGameStatus } from './library-status';
 
 /** 32 lowercase hex characters — adapter: `truncate16(SHA-256(sub))`. */
 export type UserHash = string;
@@ -67,6 +70,7 @@ export interface OpenLobbyRow {
 export interface StartedGameRow {
   readonly groupHash: GroupHash;
   readonly gameNumber: GameNumber;
+  readonly status: LibraryGameStatus;
 }
 
 export interface MyGamesBody {

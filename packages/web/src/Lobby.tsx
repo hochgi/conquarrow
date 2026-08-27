@@ -1,10 +1,14 @@
 import { useState, type ReactElement } from 'react';
-import type { InviteSeat, PagesLobbyMode, PlannedSeatKind } from '@conquarrow/contracts';
+import type { InviteSeat, PagesLobbyMode, PlannedSeatKind, StartedGameRow } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { testByokConnection } from './byokBot';
 import { DEFAULT_BYOK, isByokReady } from './byokConfig';
 import {
   CREATING_INVITE_COPY,
+  formatLibraryRow,
+  libraryOffered,
+  MY_GAMES_COPY,
+  NO_GAMES_COPY,
   rosterOccupancy,
   rosterOccupancyLabel,
 } from './online-shell-ui';
@@ -38,7 +42,7 @@ export interface LobbyOnline {
   readonly inviteGone: boolean;
   readonly goneReason: 'revoked' | 'started' | undefined;
   readonly lobbyFull: boolean;
-  readonly games: readonly { readonly groupHash: string; readonly gameNumber: string }[];
+  readonly games: readonly StartedGameRow[];
   readonly onOpenGame: (groupHash: string, gameNumber: string) => void;
   readonly seatKinds: readonly PlannedSeatKind[];
   readonly seatEditsOffered: boolean;
@@ -445,6 +449,50 @@ const goneCopy = (reason: 'revoked' | 'started' | undefined): string => {
   return 'This invite is gone.';
 };
 
+const MyGamesDisclosure = ({
+  games,
+  onOpenGame,
+}: {
+  readonly games: readonly StartedGameRow[];
+  readonly onOpenGame: (groupHash: string, gameNumber: string) => void;
+}): ReactElement => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="lobby-byok-test"
+        onClick={() => {
+          setOpen((was) => !was);
+        }}
+      >
+        {MY_GAMES_COPY}
+      </button>
+      {open ? (
+        games.length === 0 ? (
+          <p className="lobby-byok-note">{NO_GAMES_COPY}</p>
+        ) : (
+          <ul className="lobby-games">
+            {games.map((row) => (
+              <li key={`${row.groupHash}/${row.gameNumber}`}>
+                <button
+                  type="button"
+                  className="lobby-byok-test"
+                  onClick={() => {
+                    onOpenGame(row.groupHash, row.gameNumber);
+                  }}
+                >
+                  {formatLibraryRow(row.status, row.gameNumber)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+    </>
+  );
+};
+
 const OnlineChrome = ({
   online,
   onLearn,
@@ -535,22 +583,8 @@ const OnlineChrome = ({
         ) : null}
         {online.inviteGone ? <p className="lobby-byok-warn">{goneCopy(online.goneReason)}</p> : null}
         {online.lobbyFull ? <p className="lobby-byok-warn">That lobby is full.</p> : null}
-        {online.games.length > 0 ? (
-          <ul className="lobby-games">
-            {online.games.map((row) => (
-              <li key={`${row.groupHash}/${row.gameNumber}`}>
-                <button
-                  type="button"
-                  className="lobby-byok-test"
-                  onClick={() => {
-                    online.onOpenGame(row.groupHash, row.gameNumber);
-                  }}
-                >
-                  Resume {row.gameNumber}
-                </button>
-              </li>
-            ))}
-          </ul>
+        {libraryOffered(online.mode, online.signedIn) ? (
+          <MyGamesDisclosure games={online.games} onOpenGame={online.onOpenGame} />
         ) : null}
       </>
     ) : null}
