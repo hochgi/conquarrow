@@ -8,6 +8,7 @@ import {
   GOOGLE_ID_TOKEN_SESSION_KEY,
   type InviteSeat,
   type LibraryGameStatus,
+  type LibrarySeat,
   type OnlineGameBoard,
   type OnlinePagesDeps,
   type OnlinePagesEnv,
@@ -21,6 +22,7 @@ import {
   type OnlinePagesSession,
   type OnlinePagesSocket,
   type PlannedSeatKind,
+  type StartedGameRow,
 } from '@conquarrow/contracts';
 import type { BrowserGisId, GisPromptNotification } from '../src/online-gis';
 import { createOnlinePages } from '../src/online-pages';
@@ -517,17 +519,46 @@ export const postMoveScript = (
   body,
 });
 
+export const dummyLibrarySeats = (): readonly LibrarySeat[] => [
+  { kind: 'human', label: 'Player A', you: true },
+  { kind: 'heuristic', label: 'AI', you: false },
+];
+
+export const withLibraryIdentity = (row: {
+  readonly groupHash: string;
+  readonly gameNumber: string;
+  readonly status: LibraryGameStatus;
+  readonly seats?: readonly LibrarySeat[];
+  readonly seatIndex?: number;
+  readonly startedAt?: string;
+}): StartedGameRow => {
+  const listed: StartedGameRow = {
+    groupHash: row.groupHash,
+    gameNumber: row.gameNumber,
+    status: row.status,
+    seats: row.seats ?? dummyLibrarySeats(),
+    seatIndex: row.seatIndex ?? 0,
+  };
+  if (row.startedAt !== undefined) {
+    return { ...listed, startedAt: row.startedAt };
+  }
+  return listed;
+};
+
 export const myGamesScript = (
   games: readonly {
     readonly groupHash: string;
     readonly gameNumber: string;
     readonly status: LibraryGameStatus;
+    readonly seats?: readonly LibrarySeat[];
+    readonly seatIndex?: number;
+    readonly startedAt?: string;
   }[],
 ): ScriptedFetch => ({
   method: 'GET',
   path: '/my-games',
   status: 200,
-  body: { lobbies: [], games },
+  body: { lobbies: [], games: games.map(withLibraryIdentity) },
 });
 
 export const goneInviteEmptyBodyScript = (token: string): ScriptedFetch => ({

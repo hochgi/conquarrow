@@ -9,6 +9,7 @@
 **Amended:** 2026-08-14 (P26 spec) — GET game includes meta `seats`; HTTP 410 `started` includes `groupHash` and `gameNumber` when known.
 **Amended:** 2026-08-14 (P27 spec) — Create-invite pending copy; Local→Online coerces seats 0–1 to human; GIS `offerChooser` after One Tap dismiss.
 **Amended:** 2026-08-27 (P45 spec) — `GET /my-games` started rows carry caller-relative `status` (`your-turn` \| `waiting` \| `won` \| `lost`). Persist stamps `players` / `activePlayer` / `lostPlayers` on game `meta.json`. No new AWS.
+**Amended:** 2026-08-27 (P46 spec) — library rows add ordered `seats` (labels, `you`), `seatIndex`, optional `startedAt`. Display names from GIS `given_name`/`name` on `users/<userHash>/profile.json`. No email/sub. No new AWS.
 **Context:** [`SPEC.md`](../../SPEC.md) §1 (delivery shape), [ADR 0001](./0001-pure-core-and-pluggable-geometry.md), packets [P14](../design/packets/P14-online-adr.md)–[P20](../design/packets/P20-deferred-online-followons.md)
 
 ## Context
@@ -72,6 +73,7 @@ S3 is the database. Key prefix `conquarrow/` so another game can share the bucke
 ```text
 conquarrow/users/<userHash>/lobbies/<token>      # open invite this user is seated in
 conquarrow/users/<userHash>/groups/<groupHash>
+conquarrow/users/<userHash>/profile.json         # { displayName } from GIS given_name else name (P46)
 conquarrow/groups/<groupHash>/meta.json          # { nextGameNumber }; membership is the per-user pointer keys, not a field here
 conquarrow/groups/<groupHash>/games/NNNNNN/meta.json
 conquarrow/groups/<groupHash>/games/NNNNNN/state.json
@@ -81,7 +83,7 @@ conquarrow/connections/<userHash>/<connectionId>
 conquarrow/connection-ids/<connectionId>         # userHash pointer so $disconnect is O(1)
 ```
 
-`GET /my-games` is that user's membership pointers only: **open lobbies** they are seated in, plus **started games** under their groups. Never another user's rows. Each started row includes a caller-relative **`status`**: `your-turn` \| `waiting` \| `won` \| `lost` (P45). Classification is `libraryStatusFor` in contracts: winner is you → won; winner is set → lost; you are in `lostPlayers` → lost; `activePlayer` is you → your-turn; else waiting. Persist of `state.json` stamps `players`, `activePlayer`, `lostPlayers`, and `winner` onto that game's `meta.json` so listing stays a meta read, not a `state.json` scan. Unstamped (pre-P45) games fall back to one state hydrate. Meta-only (Start before first GET) is `waiting`. The Pages lobby hides the list behind a signed-in Online **My games** button.
+`GET /my-games` is that user's membership pointers only: **open lobbies** they are seated in, plus **started games** under their groups. Never another user's rows. Each started row includes a caller-relative **`status`**: `your-turn` \| `waiting` \| `won` \| `lost` (P45). Classification is `libraryStatusFor` in contracts: winner is you → won; winner is set → lost; you are in `lostPlayers` → lost; `activePlayer` is you → your-turn; else waiting. Persist of `state.json` stamps `players`, `activePlayer`, `lostPlayers`, and `winner` onto that game's `meta.json` so listing stays a meta read, not a `state.json` scan. Unstamped (pre-P45) games fall back to one state hydrate. Meta-only (Start before first GET) is `waiting`. The Pages lobby hides the list behind a signed-in Online **My games** button. P46 adds ordered **`seats`** (kind, label, `you`), **`seatIndex`**, and optional **`startedAt`**. Labels are GIS given name when `users/<userHash>/profile.json` exists, else `Player A`…, heuristic `AI`. Never email, `sub`, or `userHash` on the row. `startedAt` is written at Start from the adapter clock (ISO UTC); pre-P46 games omit it.
 
 HTTP play: `GET /games/{groupHash}/{gameNumber}` and `POST …/moves` (If-Match `"<n>"`). The P16 `POST /moves` stub is gone. POST body is one `Move`. GET 200 is `{ version, state, seats }` (`seats` from game meta; P26). Missing If-Match → 428; stale → 412; illegal `apply` → 422; already finished → 409 `{ reason: "finished" }`. A persist that first sets `winner` copies that `PlayerId` onto game `meta.json`. HTTP 410 on a started invite includes `groupHash` and `gameNumber` when known so the waiting host can open the match.
 
@@ -155,4 +157,4 @@ flowchart TB
 
 ## Follow-on packets
 
-P16 SAM/CI/DNS → P17 auth+invites → P18 moves+WS → P19 Pages adapter → P25 Pages host → P26 playtest UX → P27 lobby follow-up → P45 game library status.
+P16 SAM/CI/DNS → P17 auth+invites → P18 moves+WS → P19 Pages adapter → P25 Pages host → P26 playtest UX → P27 lobby follow-up → P45 game library status → P46 library row identity.

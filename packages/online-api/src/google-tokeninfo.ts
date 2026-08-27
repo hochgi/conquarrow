@@ -1,4 +1,5 @@
 import type { GoogleVerifier, GoogleVerifyResult } from './api-types';
+import { sanitiseDisplayName } from './display-name';
 import { asRecord } from './invite-record';
 
 export interface TokenInfoDeps {
@@ -48,13 +49,22 @@ const verifyTokenInfo = async (
     const exp = expSeconds(rec['exp']);
     if (exp === undefined) return { ok: false, reason: 'invalid' };
     if (deps.clock() / 1000 >= exp) return { ok: false, reason: 'expired' };
-    return { ok: true, sub };
+    const displayName = displayNameFromClaims(rec);
+    if (displayName === undefined) return { ok: true, sub };
+    return { ok: true, sub, displayName };
   } catch {
     return { ok: false, reason: 'invalid' };
   }
 };
 
-/** Live Google ID-token check via tokeninfo. Uses `sub`, `aud`, `exp` only. */
+const displayNameFromClaims = (rec: Record<string, unknown>): string | undefined => {
+  const given = rec['given_name'];
+  const name = rec['name'];
+  const raw = typeof given === 'string' ? given : typeof name === 'string' ? name : undefined;
+  return sanitiseDisplayName(raw);
+};
+
+/** Live Google ID-token check via tokeninfo. Uses `sub`, `aud`, `exp`, and GIS name claims. */
 export const createGoogleTokenInfoVerifier = (deps: TokenInfoDeps): GoogleVerifier => ({
   verify: (authorizationHeader) => verifyTokenInfo(deps, authorizationHeader),
 });

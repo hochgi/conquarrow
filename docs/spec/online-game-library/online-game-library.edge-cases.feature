@@ -35,6 +35,7 @@ Feature: Online game library — boundaries
     Scenario: Unstamped meta classifies from state.json
       Given a started game whose meta.json has seats and no library summary
       And state.json has A to move and no winner
+      And the caller has no GIS display name
       When GET /my-games with A's bearer
       Then that game's status is your-turn
       And fake S3 gained no new keys
@@ -42,6 +43,7 @@ Feature: Online game library — boundaries
 
     Scenario: GET /my-games does not write S3
       Given a started game with a stamped library summary
+      And the caller has no GIS display name
       When GET /my-games with A's bearer
       Then the response is 200
       And fake S3 gained no new keys

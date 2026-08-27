@@ -74,6 +74,7 @@ scheduled early in the first place.
 | P43 | Interactive walkthrough tutorial | adapter | §4–§9 (read) | P11, P31, P34, P35 | **[packet](./packets/P43-tutorial.md).** **Landed** (`#29`). Eight lessons on the real engine. Rails never fake legality. |
 | P44 | Tutorial mobile input + plain copy | adapter | — | P43, P31, P35 | **[packet](./packets/P44-tutorial-mobile-copy.md).** Playtest: fat-finger misses, Send undiscoverable, log formula in L0. Coarse `hitArrow` padding, rail auto-Send, stage banner, pan-to-from, plain copy. |
 | P45 | Game library status | adapter | — | P17, P18, P25, P27 | **[packet](./packets/P45-game-library.md).** Signed-in Online **My games**: per-caller `won` / `lost` / `waiting` / `your-turn`. Stamp on persist; no new AWS. |
+| P46 | Library row identity | adapter | — | P45 | **[packet](./packets/P46-library-row-identity.md).** My games rows: opponent labels, start time, caller seat colour. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -107,7 +108,8 @@ flowchart TD
   P26 --> P27["P27 lobby follow-up"]
   P27 --> P45["P45 game library"]
   P18 --> P45
-  P45 -.-> P20["P20+ wishes"]
+  P45 --> P46["P46 library row identity"]
+  P46 -.-> P20["P20+ wishes"]
   P07 --> P28["P28 refuse self-convert"]
   P11 --> P28
   P22["P22 simple trails"] --> P28

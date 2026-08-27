@@ -7,6 +7,7 @@
 import type {
   InviteSeat,
   LibraryGameStatus,
+  LibrarySeat,
   MyGamesBody,
   OnlineGameBoard,
   OpenLobbyRow,
@@ -101,6 +102,29 @@ const parseLobbyRow = (raw: unknown): OpenLobbyRow | undefined => {
 const isLibraryStatus = (value: unknown): value is LibraryGameStatus =>
   value === 'your-turn' || value === 'waiting' || value === 'won' || value === 'lost';
 
+const parseLibrarySeat = (raw: unknown): LibrarySeat | undefined => {
+  const rec = asRecord(raw);
+  if (rec === undefined) return undefined;
+  const kind = rec['kind'];
+  if (kind !== 'human' && kind !== 'heuristic') return undefined;
+  const label = rec['label'];
+  const you = rec['you'];
+  if (typeof label !== 'string' || typeof you !== 'boolean') return undefined;
+  return { kind, label, you };
+};
+
+const parseLibrarySeats = (raw: unknown): readonly LibrarySeat[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  if (raw.length < 1 || raw.length > 6) return undefined;
+  const seats: LibrarySeat[] = [];
+  for (const entry of raw) {
+    const seat = parseLibrarySeat(entry);
+    if (seat === undefined) return undefined;
+    seats.push(seat);
+  }
+  return seats;
+};
+
 const parseGameRow = (raw: unknown): StartedGameRow | undefined => {
   const rec = asRecord(raw);
   if (rec === undefined) return undefined;
@@ -110,7 +134,23 @@ const parseGameRow = (raw: unknown): StartedGameRow | undefined => {
   if (typeof groupHash !== 'string' || groupHash === '') return undefined;
   if (typeof gameNumber !== 'string' || gameNumber === '') return undefined;
   if (!isLibraryStatus(status)) return undefined;
-  return { groupHash, gameNumber, status };
+  const seats = parseLibrarySeats(rec['seats']);
+  if (seats === undefined) return undefined;
+  const seatIndexRaw = rec['seatIndex'];
+  if (
+    typeof seatIndexRaw !== 'number' ||
+    !Number.isInteger(seatIndexRaw) ||
+    seatIndexRaw < 0 ||
+    seatIndexRaw >= seats.length
+  ) {
+    return undefined;
+  }
+  const row: StartedGameRow = { groupHash, gameNumber, status, seats, seatIndex: seatIndexRaw };
+  const startedAt = rec['startedAt'];
+  if (typeof startedAt === 'string' && startedAt !== '') {
+    return { ...row, startedAt };
+  }
+  return row;
 };
 
 export const parseMyGames = (raw: unknown): MyGamesBody | undefined => {

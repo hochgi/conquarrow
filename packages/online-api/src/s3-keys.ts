@@ -14,6 +14,9 @@ export const userGroupKey = (userHash: string, groupHash: string): string =>
 export const userGroupPrefix = (userHash: string): string =>
   `${ROOT}/users/${userHash}/groups/`;
 
+export const userProfileKey = (userHash: string): string =>
+  `${ROOT}/users/${userHash}/profile.json`;
+
 export const groupMetaKey = (groupHash: string): string =>
   `${ROOT}/groups/${groupHash}/meta.json`;
 

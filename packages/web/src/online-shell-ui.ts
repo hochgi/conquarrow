@@ -11,8 +11,11 @@ import {
   type PagesLobbyMode,
   type PlannedSeatKind,
 } from '@conquarrow/contracts';
+import { styleFor } from './colors';
 import { createMatchLog, type MatchLog, type SeatDriverLog } from './matchLog';
-import type { SeatPlan } from './seatPlan';
+import { seatPlayerId, type SeatPlan } from './seatPlan';
+
+export { libraryVsLine } from '@conquarrow/contracts';
 
 /** Shell copy while `POST /invites` is in flight (P27). */
 export const CREATING_INVITE_COPY =
@@ -35,6 +38,39 @@ export const libraryStatusLabel = (status: LibraryGameStatus): string => LIBRARY
 
 export const formatLibraryRow = (status: LibraryGameStatus, gameNumber: string): string =>
   `${libraryStatusLabel(status)} · ${gameNumber}`;
+
+const UTC_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+/** UTC line for a library row — never the operator's local timezone. */
+export const formatLibraryStartedAt = (iso: string | undefined): string | undefined => {
+  if (iso === undefined || iso === '') return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const month = UTC_MONTHS[date.getUTCMonth()];
+  if (month === undefined) return undefined;
+  const day = date.getUTCDate();
+  const year = date.getUTCFullYear();
+  return `${String(day)} ${month} ${String(year)}, ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())} UTC`;
+};
+
+/** Caller's board fill for the row border / swatch. */
+export const libraryRowTint = (seatIndex: number): string =>
+  styleFor(seatPlayerId(seatIndex)).fill;
 
 export const libraryOffered = (mode: PagesLobbyMode, signedIn: boolean): boolean =>
   mode === 'online' && signedIn;

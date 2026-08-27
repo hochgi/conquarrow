@@ -3,7 +3,7 @@ import type { GameState, Move, StateChangedPayload } from '@conquarrow/contracts
 export type GoogleRejectReason = 'missing' | 'expired' | 'invalid';
 
 export type GoogleVerifyResult =
-  | { readonly ok: true; readonly sub: string }
+  | { readonly ok: true; readonly sub: string; readonly displayName?: string }
   | { readonly ok: false; readonly reason: GoogleRejectReason };
 
 export interface GoogleVerifier {

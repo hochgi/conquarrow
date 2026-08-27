@@ -1,25 +1,35 @@
 /**
- * Library summary stamp on persist, and caller-relative `/my-games` listing (P45).
+ * Library summary stamp on persist, and caller-relative `/my-games` listing (P45/P46).
  *
- * GET never writes S3. Classification is `libraryStatusFor` in contracts;
- * `isLost` is only called here when stamping or hydrating unstamped meta.
+ * Listing does not write game objects. Classification is `libraryStatusFor` in
+ * contracts; `isLost` is only called here when stamping or hydrating unstamped meta.
+ * Profile upsert on GET /my-games lives in `handleMyGames`, not here.
  */
 
 import type {
   GameState,
+  InviteSeat,
   LibraryGameStatus,
+  LibrarySeat,
   LibrarySummary,
   StartedGameRow,
 } from '@conquarrow/contracts';
-import { libraryStatusFor } from '@conquarrow/contracts';
+import { libraryStatusFor, playerLetterLabel } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { isLost } from '@conquarrow/rules-core';
 import type { ObjectStore } from './api-types';
 import { parsePersistedEnvelope } from './game-snapshot';
 import { compareStrings } from './hashing';
-import { asRecord, parseGameMeta, type GameMeta } from './invite-record';
+import {
+  asRecord,
+  boundUserHash,
+  indexOfBoundUser,
+  parseGameMeta,
+  type GameMeta,
+} from './invite-record';
 import { gameMetaKey, gamesPrefix, gameStateKey, userGroupPrefix } from './s3-keys';
 import { getObject, listObjects, putObject } from './store-io';
+import { readProfileDisplayName } from './user-profile';
 
 const geometry = makeTiling();
 const GAME_META = /\/games\/(\d{6})\/meta\.json$/;
@@ -28,6 +38,8 @@ type GamePointer = {
   readonly groupHash: string;
   readonly gameNumber: string;
 };
+
+type NameCache = Map<string, string | undefined>;
 
 const lastSegment = (key: string, prefix: string): string | undefined => {
   if (!key.startsWith(prefix)) return undefined;
@@ -136,19 +148,83 @@ const statusFromState = async (
   return libraryStatusFor(userHash, seats, librarySummaryFromGame(persisted.game));
 };
 
-const statusOfListedGame = async (
+const statusOfMeta = async (
   s3: ObjectStore,
   userHash: string,
+  meta: GameMeta | undefined,
   pointer: GamePointer,
 ): Promise<LibraryGameStatus> => {
-  const rawMeta = await getObject(s3, gameMetaKey(pointer.groupHash, pointer.gameNumber));
-  const meta = rawMeta === undefined ? undefined : parseGameMeta(rawMeta);
   const seats = meta?.seats ?? [];
   const fromMeta = meta === undefined ? undefined : librarySummaryFromMeta(meta);
   if (fromMeta !== undefined) {
     return libraryStatusFor(userHash, seats, fromMeta);
   }
   return statusFromState(s3, userHash, seats, pointer);
+};
+
+const cachedDisplayName = async (
+  s3: ObjectStore,
+  userHash: string,
+  names: NameCache,
+): Promise<string | undefined> => {
+  if (names.has(userHash)) return names.get(userHash);
+  const name = await readProfileDisplayName(s3, userHash);
+  names.set(userHash, name);
+  return name;
+};
+
+const librarySeatOf = (
+  seat: InviteSeat,
+  index: number,
+  callerHash: string,
+  displayName: string | undefined,
+): LibrarySeat => {
+  if (seat.kind === 'heuristic') {
+    return { kind: 'heuristic', label: 'AI', you: false };
+  }
+  const you = boundUserHash(seat) === callerHash;
+  const label = displayName ?? playerLetterLabel(index);
+  return { kind: 'human', label, you };
+};
+
+const librarySeatsOf = async (
+  s3: ObjectStore,
+  seats: readonly InviteSeat[],
+  callerHash: string,
+  names: NameCache,
+): Promise<readonly LibrarySeat[]> => {
+  const listed: LibrarySeat[] = [];
+  for (let index = 0; index < seats.length; index += 1) {
+    const seat = seats[index];
+    if (seat === undefined) continue;
+    const bound = boundUserHash(seat);
+    const displayName =
+      bound === undefined ? undefined : await cachedDisplayName(s3, bound, names);
+    listed.push(librarySeatOf(seat, index, callerHash, displayName));
+  }
+  return listed;
+};
+
+const listedRowOf = async (
+  s3: ObjectStore,
+  userHash: string,
+  pointer: GamePointer,
+  names: NameCache,
+): Promise<StartedGameRow> => {
+  const rawMeta = await getObject(s3, gameMetaKey(pointer.groupHash, pointer.gameNumber));
+  const meta = rawMeta === undefined ? undefined : parseGameMeta(rawMeta);
+  const seats = meta?.seats ?? [];
+  const boundIndex = indexOfBoundUser(seats, userHash);
+  const row: StartedGameRow = {
+    groupHash: pointer.groupHash,
+    gameNumber: pointer.gameNumber,
+    status: await statusOfMeta(s3, userHash, meta, pointer),
+    seats: await librarySeatsOf(s3, seats, userHash, names),
+    seatIndex: boundIndex < 0 ? 0 : boundIndex,
+  };
+  const startedAt = meta?.startedAt;
+  if (startedAt === undefined) return row;
+  return { ...row, startedAt };
 };
 
 const listGamePointers = async (
@@ -176,13 +252,10 @@ export const listLibraryGames = async (
   userHash: string,
 ): Promise<readonly StartedGameRow[]> => {
   const pointers = await listGamePointers(s3, userHash);
+  const names: NameCache = new Map();
   const games: StartedGameRow[] = [];
   for (const pointer of pointers) {
-    games.push({
-      groupHash: pointer.groupHash,
-      gameNumber: pointer.gameNumber,
-      status: await statusOfListedGame(s3, userHash, pointer),
-    });
+    games.push(await listedRowOf(s3, userHash, pointer, names));
   }
   return games.toSorted(compareLibraryRows);
 };
