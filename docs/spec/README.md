@@ -26,7 +26,7 @@ behaviour is not here, it will not be built.**
 | [crossings](./crossings/crossings.md) | P05 | §2, §6.1a | 24 | — | 11 |
 | [closure](./closure/closure.md) | P05b | §7, §6.1a | 27 | — | 13 |
 | [fill](./fill/fill.md) | P05b | §7, §2 | 22 | — | 12 |
-| [cuts](./cuts/cuts.md) | P06 | §6.1, §6.1a | 18 | — | 10 |
+| [cuts](./cuts/cuts.md) | P06, P47 | §6.1, §6.1a | 25 | — | 12 |
 | [combat](./combat/combat.md) | P06 | §6.2, §11 item 37 | 14 | — | 10 |
 | [encirclement](./encirclement/encirclement.md) | P07 | §6.3, §11 item 40 | 16 | — | 10 |
 | [economy](./economy/economy.md) | P08 | §7, §11 item 41 | 10 | — | 8 |
@@ -41,13 +41,13 @@ behaviour is not here, it will not be built.**
 | [birth-cut](./birth-cut/birth-cut.md) | P40 | §6.1, §7, item 47 | 11 | — | 9 |
 | [trails-simple](./trails-simple/trails-simple.md) | P22, P42 | §5–7, items 42, 49 | 20 | — | 11 |
 
-631 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
+638 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
 **58 belong to P03**, **18 to P02**, **30 to P04**, **58 to P05**, **49 to P05b**,
-**32 to P06**, **16 to P07**, **10 to P08**, **25 to P28**, **19 to P29**,
+**39 to P06/P47**, **16 to P07**, **10 to P08**, **25 to P28**, **19 to P29**,
 **16 to P30**, **24 to P31** (22 of them now `@superseded-P34`), **26 to P32**,
 **11 to P33**, **86 to P34**, **28 to P39**, **11 to P40**, and **20 to P22/P42**.
-641 concrete cases once `Examples` rows are expanded (combat Examples add more),
-315 invariants.
+648 concrete cases once `Examples` rows are expanded (combat Examples add more),
+317 invariants.
 
 **This index is not complete.** The online packets (`online-*`) and the planner
 directories (`findings-planner`, `intercept-findings`) have never had rows, and
@@ -209,8 +209,10 @@ withdrawn — two stacks that merely point into the same point do not fight.
 Stepping onto the enemy group is the only fight. Equals favour the attacker;
 floor may zero the attacker's loss when moderately larger (accepted PoC).
 
-**In `cuts`, read firebreaks and all-to-all next.** One kill per front; halt per
-arrow; territory is a wall; survivors demote to stack grade. Conversion is P07.
+**In `cuts`, read firebreaks and all-to-all next.** Halt at the first *victim*
+occupation (P13: no kill); a front that *reaches* a point is all-to-all, so a
+cut on one fork arm floods every arm (P47); the cutter is not a firebreak;
+territory is a wall; survivors demote to stack grade. Conversion is P07.
 
 When the same step is both contact and a cut: **combat first, then cut**.
 

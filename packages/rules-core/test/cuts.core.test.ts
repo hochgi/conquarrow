@@ -14,6 +14,7 @@ import {
   A,
   B,
   MINIMAL_DIAMETER,
+  aForkArmCut,
   anExitFrom,
   anInterleaving,
   arrowAt,
@@ -22,6 +23,7 @@ import {
   headsOn,
   isTrail,
   onBoard,
+  ownerOf,
   pathFrom,
   pick,
   slotsAt,
@@ -256,6 +258,51 @@ describe('all-to-all — a front per branch', () => {
 
     expect(isTrail(after, B, armX)).toBe(false);
     expect(isTrail(after, B, armY)).toBe(false);
+  });
+
+  it('evaporates the sibling arm when a cut arrives along one fork arm', () => {
+    // P47 / item 50: every point a front reaches is all-to-all, not only the cut
+    // point. Cut at P = target(X), not at the fork — today's directed backward
+    // front leaves Y standing.
+    const table = onBoard();
+    const { stem, armX, armY, trailOut, cutterIn, interleavingExit } = aForkArmCut(
+      table.geometry,
+      MINIMAL_DIAMETER,
+    );
+    const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+      trail: { A: [cutterIn], B: [stem, armX, armY, trailOut] },
+    });
+    expect(table.rules.crossesTrail(before, via(cutterIn, interleavingExit), B)).toBe(true);
+    expect(isTrail(before, B, interleavingExit)).toBe(false);
+
+    const after = table.rules.apply(before, step(cutterIn, interleavingExit, 1));
+
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+  });
+
+  it('does not treat the cutter’s stack as a firebreak', () => {
+    // Halt-at-first is victim occupation only. The cutter occupying the landing
+    // does not save B's ungarrisoned region — including the sibling arm.
+    const table = onBoard();
+    const { stem, armX, armY, trailOut, beyond, cutterIn, interleavingExit } = aForkArmCut(
+      table.geometry,
+      MINIMAL_DIAMETER,
+    );
+    const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+      trail: { A: [cutterIn], B: [stem, armX, armY, trailOut, beyond] },
+    });
+    expect(table.rules.crossesTrail(before, via(cutterIn, interleavingExit), B)).toBe(true);
+    expect(isTrail(before, B, interleavingExit)).toBe(false);
+
+    const after = table.rules.apply(before, step(cutterIn, interleavingExit, 1));
+
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+    expect(isTrail(after, B, trailOut)).toBe(false);
+    expect(isTrail(after, B, beyond)).toBe(false);
+    expect(ownerOf(after, interleavingExit)).toBe(A);
+    expect(headsOn(after, interleavingExit)).toBe(1);
   });
 
   it('spreads a backward front into every trail in-arrow at a join', () => {

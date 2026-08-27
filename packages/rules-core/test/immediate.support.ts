@@ -104,6 +104,11 @@ const frozenPlaytestSpawners = (): Map<VertexId, Spawner> => {
  * `opening` is the choke point for this log: every P37/P38 consumer must use
  * it rather than `makeMatch(log.config)`, which would rebuild today's mirrored
  * field and refuse the recorded steps around ply 459.
+ *
+ * **P47:** the current engine will not fold the whole 1247-move record. Extra
+ * evaporation demotes an E trail; P28 then refuses the recorded step at
+ * {@link P47_FIRST_UNPLAYABLE}. The log is a prefix golden from there — P37/P38
+ * win timing stays on the hand-authored fixtures.
  */
 export const playtestLog = (): PlaytestLog => {
   const raw = readFileSync(
@@ -143,6 +148,26 @@ const asMove = (logged: LoggedMove): Move => {
       throw new Error(`setup: a logged move has an unknown kind ${logged.kind}`);
   }
 };
+
+/**
+ * First recorded move the current engine will not offer (P47).
+ *
+ * P47's incidence flood evaporates sibling fork arms the 2026-08-20 engine left
+ * standing. On this log that demotes an E trail on F land to stack-grade, so
+ * P28 refuses E's recorded step `3,-4,0 → 4,-4,0` (zero-based **233**). The log
+ * is a **prefix golden** of that length, not a full-match golden. P37/P38
+ * (winner at 1242, refuse at 1243) stay proven on `aMatchLosingThree` and
+ * `aWonPosition`.
+ *
+ * Measured once: `statesAlong(rules, playtestLog().opening, playtestLog().moves).refusedAt`.
+ */
+export const P47_FIRST_UNPLAYABLE = 233;
+
+/**
+ * Floor on the P47 prefix length so a 0-move fold cannot satisfy the item-44
+ * chain vacuously. The prefix is 233 stops; 200 still bites.
+ */
+export const P47_PREFIX_FLOOR = 200;
 
 // ── every state a record passes through ──────────────────────────────────────
 

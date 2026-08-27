@@ -5,28 +5,32 @@ Feature: A won match is over — the boundaries
 
   Rule: A record that runs past the win stops there
 
-    Scenario: The reported playtest log refuses at the move after the win
+    Scenario: The reported playtest log is a P47 prefix golden
       Given the reported playtest log of 1247 moves
       When it is replayed
-      Then the winner is set on move 1242
-      And the replay refuses at move 1243
+      Then the replay refuses at move 233
+      And the refused move is E's step 3,-4,0 to 4,-4,0
       And the refused move is named
-      # 1243 is an end of turn. Today it is accepted, and the fold stops at 1244
-      # only because a seat that no longer exists happens to move there. Nothing
-      # was stopping 1243, and nothing would have stopped D taking more steps.
+      And no winner is set on the playable prefix
+      # P47 extra evaporation demotes that E trail onto F land; P28 then
+      # withholds the recorded step. P38's 1242/1243 claims live on the
+      # hand-authored won position, not on a fold that never reaches them.
 
-    Scenario: The log folds cleanly when sliced at the win
-      Given the reported playtest log sliced at move 1243
+    Scenario: The log folds cleanly when sliced at the first unplayable move
+      Given the reported playtest log sliced at move 233
       When it is replayed
       Then it folds without refusal
-      And the winner is D
+      And no winner is set
+      And a second fold of the same prefix is identical
 
-    Scenario: The record's own tail is not evidence of a rule
+    Scenario: The record still contains the historical 1242/1243 tail
       Given the reported playtest log
-      Then the four moves it records after 1242 are not treated as legal
-      # They were accepted by an engine that had not noticed the match was decided.
-      # Slicing the fixture records what the log contains; it does not work around
-      # the change.
+      Then move 1242 is a step
+      And move 1243 is an end of turn
+      And the four moves it records after 1242 remain on the fixture
+      And the fold never reaches them
+      # Fixture guard, not an engine claim. Those moves were accepted by an
+      # engine that had not noticed the match was decided; P47 stops earlier.
 
   Rule: Refusal is total and says nothing about the board
 

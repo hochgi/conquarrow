@@ -57,11 +57,15 @@ precedent that an illegal step throws rather than degrading. It makes the caller
 error loud at the point it happens.
 
 The cost is real and is accepted: **a replay that runs past the win now throws.**
-The reported playtest log has four moves recorded after 1242, so the fixture must
-be sliced at the win rather than folded whole. That is the correct reading of the
-log — those moves were accepted by an engine that had not yet noticed the match
-was decided — and slicing it is not working around the change, it is recording
-what the log actually contains.
+The 2026-08-20 log still has four moves recorded after 1242 — that is what the
+fixture *contains*, and the tests still pin those kinds as a fixture guard.
+Under current rules the fold never gets there: **P47** evaporates sibling fork
+arms, which on this log demotes an E trail onto F land, and **P28** then refuses
+E's recorded step `3,-4,0 → 4,-4,0` at move **233**. The log is a **prefix
+golden**. P38's engine claim — refuse the first move after a win, and name it —
+is proven on the hand-authored won position (`aWonPosition` / a match that loses
+three of four seats), not on a fold that can no longer reach 1243. Same as P38
+slicing 1244 → 1243: the fixture is unchanged; the fold is shorter.
 
 ## The winning move is not truncated
 
@@ -190,9 +194,12 @@ P37 invariant 16 is unaffected.
 4. The system shall never refuse a move on account of a winner set by that same
    move.
 5. A replay whose record continues past the deciding move shall refuse at the
-   first move after it, and shall name that move.
-6. On the reported playtest log the system shall refuse at move **1243**, the
-   `endTurn` following the deciding step at 1242.
+   first move after it, and shall name that move. *(Proven on a hand-authored
+   won position. The 2026-08-20 log no longer reaches a winner — see 6.)*
+6. On the 2026-08-20 reported playtest log the system shall refuse at move
+   **233**, E's step `3,-4,0 → 4,-4,0`, and shall name that move. The prefix of
+   233 moves shall fold without a winner. *(P47 prefix golden. 1242/1243 remain
+   in the fixture as historical landmarks and are not reached.)*
 7. The system shall not mutate the input state when it refuses.
 8. Equal won states shall refuse equal moves with equal messages.
 9. The system shall reach a won state only through a move, never through

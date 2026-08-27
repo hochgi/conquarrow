@@ -1,13 +1,15 @@
 /**
- * Cuts and evaporation — bidirectional fire from a crossing (P12).
+ * Cuts and evaporation — bidirectional fire from a crossing (P12 / P47).
  *
- * SPEC §6.1: fronts destroy trail until they would enter an occupied arrow;
- * that arrow and its stack survive. No kills. Territory is a wall. Orphan
- * dormant components stand (P22 — no scrub). Wipe and territory-root cuts share
- * `evaporateFrom`.
+ * SPEC §6.1: fronts destroy the connected component of unoccupied, non-territory
+ * victim trail in the incidence graph (arrows adjacent when they share a point),
+ * grown from the cut's seeds. Halt-at-first is victim occupation; territory is a
+ * wall; the cutter is not a firebreak. No kills. Orphan dormant components stand
+ * (P22 — no scrub). Wipe and territory-root cuts share this flood.
  *
  * @see docs/spec/cuts/cuts.md
  * @see docs/design/packets/P12-trail-fire-anchors.md
+ * @see docs/design/packets/P47-fork-cut-floods-every-arm.md
  */
 
 import type {
@@ -70,6 +72,32 @@ interface Front {
 const canonical = (arrows: readonly ArrowId[]): ReadonlySet<ArrowId> =>
   new Set([...new Set(arrows)].toSorted(compareArrows));
 
+const trailArrowsAt = (
+  geometry: GeometryPort,
+  point: PointId,
+  trail: ReadonlySet<ArrowId>,
+): readonly ArrowId[] => [
+  ...geometry.inArrows(point).filter((a) => trail.has(a)),
+  ...geometry.outArrows(point).filter((a) => trail.has(a)),
+];
+
+/**
+ * Remaining victim-trail arrows that share either endpoint of `arrow`.
+ * All-to-all at both points (P47); `arrow` itself is never a neighbour.
+ */
+const continuations = (
+  geometry: GeometryPort,
+  arrow: ArrowId,
+  trail: ReadonlySet<ArrowId>,
+): readonly ArrowId[] => {
+  const next = new Set<ArrowId>([
+    ...trailArrowsAt(geometry, geometry.origin(arrow), trail),
+    ...trailArrowsAt(geometry, geometry.target(arrow), trail),
+  ]);
+  next.delete(arrow);
+  return [...next].toSorted(compareArrows);
+};
+
 export const makeCutRules = (
   geometry: GeometryPort,
   crossesTrail: (state: GameState, traversal: Traversal, victim: PlayerId) => boolean,
@@ -79,18 +107,6 @@ export const makeCutRules = (
 
   const trailIns = (point: PointId, trail: ReadonlySet<ArrowId>): readonly ArrowId[] =>
     geometry.inArrows(point).filter((a) => trail.has(a));
-
-  const continuations = (
-    arrow: ArrowId,
-    direction: Direction,
-    trail: ReadonlySet<ArrowId>,
-  ): readonly ArrowId[] => {
-    const next =
-      direction === 'forward'
-        ? trailOuts(geometry.target(arrow), trail)
-        : trailIns(geometry.origin(arrow), trail);
-    return [...next].toSorted(compareArrows);
-  };
 
   const runFronts = (
     state: GameState,
@@ -123,7 +139,7 @@ export const makeCutRules = (
       }
 
       trail.delete(arrow);
-      for (const next of continuations(arrow, direction, trail)) {
+      for (const next of continuations(geometry, arrow, trail)) {
         queue.push({ arrow: next, direction });
       }
     }
@@ -178,12 +194,10 @@ export const makeCutRules = (
   ): GameState =>
     withTrailUpdate(state, victim, (groups, trail) => {
       if (!trail.has(emptied)) return;
-      // Empty arrow cannot be a firebreak — destroy it and fan both ways.
+      // Empty arrow cannot be a firebreak — destroy it and fan from both ends.
       const seed: Front[] = [];
-      for (const next of continuations(emptied, 'forward', trail)) {
+      for (const next of continuations(geometry, emptied, trail)) {
         seed.push({ arrow: next, direction: 'forward' });
-      }
-      for (const next of continuations(emptied, 'backward', trail)) {
         seed.push({ arrow: next, direction: 'backward' });
       }
       trail.delete(emptied);

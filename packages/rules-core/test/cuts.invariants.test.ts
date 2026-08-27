@@ -8,7 +8,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { makeRules } from '../src/index';
-import { skip, step } from '@conquarrow/contracts';
+import { endTurn, rational, skip, step } from '@conquarrow/contracts';
+import { orderedBorders } from '../src/economy';
 import {
   A,
   B,
@@ -16,15 +17,19 @@ import {
   MINIMAL_DIAMETER,
   SPACIOUS,
   SPACIOUS_DIAMETER,
+  aForkArmCut,
   anInterleaving,
   countingVertices,
   headsOn,
   isTrail,
   onBoard,
+  owned,
+  ownerOf,
   pick,
   slotsAt,
   stateOf,
   territoryOf,
+  totalHeads,
   trailOf,
   vertexReadsOf,
   via,
@@ -209,4 +214,111 @@ describe('cut resolution is pure and requests no vertex beyond an idle move', ()
       expect(cutting).toBe(idle);
     }
   });
+});
+
+const aBirthOnArm = (table: ReturnType<typeof onBoard>, diameter: number) => {
+  const { stem, armX, armY } = aForkArmCut(table.geometry, diameter);
+  for (const vertex of table.geometry.flankVertices(armX)) {
+    const borders = orderedBorders(table.geometry, vertex);
+    const phase = borders.indexOf(armX);
+    if (phase < 0) continue;
+    const bHome = borders.find((arrow) => arrow !== armX && arrow !== armY && arrow !== stem);
+    if (bHome === undefined) continue;
+    return { vertex, phase, stem, armX, armY, bHome };
+  }
+  throw new Error('setup: no spawner vertex flanking arm X without sitting on the fork');
+};
+
+describe('a cut that arrives along one fork arm floods every arm (P47)', () => {
+  it.each(BOARDS)('removes the sibling arm on $name', ({ description, diameter }) => {
+    const table = onBoard(description);
+    const { stem, armX, armY, trailOut, cutterIn, interleavingExit } = aForkArmCut(
+      table.geometry,
+      diameter,
+    );
+    const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+      trail: { A: [cutterIn], B: [stem, armX, armY, trailOut] },
+    });
+    expect(table.rules.crossesTrail(before, via(cutterIn, interleavingExit), B)).toBe(true);
+
+    const after = table.rules.apply(before, step(cutterIn, interleavingExit, 1));
+
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+  });
+
+  it.each(BOARDS)(
+    'does not treat the cutter’s occupation as a firebreak on $name',
+    ({ description, diameter }) => {
+      const table = onBoard(description);
+      const { stem, armX, armY, trailOut, beyond, cutterIn } = aForkArmCut(
+        table.geometry,
+        diameter,
+      );
+      const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+        trail: { A: [cutterIn], B: [stem, armX, armY, trailOut, beyond] },
+      });
+
+      const after = table.rules.apply(before, step(cutterIn, trailOut, 1));
+
+      expect(ownerOf(after, trailOut)).toBe(A);
+      expect(isTrail(after, B, trailOut)).toBe(false);
+      expect(isTrail(after, B, beyond)).toBe(false);
+      expect(isTrail(after, B, armY)).toBe(false);
+    },
+  );
+
+  it.each(
+    BOARDS.flatMap((board) =>
+      (['wipe', 'birth'] as const).map((kind) => ({ ...board, kind })),
+    ),
+  )('takes the sibling from a $kind on one arm of $name', ({ description, diameter, kind }) => {
+    const table = onBoard(description);
+    if (kind === 'wipe') {
+      const { stem, armX, armY, otherIn } = aForkArmCut(table.geometry, diameter);
+      const before = stateOf(
+        [
+          { arrow: otherIn, owner: A, heads: 2 },
+          { arrow: armX, owner: B, heads: 1 },
+        ],
+        A,
+        { trail: { A: [otherIn], B: [stem, armX, armY] } },
+      );
+      const after = table.rules.apply(before, step(otherIn, armX, 1));
+      expect(isTrail(after, B, armX)).toBe(false);
+      expect(isTrail(after, B, armY)).toBe(false);
+      return;
+    }
+    const { vertex, phase, stem, armX, armY, bHome } = aBirthOnArm(table, diameter);
+    const before = stateOf([], A, {
+      trail: { B: [stem, armX, armY] },
+      territory: [...owned([armX], A), ...owned([bHome], B)],
+      accumulators: [[armX, rational(2, 3)]],
+      spawners: [[vertex, { force: rational(1, 3), phase }]],
+    });
+    const after = table.rules.apply(table.rules.apply(before, endTurn()), endTurn());
+    expect(ownerOf(after, armX)).toBe(A);
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+  });
+
+  it.each(BOARDS)(
+    'does not change head count on a fork-arm cut on $name',
+    ({ description, diameter }) => {
+      const table = onBoard(description);
+      const { stem, armX, armY, trailOut, cutterIn, interleavingExit } = aForkArmCut(
+        table.geometry,
+        diameter,
+      );
+      const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+        trail: { A: [cutterIn], B: [stem, armX, armY, trailOut] },
+      });
+      const heads = totalHeads(before);
+
+      const after = table.rules.apply(before, step(cutterIn, interleavingExit, 1));
+
+      expect(isTrail(after, B, armY)).toBe(false);
+      expect(totalHeads(after)).toBe(heads);
+    },
+  );
 });

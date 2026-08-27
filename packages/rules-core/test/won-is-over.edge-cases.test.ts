@@ -2,8 +2,10 @@
  * One test per scenario of docs/spec/won-is-over/won-is-over.edge-cases.feature,
  * bar two Rules that live elsewhere:
  *
- * - *A record that runs past the win stops there* — three scenarios, all three
- *   about the reported playtest log, in `won-is-over.replay.test.ts`.
+ * - *A record that runs past the win stops there* — the 2026-08-20 log is a P47
+ *   prefix golden (fold stops at 233); P38's empty-offer / throw-on-apply gates
+ *   are on `aWonPosition` here and in `won-is-over.core.test.ts`. The log's
+ *   remaining fold assertions live in `won-is-over.replay.test.ts`.
  * - *The celebration waits for the effects that won the match* — six scenarios,
  *   all six adapter-side, in `packages/web/test/won-is-over.celebration.test.ts`.
  *

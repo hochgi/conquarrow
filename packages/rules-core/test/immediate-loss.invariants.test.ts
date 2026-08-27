@@ -28,6 +28,7 @@ import {
   aMatchLosingThree,
   landOf,
   lostAlong,
+  P47_PREFIX_FLOOR,
   playtestLog,
   someSeatIsAlive,
   someSeatOwnsAShare,
@@ -501,12 +502,9 @@ describe('the item-44 chain, over every state a replay passes through', () => {
     // The floor belongs here, not in each caller. Invariants 9, 10 and 11 all
     // quantify over these states with no length of their own, so a fixture that
     // failed to load — or a record refused on its first move — would collapse the
-    // trace to the opening alone and satisfy all three vacuously. Until now the
-    // only thing making them bite was an assertion in a *different* file
-    // (`immediate-loss.replay.test.ts`, `refusedAt === 1243` since P38 moved the
-    // stop there); this file has to stand on its own. A floor, not a pin: the record
-    // is 1247 moves long and the fold reaches 1243 of them.
-    expect(states.length).toBeGreaterThan(1000);
+    // trace to the opening alone and satisfy all three vacuously. P47 stops the
+    // fold at `P47_FIRST_UNPLAYABLE` (233); the floor still bites a 0-move fold.
+    expect(states.length).toBeGreaterThan(P47_PREFIX_FLOOR);
     return [{ name: 'the reported playtest log', states, geometry }];
   };
 

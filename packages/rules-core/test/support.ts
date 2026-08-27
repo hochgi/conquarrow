@@ -707,6 +707,85 @@ export const anInterleaving = (
 };
 
 /**
+ * A fork at Q (stem + ungarrisoned arms X and Y) and an interleaving cut at
+ * P = target(X) — the P47 shape: the front reaches the fork *along* arm X, not
+ * as a seed at Q and not from the stem.
+ *
+ * Y is required not to be incident to P, so all-to-all at the cut point cannot
+ * take the sibling. Today's engine leaves Y standing; that is the red.
+ */
+export const aForkArmCut = (
+  geometry: GeometryPort,
+  diameter: number,
+): {
+  readonly fork: PointId;
+  readonly cutPoint: PointId;
+  readonly stem: ArrowId;
+  readonly armX: ArrowId;
+  readonly armY: ArrowId;
+  readonly trailOut: ArrowId;
+  readonly beyond: ArrowId;
+  readonly cutterIn: ArrowId;
+  readonly interleavingExit: ArrowId;
+  readonly otherIn: ArrowId;
+} => {
+  for (const fork of [...new Set(allArrows(geometry, diameter).map((a) => geometry.target(a)))]) {
+    const { ins, outs } = slotsAt(geometry, fork);
+    for (const stem of ins) {
+      const otherIn = ins.find((arrow) => arrow !== stem);
+      if (otherIn === undefined) continue;
+      for (const armX of outs) {
+        for (const armY of outs) {
+          if (armY === armX) continue;
+          const cutPoint = geometry.target(armX);
+          if (cutPoint === fork) continue;
+          if (geometry.target(armY) === cutPoint) continue;
+          const atCut = slotsAt(geometry, cutPoint);
+          if (!atCut.ins.includes(armX)) continue;
+          if (atCut.ins.includes(armY) || atCut.outs.includes(armY)) continue;
+          for (const trailOut of atCut.outs) {
+            if (trailOut === stem || trailOut === armY || trailOut === otherIn) continue;
+            const theirs = chordOf(geometry, via(armX, trailOut));
+            for (const cutterIn of atCut.ins) {
+              if (cutterIn === armX) continue;
+              const { interleaving } = exitsByCrossing(geometry, cutPoint, cutterIn, theirs);
+              const interleavingExit = interleaving.find(
+                (exit) => exit !== trailOut && exit !== armY && exit !== stem && exit !== otherIn,
+              );
+              if (interleavingExit === undefined) continue;
+              const beyond = exitsFrom(geometry, trailOut).find(
+                (exit) =>
+                  exit !== armX &&
+                  exit !== armY &&
+                  exit !== stem &&
+                  exit !== trailOut &&
+                  exit !== interleavingExit &&
+                  exit !== cutterIn &&
+                  exit !== otherIn,
+              );
+              if (beyond === undefined) continue;
+              return {
+                fork,
+                cutPoint,
+                stem,
+                armX,
+                armY,
+                trailOut,
+                beyond,
+                cutterIn,
+                interleavingExit,
+                otherIn,
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+  throw new Error('setup: no fork-arm cut configuration on this board');
+};
+
+/**
  * Three arrows forming a directed cycle — `a → b → c → a`.
  *
  * Girth is 3 on every conformant board (SPEC §2, §11 item 3) and §11 item 5 calls

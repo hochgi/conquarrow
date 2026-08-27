@@ -5,19 +5,26 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { endTurn, mintPlayerId, rational, skip, step } from '@conquarrow/contracts';
+import type { ArrowId, GameState, GeometryPort } from '@conquarrow/contracts';
+import { cellArrow, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
-import { skip, step } from '@conquarrow/contracts';
+import { orderedBorders } from '../src/economy';
 import {
   A,
   B,
   MINIMAL_DIAMETER,
+  aForkArmCut,
   anExitFrom,
   anInterleaving,
   arrowAt,
+  byId,
   countingVertices,
   headsOn,
   isTrail,
   onBoard,
+  owned,
+  ownerOf,
   pathFrom,
   pick,
   slotsAt,
@@ -32,6 +39,66 @@ const junction = (table: ReturnType<typeof onBoard>) =>
   slotsAt(table.geometry, table.geometry.target(
     pick(table.geometry.outArrows(table.geometry.seedPoint()), 0),
   ));
+
+const F = mintPlayerId('F');
+const D = mintPlayerId('D');
+
+const fullRound = (rules: ReturnType<typeof onBoard>['rules'], state: GameState) =>
+  rules.apply(rules.apply(state, endTurn()), endTurn());
+
+const aBirthOnArm = (table: ReturnType<typeof onBoard>) => {
+  const { stem, armX, armY } = aForkArmCut(table.geometry, MINIMAL_DIAMETER);
+  for (const vertex of table.geometry.flankVertices(armX)) {
+    const borders = orderedBorders(table.geometry, vertex);
+    const phase = borders.indexOf(armX);
+    if (phase < 0) continue;
+    const bHome = borders.find((arrow) => arrow !== armX && arrow !== armY && arrow !== stem);
+    if (bHome === undefined) continue;
+    return { vertex, phase, stem, armX, armY, bHome };
+  }
+  throw new Error('setup: no spawner vertex flanking arm X without sitting on the fork');
+};
+
+const tile = (i: number, j: number, d: 0 | 1 | 2): ArrowId => cellArrow(i, j, d);
+
+const aPlaytestSeatState = (
+  geometry: GeometryPort,
+  named: readonly ArrowId[],
+  groups: GameState['groups'],
+  trails: GameState['trails'],
+): GameState => {
+  const near = new Set(
+    named.flatMap((arrow) => geometry.window(geometry.origin(arrow), 3).arrows.map(String)),
+  );
+  const homes = geometry
+    .window(geometry.seedPoint(), 8)
+    .arrows.filter((arrow) => !near.has(String(arrow)))
+    .toSorted(byId);
+  const homeF = homes[0];
+  const homeD = homes[1];
+  if (homeF === undefined || homeD === undefined) {
+    throw new Error('setup: no distant keepalive homes on the tiling');
+  }
+  const vertexOf = (arrow: ArrowId) => pick(geometry.flankVertices(arrow), 0);
+  return {
+    players: [F, D],
+    activePlayer: F,
+    groups,
+    trails,
+    territory: new Map([
+      [homeF, F],
+      [homeD, D],
+    ]),
+    accumulators: new Map(),
+    spawners: new Map([
+      [vertexOf(homeF), { force: rational(1, 3), phase: 0 }],
+      [vertexOf(homeD), { force: rational(1, 3), phase: 0 }],
+    ]),
+    starvationStreaks: new Map(),
+    dominationN: 5,
+    winner: undefined,
+  };
+};
 
 // ── Rule: halt is per arrow, never per point ─────────────────────────────────
 
@@ -178,6 +245,177 @@ describe('cut interactions', () => {
     expect(headsOn(after, ourIn)).toBe(1);
     // Then cut: B's trail evaporates from the cut.
     expect(trailOf(after, B).length).toBeLessThan(trailOf(before, B).length);
+  });
+});
+
+// ── Rule: a cut on one arm still respects firebreaks on the other (P47) ──────
+
+describe('a cut on one arm still respects firebreaks on the other', () => {
+  it('halts at a garrison on the sibling arm', () => {
+    // Halt-at-first still bounds the region. P47 floods the sibling; it does not
+    // walk through a firebreak.
+    const table = onBoard();
+    const { stem, armX, armY, trailOut, cutterIn, interleavingExit } = aForkArmCut(
+      table.geometry,
+      MINIMAL_DIAMETER,
+    );
+    const beyondY = pick(
+      table.geometry
+        .outArrows(table.geometry.target(armY))
+        .filter(
+          (arrow) =>
+            arrow !== armX &&
+            arrow !== stem &&
+            arrow !== trailOut &&
+            arrow !== interleavingExit &&
+            arrow !== cutterIn,
+        ),
+      0,
+    );
+    const before = stateOf(
+      [
+        { arrow: cutterIn, owner: A, heads: 1 },
+        { arrow: armY, owner: B, heads: 1 },
+      ],
+      A,
+      {
+        trail: { A: [cutterIn], B: [stem, armX, armY, trailOut, beyondY] },
+      },
+    );
+    expect(table.rules.crossesTrail(before, via(cutterIn, interleavingExit), B)).toBe(true);
+
+    const after = table.rules.apply(before, step(cutterIn, interleavingExit, 1));
+
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(true);
+    expect(headsOn(after, armY)).toBe(1);
+    expect(isTrail(after, B, beyondY)).toBe(true);
+  });
+
+  it('floods the sibling from an interleave that does not land on the trail', () => {
+    // Playtest 2026-08-27: F 0,-1,1 → -1,0,1 did not coincide; dHadExit was false.
+    const table = onBoard();
+    const { stem, armX, armY, trailOut, cutterIn, interleavingExit } = aForkArmCut(
+      table.geometry,
+      MINIMAL_DIAMETER,
+    );
+    const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+      trail: { A: [cutterIn], B: [stem, armX, armY, trailOut] },
+    });
+    expect(isTrail(before, B, interleavingExit)).toBe(false);
+    expect(table.rules.crossesTrail(before, via(cutterIn, interleavingExit), B)).toBe(true);
+
+    const after = table.rules.apply(before, step(cutterIn, interleavingExit, 1));
+
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+    expect(isTrail(after, B, trailOut)).toBe(false);
+  });
+
+  it('continues past the cutter on a coincide landing', () => {
+    const table = onBoard();
+    const { stem, armX, armY, trailOut, beyond, cutterIn } = aForkArmCut(
+      table.geometry,
+      MINIMAL_DIAMETER,
+    );
+    const before = stateOf([{ arrow: cutterIn, owner: A, heads: 1 }], A, {
+      trail: { A: [cutterIn], B: [stem, armX, armY, trailOut, beyond] },
+    });
+    expect(isTrail(before, B, trailOut)).toBe(true);
+    expect(table.rules.crossesTrail(before, via(cutterIn, trailOut), B)).toBe(true);
+
+    const after = table.rules.apply(before, step(cutterIn, trailOut, 1));
+
+    expect(isTrail(after, B, trailOut)).toBe(false);
+    expect(isTrail(after, B, beyond)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+    expect(ownerOf(after, trailOut)).toBe(A);
+    expect(headsOn(after, trailOut)).toBe(1);
+  });
+
+  it('evaporates the sibling when a combat wipe lands on one fork arm', () => {
+    // Shared flood: evaporateFromArrow uses the same all-to-all region as a crossing.
+    const table = onBoard();
+    const { stem, armX, armY, otherIn } = aForkArmCut(table.geometry, MINIMAL_DIAMETER);
+    const before = stateOf(
+      [
+        { arrow: otherIn, owner: A, heads: 2 },
+        { arrow: armX, owner: B, heads: 1 },
+      ],
+      A,
+      {
+        trail: { A: [otherIn], B: [stem, armX, armY] },
+      },
+    );
+
+    const after = table.rules.apply(before, step(otherIn, armX, 1));
+
+    expect(headsOn(after, armX)).toBeGreaterThanOrEqual(1);
+    expect(ownerOf(after, armX)).toBe(A);
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+  });
+
+  it('evaporates the sibling when a birth lands on one fork arm', () => {
+    // P40 trigger, P47 region. The newborn is not the victim's firebreak.
+    const table = onBoard();
+    const { vertex, phase, stem, armX, armY, bHome } = aBirthOnArm(table);
+    const before = stateOf([], A, {
+      trail: { B: [stem, armX, armY] },
+      territory: [...owned([armX], A), ...owned([bHome], B)],
+      accumulators: [[armX, rational(2, 3)]],
+      spawners: [[vertex, { force: rational(1, 3), phase }]],
+    });
+
+    const after = fullRound(table.rules, before);
+
+    expect(ownerOf(after, armX)).toBe(A);
+    expect(headsOn(after, armX)).toBe(1);
+    expect(isTrail(after, B, armX)).toBe(false);
+    expect(isTrail(after, B, armY)).toBe(false);
+  });
+});
+
+// ── Rule: Playtest 2026-08-27 — leftover sibling on the tiling ───────────────
+
+describe('playtest 2026-08-27 — leftover sibling on the tiling', () => {
+  it("evaporates D's sibling out -1,1,0 when F interleaves at p:-1,0", () => {
+    // Item 50. Authored occupancy matching that position — not a 235-move fold.
+    // Interleave, not coincide. D's sentry is the firebreak; F is not.
+    const geometry = makeTiling();
+    const rules = makeRules(geometry);
+    const from = tile(0, -1, 1);
+    const exit = tile(-1, 0, 1);
+    const sibling = tile(-1, 1, 0);
+    const towardFork = tile(-1, 1, 2);
+    const towardSentry = tile(-1, 0, 2);
+    const sentry = tile(-1, -1, 1);
+    const named = [from, exit, sibling, towardFork, towardSentry, sentry];
+    const before = aPlaytestSeatState(
+      geometry,
+      named,
+      new Map([
+        [from, { owner: F, heads: 4, spent: 0 }],
+        [sentry, { owner: D, heads: 1, spent: 0 }],
+      ]),
+      new Map([[D, new Set([towardFork, sibling, towardSentry, sentry])]]),
+    );
+    expect(isTrail(before, D, exit)).toBe(false);
+    expect(rules.crossesTrail(before, via(from, exit), D)).toBe(true);
+    const offered = rules.legalMoves(before).some(
+      (move) =>
+        move.kind === 'step' && move.from === from && move.exit === exit && move.count === 4,
+    );
+    expect(offered).toBe(true);
+
+    const after = rules.apply(before, step(from, exit, 4));
+
+    expect(isTrail(after, D, sibling)).toBe(false);
+    expect(isTrail(after, D, sentry)).toBe(true);
+    expect(ownerOf(after, sentry)).toBe(D);
+    expect(headsOn(after, sentry)).toBe(1);
+    expect(ownerOf(after, exit)).toBe(F);
+    expect(headsOn(after, exit)).toBe(4);
   });
 });
 

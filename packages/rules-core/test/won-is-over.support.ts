@@ -28,8 +28,9 @@
  *    be observed to resolve, which is a fact about the rules and not about the
  *    fixture.
  * 5. **The reported playtest log, once.** {@link theReportedLog} and
- *    {@link slicedAt}, with the three measured indices as named constants, because
- *    the whole point of the replay scenarios is *which* index the fold stops at.
+ *    {@link slicedAt}, with the P37/P38 indices as **fixture landmarks** and
+ *    {@link P47_FIRST_UNPLAYABLE} as the current fold stop, because the replay
+ *    scenarios have to say *which* index the engine stops at.
  *
  * Same standing rules as the rest of the suite: states are hand-authored and
  * boards are not, and a setup failure throws a plain `Error` so it can never be
@@ -426,12 +427,25 @@ const assertOneMoveFromDecided = (wipe: WinningWipe): void => {
 
 // ── the reported playtest log ──────────────────────────────────────────
 
-/** Zero-based index of the step that takes E's last territory (P37, measured). */
+/**
+ * Historical landmarks **in the fixture**, not the current fold.
+ *
+ * The 2026-08-20 log still contains D's deciding step at 1242 and the `endTurn`
+ * at 1243. P47's incidence flood makes the record unplayable earlier — see
+ * {@link P47_FIRST_UNPLAYABLE}. P37/P38 behaviour (winner on the deciding move,
+ * refuse the next) is proven on the hand-authored fixtures (`aMatchLosingThree`,
+ * {@link aWonPosition}).
+ */
 export const DECIDING_MOVE = 1242;
-/** The `endTurn` right after it — accepted before P38, refused by it. */
+/** The `endTurn` right after the deciding step — accepted before P38, refused by it. */
 export const FIRST_MOVE_AFTER_THE_WIN = 1243;
 /** The move a seat that no longer exists makes — P37 stopped the fold here. */
 export const FIRST_MOVE_BY_A_DEAD_SEAT = 1244;
+
+export {
+  P47_FIRST_UNPLAYABLE,
+  P47_PREFIX_FLOOR,
+} from './immediate.support';
 
 export interface ReportedLog {
   readonly initial: GameState;
@@ -449,6 +463,9 @@ let REPORTED: ReportedLog | undefined;
  *
  * Memoised, which is safe *because* the core is pure: the same record over the same
  * board is the same fold, which is the property the replay suite exists to assert.
+ *
+ * Under current rules the fold stops at {@link P47_FIRST_UNPLAYABLE}; callers that
+ * need a complete replay must {@link slicedAt} that index.
  */
 export const theReportedLog = (): ReportedLog => {
   REPORTED ??= ((): ReportedLog => {
