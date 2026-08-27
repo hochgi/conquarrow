@@ -46,6 +46,11 @@ export default tseslint.config(
       '.stryker-tmp/**',
       // Throwaway visual validation (gitignored) — never part of the build.
       '**/.scratch/**',
+      // Installed agent skills are templates (markdown, yaml, sample configs),
+      // not product code. A skill .cjs is otherwise picked up by type-aware
+      // lint and fails projectService because it is in no tsconfig.
+      '.agents/**',
+      '.claude/skills/**',
     ],
   },
   js.configs.recommended,
@@ -157,6 +162,8 @@ export default tseslint.config(
     // sit outside every package's tsconfig by design.
     files: [
       '**/*.js',
+      '**/*.cjs',
+      '**/*.mjs',
       'vitest.config.ts',
       'packages/web/vite.config.ts',
       'packages/online-api/test/infra.test.ts',
