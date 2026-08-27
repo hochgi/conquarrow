@@ -25,6 +25,7 @@ import {
   landOf,
   lostAlong,
   ownedSharesOf,
+  P47_PREFIX_FLOOR,
   playtestLog,
   someSeatIsAlive,
   statesAlong,
@@ -489,7 +490,8 @@ describe('item 44’s chain is pinned, not merely argued', () => {
     // opening that owned none, or a trace that stopped at zero moves, pass with
     // `dropped` empty and nothing compared.
     expect(ownedSharesOf(initial, geometry).size).toBeGreaterThan(0);
-    expect(stops.length).toBeGreaterThan(1000);
+    // P47 prefix (233 stops). Floor still bites a 0-move fold; not a pin of 1243.
+    expect(stops.length).toBeGreaterThan(P47_PREFIX_FLOOR);
   });
 
   it('never reaches a state with no seat left', () => {

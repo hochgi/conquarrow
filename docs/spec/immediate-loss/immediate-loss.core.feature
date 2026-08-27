@@ -80,11 +80,15 @@ Feature: A loss resolves on the move that causes it
       Then the same three seats are lost
       And each is lost on the move that caused it rather than at the next boundary
 
-    Scenario: The reported playtest log ends on the deciding move
+    Scenario: The reported playtest log is a P47 prefix golden
       Given the match log conquarrow-match-2026-08-20T142811-462Z
       When it is replayed
-      Then the winner is D
-      And the winner is set on the move that takes E's last territory
+      Then the replay refuses at move 233
+      And the adapter still records D as the winner of that session
+      And the fold never reaches the deciding move
+      # P47 extra evaporation; P28 then refuses the recorded step. The
+      # deciding-win claim is the scenario above (three seats lost on a
+      # hand-authored match), not this log.
 
     Scenario: A starvation loss still waits for the boundary
       Given a player has been destitute for one round short of the threshold

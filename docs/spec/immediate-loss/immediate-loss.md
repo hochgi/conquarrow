@@ -12,7 +12,11 @@ P36 made losing a per-seat event and resolved it at the full-round boundary.
 A playtest found what that costs: encircling the last enemy territory did not end
 the match. Replayed against `main` @ `253a359`, the winning move is 1242 and
 `winner` is first set at 1246 — four moves and three end-turns later, with the
-already-lost seat taking a turn at 1244.
+already-lost seat taking a turn at 1244. **P47** later evaporates sibling fork
+arms, so that same 1247-move log is now a **prefix golden**: the fold stops at
+move **233** (P28 refuses E's recorded step onto demoted land). P37's deciding-win
+claim is proven on the hand-authored four-seat match, not on a fold that no
+longer reaches 1242.
 
 P36 predicted the symptom in its own spec (*"a seat that loses its last territory
 may still take the remaining turns of that round"*) and accepted it. That was

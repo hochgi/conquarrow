@@ -1,6 +1,6 @@
 # language: en
 # Overview: docs/spec/cuts/cuts.md
-# SPEC §6.1, §6.1a, §2, §11 items 24, 26, 27, 28
+# SPEC §6.1, §6.1a, §2, §11 items 24, 26, 27, 28, 50
 
 Feature: Cuts — evaporating a trail from a crossing
   As the rules engine
@@ -71,7 +71,23 @@ Feature: Cuts — evaporating a trail from a crossing
       When the front spreads
       Then a front continues into arm X
       And a front continues into arm Y
-      # §6.1a / item 26: every out is fed; each branch carries the parent's remaining kill.
+      # §6.1a / item 26: every out is fed.
+
+    Scenario: A cut on one fork arm evaporates the sibling arm
+      Given player B's trail forks at point Q into ungarrisoned arms X and Y
+      And a head of player A's crosses B's trail at the far end of arm X
+      When the cut resolves
+      Then arm X is no longer in player B's trail
+      And arm Y is no longer in player B's trail
+      # P47 / item 50: every point a front reaches is all-to-all, not only the cut point.
+
+    Scenario: The cutter's stack is not a firebreak
+      Given player B's ungarrisoned trail runs through point P and continues beyond it
+      And a stack of player A's steps onto an out-arrow of P that is not occupied by B
+      When the cut resolves
+      Then player B's trail arrows of that region that held no garrison of B's are gone
+      And player A's heads still stand on that out-arrow
+      # Halt-at-first is victim occupation only. The cutter is not a firebreak.
 
     Scenario: A cut at a join spreads backward into every in-arrow
       Given point P has two of player B's trail in-arrows

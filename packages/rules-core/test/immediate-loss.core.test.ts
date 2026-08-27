@@ -9,7 +9,7 @@
  * `immediate-loss.replay.test.ts` rather than being restated here:
  *
  * - *The same seats are lost over a whole match*
- * - *The reported playtest log ends on the deciding move*
+ * - *The reported playtest log is a P47 prefix golden* (was: ends on the deciding move)
  * - *Some player owns a share in every state of a replay*
  * - *At least one seat is not lost in every state of a replay*
  *

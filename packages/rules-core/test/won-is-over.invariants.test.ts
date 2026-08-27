@@ -2,8 +2,10 @@
  * The EARS invariants of docs/spec/won-is-over/won-is-over.md, as properties.
  *
  * Invariants 1–9 are the rules half; 10–13 are the adapter's and live in
- * `packages/web/test/won-is-over.celebration.test.ts`. Invariants 5 and 6 quantify
- * over the reported playtest log and live in `won-is-over.replay.test.ts`.
+ * `packages/web/test/won-is-over.celebration.test.ts`. Invariant 5 (refuse the
+ * first move after a win) is proven on `aWonPosition` / `aMatchLosingThree`.
+ * Invariant 6 (the 2026-08-20 log refuses at 233 and names that step) lives in
+ * `won-is-over.replay.test.ts` as a P47 prefix golden.
  *
  * The gates themselves are one `undefined` check each, so the value here is
  * **quantification**, not shape: the scenario suite asserts each gate once, and

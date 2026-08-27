@@ -407,8 +407,8 @@ So **any garrison is a firebreak.** Sentry *size* matters for contact combat, no
 **A firebreak stops evaporation, not paint (P42).** Cuts, combat wipes, convert wipes, and birth-cuts halt when a front would enter an owner-occupied trail arrow. The claim walk (§7) does not consult occupation: landing home claims every against-grain trail arrow reached, including garrisons; those stacks stay, now on land.
 
 - **A point is all-to-all.** Where the trail has `i` in-arrows and `o` out-arrows at a point, that point is a join followed by a split: **every in feeds every out**. Not a convention picked to break a tie — the arrow set holds no pairing to recover (§6.1a), and a set with `i` ins and `o` outs simply *is* a join-then-split.
-- **A front per branch.** A forward front reaching a point continues into *every* out-arrow and a backward front into *every* in-arrow. A cut under a fork clears every arm until each arm's first garrison (or territory).
-- **A front halts per arrow, not per point.** It stops when it would enter an arrow that holds the victim's heads. A head does *not* shield the point ahead of it against evaporation — that range belongs to combat (§6.2), and the two jobs sit on different axes.
+- **A front per branch, at every point it reaches.** A forward front reaching a point continues into *every* out-arrow and a backward front into *every* in-arrow — and a front that *arrives* along one incidence still treats the point as all-to-all, so the other polarity floods too. A cut **on** a fork (one arm) therefore clears **every** arm until each arm's first garrison (or territory), not only the arm the front arrived along. A cut *under* a fork (the stem) already did. The destroyed set is the undirected region between firebreaks: victim trail arrows adjacent at a point belong to one component. *Never against it* means a front does not reverse along the **same** arrow it just destroyed; it does not mean a sibling arm is immune (P47 / §11 item 50).
+- **A front halts per arrow, not per point.** It stops when it would enter an arrow that holds the **victim's** heads. The cutter occupying an arrow is not a firebreak. A head does *not* shield the point ahead of it against evaporation — that range belongs to combat (§6.2), and the two jobs sit on different axes.
 - **Territory is a wall.** Backward evaporation reaching your own closed ground stops there and costs nothing. There is nothing to destroy and nothing to charge (§5).
 - **A stack is an anchor.** Trail beyond a halting stack is anchored *on that stack* — live. It can be extended, defended, and driven home.
 - **Unanchored (dormant) trail is legal (P22 beta).** A trail component that reaches neither a territory root nor any of the owner's stacks **stands as marked trail** until a friendly head re-attaches, an enemy cut evaporates it, or a **convert wipe** reaches it (§6.3). No decay. Headless territory-anchored stretch remains ordinary wall.
@@ -433,7 +433,7 @@ Four properties fall out of this:
 
 **Prying a firebreak open takes combat, not a second cut.** A cut stops at the first garrison forever. Removing that garrison is contact combat (§6.2); a wipe then evaporates trail from the emptied arrow. Dismantling a garrisoned trail is a siege of fights, not a sequence of lucky crossings.
 
-**Forks are ordinary trail, and branching is free (P22).** A fork is one arrow with two trail arrows leaving it; nothing about its *behaviour* is privileged. A cut behind it floods into both branches until each arm's garrison. ~~What it costs is the anchor §5 charges~~ — **no toll** (§11 item 35 re-resolved).
+**Forks are ordinary trail, and branching is free (P22).** A fork is one arrow with two trail arrows leaving it; nothing about its *behaviour* is privileged. A cut behind it **or on one arm** floods into both branches until each arm's garrison (P47). ~~What it costs is the anchor §5 charges~~ — **no toll** (§11 item 35 re-resolved).
 
 A cut is therefore expensive but survivable. You lose the region you were cut in; heads stay unless combat removes them; what lies beyond a firebreak is demoted rather than destroyed (or left as dormant marks if headless). Large enclosures stay attemptable — and the spearhead itself survives.
 
@@ -457,7 +457,7 @@ Three invariants govern every trail:
 
 **A point is all-to-all — this is what "no memory" costs, and what it buys.** Where the trail uses a point more than once, the arrow set holds several in-arrows and several out-arrows and **no pairing between them**: a walk that went `a→a, b→b` and one that went `a→b, b→a` leave the identical set. There is nothing to recover, so nothing is guessed. The point simply *is* a join followed by a split, every in feeding every out. Two consequences, both intended:
 
-- **Evaporation spreads to every continuation**, in its own direction and never against it (§6.1).
+- **Evaporation spreads to every continuation** at a point, including a sibling arm the front did not arrive along (§6.1 / P47). *Never against it* forbids reversing on the same arrow, not skipping the rest of the join-then-split.
 - **The trail presents `i × o` chords there** for the crossing test (§2) — one per (in, out) pair. A knot is genuinely more cuttable than a spine, which is the right sign: more strands through a point, more ways through it.
 
 Three answers were on the table and only this one asserts nothing. *Canonical pairing* — pick one by a slot convention — routes damage down arrows the player never connected. *Immunity* — declare an ambiguous point uncuttable — is a patch with no mechanism behind it. All-to-all is not a resolution of the ambiguity; it is the observation that **the question was wrong**. It presumed a trail is a walk that pairs its entries with its exits, and a trail is a set.
@@ -900,7 +900,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 >
 > **Item 43 was opened and closed by P28:** walking from stack-grade / marked trail onto enemy territory used to convert the mover on that same `apply`. Playtest: nobody chooses that step if they can read it. **Resolved: the step is illegal.** Conversion stays a state predicate for opponent-caused encirclement. → §6.3, → §4, → P28.
 >
-> **§11 has no remaining open rules question.** Item 47 was **resolved by P40** (an enemy birth onto open trail is a cut at the birth arrow). Item 45 was **resolved by P39** (the trail still *clears*; the adapter presents flicker-then-fade, which is not a cut). Item 46 was **resolved by P38** (a won match is terminal: `legalMoves` offers nothing, `apply` throws) and item 44 was **resolved by dissolution** by P37 — a match with no surviving seat cannot be reached, because no path can un-own a spawner share and a share owner is never lost. What remains is a **parked tuning table**: item 11's *R*, the band radii, force per band, and item 32's *N* are numbers only playtesting can set, and P09 owns setting them. Item **39** parks a territory-combat idea without blocking. None of the tuning items changes a rule.
+> **§11 has no remaining open rules question.** Item 50 was **resolved by P47** (a cut on one fork arm floods every arm; the cutter is not a firebreak). Item 47 was **resolved by P40** (an enemy birth onto open trail is a cut at the birth arrow). Item 45 was **resolved by P39** (the trail still *clears*; the adapter presents flicker-then-fade, which is not a cut). Item 46 was **resolved by P38** (a won match is terminal: `legalMoves` offers nothing, `apply` throws) and item 44 was **resolved by dissolution** by P37 — a match with no surviving seat cannot be reached, because no path can un-own a spawner share and a share owner is never lost. What remains is a **parked tuning table**: item 11's *R*, the band radii, force per band, and item 32's *N* are numbers only playtesting can set, and P09 owns setting them. Item **39** parks a territory-combat idea without blocking. None of the tuning items changes a rule.
 >
 > **Item 34 was opened and closed by P05, and it was never a gap.** §7's closure clause granted "special tiles", which §7's *own next subsection* forbids — specials are vertices, owned in thirds by their bordering arrows, and a vertex is never enclosed. The answer was three subsections from the question, which is the failure mode a spec this cross-referential invites; the item stays as a reminder to look before opening one. → §7 (corrected), → P05b, → P08.
 >
@@ -978,7 +978,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 26. ~~Which in-arrow pairs with which out-arrow at a point the trail uses twice?~~ — **resolved: none of them, and the question was wrong.** Two in-arrows and two out-arrows admit three readings — two passages, two crossed passages, or a join then a fork — and they leave the identical arrow set, so the set determines no pairing. The hole was real: a crossing test that assumed a pairing gave opposite verdicts on the same board state, and evaporation had nowhere defined to route.
 
-    The fix is not to recover the pairing but to stop presuming one. **A point is all-to-all: every in feeds every out** (§6.1a). A set with `i` ins and `o` outs *is* a join-then-split; that is what the representation says, and asserting less was the error. Evaporation spreads to every continuation in its own direction; the crossing test sees `i × o` chords (§2).
+    The fix is not to recover the pairing but to stop presuming one. **A point is all-to-all: every in feeds every out** (§6.1a). A set with `i` ins and `o` outs *is* a join-then-split; that is what the representation says, and asserting less was the error. Evaporation spreads to every continuation at that point, including a sibling arm a directed front did not arrive along (P47 / item 50); the crossing test sees `i × o` chords (§2).
 
     Two rejected alternatives, recorded because both look reasonable. *Canonical pairing* — choose one by a slot convention — routes damage down arrows the player never connected, which is worse than being generous. *Immunity* — declare an ambiguous point uncuttable — is a patch with no mechanism behind it, and it makes a crossover a permanent free wall.
 
@@ -1100,7 +1100,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 45. ~~**Should a lost seat's trail evaporate (§6.1) rather than simply clear?**~~ — **resolved by P39: no, it still clears; the adapter presents flicker-then-fade.** Evaporation stays the destruction a cut causes (§6.1). A new non-cut trigger would invent a rule. P36's silent clearance was the engine half of that answer and stays; what was wrong was the adapter reading every trail drop as `trailCut`, so a seat leaving the match looked like someone crossed its trail. The human asked for flicker-then-fade: one `seatVanished` event, one `seatVanish` overlay, every remnant cell together (no stagger — that is how a player tells it from evaporate). Captured land and converted stacks keep their own metaphors. The P32 cut proxy does not count a vanished seat's trail drop as a cut. → **§6.1**, → **§9**, → **P36**, → **P39**.
 
-46. ~~**Once `winner` is set, must `legalMoves` and `apply` refuse?**~~ — **resolved by P38: yes, both.** The human: *"what's the point to continue a game once it been won? Lets keep it simple."* `legalMoves` offers **nothing** — not even the pass, unlike a lost seat, because a won match has no next turn for a pass to advance to — and `apply` throws `ContractViolation`. The gate sits at the **top** of `apply`, so it never truncates the deciding move: that move resolves every effect it causes (closure, fill, conversion, evaporation, the loser vanishing) and *then* the match is over. The accepted cost is that a record continuing past the win now refuses there — on the reported log, at move 1243, the `endTurn` after the deciding step at 1242, which today is accepted. Returning the input unchanged was the alternative and was rejected: it would leave a caller unable to tell "the match is over" from "that move was a no-op". The adapter half is the sequencing the human asked for — the celebration begins once the deciding move's own effects have finished playing, not on the frame the state changes. → **§9**, → **P37**, → **P38**.
+46. ~~**Once `winner` is set, must `legalMoves` and `apply` refuse?**~~ — **resolved by P38: yes, both.** The human: *"what's the point to continue a game once it been won? Lets keep it simple."* `legalMoves` offers **nothing** — not even the pass, unlike a lost seat, because a won match has no next turn for a pass to advance to — and `apply` throws `ContractViolation`. The gate sits at the **top** of `apply`, so it never truncates the deciding move: that move resolves every effect it causes (closure, fill, conversion, evaporation, the loser vanishing) and *then* the match is over. The accepted cost is that a record continuing past the win now refuses there. When P38 landed, that refusal on the 2026-08-20 log was move **1243**, the `endTurn` after the deciding step at 1242. **P47** evaporates sibling fork arms, so the same record is now a **prefix golden**: the fold refuses at move **233** (P28 withholds E's recorded step `3,-4,0 → 4,-4,0` onto demoted land). P38's engine claim — refuse the first move after a win, and name it — is proven on a hand-authored won position, not on a fold that no longer reaches 1243. Returning the input unchanged was the alternative and was rejected: it would leave a caller unable to tell "the match is over" from "that move was a no-op". The adapter half is the sequencing the human asked for — the celebration begins once the deciding move's own effects have finished playing, not on the frame the state changes. → **§9**, → **P37**, → **P38**, → **P47** (prefix).
 
 **Enemy birth on open trail — resolved by P40: it is a cut**
 
@@ -1148,6 +1148,28 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
     trail in-arrow is claimed. Evaporation halt-at-first is unchanged (movement
     cut, combat wipe, convert wipe, birth-cut). No new port method. → **§6.1**,
     → **§7**, → **P42**.
+
+**Fork cut on one arm — resolved by P47: every arm floods**
+
+50. ~~When a cut's front reaches a fork along one arm, does the sibling arm evaporate?~~ —
+    **resolved: yes.** Playtest 2026-08-27 (`conquarrow-match-2026-08-27T121122-127Z`,
+    human seat F): F's 4-stack interleaved D's trail at `p:-1,0` (`0,-1,1 → -1,0,1`).
+    Backward evaporation cleared the chain through `-2,1,0`; the sibling out
+    `-1,1,0` of `p:-1,1` survived. F then stood on `-2,1,0` looking at that paint
+    and read it as the 4-stack having been a firebreak, and as forward evaporation
+    having failed. Halt-at-first only stops for the **victim's** garrison; F is the
+    cutter. True forward along D's grain *did* run and halted at D's sentry on
+    `-1,-1,1`. The leftover was a directed-front hole: only the cut point was
+    all-to-all, so a backward front destroying one out of a later point never
+    entered the other outs. That contradicts §6.1's *region between firebreaks*
+    and item 26's all-to-all point.
+
+    The destroyed set is the undirected connected component of unoccupied,
+    non-territory victim trail in the incidence graph, grown from the cut's seeds,
+    not entering a victim garrison or victim territory. Every point a front
+    touches is all-to-all. Wipe, convert wipe, and birth-cut share the flood, so a
+    cut *on* one arm (not only *under* the stem) takes every arm until each arm's
+    firebreak. → **§6.1**, → **§6.1a**, → **P47**.
 
 **Spawner accrual timing and spawn-merge — resolved by P08**
 

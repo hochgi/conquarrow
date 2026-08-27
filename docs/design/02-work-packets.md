@@ -75,6 +75,7 @@ scheduled early in the first place.
 | P44 | Tutorial mobile input + plain copy | adapter | — | P43, P31, P35 | **[packet](./packets/P44-tutorial-mobile-copy.md).** Playtest: fat-finger misses, Send undiscoverable, log formula in L0. Coarse `hitArrow` padding, rail auto-Send, stage banner, pan-to-from, plain copy. |
 | P45 | Game library status | adapter | — | P17, P18, P25, P27 | **[packet](./packets/P45-game-library.md).** Signed-in Online **My games**: per-caller `won` / `lost` / `waiting` / `your-turn`. Stamp on persist; no new AWS. |
 | P46 | Library row identity | adapter | — | P45 | **[packet](./packets/P46-library-row-identity.md).** My games rows: opponent labels, start time, caller seat colour. |
+| P47 | Fork cut floods every arm | rules | §6.1, §6.1a, §11 50 | P06, P13, P22 | **[packet](./packets/P47-fork-cut-floods-every-arm.md).** Playtest: F interleaved D's trail; sibling fork arm survived. Region between firebreaks is undirected; cutter is not a firebreak. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -122,6 +123,7 @@ flowchart TD
   P07 --> P33["P33 encircled path"]
   P13["P13 trail fire"] --> P33
   P22 --> P33
+  P13 --> P47["P47 fork-cut every arm"]
   P11 --> P43["P43 tutorial"]
   P43 --> P44["P44 tutorial mobile + copy"]
   P31 --> P44
