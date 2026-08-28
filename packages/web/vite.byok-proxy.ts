@@ -37,7 +37,8 @@ const readBody = (req: DevReq): Promise<string> =>
 
 /**
  * Same-origin BYOK relay for `pnpm dev` only.
- * Pages CORS relay stays on the owner's personal AWS when ready — never employer.
+ * Pages prefers direct CORS-ok hosts (ADR 0003). A personal AWS relay is still
+ * the fallback for hosts that refuse the browser — never employer.
  *
  * Also proxies `/__turn/*` → local turn runner (`pnpm byok-turn`, default :4010).
  */

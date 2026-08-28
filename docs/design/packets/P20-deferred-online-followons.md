@@ -10,7 +10,7 @@
 | **Arena** | Open list of joinable lobbies (not ranked matchmaking). Invite-only is enough until friends-and-family play exists. |
 | **Replay button** | On a finished game URL: auto-play the log, speed control, hide legal-move HUD. Engine already has `replay()`. Not free UI; members can already open the final position in P19. |
 | **Elo / leaderboard** | Shape completed `meta.json` in P17/P18 so this can compute later. Do not ship ratings in v1. |
-| **Online BYOK** | Needs an always-on browser or a server-held key. Both fight cheap async. Heuristic-only online until then. |
+| **Online BYOK / hosted LLM** | Parked. Local Pages-direct BYOK is ADR 0003. Online extras stay heuristic. A Lambda pump is only if CORS-ok BYOK fails or we later want LLM chairs after every tab is gone. |
 | Visual juice / onboarding | Accessibility over elegance (old critique). |
 | Search AI (non-LLM) | BYOK local may postpone this a long time. |
 | Seats other than 3/6 | Playtest found 2 unfair on grain. Not online v1. |

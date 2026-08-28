@@ -18,6 +18,7 @@ import { endTurn } from '@conquarrow/contracts';
 import { compareArrows } from '@conquarrow/rules-core';
 import type { ByokConfig } from './byokConfig';
 import {
+  BYOK_CORS_HINT,
   BYOK_UPSTREAM_HEADER,
   chatCompletionsUrl,
   isByokReady,
@@ -584,7 +585,7 @@ export const fetchLlmMoveIndex = async (
       return {
         error:
           via.length === 0
-            ? `fetch failed: ${msg} (OpenAI blocks browser CORS — use pnpm dev, or set a personal proxy URL)`
+            ? `fetch failed: ${msg} (${BYOK_CORS_HINT})`
             : `fetch failed: ${msg}`,
       };
     }
@@ -681,7 +682,7 @@ export const testByokConnection = async (
       ok: false,
       reason:
         via.length === 0
-          ? `fetch failed: ${msg} (OpenAI blocks browser CORS — play via pnpm --filter @conquarrow/web dev, or set Proxy URL to a relay on your personal infra)`
+          ? `fetch failed: ${msg} (${BYOK_CORS_HINT})`
           : `fetch failed: ${msg}`,
     };
   }
@@ -706,11 +707,15 @@ export const testByokConnection = async (
   } catch {
     return { ok: false, reason: 'response was not JSON' };
   }
-  const content = (body as ChatCompletionResponse).choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || content.trim().length === 0) {
-    return { ok: false, reason: 'missing choices[0].message.content' };
+  if (typeof body === 'object' && body !== null && 'error' in body) {
+    return {
+      ok: false,
+      reason: `HTTP ${String(response.status)} · ${JSON.stringify(body).slice(0, 240)}`,
+    };
   }
-  return { ok: true, sample: content.trim().slice(0, 40) };
+  const text = extractReplyText(body as ChatCompletionResponse);
+  const sample = text.trim().length > 0 ? text.trim().slice(0, 40) : 'HTTP 200';
+  return { ok: true, sample };
 };
 
 export interface LlmChoice {

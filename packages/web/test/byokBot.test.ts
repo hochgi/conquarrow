@@ -333,6 +333,34 @@ describe('byokBot fetch + fallback', () => {
     expect(result.sample).toContain('move');
   });
 
+  it('treats HTTP 200 with reasoning_content and empty content as connected', async () => {
+    const fetchImpl: FetchLike = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: '', reasoning_content: 'chain of thought' } }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+    const result = await testByokConnection(readyConfig(), fetchImpl);
+    expect(result.ok).toBe(true);
+  });
+
+  it('treats HTTP 200 with an empty assistant message as connected', async () => {
+    const fetchImpl: FetchLike = () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ choices: [{ message: { content: null } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    const result = await testByokConnection(readyConfig(), fetchImpl);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.sample).toContain('200');
+  });
+
   it('reports HTTP 401 from the probe', async () => {
     const fetchImpl: FetchLike = () =>
       Promise.resolve(

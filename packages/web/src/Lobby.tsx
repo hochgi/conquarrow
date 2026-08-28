@@ -95,6 +95,7 @@ export const Lobby = ({
   const [probeSeat, setProbeSeat] = useState<number | undefined>(undefined);
   const [probeMsg, setProbeMsg] = useState<string | undefined>(undefined);
   const [probeOk, setProbeOk] = useState<boolean | undefined>(undefined);
+  const [probeShownOn, setProbeShownOn] = useState<number | undefined>(undefined);
 
   const runProbe = (index: number): void => {
     const seat = plan.seats[index];
@@ -102,6 +103,7 @@ export const Lobby = ({
     const config = byokConfigForSeat(seat);
     if (!isByokReady(config) || probeSeat !== undefined) return;
     setProbeSeat(index);
+    setProbeShownOn(index);
     setProbeMsg(`Testing seat ${PLAYER_LABEL(index)}…`);
     setProbeOk(undefined);
     void (async () => {
@@ -109,10 +111,10 @@ export const Lobby = ({
       setProbeSeat(undefined);
       if (result.ok) {
         setProbeOk(true);
-        setProbeMsg(`Seat ${PLAYER_LABEL(index)} OK · ${JSON.stringify(result.sample)}`);
+        setProbeMsg(`Connected · ${result.sample}`);
       } else {
         setProbeOk(false);
-        setProbeMsg(`Seat ${PLAYER_LABEL(index)}: ${result.reason}`);
+        setProbeMsg(result.reason);
       }
     })();
   };
@@ -357,6 +359,19 @@ export const Lobby = ({
                         {probeSeat === index ? 'Testing…' : 'Test connection'}
                       </button>
                     </div>
+                    {probeMsg !== undefined && probeShownOn === index ? (
+                      <p
+                        className={
+                          probeOk === true
+                            ? 'lobby-byok-ok'
+                            : probeOk === false
+                              ? 'lobby-byok-warn'
+                              : 'lobby-byok-note'
+                        }
+                      >
+                        {probeMsg}
+                      </p>
+                    ) : null}
                     {byokIncomplete ? (
                       <p className="lobby-byok-warn">
                         Fill base URL, API key, and model for this seat.
@@ -370,25 +385,15 @@ export const Lobby = ({
           )}
         </fieldset>
 
-        {probeMsg !== undefined ? (
-          <p
-            className={
-              probeOk === true
-                ? 'lobby-byok-ok'
-                : probeOk === false
-                  ? 'lobby-byok-warn'
-                  : 'lobby-byok-note'
-            }
-          >
-            {probeMsg}
-          </p>
-        ) : null}
-
         {onlineMode ? null : (
           <p className="lobby-byok-note">
-            OpenAI blocks browser CORS. Local play:{' '}
-            <code>pnpm --filter @conquarrow/web dev</code> (auto <code>/__byok</code>). Point
-            different seats at different models to watch AIs fight. Keys stay in this browser.
+            On Pages, leave Proxy URL empty. Hosts that allow browser CORS (x.ai,
+            Groq, OpenRouter) work without <code>pnpm</code>.{' '}
+            <code>api.openai.com</code> often does not — then use{' '}
+            <code>pnpm --filter @conquarrow/web dev</code> (auto <code>/__byok</code>)
+            or a personal Proxy URL. Every device pastes its own base URL, key, and
+            model. Point seats at different models to watch them fight. Keys stay in
+            this browser.
           </p>
         )}
 
