@@ -1,5 +1,11 @@
 import type { GameState } from '@conquarrow/contracts';
 import type { ReactElement } from 'react';
+import {
+  pauseButtonLabel,
+  pauseHint,
+  turnControlsLocked,
+  type PauseKind,
+} from './botPause';
 import { styleFor } from './colors';
 import { matchLocked } from './fx/celebration';
 import type { VictoryFx } from './fx/victory';
@@ -15,6 +21,11 @@ export interface HudProps {
   readonly byokActive: boolean;
   readonly byokStatus: string | undefined;
   readonly botBusy: boolean;
+  readonly pauseOffered: boolean;
+  readonly pauseKind: PauseKind;
+  readonly manualPause: boolean;
+  readonly aiChair: boolean;
+  readonly onTogglePause: () => void;
   readonly seatSummary: string;
   readonly moveCount: number;
   /** One-line playtest summary when the match is over. */
@@ -49,7 +60,10 @@ const phaseHint = (
   botBusy: boolean,
   vsBot: boolean,
   byokActive: boolean,
+  kind: PauseKind,
 ): string => {
+  const held = pauseHint(kind);
+  if (held !== undefined) return held;
   if (botBusy) return byokActive ? 'LLM seat is thinking…' : 'AI seat is moving…';
   switch (phase.kind) {
     case 'idle':
@@ -94,6 +108,11 @@ export const Hud = ({
   byokActive,
   byokStatus,
   botBusy,
+  pauseOffered,
+  pauseKind: kind,
+  manualPause,
+  aiChair,
+  onTogglePause,
   seatSummary,
   moveCount,
   matchSummary,
@@ -116,6 +135,11 @@ export const Hud = ({
   // winning animation, on a board where `apply` refuses every move. `App.tsx`'s
   // `inputLocked` has always read `winner`; this is the same source of truth.
   const locked = matchLocked(state);
+  const controlsLocked = turnControlsLocked({
+    matchOver: locked,
+    botBusy,
+    aiChair,
+  });
   return (
     <aside className="hud">
       <h1>Conquarrow</h1>
@@ -129,14 +153,22 @@ export const Hud = ({
       ) : (
         <p className="banner" style={{ borderColor: active.fill }}>
           Turn: <strong style={{ color: active.fill }}>{active.label}</strong>
-          {vsBot ? (botBusy ? (byokActive ? ' · llm' : ' · ai') : ' · you') : null}
+          {vsBot
+            ? kind !== 'running'
+              ? ' · paused'
+              : botBusy
+                ? byokActive
+                  ? ' · llm'
+                  : ' · ai'
+                : ' · you'
+            : null}
           {starvationNote(state)}
         </p>
       )}
       <p className="hint">
         {victory.kind === 'over'
           ? victory.hint
-          : phaseHint(phase, movableCount, botBusy, vsBot, byokActive)}
+          : phaseHint(phase, movableCount, botBusy, vsBot, byokActive, kind)}
       </p>
       {tutorial?.coach !== undefined ? <p className="hint byok-status">{tutorial.coach}</p> : null}
       {refusalNote !== undefined ? <p className="hint byok-status">{refusalNote}</p> : null}
@@ -162,12 +194,26 @@ export const Hud = ({
       ) : null}
 
       <div className="actions">
-        <button type="button" onClick={onSkip} disabled={locked || phase.kind === 'idle' || botBusy}>
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={controlsLocked || phase.kind === 'idle'}
+        >
           Skip group
         </button>
-        <button type="button" onClick={onEndTurn} disabled={locked || botBusy}>
+        <button type="button" onClick={onEndTurn} disabled={controlsLocked}>
           End turn
         </button>
+        {pauseOffered ? (
+          <button
+            type="button"
+            onClick={onTogglePause}
+            aria-pressed={manualPause}
+            title="Hold bot seats until Resume. All-bot matches also pause when this tab is in the background."
+          >
+            {pauseButtonLabel(manualPause)}
+          </button>
+        ) : null}
         <button type="button" onClick={onDownloadLog}>
           Download log
         </button>
@@ -234,8 +280,10 @@ export const Hud = ({
       </p>
       {vsBot ? (
         <p className="help">
-          Non-human seats auto-play. BYOK seats use your keys in this tab; illegal LLM
-          replies fall back to the heuristic. Download the match log when done.
+          Non-human seats auto-play. Pause holds them until Resume. An all-bot match
+          also pauses when this tab is in the background. BYOK seats use your keys in
+          this tab; illegal LLM replies fall back to the heuristic. Download the match
+          log when done.
         </p>
       ) : null}
     </aside>

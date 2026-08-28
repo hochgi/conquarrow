@@ -48,7 +48,7 @@ scheduled early in the first place.
 | P24 | Delivery harness | tooling | — | — | **[packet](./packets/P24-delivery-harness.md).** Grok 4.6 xhigh, Stryker, CRAP hint, complexity warn, `local-main` test-kit overlay, verify CI. Lands before the online track. Skips Gherkin. |
 | ~~P12~~ | ~~AI opponent~~ | — | — | — | **out of MVP** (hot-seat). Kept in the graph because P10 exists partly to make it cheap later |
 | P14 | Online ADR | architecture | — | ADR 0001, P10, P24 | **[packet](./packets/P14-online-adr.md).** **Landed** as [ADR 0002](../adr/0002-cheap-async-online.md). 3/6 seats, ≥2 humans for AWS, groupHash = sorted Google subs, rematch = next game number. |
-| P15 | Local BYOK LLM bot | adapter | — | P11 | **[packet](./packets/P15-byok-llm-bot.md).** **Landed.** Browser-only OpenAI-compatible seat; legalMoves filter; keys never leave session. Pages-direct CORS: [ADR 0003](../adr/0003-pages-direct-byok.md) |
+| P15 | Local BYOK LLM bot | adapter | — | P11 | **[packet](./packets/P15-byok-llm-bot.md).** **Landed.** Browser-only OpenAI-compatible seat; legalMoves filter; keys never leave session. Pages-direct CORS: [ADR 0003](../adr/0003-pages-direct-byok.md). Local Pause + all-bot idle-pause: [bot-pause](../spec/bot-pause/bot-pause.md) |
 | P16 | Online infra | adapter | — | P14 | **[packet](./packets/P16-online-infra.md).** SAM + OIDC CI + base-path `/conquarrow` — **personal AWS only, never employer** |
 | P17 | Online auth & invites | adapter | — | P16 | **[packet](./packets/P17-online-auth-invites.md).** Google OIDC, lobby 3/6, ≥2 humans, `/my-games` |
 | P18 | Online moves + WS | adapter | — | P17 | **[packet](./packets/P18-online-moves-ws.md).** `apply` + heuristic burst in one Lambda put; WS `stateChanged` |

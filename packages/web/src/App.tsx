@@ -62,6 +62,13 @@ import {
   BOT_PLAYBACK_GAP_MS,
   localAiChairKey,
 } from './botPlayback';
+import {
+  botsHeld,
+  idlePaused,
+  isAllBot,
+  pauseKind,
+  pauseOffered,
+} from './botPause';
 import { playBotTurn } from './opponent';
 import { presentRefusal, presentSteps, REFUSAL_TEXT, type FxOverlay } from './fx/present';
 import {
@@ -268,6 +275,8 @@ export const App = (): ReactElement => {
   const [pointerKind, setPointerKind] = useState<PointerKind>('fine');
   /** Reach destination under the cursor — drives the pulsed path preview. */
   const [botBusy, setBotBusy] = useState(false);
+  const [manualPause, setManualPause] = useState(false);
+  const [tabFocused, setTabFocused] = useState(true);
   const [byokStatus, setByokStatus] = useState<string | undefined>(undefined);
   /** Live gameplay effects. Additive over `state`, so losing one cannot mislead. */
   const [fx, setFx] = useState<readonly FxItem[]>(emptyQueue);
@@ -306,6 +315,21 @@ export const App = (): ReactElement => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    const sync = (): void => {
+      setTabFocused(document.visibilityState === 'visible' && document.hasFocus());
+    };
+    sync();
+    window.addEventListener('focus', sync);
+    window.addEventListener('blur', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('blur', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
 
   useEffect(() => {
     host?.setSeatPlan(kindsForHost(seatPlan, lobbyMode === 'online'));
@@ -636,10 +660,17 @@ export const App = (): ReactElement => {
   }, [state, refresh]);
 
   // Local AI chair — occupancy must not restart playback (P30).
-  const botChair = localAiChairKey(state, {
-    online: onlinePlayRef.current,
-    isAiSeat: (id) => aiSeatsRef.current.has(id),
+  const idleHold = idlePaused({
+    allBot: isAllBot(log?.seats.map((row) => row.kind) ?? []),
+    tabFocused,
   });
+  const held = botsHeld({ manual: manualPause, idle: idleHold });
+  const botChair = held
+    ? null
+    : localAiChairKey(state, {
+        online: onlinePlayRef.current,
+        isAiSeat: (id) => aiSeatsRef.current.has(id),
+      });
 
   // Any AI seat: heuristic or BYOK when it is their chair.
   useEffect(() => {
@@ -965,6 +996,7 @@ export const App = (): ReactElement => {
     aiSeatsRef.current = new Set();
     seatConfigsRef.current = new Map();
     setBotBusy(false);
+    setManualPause(false);
     setByokStatus(undefined);
     setFx(emptyQueue());
     setRefusalNote(undefined);
@@ -1023,6 +1055,7 @@ export const App = (): ReactElement => {
     });
     saveMatchLog(nextLog);
     setLog(nextLog);
+    setManualPause(false);
     setByokStatus(undefined);
     setFx(emptyQueue());
     setRefusalNote(undefined);
@@ -1117,6 +1150,7 @@ export const App = (): ReactElement => {
     });
     saveMatchLog(nextLog);
     setLog(nextLog);
+    setManualPause(false);
     setByokStatus(hasByokSeat(plan) ? 'BYOK seat(s) armed' : undefined);
     stateRef.current = opening;
     setState(opening);
@@ -1417,6 +1451,18 @@ export const App = (): ReactElement => {
         byokActive={byokActive}
         byokStatus={byokStatus ?? log.byokStats?.lastError}
         botBusy={botBusy}
+        pauseOffered={pauseOffered({
+          vsBot: tutorial !== undefined ? false : log.vsBot,
+          online: onlinePlayRef.current,
+          matchOver: state.winner !== undefined,
+          tutorial: tutorial !== undefined,
+        })}
+        pauseKind={pauseKind({ manual: manualPause, idle: idleHold })}
+        manualPause={manualPause}
+        aiChair={activeIsAi}
+        onTogglePause={() => {
+          setManualPause((prev) => !prev);
+        }}
         seatSummary={log.seats.map((s) => `${String(s.player)}=${displaySeatKind(s.kind)}`).join(' · ')}
         moveCount={log.moves.length}
         matchSummary={matchSummaryLine(victory.kind === 'over', log.summary)}
