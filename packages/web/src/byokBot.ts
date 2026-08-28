@@ -707,11 +707,15 @@ export const testByokConnection = async (
   } catch {
     return { ok: false, reason: 'response was not JSON' };
   }
-  const content = (body as ChatCompletionResponse).choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || content.trim().length === 0) {
-    return { ok: false, reason: 'missing choices[0].message.content' };
+  if (typeof body === 'object' && body !== null && 'error' in body) {
+    return {
+      ok: false,
+      reason: `HTTP ${String(response.status)} · ${JSON.stringify(body).slice(0, 240)}`,
+    };
   }
-  return { ok: true, sample: content.trim().slice(0, 40) };
+  const text = extractReplyText(body as ChatCompletionResponse);
+  const sample = text.trim().length > 0 ? text.trim().slice(0, 40) : 'HTTP 200';
+  return { ok: true, sample };
 };
 
 export interface LlmChoice {

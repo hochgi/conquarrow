@@ -512,7 +512,8 @@ body,
 
 .lobby-byok-ok {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
+  font-weight: 650;
   line-height: 1.35;
   color: #9dcf9a;
   word-break: break-word;
