@@ -26,9 +26,13 @@ harden.
 6. Incomplete BYOK (checkbox on, missing fields) **blocks Start** so the
    heuristic cannot run silently under an “LLM” label. Live failures surface in
    the HUD.
-7. **CORS:** OpenAI rejects browser origins. Local `pnpm --filter @conquarrow/web
-   dev` auto-uses same-origin `/__byok`. GitHub Pages needs a Proxy URL to a
-   **personal** relay when that exists — **never employer/Versatile AWS**.
+7. **CORS:** The tab POSTs OpenAI-shaped `chat/completions`. Some hosts allow
+   browser origins from Pages (x.ai, Groq, OpenRouter in ADR 0003’s samples);
+   `api.openai.com` often does not. Empty Proxy URL on Pages calls the host
+   directly — **no `pnpm` required** when CORS works. Local `pnpm --filter
+   @conquarrow/web dev` still auto-uses same-origin `/__byok`. A Proxy URL is a
+   **personal** relay for hosts that refuse the browser — **never
+   employer/Versatile AWS**. See [ADR 0003](../../adr/0003-pages-direct-byok.md).
 
 ## Out of scope
 

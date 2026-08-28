@@ -7,8 +7,8 @@ import { byokDevProxy } from './vite.byok-proxy';
  * `games.hochgi.com` (same pattern as `ninja_grip`). Use `--mode pages` for that
  * deploy; local `vite` / default `vite build` keep `/`.
  *
- * BYOK: OpenAI blocks browser CORS. Local `pnpm dev` uses `/__byok` middleware.
- * Pages needs a player-owned relay URL (personal AWS later — never employer).
+ * BYOK: Pages calls the host directly when Proxy URL is empty (ADR 0003).
+ * `pnpm dev` still mounts `/__byok` for hosts that refuse browser CORS.
  */
 export default defineConfig(({ mode }) => ({
   base: mode === 'pages' ? '/conquarrow/' : '/',

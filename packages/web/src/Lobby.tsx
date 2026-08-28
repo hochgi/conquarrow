@@ -386,9 +386,13 @@ export const Lobby = ({
 
         {onlineMode ? null : (
           <p className="lobby-byok-note">
-            OpenAI blocks browser CORS. Local play:{' '}
-            <code>pnpm --filter @conquarrow/web dev</code> (auto <code>/__byok</code>). Point
-            different seats at different models to watch AIs fight. Keys stay in this browser.
+            On Pages, leave Proxy URL empty. Hosts that allow browser CORS (x.ai,
+            Groq, OpenRouter) work without <code>pnpm</code>.{' '}
+            <code>api.openai.com</code> often does not — then use{' '}
+            <code>pnpm --filter @conquarrow/web dev</code> (auto <code>/__byok</code>)
+            or a personal Proxy URL. Every device pastes its own base URL, key, and
+            model. Point seats at different models to watch them fight. Keys stay in
+            this browser.
           </p>
         )}
 

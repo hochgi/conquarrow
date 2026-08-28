@@ -18,6 +18,7 @@ import { endTurn } from '@conquarrow/contracts';
 import { compareArrows } from '@conquarrow/rules-core';
 import type { ByokConfig } from './byokConfig';
 import {
+  BYOK_CORS_HINT,
   BYOK_UPSTREAM_HEADER,
   chatCompletionsUrl,
   isByokReady,
@@ -584,7 +585,7 @@ export const fetchLlmMoveIndex = async (
       return {
         error:
           via.length === 0
-            ? `fetch failed: ${msg} (OpenAI blocks browser CORS — use pnpm dev, or set a personal proxy URL)`
+            ? `fetch failed: ${msg} (${BYOK_CORS_HINT})`
             : `fetch failed: ${msg}`,
       };
     }
@@ -681,7 +682,7 @@ export const testByokConnection = async (
       ok: false,
       reason:
         via.length === 0
-          ? `fetch failed: ${msg} (OpenAI blocks browser CORS — play via pnpm --filter @conquarrow/web dev, or set Proxy URL to a relay on your personal infra)`
+          ? `fetch failed: ${msg} (${BYOK_CORS_HINT})`
           : `fetch failed: ${msg}`,
     };
   }

@@ -9,6 +9,10 @@
 
 export const BYOK_STORAGE_KEY = 'conquarrow:byok';
 
+/** Shown when a direct (no proxy) fetch fails — often CORS. ADR 0003. */
+export const BYOK_CORS_HINT =
+  'browser CORS — on Pages leave Proxy URL empty and use a CORS-ok host (x.ai, Groq, OpenRouter); api.openai.com often needs pnpm dev (/__byok) or a personal Proxy URL';
+
 /** Hosts a same-origin / player-owned relay may forward to (SSRF guard). */
 export const BYOK_UPSTREAM_ALLOWLIST: readonly string[] = [
   'api.openai.com',
