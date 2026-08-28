@@ -130,13 +130,42 @@ describe('byokBot parsing', () => {
     expect(listed).toMatch(/tipDist=\d+→\d+/);
     expect(listed).toContain('trailLen=');
     expect(listed).toMatch(/leave_home|home_mill|onto_home/);
-    expect(listed).toMatch(/count=1 leave=2 spd=1/);
-    expect(listed).toMatch(/count=2 leave=1 spd=2/);
+    expect(listed).toMatch(/count=1 leave=2 spd=1 spent=0/);
+    expect(listed).toMatch(/count=2 leave=1 spd=2 spent=0/);
+    expect(buildUserPrompt(geometry, state, me, moves, true, rules)).toContain('spd-spent');
     expect(buildSystemPrompt(me, true)).toContain('leave_home');
     expect(buildSystemPrompt(me, true)).toContain('spawner');
     expect(buildSystemPrompt(me, true)).toMatch(/2\^k/);
     expect(buildSystemPrompt(me, true)).toMatch(/k\+1/);
     expect(buildSystemPrompt(me, true)).toMatch(/leftover/);
+  });
+
+  it('keeps spd as speed(count) after a split, and prints inherited spent', () => {
+    const geometry = makeTiling();
+    const rules = makeRules(geometry);
+    const state = makeMatch({
+      dominationN: 5,
+      R: 7,
+      homeOffset: 5,
+      playerCount: 3,
+      spawnerSeed: 1,
+    });
+    const me = state.activePlayer;
+    const pair = rules.legalMoves(state).find(
+      (m): m is Extract<Move, { kind: 'step' }> => m.kind === 'step' && m.count === 2,
+    );
+    expect(pair).toBeDefined();
+    if (pair === undefined) return;
+    const after = rules.apply(state, pair);
+    const listed = formatLegalMoves(
+      movesForLlm(rules.legalMoves(after)),
+      geometry,
+      rules,
+      after,
+      me,
+    );
+    expect(listed).toMatch(/count=2 spd=2 spent=1/);
+    expect(listed).toMatch(/count=1 spd=1 spent=0/);
   });
 
   it('parses strict index replies and ignores digits inside arrow prose', () => {

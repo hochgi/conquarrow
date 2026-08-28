@@ -297,11 +297,13 @@ export const annotateMove = (
       const fromGroup = state.groups.get(move.from);
       const fromHeads = fromGroup?.heads ?? move.count;
       const leave = fromHeads - move.count;
-      const portionSpd = speed(move.count);
+      const spent = fromGroup?.spent ?? 0;
+      const override = fromGroup?.speedOverride;
+      const portionSpd = override !== undefined ? override : speed(move.count);
       const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
       return (
         `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}` +
-        `${leaveStr} spd=${String(portionSpd)}` +
+        `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)}` +
         ` tipDist=${String(d0)}→${String(d1)} trailLen=${String(trailAfter)}` +
         (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
       );
@@ -375,7 +377,7 @@ export const buildUserPrompt = (
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me)),
     '',
-    'LEGAL_MOVES (count=heads in the portion; spd=steps that portion can still walk; leave=heads staying on from; tags=outcomes):',
+    'LEGAL_MOVES (count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes):',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     'Reply with only JSON: {"move":N,"why":"short"}',
