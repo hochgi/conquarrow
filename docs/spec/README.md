@@ -33,6 +33,7 @@ behaviour is not here, it will not be built.**
 | [refuse-self-convert](./refuse-self-convert/refuse-self-convert.md) | P28 | §6.3, §4, §11 item 43 | 25 | — | 12 |
 | [win-board-celebration](./win-board-celebration/win-board-celebration.md) | P29 | §9 (read), §7 | 19 | — | 12 |
 | [ai-move-playback](./ai-move-playback/ai-move-playback.md) | P30 | — (web) | 16 | — | 11 |
+| [bot-pause](./bot-pause/bot-pause.md) | ADR 0003 | — (web) | 17 | — | 12 |
 | [selection-chrome](./selection-chrome/selection-chrome.md) | P31 | §4 (read) | 24 (2 live, 22 `@superseded-P34`) | — | 12 |
 | [match-summary-telemetry](./match-summary-telemetry/match-summary-telemetry.md) | P32 | — (web) | 26 | — | 11 |
 | [encircled-path](./encircled-path/encircled-path.md) | P33 | §6.3, §6.1, item 40 | 11 | — | 9 |
