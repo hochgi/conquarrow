@@ -68,7 +68,7 @@ Priorities (context-dependent):
 2. Prefer tags closes / land_bridge / share / on_target when available — claim ground.
 3. When trailLen>=4 (or tipDist is high): prefer homeward / onto_home / closes. Do NOT grow tipDist then. Giant loops lose.
 4. Prefer cut when it does not strand a long trail. Merge toward powers of 2.
-A pair (count=2) walks two steps this turn; a singleton walks one. A 3-stack is as fast as a pair. Do not peel three singletons. Peel 1 one way, then walk the leftover 2 as count=2 (spd=2) the other way — two more steps. After a peel, prefer count=2 over another count=1.
+Tempo: a 2^k lump walks k+1 steps this turn — send it as one count=2^k (spd=k+1), not as 2^k singletons. The band 2^k..2^{k+1}-1 is the same speed (a 3-stack is as fast as a pair). Split order does not trap the leftover: it keeps the parent's spent, so you may send the lump first and still move the remainder, or peel 1 first then walk the lump. After a split, prefer the lump's count over another count=1.
 onto_home with trailLen=0 and no expansion is wasted tempo.`;
   const contract = `Return ONLY a JSON object (no markdown fence):
 {"move":N,"why":"short reason"}

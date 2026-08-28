@@ -134,7 +134,9 @@ describe('byokBot parsing', () => {
     expect(listed).toMatch(/count=2 leave=1 spd=2/);
     expect(buildSystemPrompt(me, true)).toContain('leave_home');
     expect(buildSystemPrompt(me, true)).toContain('spawner');
-    expect(buildSystemPrompt(me, true)).toMatch(/peel 1/i);
+    expect(buildSystemPrompt(me, true)).toMatch(/2\^k/);
+    expect(buildSystemPrompt(me, true)).toMatch(/k\+1/);
+    expect(buildSystemPrompt(me, true)).toMatch(/leftover/);
   });
 
   it('parses strict index replies and ignores digits inside arrow prose', () => {

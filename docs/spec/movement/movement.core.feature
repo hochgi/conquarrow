@@ -96,6 +96,16 @@ Feature: Movement, stacks and the turn loop
       And a further step from a1 is still legal
       # Both parts inherited spent 1; only the movers paid +1.
 
+    Scenario: A fresh 3-stack that sends its pair still lets the leftover singleton move
+      Given arrow a1 holds 3 heads belonging to player A
+      And the group has spent 0
+      And exits e1 and e2 are distinct legal empty out-arrows from a1's target
+      When player A applies a step of count 2 from a1 to e1
+      Then a1 holds 1 head with spent 0
+      And e1 holds 2 heads with spent 1
+      And a further step from a1 is still legal
+      # Remainder inherited spent 0; speed(1)=1, so split order does not trap the singleton.
+
     Scenario: A stack that has spent its allowance cannot split into fresh scouts
       Given arrow a1 holds 4 heads belonging to player A
       And the group has spent 3

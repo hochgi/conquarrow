@@ -171,6 +171,24 @@ describe('allowance is speed(N), spent, and nothing banks', () => {
 // ── Rule: splitting inherits spent; only the moving part pays ─────────────────
 
 describe('splitting inherits spent, and only the moving part pays', () => {
+  it('lets the leftover singleton move after a fresh 3-stack sends its pair', () => {
+    // SPEC §3: remainder inherits parent spent (not +1). Fresh 3 at spent 0,
+    // send 2: leftover 1 keeps spent 0, speed(1)=1, so it may still step.
+    const table = onBoard();
+    const a1 = anArrow(table.geometry);
+    const [e1, e2] = twoExitsFrom(table.geometry, a1);
+    const before = stateOf([{ arrow: a1, owner: A, heads: 3, spent: 0 }]);
+    expect(e1).not.toBe(e2);
+
+    const after = table.rules.apply(before, step(a1, e1, 2));
+
+    expect(headsOn(after, a1)).toBe(1);
+    expect(spentOn(after, a1)).toBe(0);
+    expect(headsOn(after, e1)).toBe(2);
+    expect(spentOn(after, e1)).toBe(1);
+    expect(stepsFrom(table, after, a1).length).toBeGreaterThan(0);
+  });
+
   it('leaves a remainder that may still act after the parent has stepped', () => {
     // "After one step, a split leaves a remainder that may still act".
     const table = onBoard();
