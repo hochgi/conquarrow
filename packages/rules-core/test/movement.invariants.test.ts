@@ -31,6 +31,7 @@ import {
   snapshot,
   spentOn,
   stateOf,
+  stepsFrom,
   totalHeads,
   twoSourcesOneDestination,
 } from './support';
@@ -185,6 +186,7 @@ describe('a split gives both parts the parent’s spent, and charges only the mo
   const splits: readonly { heads: number; count: number; spent: number }[] = [
     { heads: 2, count: 1, spent: 0 },
     { heads: 3, count: 1, spent: 1 },
+    { heads: 3, count: 2, spent: 0 },
     { heads: 4, count: 1, spent: 1 },
     { heads: 4, count: 2, spent: 0 },
     { heads: 4, count: 3, spent: 2 },
@@ -206,6 +208,10 @@ describe('a split gives both parts the parent’s spent, and charges only the mo
       expect(spentOn(after, from)).toBe(spent);
       expect(spentOn(after, exit)).toBe(spent + 1);
       expect(totalHeads(after)).toBe(heads);
+      const rem = heads - count;
+      if (spent < speed(rem)) {
+        expect(stepsFrom(table, after, from).length).toBeGreaterThan(0);
+      }
     },
   );
 });
