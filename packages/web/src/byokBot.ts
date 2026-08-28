@@ -14,7 +14,7 @@ import type {
   PlayerId,
   RulesPort,
 } from '@conquarrow/contracts';
-import { endTurn } from '@conquarrow/contracts';
+import { endTurn, speed } from '@conquarrow/contracts';
 import { compareArrows } from '@conquarrow/rules-core';
 import type { ByokConfig } from './byokConfig';
 import {
@@ -67,11 +67,12 @@ Priorities (context-dependent):
 1. If you hold few/no shares: prefer tags leave_home, share, borders_spawner, on_target, or short outward scouts. Do NOT pick onto_home / home_mill just to keep tipDist=0.
 2. Prefer tags closes / land_bridge / share / on_target when available — claim ground.
 3. When trailLen>=4 (or tipDist is high): prefer homeward / onto_home / closes. Do NOT grow tipDist then. Giant loops lose.
-4. Prefer cut when it does not strand a long trail. Merge toward powers of 2 (speed=1+floor(log2 N)).
+4. Prefer cut when it does not strand a long trail. Merge toward powers of 2.
+A pair (count=2) walks two steps this turn; a singleton walks one. A 3-stack is as fast as a pair. Do not peel three singletons. Peel 1 one way, then walk the leftover 2 as count=2 (spd=2) the other way — two more steps. After a peel, prefer count=2 over another count=1.
 onto_home with trailLen=0 and no expansion is wasted tempo.`;
   const contract = `Return ONLY a JSON object (no markdown fence):
 {"move":N,"why":"short reason"}
-N is a LEGAL_MOVES index. Read tags and tipDist. Do not invent moves. Do not reprint STATE_JSON.`;
+N is a LEGAL_MOVES index. Read count, spd, leave, tags, and tipDist. Do not invent moves. Do not reprint STATE_JSON.`;
   if (reasoning) {
     return `You are seat ${String(me)} in Conquarrow (territorial conquest on directed arrows).
 Choose the best LEGAL_MOVES index for this seat.
@@ -120,7 +121,7 @@ export const snapshotForPrompt = (
       owner: String(g.owner),
       heads: g.heads,
       spent: g.spent,
-      speed: 1 + Math.floor(Math.log2(Math.max(1, g.heads))),
+      speed: speed(g.heads),
       ...(g.speedOverride !== undefined ? { speedOverride: g.speedOverride } : {}),
     }))
     .toSorted((a, b) => (a.arrow < b.arrow ? -1 : a.arrow > b.arrow ? 1 : 0));
@@ -293,8 +294,14 @@ export const annotateMove = (
       }
       const dest = state.groups.get(move.exit);
       if (dest !== undefined && dest.owner !== me) tags.push('combat');
+      const fromGroup = state.groups.get(move.from);
+      const fromHeads = fromGroup?.heads ?? move.count;
+      const leave = fromHeads - move.count;
+      const portionSpd = speed(move.count);
+      const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
       return (
         `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}` +
+        `${leaveStr} spd=${String(portionSpd)}` +
         ` tipDist=${String(d0)}→${String(d1)} trailLen=${String(trailAfter)}` +
         (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
       );
@@ -368,7 +375,7 @@ export const buildUserPrompt = (
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me)),
     '',
-    'LEGAL_MOVES (tipDist=grain distance to your territory; tags explain outcomes):',
+    'LEGAL_MOVES (count=heads in the portion; spd=steps that portion can still walk; leave=heads staying on from; tags=outcomes):',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     'Reply with only JSON: {"move":N,"why":"short"}',

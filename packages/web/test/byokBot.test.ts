@@ -130,8 +130,11 @@ describe('byokBot parsing', () => {
     expect(listed).toMatch(/tipDist=\d+→\d+/);
     expect(listed).toContain('trailLen=');
     expect(listed).toMatch(/leave_home|home_mill|onto_home/);
+    expect(listed).toMatch(/count=1 leave=2 spd=1/);
+    expect(listed).toMatch(/count=2 leave=1 spd=2/);
     expect(buildSystemPrompt(me, true)).toContain('leave_home');
     expect(buildSystemPrompt(me, true)).toContain('spawner');
+    expect(buildSystemPrompt(me, true)).toMatch(/peel 1/i);
   });
 
   it('parses strict index replies and ignores digits inside arrow prose', () => {
