@@ -56,7 +56,7 @@ describe('bot-pause invariants', () => {
   });
 
   it('When idlePaused is true and manual is false, pauseKind shall be idle and the button label shall be Pause.', () => {
-    expect(idlePaused({ allBot: true, tabFocused: false })).toBe(true);
+    expect(idlePaused({ allBot: true, tabFocused: false, online: false })).toBe(true);
     expect(pauseKind({ manual: false, idle: true })).toBe('idle');
     expect(pauseButtonLabel(false)).toBe('Pause');
   });
@@ -84,7 +84,11 @@ describe('bot-pause invariants', () => {
   });
 
   it('Idle pause shall not apply when any seat is human, including while the tab is unfocused.', () => {
-    expect(idlePaused({ allBot: isAllBot(['human', 'byok']), tabFocused: false })).toBe(false);
+    expect(idlePaused({ allBot: isAllBot(['human', 'byok']), tabFocused: false, online: false })).toBe(false);
+  });
+
+  it('Idle pause shall not apply when play is online, even if every seat is a bot and the tab is unfocused.', () => {
+    expect(idlePaused({ allBot: true, tabFocused: false, online: true })).toBe(false);
   });
 
   it('The pause helper shall not call Date.now, Math.random, or fetch.', () => {
@@ -94,7 +98,7 @@ describe('bot-pause invariants', () => {
     expect(src).not.toContain('fetch');
   });
 
-  it('The rules engine shall be unchanged: no edit to packages/rules-core.', () => {
+  it('The pause helper shall not import packages/rules-core.', () => {
     expect(botPauseSource()).not.toContain('rules-core');
     expect(botPauseSource()).not.toContain('@conquarrow/rules-core');
   });

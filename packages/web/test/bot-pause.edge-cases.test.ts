@@ -42,20 +42,27 @@ describe('Pause edges — online, tutorial, human chair, cancel', () => {
   });
 
   it('Manual pause outranks idle', () => {
-    const idle = idlePaused({ allBot: true, tabFocused: false });
+    const idle = idlePaused({ allBot: true, tabFocused: false, online: false });
     expect(pauseKind({ manual: true, idle })).toBe('manual');
     expect(pauseButtonLabel(true)).toBe('Resume');
   });
 
   it('Returning focus does not clear a click-pause', () => {
-    const idle = idlePaused({ allBot: true, tabFocused: true });
+    const idle = idlePaused({ allBot: true, tabFocused: true, online: false });
     expect(botsHeld({ manual: true, idle })).toBe(true);
     expect(pauseKind({ manual: true, idle })).toBe('manual');
   });
 
   it('Empty roster is not all-bot', () => {
     expect(isAllBot([])).toBe(false);
-    expect(idlePaused({ allBot: isAllBot([]), tabFocused: false })).toBe(false);
+    expect(idlePaused({ allBot: isAllBot([]), tabFocused: false, online: false })).toBe(false);
+  });
+
+  it('Online all-bot does not idle-pause on blur', () => {
+    expect(isAllBot(['heuristic', 'byok'])).toBe(true);
+    const idle = idlePaused({ allBot: true, tabFocused: false, online: true });
+    expect(idle).toBe(false);
+    expect(pauseKind({ manual: false, idle })).toBe('running');
   });
 
   it('Human chair stays playable while bots are held', () => {
@@ -74,7 +81,7 @@ describe('Pause edges — online, tutorial, human chair, cancel', () => {
     const state = openingState();
     const held = botsHeld({
       manual: true,
-      idle: idlePaused({ allBot: true, tabFocused: true }),
+      idle: idlePaused({ allBot: true, tabFocused: true, online: false }),
     });
     const key = held
       ? null

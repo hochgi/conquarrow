@@ -65,7 +65,13 @@ Feature: Pause edges — online, tutorial, human chair, cancel
       And the match is not over
       Then turnControlsLocked is true
 
-    Scenario: Hold makes the playback chair key unused
+    Scenario: Online all-bot does not idle-pause on blur
+      Given every seat is heuristic or byok
+      And play is online
+      And the watching tab is not focused
+      And manual is false
+      Then idlePaused is false
+      And pauseKind is running
       Given a playing local AI chair
       And botsHeld is true
       Then the chair key used for playback is null

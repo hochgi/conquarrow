@@ -57,7 +57,7 @@ pauseOffered({ vsBot, online, matchOver, tutorial }): boolean
 
 isAllBot(kinds): boolean
 
-idlePaused({ allBot, tabFocused }): boolean
+idlePaused({ allBot, tabFocused, online }): boolean
 
 botsHeld({ manual, idle }): boolean
 
@@ -73,7 +73,7 @@ Normative:
 ```
 pauseOffered = vsBot and not online and not matchOver and not tutorial
 isAllBot = kinds is non-empty and none of the kinds is human
-idlePaused = allBot and not tabFocused
+idlePaused = allBot and not tabFocused and not online
 botsHeld = manual or idlePaused
 pauseKind = manual ? 'manual' : idlePaused ? 'idle' : 'running'
 pauseButtonLabel = manual ? 'Resume' : 'Pause'
@@ -118,8 +118,10 @@ flowchart TD
   playback is not busy (so Pause cannot arm Skip / End turn for the bot).
 - Idle pause shall not apply when any seat is `human`, including while the tab
   is unfocused.
+- Idle pause shall not apply when play is online, even if every seat is a bot
+  and the tab is unfocused.
 - The pause helper shall not call `Date.now`, `Math.random`, or `fetch`.
-- The rules engine shall be unchanged: no edit to `packages/rules-core`.
+- The pause helper shall not import `packages/rules-core`.
 
 ## What this file deliberately does not decide
 

@@ -663,6 +663,7 @@ export const App = (): ReactElement => {
   const idleHold = idlePaused({
     allBot: isAllBot(log?.seats.map((row) => row.kind) ?? []),
     tabFocused,
+    online: onlinePlayRef.current,
   });
   const held = botsHeld({ manual: manualPause, idle: idleHold });
   const botChair = held

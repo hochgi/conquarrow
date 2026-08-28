@@ -25,7 +25,8 @@ export const isAllBot = (kinds: readonly SeatKind[]): boolean =>
 export const idlePaused = (args: {
   readonly allBot: boolean;
   readonly tabFocused: boolean;
-}): boolean => args.allBot && !args.tabFocused;
+  readonly online: boolean;
+}): boolean => args.allBot && !args.tabFocused && !args.online;
 
 export const botsHeld = (args: {
   readonly manual: boolean;
