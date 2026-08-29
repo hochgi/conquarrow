@@ -55,3 +55,23 @@ _Avoid_: logout, AFK timer
 **creator**:
 The signed-in Google user who `POST /invites`. They occupy one human seat. The operator and the creator are the same person today; they stay different roles if hosted LLM is ever unparked.
 _Avoid_: host, owner
+
+**spectated turn**:
+A turn already decided elsewhere that this client replays move-by-move: a heuristic or BYOK seat locally, and (once P49 lands) a remote human online. The predicate is not "enemy" — it is "not driven by whoever is at this keyboard". Hot-seat humans are never spectated.
+_Avoid_: enemy turn, opponent turn, AI turn (hot-seat opponents are none of these, and remote humans are all three)
+
+**auto-focus**:
+The persisted preference that lets the camera drive spectated turns. On by default. While on, manual pan and zoom are locked for the duration of a replay — not for the whole turn, so a slow BYOK seat's thinking time stays free.
+_Avoid_: camera lock, cinematic mode, follow cam
+
+**replay window**:
+The span of a spectated turn from the first camera hop to the restore. Distinct from the turn: the decision that precedes it is not part of it, and neither is the wait for the next seat's moves.
+_Avoid_: turn, playback (playback is the move cadence, which continues while the camera yields)
+
+**hop**:
+One camera beat within a replay window: ease out far enough to fit the arrows of the move just played together with those of the move about to play, ease in on the latter, hold, then apply the move. Never a full-board fit.
+_Avoid_: pan, cut, fly-to
+
+**restore**:
+Returning the camera when control comes back to this client: the camera as the player last left it, nudged only if their last-selected stack is off-screen.
+_Avoid_: reset, recenter
