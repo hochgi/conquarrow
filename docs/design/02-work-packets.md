@@ -77,7 +77,7 @@ scheduled early in the first place.
 | P46 | Library row identity | adapter | — | P45 | **[packet](./packets/P46-library-row-identity.md).** My games rows: opponent labels, start time, caller seat colour. |
 | P47 | Fork cut floods every arm | rules | §6.1, §6.1a, §11 50 | P06, P13, P22 | **[packet](./packets/P47-fork-cut-floods-every-arm.md).** Playtest: F interleaved D's trail; sibling fork arm survived. Region between firebreaks is undirected; cutter is not a firebreak. |
 | P48 | Spectated-turn camera | web | — | P11, P13, bot-pause | **[packet](./packets/P48-spectated-turn-camera.md).** Camera performs turns this client did not drive: two-point fit per hop, no full-board beat, restore to last-selected stack. Local AI seats only; hot-seat and tutorial excluded. Adds a cogwheel with auto-focus + playback speed. |
-| P49 | Online move-log replay | online + web | — | P48, P14–P20 | **[packet](./packets/P49-online-move-log-replay.md).** `log.jsonl` exists server-side but no route serves it; the client only ever gets a state snapshot, so remote turns have no per-move presentation at all. Hard part is snapshots arriving mid-replay. |
+| P49 | Online move-log replay | online + web | — | P48, P14–P20 | **[packet](./packets/P49-online-move-log-replay.md).** `log.jsonl` exists server-side but no route serves it; the client only ever gets a state snapshot, so remote turns have no per-move presentation at all. Replay from what this client last displayed, never from what the server stored; cold start installs the snapshot. Full FX parity with local. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
