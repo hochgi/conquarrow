@@ -8,6 +8,7 @@
  * @see docs/spec/online-move-log-replay/online-move-log-replay.md
  */
 
+import { endTurn, mintArrowId, skip, step } from '@conquarrow/contracts';
 import type { GameState, Move, ReplayBatch } from '@conquarrow/contracts';
 import { arrowsOfMove } from './spectate';
 
@@ -38,11 +39,32 @@ const asRecord = (value: unknown): Record<string, unknown> | undefined =>
     ? (value as Record<string, unknown>)
     : undefined;
 
+/**
+ * One wire move, rebuilt through the contracts constructors rather than cast.
+ *
+ * The constructors are the single statement of what a well-formed move is —
+ * a positive whole count, a named source, a step that actually goes somewhere —
+ * so validating by construction cannot drift from them. A `kind` check alone
+ * would let a `step` with no `exit` through, and `arrowsOfMove` reads `exit`.
+ */
 const parseMove = (value: unknown): Move | undefined => {
   const rec = asRecord(value);
-  const kind = rec?.['kind'];
-  if (kind !== 'step' && kind !== 'skip' && kind !== 'endTurn') return undefined;
-  return value as Move;
+  if (rec === undefined) return undefined;
+  const kind = rec['kind'];
+  if (kind === 'endTurn') return endTurn();
+  const from = rec['from'];
+  if (typeof from !== 'string') return undefined;
+  try {
+    if (kind === 'skip') return skip(mintArrowId(from));
+    if (kind !== 'step') return undefined;
+    const exit = rec['exit'];
+    const count = rec['count'];
+    if (typeof exit !== 'string' || typeof count !== 'number') return undefined;
+    return step(mintArrowId(from), mintArrowId(exit), count);
+  } catch {
+    // A ContractViolation is a malformed move, which makes the window unusable.
+    return undefined;
+  }
 };
 
 /** Parse a log body. Anything that is not a well-formed window is `undefined`. */
@@ -80,6 +102,11 @@ export const planFromWake = (args: {
   if (baseline === undefined) return { kind: 'install', version: to };
   if (baseline >= to) return { kind: 'nothing' };
   if (window === undefined || window.gap) return { kind: 'install', version: to };
+  // The window must be the one we asked for. `GET /games` and `GET /log` are two
+  // reads of a store that moves between them, so a window can describe a
+  // different stretch of the match than the snapshot does; replaying it would
+  // carry `displayed` past the version this client actually holds.
+  if (window.from !== baseline || window.to !== to) return { kind: 'install', version: to };
   return { kind: 'replay', batch: { from: window.from, to: window.to, moves: window.moves } };
 };
 

@@ -12,6 +12,7 @@ import {
   commitSequence,
   divergenceReport,
   hopMoves,
+  parseLogWindow,
   planFromWake,
 } from '../src/online-replay';
 import { ALICE, GAME_ONE, GROUP_HASH, gameHash, makePagesHarness } from './online-web.support';
@@ -19,6 +20,7 @@ import type { PagesHarness, ScriptedFetch } from './online-web.support';
 import {
   batch,
   failedLogScript,
+  logRoute,
   logScript,
   logWindow,
   mark,
@@ -64,6 +66,65 @@ describe('The client falls back rather than inventing a picture', () => {
     expect(h.adapter.board()?.version).toBe(6);
     expect(h.adapter.pendingReplays()).toEqual([]);
     expect(planFromWake({ baseline: 5, to: 6, window: undefined })).toEqual({
+      kind: 'install',
+      version: 6,
+    });
+  });
+
+  /**
+   * Copilot, PR #39. A `kind` check alone let a malformed step through, and the
+   * camera reads `exit` off it. A window carrying one is not the match's moves,
+   * so it is unusable — and D4 already says an unusable window installs.
+   */
+  it('A window carrying a malformed move installs the snapshot', async () => {
+    const h = seatedAt(4, [
+      snapshotScript(5),
+      {
+        method: 'GET',
+        path: logRoute(),
+        status: 200,
+        // A step with no `exit` — `arrowsOfMove` would read `undefined` off it.
+        body: { from: 4, to: 5, gap: false, moves: [{ kind: 'step', from: 'a', count: 1 }] },
+      },
+    ]);
+
+    await h.adapter.receiveStateChanged(wake(5));
+
+    expect(h.adapter.board()?.version).toBe(5);
+    expect(h.adapter.pendingReplays()).toEqual([]);
+    expect(
+      parseLogWindow({ from: 4, to: 5, gap: false, moves: [{ kind: 'step', from: 'a', count: 1 }] }),
+    ).toBeUndefined();
+    // A well-formed window through the same path does replay, so the assertion
+    // above is about the malformed move and not about an absent script.
+    expect(
+      parseLogWindow({ from: 4, to: 5, gap: false, moves: [{ kind: 'endTurn' }] }),
+    ).toEqual(logWindow(4, 5, [pass()]));
+  });
+
+  /**
+   * Copilot, PR #39. `GET /games` and `GET /log` are two reads of a store that
+   * moves between them. A window describing a different stretch than the
+   * snapshot must not be replayed: its `to` would carry `displayed` past the
+   * version this client actually holds.
+   */
+  it('A window disagreeing with the snapshot version installs the snapshot', async () => {
+    const ahead = [mark('v7a')];
+    const h = seatedAt(4, [
+      snapshotScript(6),
+      { method: 'GET', path: logRoute(), status: 200, body: logWindow(4, 7, ahead) },
+    ]);
+
+    await h.adapter.receiveStateChanged(wake(6));
+
+    expect(h.adapter.board()?.version).toBe(6);
+    expect(h.adapter.pendingReplays()).toEqual([]);
+    expect(planFromWake({ baseline: 4, to: 6, window: logWindow(4, 7, ahead) })).toEqual({
+      kind: 'install',
+      version: 6,
+    });
+    // A window that starts somewhere other than where we asked is refused too.
+    expect(planFromWake({ baseline: 4, to: 6, window: logWindow(3, 6, ahead) })).toEqual({
       kind: 'install',
       version: 6,
     });
