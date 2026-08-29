@@ -119,6 +119,12 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /games/{groupHash}/{gameNumber}
             Method: GET
+        GetGameLog:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /games/{groupHash}/{gameNumber}/log
+            Method: GET
         PostMove:
           Type: HttpApi
           Properties:

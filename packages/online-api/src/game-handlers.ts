@@ -11,30 +11,28 @@ import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
 import type { HeuristicChooser, ObjectStore, OnlineApiDeps } from './api-types';
 import { isPreconditionFailed } from './api-types';
-import { authorizationOf, requireUserHash } from './auth';
 import { persistEnvelope, parsePersistedEnvelope } from './game-snapshot';
-import { asRecord, boundUserHash, indexOfBoundUser, parseGameMeta } from './invite-record';
+import { stampLogLine } from './game-log';
+import { requireMember } from './game-member';
+import { asRecord, boundUserHash } from './invite-record';
 import {
   finished,
   forbidden,
   internalError,
   jsonResult,
-  notFound,
   preconditionRequired,
   staleVersion,
   unprocessable,
 } from './json-result';
 import { notifyOthers } from './notify';
 import { stampLibrarySummary } from './library-listing';
-import { gameLogKey, gameMetaKey, gameStateKey } from './s3-keys';
+import { gameLogKey, gameStateKey } from './s3-keys';
 import { getObject, putObject } from './store-io';
 
 const geometry = makeTiling();
 const rules = makeRules(geometry);
 const MAX_MOVES_PER_TURN = 64;
 const QUOTED_VERSION = /^"(\d+)"$/;
-
-type LoadedMeta = { readonly seats: readonly InviteSeat[] };
 
 type LoadedPosition = {
   readonly version: number;
@@ -51,18 +49,6 @@ const parseQuotedVersion = (header: string): number | undefined => {
   const digits = match?.[1];
   if (digits === undefined) return undefined;
   return Number.parseInt(digits, 10);
-};
-
-const loadMeta = async (
-  s3: ObjectStore,
-  groupHash: string,
-  gameNumber: string,
-): Promise<LoadedMeta | undefined> => {
-  const raw = await getObject(s3, gameMetaKey(groupHash, gameNumber));
-  if (raw === undefined) return undefined;
-  const meta = parseGameMeta(raw);
-  if (meta === undefined) return undefined;
-  return { seats: meta.seats };
 };
 
 const loadPosition = async (
@@ -120,9 +106,14 @@ const runBurst = (
   return { game: at, moves };
 };
 
-const appendLog = (existing: string | undefined, moves: readonly Move[]): string => {
+const appendLog = (
+  existing: string | undefined,
+  version: number,
+  moves: readonly Move[],
+): string => {
   if (moves.length === 0) return existing ?? '';
-  const lines = moves.map((move) => JSON.stringify(move)).join('\n') + '\n';
+  // P49 D2: every move of one batch carries the version that batch produced.
+  const lines = moves.map((move) => stampLogLine(version, move)).join('\n') + '\n';
   if (existing === undefined || existing === '') return lines;
   return existing.endsWith('\n') ? existing + lines : `${existing}\n${lines}`;
 };
@@ -144,7 +135,7 @@ const persistPosition = async (
   }
   const logKey = gameLogKey(groupHash, gameNumber);
   const existingLog = await getObject(s3, logKey);
-  await putObject(s3, logKey, appendLog(existingLog, logMoves));
+  await putObject(s3, logKey, appendLog(existingLog, version, logMoves));
   await stampLibrarySummary(s3, groupHash, gameNumber, game);
   return body;
 };
@@ -242,25 +233,6 @@ const parseMoveBody = (body: string | undefined): Move | undefined => {
   const rec = asRecord(parsed);
   if (rec === undefined) return undefined;
   return parseMoveValue(rec['move']);
-};
-
-const requireMember = async (
-  deps: OnlineApiDeps,
-  request: OnlineRequest,
-  groupHash: string,
-  gameNumber: string,
-): Promise<
-  | { readonly ok: true; readonly userHash: string; readonly seats: readonly InviteSeat[] }
-  | { readonly ok: false; readonly result: OnlineHttpResult }
-> => {
-  const user = await requireUserHash(deps.google, authorizationOf(request));
-  if (!user.ok) return user;
-  const meta = await loadMeta(deps.s3, groupHash, gameNumber);
-  if (meta === undefined) return { ok: false, result: notFound() };
-  if (indexOfBoundUser(meta.seats, user.userHash) < 0) {
-    return { ok: false, result: forbidden() };
-  }
-  return { ok: true, userHash: user.userHash, seats: meta.seats };
 };
 
 export const handleGetGame = async (

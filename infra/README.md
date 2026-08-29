@@ -40,7 +40,7 @@ runs `sam build --build-in-source` so the Move/Online Lambdas can bundle Pages
 Outputs `HealthUrl` and `WsUrl` are `execute-api` URLs until custom domains exist.
 `GET` that HealthUrl — no Google token. Expect `{ "ok": true, "service": "conquarrow" }`.
 
-Game play is `GET` / `POST /games/{groupHash}/{gameNumber}` (and `…/moves`). The P16 stub `POST /moves` is gone (404).
+Game play is `GET` / `POST /games/{groupHash}/{gameNumber}` (and `…/moves`, and `GET …/log?since=N` for move-log replay). The P16 stub `POST /moves` is gone (404).
 
 P17 routes (`/me`, `/my-games`, `/invites` and accept/revoke/start) need repository
 variable `GOOGLE_CLIENT_IDS` — comma-separated OAuth client ids accepted as ID

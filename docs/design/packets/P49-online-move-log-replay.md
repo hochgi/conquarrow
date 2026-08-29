@@ -106,3 +106,18 @@ packet was deferred out of P48. Both are answered; the packet is ready.
 ## Out of scope
 
 Everything P48 ships. This packet adds the moves; the camera is already built.
+
+## Follow-ups left open at merge
+
+Both surfaced in phase-4 review, neither ship-blocking, neither a game rule.
+
+- **The drain loop has no `catch`.** `App.tsx`'s replay IIFE is `void`-ed with a
+  `finally` but no `catch`. If `applyMovesSequentially` throws mid-batch,
+  `noteDisplayed` never runs: `inFlight` stays set, local input stays refused, and
+  the failure surfaces only as an unhandled rejection. D5's posture is "log
+  loudly" — a `catch` that reports and clears via `noteDisplayed` would match it.
+- **Replay bookkeeping is adapter-global, not per game.** `displayed` / `replays`
+  / `inFlight` are not keyed by `(groupHash, gameNumber)`. A wake for game B
+  landing between `openMyGame`'s `getGame` and App's install effect would plan
+  against game A's version number. Narrow race; the snapshot install normally
+  overwrites the baseline first.

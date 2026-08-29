@@ -40,6 +40,8 @@ import { PreconditionFailed } from '../src/create-online-api';
 
 export const GAME_ONE = '000001';
 export const GAME_TWO = '000002';
+/** A group hash no invite ever produced — an unknown game (P49). */
+export const GROUP_ABSENT = 'f'.repeat(32);
 
 export const TWO_HUMAN_HEURISTIC: readonly PlannedSeatKind[] = [
   'human',
@@ -630,6 +632,20 @@ export const startAliceBobCarol = async (api: OnlinePort): Promise<string> => {
   return token;
 };
 
+export const HUMAN_HEURISTIC_HUMAN: readonly PlannedSeatKind[] = [
+  'human',
+  'heuristic',
+  'human',
+];
+
+/** Seats human, heuristic, human — Alice at seat 0, Bob at seat 2 (P49). */
+export const startAliceHeuristicBob = async (api: OnlinePort): Promise<string> => {
+  const token = await createOpenInvite(api, ALICE, HUMAN_HEURISTIC_HUMAN);
+  expectStatus(await postAccept(api, token, BOB.bearer), 200);
+  expectStatus(await postStart(api, token, ALICE.bearer), 200);
+  return token;
+};
+
 /** Seats heuristic, human, human — Alice at seat 1, Bob at seat 2. */
 export const startHeuristicThenAliceBob = async (api: OnlinePort): Promise<string> => {
   const token = await createOpenInvite(api, ALICE, HEURISTIC_THEN_TWO_HUMANS, 1);
@@ -873,13 +889,105 @@ export const parsePersisted = (
   return { version, state: rec['state'] };
 };
 
-export const parseLogJsonl = (raw: string | undefined): readonly Move[] => {
+/** One `log.jsonl` line. `v` is absent on pre-P49 (unstamped) lines. */
+export type LoggedLine = { readonly v: number | undefined; readonly move: Move };
+
+const parseLoggedLine = (line: string): LoggedLine => {
+  const value = JSON.parse(line) as unknown;
+  const rec = asRecord(value);
+  const move = rec['move'];
+  if (move === undefined) return { v: undefined, move: value as Move };
+  const v = rec['v'];
+  return { v: typeof v === 'number' ? v : undefined, move: move as Move };
+};
+
+/** Every line of `log.jsonl`, stamps included. */
+export const parseLogLines = (raw: string | undefined): readonly LoggedLine[] => {
   if (raw === undefined || raw === '') return [];
   return raw
     .replace(/\n$/, '')
     .split('\n')
     .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as Move);
+    .map(parseLoggedLine);
+};
+
+/** The moves of `log.jsonl`, stamped or not — the pre-P49 reading. */
+export const parseLogJsonl = (raw: string | undefined): readonly Move[] =>
+  parseLogLines(raw).map((line) => line.move);
+
+/** Versions stamped on `log.jsonl`, in file order; `undefined` where unstamped. */
+export const logStamps = (raw: string | undefined): readonly (number | undefined)[] =>
+  parseLogLines(raw).map((line) => line.v);
+
+export const stampedLine = (version: number, move: Move): string =>
+  JSON.stringify({ v: version, move });
+
+export const unstampedLine = (move: Move): string => JSON.stringify(move);
+
+/**
+ * Write `log.jsonl` by hand — the only way to author a pre-P49 tail or a hole.
+ */
+export const seedLog = (
+  s3: Map<string, string>,
+  groupHash: string,
+  gameNumber: string,
+  lines: readonly string[],
+): void => {
+  s3.set(gameLogKey(groupHash, gameNumber), lines.map((line) => `${line}\n`).join(''));
+};
+
+/** Put `state.json` at `version` without replaying anything. */
+export const seedStateAtVersion = (
+  s3: Map<string, string>,
+  groupHash: string,
+  gameNumber: string,
+  playerCount: number,
+  version: number,
+): GameState => {
+  const state = openingMatch(playerCount);
+  s3.set(gameStateKey(groupHash, gameNumber), persistEnvelope(version, state));
+  return state;
+};
+
+export const getLog = (
+  api: OnlinePort,
+  groupHash: string,
+  gameNumber: string,
+  bearer: string | undefined,
+  since?: string,
+): Promise<OnlineHttpResult> =>
+  api.handle({
+    method: 'GET',
+    path: `/games/${groupHash}/${gameNumber}/log`,
+    ...(bearer === undefined ? {} : { headers: gameHeaders(bearer) }),
+    ...(since === undefined ? {} : { query: { since } }),
+  });
+
+export type LogBody = {
+  readonly from: number;
+  readonly to: number;
+  readonly gap: boolean;
+  readonly moves: readonly Move[];
+};
+
+/** The `{from,to,gap,moves}` body, read as behaviour rather than as a shape. */
+export const logBody = (res: OnlineHttpResult): LogBody => {
+  const rec = asRecord(parseBody(res));
+  const from = rec['from'];
+  const to = rec['to'];
+  const gap = rec['gap'];
+  const moves = rec['moves'];
+  if (typeof from !== 'number' || typeof to !== 'number' || typeof gap !== 'boolean') {
+    throw new Error('expected log body {from,to,gap,moves}');
+  }
+  if (!Array.isArray(moves)) throw new Error('expected log body moves array');
+  return { from, to, gap, moves: moves as readonly Move[] };
+};
+
+/** No moves reached the caller, whatever the status. */
+export const carriesNoMoves = (res: OnlineHttpResult): boolean => {
+  const moves = asRecord(parseBody(res))['moves'];
+  return moves === undefined || (Array.isArray(moves) && moves.length === 0);
 };
 
 export const foldLog = (playerCount: number, moves: readonly Move[]): GameState =>

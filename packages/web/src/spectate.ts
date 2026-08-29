@@ -72,17 +72,27 @@ const midpoint = (min: number, max: number): number => (min + max) / 2;
 
 const paddedHalf = (min: number, max: number): number => (max - min) / 2 + FIT_PADDING;
 
+/** Whose seat the online seat to move is (P49 D6). Unknown defaults to ours. */
+export type OwnSeat = 'ours' | 'theirs';
+
 /**
  * Is the seat to move driven by somebody other than whoever is at this keyboard?
  *
- * D2: `online` is a distinct parameter precisely so P49 can replace it with
- * `seat.userHash !== ownUserHash` in one clause.
+ * P48 D2: `online` is a distinct parameter precisely so P49 can add its clause
+ * here. P49 D6: online, a seat that is not this client's is spectated; `ownSeat`
+ * unknown defaults to *ours*, so an online game with no `/me` yet behaves as it
+ * did before P49.
  */
 export const isSpectatedSeat = (args: {
   readonly seatKind: SeatKind;
   readonly online: boolean;
   readonly tutorial: boolean;
-}): boolean => !args.tutorial && !args.online && args.seatKind !== 'human';
+  readonly ownSeat?: OwnSeat;
+}): boolean => {
+  if (args.tutorial) return false;
+  if (args.online) return args.ownSeat === 'theirs';
+  return args.seatKind !== 'human';
+};
 
 /**
  * D4: `paused` is accepted and deliberately unused — bot pause stops credit

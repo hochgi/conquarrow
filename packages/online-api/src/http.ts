@@ -68,6 +68,26 @@ const eventHeaders = (event: Record<string, unknown>): OnlineHeaders | undefined
   };
 };
 
+/**
+ * `queryStringParameters` (both payload formats decode it the same way), or the
+ * `rawQueryString` v2 carries alongside it. P49's `since` is the only reader.
+ */
+const eventQuery = (
+  event: Record<string, unknown>,
+): Readonly<Record<string, string>> | undefined => {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(asRecord(event['queryStringParameters']) ?? {})) {
+    if (typeof value === 'string') out[key] = value;
+  }
+  const raw = event['rawQueryString'];
+  if (typeof raw === 'string' && raw.length > 0) {
+    for (const [key, value] of new URLSearchParams(raw)) {
+      out[key] ??= value;
+    }
+  }
+  return Object.keys(out).length === 0 ? undefined : out;
+};
+
 const eventBody = (event: Record<string, unknown>): string | undefined => {
   const body = event['body'];
   if (typeof body !== 'string') return undefined;
@@ -82,10 +102,12 @@ export const toOnlineRequest = (event: unknown): OnlineRequest => {
   const rec = asRecord(event) ?? {};
   const headers = eventHeaders(rec);
   const body = eventBody(rec);
+  const query = eventQuery(rec);
   return {
     method: eventMethod(rec),
     path: eventPath(rec),
     ...(headers === undefined ? {} : { headers }),
+    ...(query === undefined ? {} : { query }),
     ...(body === undefined ? {} : { body }),
   };
 };

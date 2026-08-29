@@ -12,6 +12,7 @@
 import type { OnlineHttpResult, OnlinePort, OnlineRequest } from '@conquarrow/contracts';
 import type { OnlineApiDeps } from './api-types';
 import { handleGetGame, handlePostMove } from './game-handlers';
+import { handleGetLog } from './game-log';
 import {
   handleAccept,
   handleCreate,
@@ -45,6 +46,7 @@ type Route =
   | { readonly name: 'revoke'; readonly token: string }
   | { readonly name: 'start'; readonly token: string }
   | { readonly name: 'get-game'; readonly groupHash: string; readonly gameNumber: string }
+  | { readonly name: 'get-log'; readonly groupHash: string; readonly gameNumber: string }
   | { readonly name: 'post-move'; readonly groupHash: string; readonly gameNumber: string };
 
 const matchGet = (path: string): Route | undefined => {
@@ -53,6 +55,12 @@ const matchGet = (path: string): Route | undefined => {
   const invite = /^\/invites\/([^/]+)$/.exec(path);
   const token = invite?.[1];
   if (token !== undefined) return { name: 'get-invite', token };
+  const log = /^\/games\/([^/]+)\/([^/]+)\/log$/.exec(path);
+  const logGroup = log?.[1];
+  const logGame = log?.[2];
+  if (logGroup !== undefined && logGame !== undefined) {
+    return { name: 'get-log', groupHash: logGroup, gameNumber: logGame };
+  }
   const game = /^\/games\/([^/]+)\/([^/]+)$/.exec(path);
   const groupHash = game?.[1];
   const gameNumber = game?.[2];
@@ -107,6 +115,8 @@ const dispatch = (deps: OnlineApiDeps, request: OnlineRequest): Promise<OnlineHt
       return handleStart(deps, request, route.token);
     case 'get-game':
       return handleGetGame(deps, request, route.groupHash, route.gameNumber);
+    case 'get-log':
+      return handleGetLog(deps, request, route.groupHash, route.gameNumber);
     case 'post-move':
       return handlePostMove(deps, request, route.groupHash, route.gameNumber);
   }

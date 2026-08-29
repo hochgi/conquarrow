@@ -127,6 +127,21 @@ flowchart TB
 
 `POST /games/{groupHash}/{gameNumber}/moves` succeeds only if the bearer maps to the **active** human seat. GET of that path is any **bound** human (including finished games). Heuristic seats never present a Google token. Stale quoted `If-Match` → 412. Missing → 428. Illegal move → 422. Finished → 409. No write on those paths. Accept uses server-side `If-Match` retry so two clients cannot bind the same chair.
 
+### 9. Reading the move log (P49)
+
+`GET /games/{groupHash}/{gameNumber}/log?since={version}` serves the moves whose
+version lies in `(since, currentVersion]`, in persisted order, to any **bound**
+human. `since` is required — there is no spelling of this route that pulls a whole
+match. Body: `{ from, to, gap, moves }`.
+
+`log.jsonl` lines are stamped `{"v":<version>,"move":{…}}` with the version the
+batch produced, so a burst's moves share one version. Pre-P49 unstamped lines are
+never served: a window that needs one answers `gap: true`, and the client installs
+a snapshot instead. No pagination — one object read per request, at human
+turn-taking rate. Revisit if spectators (P20+) land.
+
+Detail: [docs/spec/online-move-log-replay](../spec/online-move-log-replay/online-move-log-replay.md).
+
 ## Consequences
 
 ### Good
@@ -157,4 +172,4 @@ flowchart TB
 
 ## Follow-on packets
 
-P16 SAM/CI/DNS → P17 auth+invites → P18 moves+WS → P19 Pages adapter → P25 Pages host → P26 playtest UX → P27 lobby follow-up → P45 game library status → P46 library row identity.
+P16 SAM/CI/DNS → P17 auth+invites → P18 moves+WS → P19 Pages adapter → P25 Pages host → P26 playtest UX → P27 lobby follow-up → P45 game library status → P46 library row identity → P49 move-log replay.
