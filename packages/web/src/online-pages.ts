@@ -19,6 +19,7 @@ import type {
   OnlinePagesPort,
   OnlinePagesSocket,
   PagesLobbyMode,
+  ReplayBatch,
   PlannedSeatKind,
   StateChangedPayload,
   UserHash,
@@ -40,6 +41,7 @@ import {
   winnerOf,
   activePlayerOf,
 } from './online-parse';
+import { logPath, parseLogWindow, planFromWake } from './online-replay';
 import { clearSessionToken, readSessionToken, writeSessionToken } from './online-session';
 
 const LOCAL_SEAT_KINDS: readonly PlannedSeatKind[] = ['human', 'heuristic', 'byok'];
@@ -60,6 +62,17 @@ interface AdapterState {
   library: MyGamesBody | undefined;
   userHash: UserHash | undefined;
   socket: OnlinePagesSocket | undefined;
+  /** P49 D4: the version this client is *showing*, not the one the server holds. */
+  displayed: number | undefined;
+  /** P49: batches awaiting App's drain loop, in arrival order. Never dropped. */
+  replays: ReplayBatch[];
+  /**
+   * P49: the batch handed to App and not yet finished. A dequeued batch is still
+   * *in flight* — it has left the queue but its moves are only now reaching the
+   * board — so it still owns the baseline and still refuses local input.
+   * Cleared by `noteDisplayed`, which is exactly App reporting it finished.
+   */
+  inFlight: ReplayBatch | undefined;
 }
 
 const emptyState = (): AdapterState => ({
@@ -76,6 +89,9 @@ const emptyState = (): AdapterState => ({
   library: undefined,
   userHash: undefined,
   socket: undefined,
+  displayed: undefined,
+  replays: [],
+  inFlight: undefined,
 });
 
 const humanCount = (plan: readonly PlannedSeatKind[]): number =>
@@ -157,6 +173,9 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   const clearIdentityScope = (): void => {
     state.userHash = undefined;
     state.board = undefined;
+    state.displayed = undefined;
+    state.replays = [];
+    state.inFlight = undefined;
     state.library = undefined;
     clearInviteScope();
   };
@@ -350,6 +369,10 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
 
   const submitMove = async (move: Move): Promise<void> => {
     if (!onlineReady()) return;
+    // D7: the board is showing a superseded position while a batch plays, so a
+    // commit against it would be a move chosen from the past. In flight covers
+    // the batch App is *playing*, which has already left the queue.
+    if (replayInFlight()) return;
     const route = parsePagesHash(location.hash);
     if (route.kind !== 'game' || state.board === undefined) return;
     if (winnerOf(state.board.state) !== undefined) return;
@@ -366,6 +389,54 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     }
   };
 
+  /**
+   * EARS 11 / D7. A replay is in flight from the moment a batch is queued until
+   * App reports the last one finished — dequeuing hands it to the drain loop, it
+   * does not end it.
+   */
+  const replayInFlight = (): boolean =>
+    state.replays.length > 0 || state.inFlight !== undefined;
+
+  /**
+   * The version the next replay must start from: the last batch already spoken
+   * for — queued, or dequeued and still playing — and only then what App last
+   * reported displaying.
+   *
+   * The displayed baseline lags a batch by design: App reports it when the batch
+   * *finishes*. Reading it here would re-fetch and re-apply moves that are on
+   * screen right now, and the duplicate would then be reported as a D5
+   * divergence against the very snapshot it came from.
+   */
+  const replayBaseline = (): number | undefined =>
+    state.replays[state.replays.length - 1]?.to ?? state.inFlight?.to ?? state.displayed;
+
+  const fetchLogWindow = async (
+    groupHash: GroupHash,
+    gameNumber: GameNumber,
+    since: number,
+  ): Promise<ReturnType<typeof parseLogWindow>> => {
+    const res = await request('GET', logPath(groupHash, gameNumber, since));
+    if (res.status !== 200) return undefined;
+    return parseLogWindow(parseJson(res.body));
+  };
+
+  /**
+   * D4. The snapshot is fetched either way; what the wake decides is whether App
+   * plays the moves that reach it or simply shows it.
+   */
+  const planWake = async (groupHash: GroupHash, gameNumber: GameNumber): Promise<void> => {
+    await getGame(groupHash, gameNumber);
+    const to = state.board?.version;
+    if (to === undefined) return;
+    const baseline = replayBaseline();
+    const window =
+      baseline === undefined || baseline >= to
+        ? undefined
+        : await fetchLogWindow(groupHash, gameNumber, baseline);
+    const plan = planFromWake({ baseline, to, window });
+    if (plan.kind === 'replay') state.replays.push(plan.batch);
+  };
+
   const receiveStateChanged = async (payload: StateChangedPayload): Promise<void> => {
     if (!onlineReady()) return;
     const route = parsePagesHash(location.hash);
@@ -374,7 +445,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       route.groupHash === payload.groupHash &&
       route.gameNumber === payload.gameNumber
     ) {
-      await getGame(route.groupHash, route.gameNumber);
+      await planWake(route.groupHash, route.gameNumber);
       return;
     }
     await refreshLibrary();
@@ -440,6 +511,17 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     deliverGoogleCredential,
     receiveStateChanged,
     becomeVisible,
+    noteDisplayed: (version) => {
+      state.displayed = version;
+      // App only reports a version once the batch producing it has finished.
+      state.inFlight = undefined;
+    },
+    pendingReplays: () => [...state.replays],
+    takeReplay: () => {
+      const next = state.replays.shift();
+      if (next !== undefined) state.inFlight = next;
+      return next;
+    },
     onlineModeOffered: () => onlineReady(),
     seatKindOptions: () =>
       state.mode === 'online' && onlineReady() ? ONLINE_SEAT_KINDS : LOCAL_SEAT_KINDS,

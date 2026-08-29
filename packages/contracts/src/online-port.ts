@@ -126,6 +126,11 @@ export interface OnlineRequest {
   readonly path: string;
   readonly headers?: OnlineHeaders;
   readonly body?: string;
+  /**
+   * Decoded query string (P49). `GET /games/:g/:n/log?since=N` is the only
+   * reader today; the Lambda mapper fills this from `queryStringParameters`.
+   */
+  readonly query?: Readonly<Record<string, string>>;
 }
 
 export interface OnlineHttpResult {

@@ -8,8 +8,10 @@ import {
   type GameState,
   type MatchConfig,
   type Move,
+  type OnlineHostPort,
   type PagesLobbyMode,
   type PlayerId,
+  type ReplayBatch,
 } from '@conquarrow/contracts';
 import { makeLayout, makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
@@ -25,6 +27,7 @@ import { createInputMode } from './input/modes';
 import { Lobby } from './Lobby';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
+import { commitSequence, divergenceReport, hopMoves } from './online-replay';
 import { parsePagesHash } from './online-hash';
 import { isCallerToMove } from './online-pages';
 import { usePagesHost } from './online-runtime';
@@ -82,6 +85,7 @@ import {
   isSpectatedSeat,
   restoreTarget,
   type CameraTarget,
+  type OwnSeat,
   type Pt,
 } from './spectate';
 import { presentRefusal, presentSteps, REFUSAL_TEXT, type FxOverlay } from './fx/present';
@@ -257,6 +261,31 @@ const SpawnerTipFor = ({
   );
 };
 
+/**
+ * P49 D5. A replayed state disagreeing with the authoritative snapshot at the
+ * same version is a bug in purity or in log ordering. Report it loudly and
+ * mitigate nothing: no reconcile, no swap, no message the player could act on.
+ */
+const reportDivergence = (
+  host: OnlineHostPort,
+  version: number,
+  replayed: GameState | undefined,
+): void => {
+  const board = host.board();
+  if (board === undefined || board.version !== version || replayed === undefined) return;
+  const snapshot = hydrateState(board.state);
+  if (snapshot === undefined) return;
+  const route = parsePagesHash(window.location.hash);
+  const report = divergenceReport({
+    groupHash: route.kind === 'game' ? route.groupHash : 'unknown',
+    gameNumber: route.kind === 'game' ? route.gameNumber : 'unknown',
+    version,
+    replayed,
+    snapshot,
+  });
+  if (report !== undefined) console.error(report);
+};
+
 export const App = (): ReactElement => {
   const { host, gen, refresh } = usePagesHost();
   const hostRef = useRef(host);
@@ -330,6 +359,11 @@ export const App = (): ReactElement => {
   const botEpoch = useRef(0);
   const stateRef = useRef<GameState | undefined>(undefined);
   const passEpoch = useRef(0);
+  /** P49: a replay batch is playing, so the snapshot must not be installed over it. */
+  const replayBusy = useRef(false);
+  const replayEpoch = useRef(0);
+  /** D7 mirror for render: the board is showing a superseded position. */
+  const [replayPlaying, setReplayPlaying] = useState(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -418,6 +452,10 @@ export const App = (): ReactElement => {
     if (parsePagesHash(window.location.hash).kind !== 'game') return;
     const board = current.board();
     if (board === undefined) return;
+    // P49 D4: while a batch is queued or playing, the board is deliberately
+    // showing a superseded position. Installing the snapshot here would swap the
+    // very moves the replay exists to show.
+    if (replayBusy.current || current.adapter().pendingReplays().length > 0) return;
     const game = hydrateState(board.state);
     if (game === undefined) return;
     onlinePlayRef.current = true;
@@ -427,6 +465,8 @@ export const App = (): ReactElement => {
     setState(game);
     setLog((prev) => prev ?? logFromOnlineBoard(game, board.seats));
     setSnap(mode.reset());
+    // A snapshot install is a displayed position too (D4, EARS 6).
+    current.adapter().noteDisplayed(board.version);
   }, [gen, mode]);
 
   useEffect(() => {
@@ -643,22 +683,115 @@ export const App = (): ReactElement => {
     [tween],
   );
 
+  /**
+   * P49 D6. Whose seat is to move online. Unknown identity defaults to *ours*,
+   * so an online game with no `/me` yet behaves exactly as it did before P49.
+   */
+  const ownSeatOf = useCallback((game: GameState): OwnSeat => {
+    const h = hostRef.current;
+    if (h === undefined) return 'ours';
+    const seats = h.board()?.seats ?? h.adapter().inviteSeats();
+    const mine = isCallerToMove(
+      seats,
+      h.adapter().userHash(),
+      game.players.map((id) => String(id)),
+      String(game.activePlayer),
+    );
+    return mine ? 'ours' : 'theirs';
+  }, []);
+
+  /** The P48 predicate for a live position, with P49's online clause supplied. */
+  const spectatedIn = useCallback(
+    (game: GameState): boolean => {
+      const online = onlinePlayRef.current;
+      const seat = seatConfigsRef.current.get(String(game.activePlayer));
+      return isSpectatedSeat({
+        seatKind: seat?.kind ?? 'human',
+        online,
+        tutorial: tutorialRef.current !== undefined,
+        ...(online ? { ownSeat: ownSeatOf(game) } : {}),
+      });
+    },
+    [ownSeatOf],
+  );
+
+  /**
+   * P49. One replay batch, move by move, through the *same* commit path a local
+   * move takes — which is what buys online the effects layer and the match log
+   * it has never had. The camera hops on the moves that show something.
+   */
+  const playBatch = useCallback(
+    async (
+      h: OnlineHostPort,
+      batch: ReplayBatch,
+      cancelled: () => boolean,
+    ): Promise<void> => {
+      const start = stateRef.current;
+      if (start === undefined) return;
+      const moves = commitSequence([batch]);
+      const hops = new Set(hopMoves(moves));
+      const timing = hopTiming({
+        speed: prefsRef.current.playbackSpeed,
+        seatBoundary: false,
+        reducedMotion: reducedMotionRef.current,
+      });
+      await applyMovesSequentially(rules, start, moves, {
+        gapMs: timing.gapMs,
+        sleep: adapterSleep,
+        cancelled,
+        beforeApply: async (move) => {
+          const at = stateRef.current;
+          if (at === undefined || !hops.has(move)) return;
+          if (!prefsRef.current.autoFocus || !spectatedIn(at)) return;
+          await playHop(move, String(at.activePlayer));
+        },
+        onApplied: (move, after) => {
+          commitApplied([move], after);
+        },
+      });
+      if (cancelled()) return;
+      h.adapter().noteDisplayed(batch.to);
+      reportDivergence(h, batch.to, stateRef.current);
+    },
+    [commitApplied, playHop, spectatedIn],
+  );
+
+  // P49. Drain the queue in arrival order, skipping nothing. Local input is
+  // already refused by the adapter for the duration (D7).
+  useEffect(() => {
+    const h = hostRef.current;
+    if (h === undefined || replayBusy.current) return;
+    if (h.adapter().pendingReplays().length === 0) return;
+    replayBusy.current = true;
+    setReplayPlaying(true);
+    const epoch = ++replayEpoch.current;
+    const cancelled = (): boolean => epoch !== replayEpoch.current;
+    void (async () => {
+      try {
+        for (;;) {
+          const batch = h.adapter().takeReplay();
+          if (batch === undefined || cancelled()) return;
+          await playBatch(h, batch, cancelled);
+          if (cancelled()) return;
+        }
+      } finally {
+        if (!cancelled()) {
+          replayBusy.current = false;
+          setReplayPlaying(false);
+        }
+        refresh();
+      }
+    })();
+  }, [gen, playBatch, refresh]);
+
   // The restore happens when control returns to this client — never between two
   // spectated seats, and exactly once, because it closes the window itself.
   useEffect(() => {
     if (!replayOpen || state === undefined) return;
-    const seat = seatConfigsRef.current.get(String(state.activePlayer));
-    const stillSpectated =
-      state.winner === undefined &&
-      seat !== undefined &&
-      isSpectatedSeat({
-        seatKind: seat.kind,
-        online: onlinePlayRef.current,
-        tutorial: tutorialRef.current !== undefined,
-      });
+    const stillSpectated = state.winner === undefined && spectatedIn(state);
     if (stillSpectated) return;
     void restoreCamera();
-  }, [replayOpen, state, restoreCamera]);
+  }, [replayOpen, state, restoreCamera, spectatedIn]);
 
   // Retire finished effects. One timer for the whole queue, armed for the longest
   // remaining lifetime — the board is already correct, so a late prune is only a
@@ -813,6 +946,7 @@ export const App = (): ReactElement => {
 
   useEffect(() => {
     if (state === undefined || !onlinePlayRef.current) return;
+    if (replayBusy.current) return;
     const move = onlinePassMove(rules, state);
     if (move === undefined) return;
     const epoch = ++passEpoch.current;
@@ -1469,13 +1603,7 @@ export const App = (): ReactElement => {
 
   /** Manual pan and zoom, locked for the replay window only. */
   const cameraLockedNow = cameraLocked({
-    spectating:
-      activeSeat !== undefined &&
-      isSpectatedSeat({
-        seatKind: activeSeat.kind,
-        online: onlinePlayRef.current,
-        tutorial: tutorial !== undefined,
-      }),
+    spectating: spectatedIn(state),
     autoFocus: prefs.autoFocus,
     inReplayWindow: replayOpen,
     paused: held,
@@ -1483,6 +1611,8 @@ export const App = (): ReactElement => {
 
   const inputLocked =
     botBusy ||
+    // D7: a commit against a superseded position would be a move chosen from the past.
+    replayPlaying ||
     activeIsAi ||
     state.winner !== undefined ||
     (tutorial !== undefined && !tutorial.session.boardInputOpen());

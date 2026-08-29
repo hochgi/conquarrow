@@ -95,6 +95,7 @@ export type {
   OnlinePagesSession,
   OnlinePagesSocket,
   PagesLobbyMode,
+  ReplayBatch,
 } from './online-pages-port';
 
 export type { OnlineHostDeps, OnlineHostPort } from './online-host-port';

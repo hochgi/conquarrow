@@ -33,6 +33,16 @@ export interface OnlineGameBoard {
   readonly seats?: readonly InviteSeat[];
 }
 
+/**
+ * A contiguous run of persisted moves fetched to catch up (P49). `from` is the
+ * displayed baseline the client asked from; `to` is the version the run produces.
+ */
+export interface ReplayBatch {
+  readonly from: number;
+  readonly to: number;
+  readonly moves: readonly Move[];
+}
+
 export interface OnlinePagesEnv {
   readonly VITE_API_BASE: string;
   readonly VITE_WS_URL: string;
@@ -119,6 +129,16 @@ export interface OnlinePagesPort {
   deliverGoogleCredential(idToken: string): Promise<void>;
   receiveStateChanged(payload: StateChangedPayload): Promise<void>;
   becomeVisible(): Promise<void>;
+
+  /**
+   * P49. The version whose state this client is now showing — reported after
+   * every snapshot install and after every replay batch finishes.
+   */
+  noteDisplayed(version: number): void;
+  /** Queued replay batches, in arrival order; none is ever dropped (P49). */
+  pendingReplays(): readonly ReplayBatch[];
+  /** Dequeue the oldest queued batch, or `undefined` when the queue is empty. */
+  takeReplay(): ReplayBatch | undefined;
 
   onlineModeOffered(): boolean;
   seatKindOptions(): readonly PlannedSeatKind[];
