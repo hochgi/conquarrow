@@ -110,7 +110,9 @@ functions over the complexity budget even when well covered.
 
 ## Reference
 
-- `stryker.config.json` — `mutate[]` and `excludedMutations`.
+- `stryker.config.json` — `mutate[]`, `excludedMutations`, and `ignorePatterns`.
+  `ignorePatterns` excludes `.claude` / `.agents`: the skill directories contain
+  symlinks that point outside the repo, and Stryker's sandbox copy follows them.
 - `scripts/format-stryker-report.cjs`
 - `scripts/crap-report.cjs`
 - Companion: `code-to-green`, `engineering-principles`, `rules-invariants`.

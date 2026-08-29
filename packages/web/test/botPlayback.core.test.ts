@@ -137,3 +137,58 @@ describe('Local AI move playback — order with a gap', () => {
     expect(played).toEqual(planned.state);
   });
 });
+
+describe('Camera choreography hook (P48)', () => {
+  it('beforeApply runs for every move, ahead of its apply', async () => {
+    const start = openingState();
+    const moves = threeMoves();
+    const { rules, applyCalls } = stubRules();
+    const rec = recorder();
+    const order: string[] = [];
+    await applyMovesSequentially(rules, start, moves, {
+      ...playbackOpts(rec),
+      beforeApply: (_move, index) => {
+        order.push(`hop:${String(index)}`);
+        return Promise.resolve();
+      },
+      onApplied: (move, after, index) => {
+        order.push(`apply:${String(index)}`);
+        rec.onApplied(move, after, index);
+      },
+    });
+    expect(order).toEqual(['hop:0', 'apply:0', 'hop:1', 'apply:1', 'hop:2', 'apply:2']);
+    expect(applyCalls.map((call) => call.move)).toEqual([...moves]);
+  });
+
+  it('A throwing beforeApply cannot change the applied-move sequence', async () => {
+    const start = openingState();
+    const moves = threeMoves();
+    const { rules, applyCalls } = stubRules();
+    const rec = recorder();
+    await applyMovesSequentially(rules, start, moves, {
+      ...playbackOpts(rec),
+      beforeApply: (_move, index) =>
+        index === 1 ? Promise.reject(new Error('camera fault')) : Promise.resolve(),
+    });
+    expect(applyCalls.map((call) => call.move)).toEqual([...moves]);
+    expect(rec.applied.map((event) => event.index)).toEqual([0, 1, 2]);
+  });
+
+  it('Cancellation during a hop stops before that move applies', async () => {
+    const start = openingState();
+    const moves = threeMoves();
+    const { rules, applyCalls } = stubRules();
+    const rec = recorder();
+    let cancel = false;
+    await applyMovesSequentially(rules, start, moves, {
+      ...playbackOpts(rec),
+      cancelled: () => cancel,
+      beforeApply: (_move, index) => {
+        if (index === 1) cancel = true;
+        return Promise.resolve();
+      },
+    });
+    expect(applyCalls).toHaveLength(1);
+    expect(rec.applied.map((event) => event.index)).toEqual([0]);
+  });
+});

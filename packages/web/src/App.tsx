@@ -70,6 +70,20 @@ import {
   pauseOffered,
 } from './botPause';
 import { playBotTurn } from './opponent';
+import { createCameraTween } from './cameraTween';
+import { Settings } from './Settings';
+import { loadPrefs, savePrefs, type Prefs } from './prefs';
+import {
+  arrowsOfMove,
+  cameraLocked,
+  focusArrow as targetStack,
+  hopTargets,
+  hopTiming,
+  isSpectatedSeat,
+  restoreTarget,
+  type CameraTarget,
+  type Pt,
+} from './spectate';
 import { presentRefusal, presentSteps, REFUSAL_TEXT, type FxOverlay } from './fx/present';
 import {
   emptyQueue,
@@ -124,8 +138,13 @@ const pointerKindOf = (pointerType: string): PointerKind =>
 const hitPadding = (pointerType: string): { readonly paddingPx: number } | undefined =>
   pointerKindOf(pointerType) === 'coarse' ? { paddingPx: COARSE_HIT_PADDING_PX } : undefined;
 
-/** Layout-space centroid of an arrow tile — same space as `viewport.cx/cy`. */
-const arrowCentroid = (arrow: ArrowId): { x: number; y: number } => {
+/**
+ * Layout-space centroid of an arrow tile — same space as `viewport.cx/cy`.
+ *
+ * Exported for P48: the spectated-turn camera speaks lattice points, so this is
+ * the one place `ArrowId -> {x, y}` happens for both policies.
+ */
+export const arrowCentroid = (arrow: ArrowId): { x: number; y: number } => {
   const poly = layout.polygon(arrow);
   let sx = 0;
   let sy = 0;
@@ -316,6 +335,59 @@ export const App = (): ReactElement => {
     stateRef.current = state;
   }, [state]);
 
+  // ---- P48 spectated-turn camera -----------------------------------------
+  /** The two persisted preferences; one `conquarrow:prefs` key. */
+  const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs());
+  const prefsRef = useRef<Prefs>(prefs);
+  prefsRef.current = prefs;
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
+  /** Open exactly between the first hop of a spectated run and the restore. */
+  const [replayOpen, setReplayOpen] = useState(false);
+  const replayOpenRef = useRef(false);
+  const viewportRef = useRef<Viewport>(viewport);
+  viewportRef.current = viewport;
+  const snapRef = useRef<InputSnapshot>(snap);
+  snapRef.current = snap;
+  /**
+   * One saved camera per client, not per seat, plus the previous beat the next
+   * hop bridges from and which seat played it.
+   */
+  const spectateRef = useRef<{
+    saved: CameraTarget | undefined;
+    prevBeat: readonly Pt[];
+    seat: string | undefined;
+  }>({ saved: undefined, prevBeat: [], seat: undefined });
+  /** This turn's `step` exits in play order, and the selection at the commit. */
+  const turnExitsRef = useRef<readonly ArrowId[]>([]);
+  const selectedAtCommitRef = useRef<ArrowId | undefined>(undefined);
+  const turnOwnerRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = (): void => {
+      setReducedMotion(query.matches);
+    };
+    sync();
+    query.addEventListener('change', sync);
+    return () => {
+      query.removeEventListener('change', sync);
+    };
+  }, []);
+
+  const [tween] = useState(() =>
+    createCameraTween(
+      () => viewportRef.current,
+      (target) => {
+        setViewport((v) => ({ ...v, cx: target.cx, cy: target.cy, scale: target.scale }));
+      },
+    ),
+  );
+  useEffect(() => () => {
+    tween.cancel();
+  }, [tween]);
+
   useEffect(() => {
     const sync = (): void => {
       setTabFocused(document.visibilityState === 'visible' && document.hasFocus());
@@ -473,6 +545,120 @@ export const App = (): ReactElement => {
     },
     [mode, record, pushFx],
   );
+
+  /**
+   * Put the player back where they were when the replay window opened, nudging
+   * only if the target stack is off screen. One saved camera per client.
+   */
+  const restoreCamera = useCallback(async (): Promise<void> => {
+    const saved = spectateRef.current.saved;
+    spectateRef.current = { saved: undefined, prevBeat: [], seat: undefined };
+    replayOpenRef.current = false;
+    setReplayOpen(false);
+    if (saved === undefined) return;
+    const at = stateRef.current;
+    const owner = turnOwnerRef.current;
+    const owned = new Set<ArrowId>();
+    if (at !== undefined && owner !== undefined) {
+      for (const [arrow, group] of at.groups) {
+        if (String(group.owner) === owner) owned.add(arrow);
+      }
+    }
+    const selected = selectedAtCommitRef.current;
+    const focus = targetStack({
+      ...(selected === undefined ? {} : { selectedAtCommit: selected }),
+      turnExits: turnExitsRef.current,
+      owned,
+    });
+    const target = restoreTarget(
+      saved,
+      focus === undefined ? undefined : arrowCentroid(focus),
+      viewportRef.current,
+    );
+    const { easeInMs } = hopTiming({
+      speed: prefsRef.current.playbackSpeed,
+      seatBoundary: false,
+      reducedMotion: reducedMotionRef.current,
+    });
+    await tween.run(target, easeInMs);
+  }, [tween]);
+
+  /**
+   * Remember what this client's turn looked like: the selection at the click and
+   * this turn's `step` exits, in play order. The restore walks them backwards.
+   */
+  const noteLocalTurn = useCallback(
+    (before: GameState, moves: readonly Move[], atClick: InputSnapshot): void => {
+      const owner = String(before.activePlayer);
+      if (turnOwnerRef.current !== owner) {
+        turnOwnerRef.current = owner;
+        turnExitsRef.current = [];
+      }
+      // Only an End Turn click has a selection worth restoring to. A turn ended
+      // by exhaustion has none, and falls back to this turn's exits.
+      const endedByClick = moves.some((m) => m.kind === 'endTurn');
+      selectedAtCommitRef.current =
+        endedByClick && atClick.phase.kind !== 'idle' ? atClick.phase.from : undefined;
+      turnExitsRef.current = [
+        ...turnExitsRef.current,
+        ...moves.flatMap((m) => (m.kind === 'step' ? [m.exit] : [])),
+      ];
+    },
+    [],
+  );
+
+  /**
+   * One hop: ease out to the bridging fit, ease in to the move fit, hold. The
+   * move is applied by the caller afterwards, and nothing here can change it.
+   */
+  const playHop = useCallback(
+    async (move: Move, seat: string): Promise<void> => {
+      const points: readonly Pt[] = arrowsOfMove(move).map((id) => arrowCentroid(id));
+      if (points.length === 0) return;
+      if (!replayOpenRef.current) {
+        // The window opens now, so this is the camera we save — panning during
+        // a seat's thinking time is respected.
+        const v = viewportRef.current;
+        spectateRef.current = {
+          saved: { cx: v.cx, cy: v.cy, scale: v.scale },
+          prevBeat: [{ x: v.cx, y: v.cy }],
+          seat,
+        };
+        replayOpenRef.current = true;
+        setReplayOpen(true);
+      }
+      const seatBoundary = spectateRef.current.seat !== seat;
+      const hop = hopTargets(spectateRef.current.prevBeat, points, viewportRef.current);
+      if (hop === undefined) return;
+      spectateRef.current = { ...spectateRef.current, prevBeat: points, seat };
+      const timing = hopTiming({
+        speed: prefsRef.current.playbackSpeed,
+        seatBoundary,
+        reducedMotion: reducedMotionRef.current,
+      });
+      if (hop.wide !== undefined) await tween.run(hop.wide, timing.easeOutMs);
+      await tween.run(hop.close, hop.hardCut ? 0 : timing.easeInMs);
+      await adapterSleep(timing.holdMs);
+    },
+    [tween],
+  );
+
+  // The restore happens when control returns to this client — never between two
+  // spectated seats, and exactly once, because it closes the window itself.
+  useEffect(() => {
+    if (!replayOpen || state === undefined) return;
+    const seat = seatConfigsRef.current.get(String(state.activePlayer));
+    const stillSpectated =
+      state.winner === undefined &&
+      seat !== undefined &&
+      isSpectatedSeat({
+        seatKind: seat.kind,
+        online: onlinePlayRef.current,
+        tutorial: tutorialRef.current !== undefined,
+      });
+    if (stillSpectated) return;
+    void restoreCamera();
+  }, [replayOpen, state, restoreCamera]);
 
   // Retire finished effects. One timer for the whole queue, armed for the longest
   // remaining lifetime — the board is already correct, so a late prune is only a
@@ -701,10 +887,24 @@ export const App = (): ReactElement => {
           const status = byokTurnMessage(botChair, plan.byok.delta);
           if (status !== undefined) setByokStatus(status);
         }
+        const spectated = isSpectatedSeat({
+          seatKind: seatConfig.kind,
+          online: onlinePlayRef.current,
+          tutorial: tutorialRef.current !== undefined,
+        });
+        const speed = prefsRef.current.playbackSpeed;
+        const timingFor = (seatBoundary: boolean): ReturnType<typeof hopTiming> =>
+          hopTiming({ speed, seatBoundary, reducedMotion: reducedMotionRef.current });
         await applyMovesSequentially(rules, start, plan.moves, {
-          gapMs: BOT_PLAYBACK_GAP_MS,
+          // Speed is an *opponent playback* preference, so it scales the gap
+          // whether or not the camera is following.
+          gapMs: spectated ? timingFor(false).gapMs : BOT_PLAYBACK_GAP_MS,
           sleep: adapterSleep,
           cancelled,
+          beforeApply: async (move) => {
+            if (!spectated || !prefsRef.current.autoFocus) return;
+            await playHop(move, botChair);
+          },
           onApplied: (move, after, index) => {
             if (plan.byok !== undefined && index === plan.moves.length - 1) {
               commitApplied([move], after, plan.byok.delta, plan.byok.seat);
@@ -726,7 +926,7 @@ export const App = (): ReactElement => {
     return () => {
       botEpoch.current += 1;
     };
-  }, [botChair, commitApplied]);
+  }, [botChair, commitApplied, playHop]);
 
   const arrows = useMemo(
     () => (state === undefined ? [] : cullArrows(geometry, viewport)),
@@ -916,6 +1116,9 @@ export const App = (): ReactElement => {
       const s = stateRef.current;
       if (s === undefined) return;
       const { state: applied, applied: moves } = applyMoves(s, next.pending);
+      // The restore's target stack, captured *before* the commit — `commitApplied`
+      // clears the selection, so it can never be read back afterwards (P48).
+      noteLocalTurn(s, moves, snapRef.current);
       commitApplied(moves, applied);
 
       // Auto-pick the next stack that can still step — after a trip *or* a skip.
@@ -959,7 +1162,16 @@ export const App = (): ReactElement => {
         return visible ? v : centerOn(v, focus.x, focus.y);
       });
     },
-    [commitApplied, mode, record, refresh, pushFx, pushRefusal, boardHighlights.refused],
+    [
+      commitApplied,
+      mode,
+      record,
+      refresh,
+      pushFx,
+      pushRefusal,
+      noteLocalTurn,
+      boardHighlights.refused,
+    ],
   );
 
   const setCarry = useCallback(
@@ -1006,6 +1218,15 @@ export const App = (): ReactElement => {
     setTutorial(undefined);
     demoKeyRef.current = undefined;
     softLockKey.current = null;
+    // Leaving the match closes any open replay window: a saved camera from a
+    // finished match must never move the next one's (P48).
+    tween.cancel();
+    spectateRef.current = { saved: undefined, prevBeat: [], seat: undefined };
+    replayOpenRef.current = false;
+    setReplayOpen(false);
+    turnExitsRef.current = [];
+    selectedAtCommitRef.current = undefined;
+    turnOwnerRef.current = undefined;
   };
 
   const lookAt = (arrow: ArrowId): void => {
@@ -1246,6 +1467,20 @@ export const App = (): ReactElement => {
   const activeSeat = seatConfigsRef.current.get(String(state.activePlayer));
   const byokActive = activeSeat?.kind === 'byok' && isByokReady(byokConfigForSeat(activeSeat));
 
+  /** Manual pan and zoom, locked for the replay window only. */
+  const cameraLockedNow = cameraLocked({
+    spectating:
+      activeSeat !== undefined &&
+      isSpectatedSeat({
+        seatKind: activeSeat.kind,
+        online: onlinePlayRef.current,
+        tutorial: tutorial !== undefined,
+      }),
+    autoFocus: prefs.autoFocus,
+    inReplayWindow: replayOpen,
+    paused: held,
+  });
+
   const inputLocked =
     botBusy ||
     activeIsAi ||
@@ -1316,6 +1551,7 @@ export const App = (): ReactElement => {
       const midX = (a.x + b.x) / 2;
       const midY = (a.y + b.y) / 2;
       const prev = pinch.current;
+      if (cameraLockedNow) return;
       if (prev.dist > 4 && dist > 4) {
         const factor = dist / prev.dist;
         if (Math.abs(factor - 1) > 0.001 || Math.hypot(midX - prev.midX, midY - prev.midY) > 1) {
@@ -1352,6 +1588,7 @@ export const App = (): ReactElement => {
     const dy = e.clientY - drag.current.y;
     if (Math.hypot(dx, dy) > 3) drag.current.moved = true;
     if (!drag.current.moved) return;
+    if (cameraLockedNow) return;
     setViewport((v) => panBy(v, dx, dy));
     drag.current = { x: e.clientX, y: e.clientY, moved: true };
   };
@@ -1397,6 +1634,7 @@ export const App = (): ReactElement => {
 
   const onWheel = (e: WheelEvent<SVGSVGElement>): void => {
     e.preventDefault();
+    if (cameraLockedNow) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
     setViewport((v) => zoomAt(v, e.clientX - rect.left, e.clientY - rect.top, factor));
@@ -1492,6 +1730,13 @@ export const App = (): ReactElement => {
         {...(tutorialHud === undefined ? {} : { tutorial: tutorialHud })}
       />
       <div className="stage" ref={shellRef}>
+        <Settings
+          prefs={prefs}
+          onChange={(next) => {
+            setPrefs(next);
+            savePrefs(next);
+          }}
+        />
         {/* Whose turn it is, and whether the board is still resolving — an edge
             ring rather than a modal.
 

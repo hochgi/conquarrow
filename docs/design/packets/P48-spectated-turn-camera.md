@@ -28,8 +28,8 @@ replayed move-by-move by this client.
 - Online: **out of scope**, see P49. The predicate is written so that adding
   `seat.userHash !== ownUserHash` later is a one-line extension.
 - Tutorial: **off entirely**. The tutorial owns its camera deliberately
-  (`lookAtLesson` `App.tsx:1006-1030`, expect-step pan `:549-562`, demo loop
-  `:589-622`) and two policies would fight.
+  (`lookAtLesson`, the expect-step pan, the demo loop in `App.tsx`) and two
+  policies would fight.
 - All-bot match: **on**. Every turn is spectated; this is the showcase case.
 
 ### Choreography
@@ -92,7 +92,7 @@ free the camera — that is what the toggle is for.
 When control returns to this client:
 
 - Restore the saved camera **exactly**, and nudge only if the target stack is
-  off-screen — mirroring the existing post-move policy at `App.tsx:556-569`,
+  off-screen — mirroring the existing post-move policy in App's auto-pick block,
   whose comment ("a camera that jumps after every move destroys the spatial
   orientation the capture effect depends on") remains correct for your own play.
 - The saved camera is the camera **as it stands when the replay window opens**,
@@ -103,9 +103,9 @@ When control returns to this client:
 **Target stack**, in order:
 
 1. Turn ended by End Turn: the stack selected at the moment of the click.
-   Note `commitApplied` clears selection (`setSnap(mode.reset())`, `App.tsx:466`),
+   Note `commitApplied` clears selection (`setSnap(mode.reset())`),
    so this must be captured immediately *before* the commit, not read back after.
-2. Turn ended by move exhaustion (`passIfExhausted`, `App.tsx:492-531`): there is
+2. Turn ended by move exhaustion (`passIfExhausted`): there is
    no selection at that point — the previous commit already cleared it. Use the
    `exit` arrow of the final step.
 3. That stack is gone (killed or converted): walk back through this turn's
@@ -153,8 +153,7 @@ with App owning the clock.
   the fallback chain, the `ArrowId` tie-break. Fully testable.
 - A tween runner in App (or a `useCameraTween` hook) owning `rAF` — trivial
   interpolation, thin enough not to need tests.
-- `arrowCentroid` (`App.tsx:127-139`) needs exporting; it is currently a local
-  const and is the shared primitive here.
+- `arrowCentroid` (`App.tsx`) needs exporting; it is currently a local const and is the shared primitive here.
 
 ## Explicitly out of scope
 
@@ -164,3 +163,9 @@ with App owning the clock.
   hot-seat and solo play too, so it does not belong smuggled in here.
 - A yield-on-gesture camera handover.
 - Scaling FX budgets with playback speed.
+
+## Note on line references
+
+This packet originally cited `App.tsx` line ranges; they had already drifted by
+the time it was implemented. Symbol names are cited instead — they survive a
+rebase, line numbers do not.
