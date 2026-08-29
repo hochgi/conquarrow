@@ -27,12 +27,22 @@ export async function applyMovesSequentially(
     sleep: (ms: number) => Promise<void>;
     onApplied: (move: Move, after: GameState, index: number) => void;
     cancelled: () => boolean;
+    /**
+     * Camera choreography for the move about to play (P48): ease out, ease in,
+     * hold. Awaited *before* `rules.apply`, and it cannot change what applies —
+     * the turn was decided in full before playback began.
+     */
+    beforeApply?: (move: Move, index: number) => Promise<void>;
   },
 ): Promise<GameState> {
   let at = start;
   let index = 0;
   for (const move of moves) {
     if (opts.cancelled()) return at;
+    if (opts.beforeApply !== undefined) {
+      await opts.beforeApply(move, index);
+      if (opts.cancelled()) return at;
+    }
     at = rules.apply(at, move);
     opts.onApplied(move, at, index);
     if (index < moves.length - 1) {
