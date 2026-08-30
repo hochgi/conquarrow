@@ -240,3 +240,68 @@ export const hopTiming = (args: {
     gapMs: scale(BASE_TIMING.gapMs),
   };
 };
+
+/* -------------------------------------------------------------------------- *
+ * P52 — camera grouping. Tuning block; every number here is a knob, not a
+ * finding, and is expected to move after the first play-test.
+ * @see docs/spec/spectated-camera-grouping/spectated-camera-grouping.md
+ * -------------------------------------------------------------------------- */
+
+/** Floor: how far out grouping will zoom to *collect* moves. Governs collection, not display (D5). */
+export const SPECTATE_ZOOM_MIN = 30;
+/** Ceiling: how far in a tight group may punch. */
+export const SPECTATE_ZOOM_MAX = 56;
+/** Fraction of each viewport dimension a group's beats must fit inside. */
+export const SAFE_BOX = 0.72;
+/** Suppression: pan threshold as a fraction of the shorter viewport side. */
+export const GROUP_MOVE_PAN_EPS = 0.04;
+/** Suppression: scale-ratio threshold. */
+export const GROUP_MOVE_SCALE_EPS = 0.03;
+
+/** A maximal run of consecutive beats framed in a single shot. */
+export interface CameraGroup {
+  /** Inclusive index into the turn's beats. */
+  readonly from: number;
+  /** Exclusive. */
+  readonly to: number;
+  readonly target: CameraTarget;
+  readonly hardCut: boolean;
+}
+
+export interface GroupTiming {
+  readonly moveMs: number;
+  readonly holdMs: number;
+  readonly gapMs: number;
+}
+
+/** Split a replay window after every `endTurn`; a trailing run is its own turn. */
+export const splitTurns = (_moves: readonly Move[]): readonly (readonly Move[])[] => [];
+
+/** The largest scale at which every point fits the safe box. Uncapped, unclamped. */
+export const groupScale = (_points: readonly Pt[], _viewport: Viewport): number => 0;
+
+/** The display target for a group: centred on the midpoint, capped at the ceiling. */
+export const groupTarget = (_points: readonly Pt[], _viewport: Viewport): Fit => ({
+  target: { cx: 0, cy: 0, scale: 0 },
+  hardCut: false,
+});
+
+/** Pass 1 fixes `k`; pass 2 redistributes into exactly `k` leximaxmin-best groups. */
+export const planGroups = (
+  _beats: readonly (readonly Pt[])[],
+  _viewport: Viewport,
+): readonly CameraGroup[] => [];
+
+/** Is the next target indistinguishable from where the camera stands? */
+export const suppressed = (
+  _current: CameraTarget,
+  _next: CameraTarget,
+  _viewport: Viewport,
+): boolean => false;
+
+/** D14: P48's ease-out and ease-in merged into one duration. Reading rhythm unchanged. */
+export const groupTiming = (_args: {
+  readonly speed: number;
+  readonly boundary: boolean;
+  readonly reducedMotion: boolean;
+}): GroupTiming => ({ moveMs: 0, holdMs: 0, gapMs: 0 });
