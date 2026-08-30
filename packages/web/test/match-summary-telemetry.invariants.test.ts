@@ -29,7 +29,6 @@ import {
   matchLogSource,
   newLog,
   oneEndTurn,
-  oneSkip,
   oneStep,
   packetTestSource,
   summaryOf,
@@ -44,7 +43,7 @@ describe('match-summary-telemetry invariants', () => {
     ] as const;
     const summaries: readonly MatchSummary[] = [
       zeros(),
-      summaryOf({ steps: 5, endTurns: 2, skips: 1, closes: 1, cuts: 1, firstCloseAt: 3 }),
+      summaryOf({ steps: 5, endTurns: 2, closes: 1, cuts: 1, firstCloseAt: 3 }),
     ];
     for (const summary of summaries) {
       for (const { before, after } of boards) {
@@ -191,7 +190,7 @@ describe('match-summary-telemetry invariants', () => {
     const summaries: readonly (MatchSummary | undefined)[] = [
       undefined,
       zeros(),
-      summaryOf({ steps: 12, endTurns: 3, skips: 2, closes: 1, cuts: 1, firstCloseAt: 7 }),
+      summaryOf({ steps: 12, endTurns: 3, closes: 1, cuts: 1, firstCloseAt: 7 }),
     ];
     for (const summary of summaries) {
       expect(matchSummaryLine(false, summary)).toBeUndefined();
@@ -202,7 +201,7 @@ describe('match-summary-telemetry invariants', () => {
     const summaries: readonly MatchSummary[] = [
       zeros(),
       summaryOf({ steps: 2, endTurns: 1 }),
-      summaryOf({ steps: 12, endTurns: 3, skips: 2, closes: 1, cuts: 0, firstCloseAt: 7 }),
+      summaryOf({ steps: 12, endTurns: 3, closes: 1, cuts: 0, firstCloseAt: 7 }),
     ];
     for (const summary of summaries) {
       expect(matchSummaryLine(true, summary)).toBe(formatMatchSummary(summary));
@@ -212,7 +211,7 @@ describe('match-summary-telemetry invariants', () => {
 
   it('Equal (summary, moves, before, after, movesLoggedBefore) shall yield equal folded summaries.', () => {
     const start = summaryOf({ steps: 1, endTurns: 1 });
-    const moves = [oneStep(), oneSkip(), oneEndTurn()];
+    const moves = [oneStep(), oneStep(), oneEndTurn()];
     const leftBefore = gameState({
       territory: [
         [ARROW_0, A],

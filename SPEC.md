@@ -51,7 +51,7 @@ This single test covers both real cases: threading between two of red's arrows (
 - A defender can **hold a contested point** without committing to a fight.
 - Two trails can **race in parallel** through the same corridor, mutually aware and mutually unobligated — until one of them turns.
 
-All three survive contact combat (§6.2) only because **declining is always legal**. Skip is a first-class move (§4), so adjacency never forces a fight. Two stacks that merely share a point ahead do not fight; what costs heads is *stepping onto* an enemy-occupied arrow — never the right to stand beside it.
+All three survive contact combat (§6.2) only because **declining is always legal**: no step is ever forced (§4), so adjacency never forces a fight. Two stacks that merely share a point ahead do not fight; what costs heads is *stepping onto* an enemy-occupied arrow — never the right to stand beside it.
 
 Three things then unify under one definition:
 
@@ -282,7 +282,7 @@ A territory is closed by **one** chain, and that chain advances at the speed of 
 A move names a **source arrow, a destination out-arrow, and a count** — nothing else. There are no unit identities to track; a stack is just the count standing on an arrow (§5).
 
 - **The player chooses the order.** Which stack steps next is a player decision, not an engine rule. This is why the per-step model was chosen: there is no within-turn resolution order to invent, and the ordering the player picked is already carried by the move list a replay stores.
-- **A stack may move or skip.** Skipping is a first-class choice, not the absence of one.
+- **A stack may move, or not.** There is no move that means *not*: a stack that stays put is simply named nowhere in the turn. Nothing compels a step.
 - **A stack may step more than once per turn** if its allowance permits, and those steps may be **interleaved** with other stacks' steps. A 3-stack at 1.83 does not have to spend its steps consecutively.
 - **Sending different portions to different out-arrows is how a fork is made** — two moves from the same source, each with its own count. The pincer (§7) needs no special move.
 - **The turn ends when the player ends it**, or when no unit has a whole step left.
@@ -329,7 +329,7 @@ posture. That is the flavour the fairness costs.
 
 **Illegal steps are refused, never applied.** A step against the grain, an overdraw, or a grain step onto another player's territory without territory-grade protection from the source (§6.3) is illegal: `legalMoves` omits it and `apply` throws. The stack does not move, does not fight, and does not convert.
 
-**Skipping is normal, not a fallback.** A rearguard head on an open trail is doing its job by standing still (§5): stepping forward only lengthens the trail it is there to guard, and drags it away from the stretch it defends. Expect a typical turn to move a minority of the units on the board.
+**Standing still is normal, not a fallback.** A rearguard head on an open trail is doing its job by standing still (§5): stepping forward only lengthens the trail it is there to guard, and drags it away from the stretch it defends. Expect a typical turn to move a minority of the units on the board.
 
 ---
 
@@ -505,7 +505,7 @@ The attack **costs one step of allowance** for the whole battle (§3).
 
 **Floor may yield zero attacker loss** in a round when *A* is moderately larger than *D* (e.g. 5v3). Accepted PoC — no min-1 unless playtesting asks.
 
-- **Declining is always legal.** Skip is first-class (§4); standing beside an enemy without stepping onto them fights nothing.
+- **Declining is always legal.** No step is forced (§4), so standing beside an enemy without stepping onto them fights nothing.
 - ~~**Combat is interruptible.**~~ — **withdrawn.** The battle ends only by wipe (retreat-between-rounds is a later optional).
 - **Cut and combat on one step.** If the destination is enemy-occupied *and* the traversal crosses that player's trail (`chordsCross`), resolve **combat first**, then **cut** against the trail set — trail is independent of heads (§6.1a). Evaporation is a cut on **trail**, not a wipe side-effect on bare or territory occupancy.
 - **Parked:** territory combat modifiers (defender-only loss / invader trail mark on claimed ground) — not MVP; see §11 item 39.
@@ -944,11 +944,11 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 **Structure**
 
-19. ~~What is a move?~~ — **resolved: per-step.** A move is one unit, one step; the player chooses the order; skip is a first-class move; the turn ends explicitly. No within-turn resolution order had to be invented. Merging mid-turn costs the stack its speed bonus for that turn, which prices the reinforce-then-strike combo without banning it. See §4 and §3.
+19. ~~What is a move?~~ — **resolved: per-step.** A move is one unit, one step; the player chooses the order; ~~skip is a first-class move~~ — **amended by P51: declining is the absence of a move, not a move; the kind is deleted** — the turn ends explicitly. No within-turn resolution order had to be invented. Merging mid-turn costs the stack its speed bonus for that turn, which prices the reinforce-then-strike combo without banning it. See §4 and §3.
 
 20. ~~Residuals of the per-step model~~ — **resolved: there are no residuals.** The harmonic curve is replaced by `speed(N) = 1 + floor(log₂ N)`, allowance is a whole number, and nothing survives the turn boundary — not a fraction, not an unused whole step. Every sub-question dissolved rather than being answered:
 
-    - ~~Does a skipped step bank?~~ — **no.** Nothing banks at all now, so this needs no rule of its own. The original reason still stands: a rearguard that banked would be a spring — skip three turns, move four — undercutting §4's standing-still-is-doing-its-job point.
+    - ~~Does a skipped step bank?~~ — **no**, and **moot since P51**: there is no skip to bank, so the answer now follows from there being nothing to skip. Nothing banks at all, so this needs no rule of its own. The original reason still stands: a rearguard that banked would be a spring — stand still three turns, move four — undercutting §4's standing-still-is-doing-its-job point.
     - ~~Does a merge forfeit an inherited carry?~~ — **no carries exist.** What replaced it is sharper: a merged stack has speed 1, or **speed 0 if any arriving group outnumbered what it joined**. See §3, merging costs the turn.
     - ~~Does a split duplicate an inherited carry?~~ — **no carries exist.** Both parts inherit `spent`, so a split trades one group's distance for a second group's existence and the arithmetic balances itself.
     - ~~Is splitting symmetric with merging?~~ — **no, and deliberately.** See item 22.
@@ -1056,7 +1056,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 37. ~~When do two stacks fight, and how are losses computed?~~ — **resolved: contact combat.** An earlier reading (§6.2 / item 6) said two stacks that point into the same point fight 1:1 on a move against that point. That made shadowing illegal in spirit and conflated gating with contact. **Withdrawn.**
 
-    **Trigger:** an ordinary step whose destination arrow holds an enemy group. That is the only trigger. Two stacks that merely point into the same point do not fight; skip still declines advancing.
+    **Trigger:** an ordinary step whose destination arrow holds an enemy group. That is the only trigger. Two stacks that merely point into the same point do not fight; not stepping still declines advancing.
 
     **Resolve** (deterministic, exact, no RNG, no secret bids; stay-behind and fight-to-wipe in item **38**): with *A* = attacking step count (`count ≤ heads − 1`) and *D* = defender heads on the destination — loop the threat-weighted floor rule until *A* or *D* is 0. Per round: threats *tA* = *D*/(*A*+*D*), *tD* = *A*/(*A*+*D*); loss weights *wa*∶*wd* = *tA*² ∶ *tD*; scale so max(atk_loss, def_loss) = *D* preserving the ratio, then cap atk ≤ *A*, def ≤ *D*; floor; if both floors are 0 and weights > 0, deal 1 to the larger weight (ties → defender). If *D* remaining is 0 the attacker lands with *A* remaining and marks; if *A* remaining is 0 the attacker does not land and does not mark. Equals (*A* = *D*) favour the attacker (e.g. 3v3 → 2∶0). Floor may yield 0 attacker loss when *A* is moderately larger than *D* (e.g. 5v3) — accepted PoC, no min-1.
 
@@ -1094,7 +1094,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 **Self-convert steps — resolved by P28: illegal, not a suicide move**
 
-43. ~~May a player walk from stack-grade / marked trail onto enemy territory and convert themselves?~~ — **resolved: no, the step is illegal.** Conversion is not a suicide move the engine offers. A grain step onto another player's territory is legal only when the mover is already **territory-grade protected** from `from` (home tile, or own trail with `anchorGrade === 'territory'`). Otherwise `legalMoves` omits every count of that `(from, exit)` and `apply` throws; the stack does not move, fight, or convert. Opponent-caused encirclement is unchanged: closure claiming the tile under an unprotected group, or a cut that demotes a raider already inside, still converts intact (§6.3). Skip does not convert. → **§6.3**, → **§4**, → **P28**.
+43. ~~May a player walk from stack-grade / marked trail onto enemy territory and convert themselves?~~ — **resolved: no, the step is illegal.** Conversion is not a suicide move the engine offers. A grain step onto another player's territory is legal only when the mover is already **territory-grade protected** from `from` (home tile, or own trail with `anchorGrade === 'territory'`). Otherwise `legalMoves` omits every count of that `(from, exit)` and `apply` throws; the stack does not move, fight, or convert. Opponent-caused encirclement is unchanged: closure claiming the tile under an unprotected group, or a cut that demotes a raider already inside, still converts intact (§6.3). Not stepping does not convert. → **§6.3**, → **§4**, → **P28**.
 
 44. ~~**What represents a match that ends with no surviving seat?**~~ — **resolved by dissolution: the state is unreachable.** Nothing represents it because play cannot construct it. The chain, each link checked against the code: every seat **opens owning its home spawner's whole triangle** — three shares, measured at 2, 3 and 6 players, though only `S > 0` is what the chain needs and only that is pinned by test; `closure.ts` only ever does `territory.set(arrow, mover)`, so territory changes hands and is never cleared there; `vanishSeat` is the **only** path that removes territory entries, and by the share theorem a vanishing seat never owned a share, so a vacated arrow is never a share. Hence some seat always owns a share, and `S > 0` puts a player in an *alive* row of the §9 table — so at least one seat is always alive. The chain is **pinned as invariants** rather than argued, because its third link arrived with P36: if a later change lets territory revert to unowned elsewhere, or setup stops granting the home triangle, the state becomes reachable and its failure mode is an unbounded auto-pass spin. → **§9**, → **P36**, → **P37**.
 

@@ -105,7 +105,7 @@ export const cameraLocked = (args: {
   readonly paused: boolean;
 }): boolean => args.spectating && args.autoFocus && args.inReplayWindow;
 
-/** A step names the two arrows worth looking at; a skip and an endTurn name none. */
+/** A step names the two arrows worth looking at; an endTurn names none. */
 export const arrowsOfMove = (move: Move): readonly ArrowId[] =>
   move.kind === 'step' ? [move.from, move.exit] : [];
 

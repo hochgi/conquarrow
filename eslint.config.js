@@ -51,6 +51,10 @@ export default tseslint.config(
       // lint and fails projectService because it is in no tsconfig.
       '.agents/**',
       '.claude/skills/**',
+      // A nested git worktree is a second checkout of this repo, not product
+      // code. Linting it lints every package twice and fails projectService on
+      // its own config files, which are in no tsconfig of *this* checkout.
+      '.claude/worktrees/**',
     ],
   },
   js.configs.recommended,

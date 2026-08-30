@@ -5,7 +5,7 @@
 Feature: Local AI move playback — order with a gap
   As a player watching a local AI seat
   I want each planned move to appear in order with a short pause between them
-  So that I can see the sequence of cuts, skips, and steps
+  So that I can see the sequence of cuts and steps
 
   Background:
     Given a RulesPort

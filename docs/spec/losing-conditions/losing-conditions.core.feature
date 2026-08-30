@@ -147,7 +147,7 @@ Feature: A seat that can never claim again is out, and it vanishes
 
   # ~~Rule: Loss resolves at the boundary and nowhere else~~ — **repealed by P37.**
   # This Rule and its three scenarios (*A step does not evaluate loss*, *A convert
-  # does not evaluate loss*, *A skip does not evaluate loss*) asserted the exact
+  # does not evaluate loss*, and one for the move kind P51 later deleted) asserted the exact
   # opposite of what the engine now does, and their tests were deleted rather than
   # inverted. The replacements live in
   # `docs/spec/immediate-loss/immediate-loss.core.feature` under *A loss resolves

@@ -8,7 +8,7 @@
 ## Purpose
 
 The first rules behaviour: how heads move on the board. A player spends an
-ordered list of per-step moves — step, skip, end-turn — against an occupancy map
+ordered list of per-step moves — step, end-turn — against an occupancy map
 over a `GeometryPort`. Allowance is integer (`speed(N) = 1 + floor(log₂ N)`);
 nothing banks between turns; merging mid-turn costs tempo exactly as §3 prices
 it.
@@ -19,8 +19,8 @@ enough to land the movement slice. Later packets grow the same port.
 
 ## Scope
 
-In: occupancy, spent, merge speed overrides, grain-following steps, skip,
-end-turn, player alternation, `legalMoves` / `apply`.
+In: occupancy, spent, merge speed overrides, grain-following steps, end-turn,
+player alternation, `legalMoves` / `apply`.
 
 Out: trails and branch anchors (P05); crossings, cuts, combat (P06); territory,
 fill, encirclement (P05/P07); spawners (P08); match setup and victory (P09).
@@ -38,7 +38,7 @@ There is no match-setup constructor.
 | **spent** | whole steps that group has already taken this turn; cleared on end-turn |
 | **effective speed** | `speed(size)`, unless a merge override sets it to 1 or 0 for the turn |
 | **merge override** | the §3 cost of merging mid-turn: speed 1, or speed 0 if any arrival outnumbered what it joined. It rides with the **heads**, not with the arrow (§11 item 33) |
-| **active player** | whose turn it is; only their groups may step or skip |
+| **active player** | whose turn it is; only their groups may step |
 
 *head*, *stack*, *point*, *arrow*, *vertex* keep their AGENTS.md meanings.
 A stack **is** the group size — there is no separate HP.
@@ -48,13 +48,11 @@ A stack **is** the group size — there is no separate HP.
 ```mermaid
 flowchart TD
   S["turn begins — spent and overrides clear"] --> L{"legalMoves"}
-  L -- "step available" --> P["player picks step / skip / endTurn"]
+  L -- "step available" --> P["player picks step / endTurn"]
   L -- "no whole step left" --> E["only endTurn is legal"]
   P -- "step" --> A["apply: move count along grain#59; update spent / merge"]
-  P -- "skip" --> K["apply: no-op on occupancy and spent"]
   P -- "endTurn" --> N["advance active player#59; clear spent and overrides"]
   A --> L
-  K --> L
   E --> N
   N --> S2["opponent's turn"]
 ```
@@ -63,12 +61,11 @@ Every turn in a replay ends with an explicit `endTurn` (P04 D6, confirmed).
 Exhaustion restricts `legalMoves`; it does not hide a player advance inside
 `apply(step)`.
 
-**`legalMoves` is the narrower half of the port, and deliberately so.** It offers
-a group's `skip` only while that group still has a whole step left, because a
-no-op inside an already-finished turn is noise a hot-seat player would have to
-read past. `apply` is wider: a skip spends nothing, so it has no allowance to
-check, and the invariant below makes a skip of an owned group legal full stop.
-Only one direction is asserted — **everything `legalMoves` offers, `apply`
+**`legalMoves` is the narrower half of the port, and deliberately so.** It names
+a group only while that group still has a whole step left; a group with nothing
+to do is simply not named, because declining is the absence of a move (P51) and
+noise inside an already-finished turn is something a hot-seat player would have
+to read past. Only one direction is asserted — **everything `legalMoves` offers, `apply`
 accepts** — and the consequence for records is that a recorded turn follows
 `legalMoves`, never the wider `apply`. The golden replay therefore contains no
 move the engine would not have offered, which is what P10 will replay against.
@@ -101,8 +98,8 @@ throws), so this ⊆ still holds. See
 - The system shall merge two of the same player's groups on the same arrow
   automatically, with no extra move.
 - The system shall refuse a step onto an opponent-occupied arrow.
-- The system shall treat a skip of an owned group as legal and shall change
-  neither occupancy nor spent when it is applied.
+- The system shall compel no step: a group the player leaves alone is named by
+  no move, and `endTurn` is always legal (P51).
 - When no owned group has a whole step left, the system shall offer only
   `endTurn` as a legal move.
 - When `endTurn` is applied, the system shall advance the active player and clear

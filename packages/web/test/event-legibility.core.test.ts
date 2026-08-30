@@ -312,7 +312,7 @@ describe('resolveEvents — one move, named', () => {
   it('reports nothing for a move that changed nothing visible', () => {
     const from = tile(0, 0, 0);
     const before = state({ groups: [[from, A, 1]] });
-    const events = resolveEvents({ before, after: before, move: { kind: 'skip', from } });
+    const events = resolveEvents({ before, after: before, move: { kind: 'endTurn' } });
     expect(events).toEqual([]);
   });
 

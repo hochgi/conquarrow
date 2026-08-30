@@ -2,8 +2,8 @@
  * Hot-seat QoL: when the active player has no legal step, apply `endTurn`.
  *
  * The rules core still requires an explicit `endTurn` (P04) — this is the adapter
- * sending it, so replays stay honest. Skips are not required first: spent-out
- * stacks with leftover skip-only offers are the common "only skip left" case.
+ * sending it, so replays stay honest. Nothing is required first: declining is the
+ * absence of a move, so a spent-out board offers `endTurn` and nothing else (P51).
  *
  * Returns the moves it applied so a match log can record them (playtest review).
  */

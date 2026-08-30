@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import type { ArrowId, Move } from '@conquarrow/contracts';
 import type { SeatKind } from '../src/seatPlan';
 import { DEFAULT_PREFS, PREFS_STORAGE_KEY, parsePrefs, serializePrefs } from '../src/prefs';
@@ -101,13 +101,9 @@ describe('Lock', () => {
 
 describe('Hops and fits', () => {
   const moves = (i: number): Move =>
-    i % 3 === 0
-      ? step(arrow(`f${String(i)}`), arrow(`x${String(i)}`), 1)
-      : i % 3 === 1
-        ? skip(arrow(`f${String(i)}`))
-        : endTurn();
+    i % 2 === 0 ? step(arrow(`f${String(i)}`), arrow(`x${String(i)}`), 1) : endTurn();
 
-  it('8: a step earns a hop, a skip and an endTurn do not', () => {
+  it('8: a step earns a hop, an endTurn does not', () => {
     for (let i = 0; i < 9; i += 1) {
       const move = moves(i);
       expect(arrowsOfMove(move).length).toBe(move.kind === 'step' ? 2 : 0);

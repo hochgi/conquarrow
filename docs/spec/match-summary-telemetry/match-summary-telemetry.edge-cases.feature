@@ -53,15 +53,10 @@ Feature: Match summary telemetry — close vs cut, load, seams
 
   Rule: Format omits idle fields
 
-    Scenario: Zero skips are omitted from format
-      Given skips is 0 and firstCloseAt is unset
-      Then formatMatchSummary does not contain "skips"
+    Scenario: The format is the four counters and nothing between them
+      Given firstCloseAt is unset
+      Then formatMatchSummary contains no counter between "end-turns" and "closes"
       And it does not contain "first close"
-
-    Scenario: Positive skips are included in format
-      Given skips is 2
-      Then formatMatchSummary contains "2 skips"
-      And "skips" sits between "end-turns" and "closes"
 
   Rule: Persistence
 

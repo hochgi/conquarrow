@@ -19,7 +19,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, endTurn, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, Move, PlayerId } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
@@ -119,7 +119,7 @@ const oneOfEachKind = (ground: Ground, state: GameState): readonly Move[] => {
   );
   if (mine === undefined) return [endTurn()];
   const [arrow] = mine;
-  return [step(arrow, anExitFrom(ground.geometry, arrow), 1), skip(arrow), endTurn()];
+  return [step(arrow, anExitFrom(ground.geometry, arrow), 1), endTurn()];
 };
 
 /** Seats the four-case table says are lost, read off a state. */
@@ -262,7 +262,7 @@ describe('a move records the losses it causes', () => {
     expect(isLost(after, B, ground.geometry)).toBe(false);
   });
 
-  it('5. resolves losses after a step, after a skip and after an end of turn alike', () => {
+  it('5. resolves losses after a step and after an end of turn alike', () => {
     const ground = aBoard();
     const disagreements: string[] = [];
     for (const rows of ASSIGNMENTS) {
@@ -454,7 +454,7 @@ describe('the share walk happens only for a seat that owns ground and holds no h
     // Quantified over all 216 assignments, and measured on a **non-boundary
     // end-turn**: the chair starts at `players[0]` of three, so one end-turn hands
     // the seat on without closing a round. That matters twice — accrual reads the
-    // lattice by design (§7) and would swamp the measurement, and a step or a skip
+    // lattice by design (§7) and would swamp the measurement, and a step
     // could change a seat's own readings between the authored board and the board
     // resolution sees, which would make the predicate below the wrong predicate.
     const ground = aBoard();

@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { skip } from '@conquarrow/contracts';
+import { endTurn } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -261,9 +261,9 @@ describe('against your own trail, only an interleave counts', () => {
 
 describe('crossing is a decision, not a tripwire', () => {
   it('reports nothing for a head merely standing at a trail point', () => {
-    // Skip is a first-class move (P04), which is what makes declining always legal —
-    // and what makes shadowing, holding a point and racing in parallel possible at
-    // all. Standing still crosses nothing.
+    // No step is ever compelled (§6.2), which is what makes declining always legal
+    // — and what makes shadowing, holding a point and racing in parallel possible
+    // at all. Standing still crosses nothing.
     const table = onBoard();
     const { ins, outs } = junction(table);
     const ourIn = pick(ins, 1);
@@ -271,7 +271,7 @@ describe('crossing is a decision, not a tripwire', () => {
       trail: { A: [ourIn], B: [pick(ins, 0), pick(outs, 0)] },
     });
 
-    const after = table.rules.apply(before, skip(ourIn));
+    const after = table.rules.apply(before, endTurn());
 
     expect(after.groups.get(ourIn)?.heads).toBe(1);
     expect(table.rules.trailChordsAt(after, table.geometry.target(ourIn), B).length).toBe(1);

@@ -552,24 +552,6 @@ describe('P34 invariants', () => {
     }
   });
 
-  it('While the draft is non-empty, the system shall refuse a skip of the source.', () => {
-    for (const clicks of [
-      [arrowAlong(geometry, from, 0, 1)],
-      [arrowAlong(geometry, from, 0, 3)],
-      [alongSlots(geometry, from, [2, 2, 1])],
-    ]) {
-      const state = openField(from, 8);
-      const selected = selectRoute(board, state, from);
-      let snap = selected.snap;
-      for (const arrow of clicks) snap = clickArrow(selected, arrow);
-      const draft = [...draftOf(snap)];
-      const skipped = selected.mode.requestSkip(state, rules);
-      expect(pendingOf(skipped), clicks.map(String).join(' ')).toHaveLength(0);
-      expect(skipped.refusal?.reason).toBe('cannot-skip');
-      expect(draftOf(skipped)).toEqual(draft);
-    }
-  });
-
   it('If a click names an arrow that is reachable but not clickable, then the system shall refuse it with `out-of-reach` and apply nothing.', () => {
     const state = openField(from, 8);
     const untouched = openField(from, 8);

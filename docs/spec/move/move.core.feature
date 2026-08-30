@@ -54,17 +54,17 @@ Feature: The move DTO
         | -1    | counts are not signed           |
         | 3     | cannot send heads that are not there |
 
-  Rule: Skip and end-turn are first-class
+  Rule: End-turn is first-class
 
-    Skipping is a choice. A rearguard head on an open trail is doing its job by
-    standing still — stepping forward would only lengthen the trail it is there
-    to guard — so a typical turn moves a minority of the stacks on the board.
+    Standing still is a choice, and it costs no move to make. A rearguard head on
+    an open trail is doing its job by standing still — stepping forward would only
+    lengthen the trail it is there to guard — so a typical turn moves a minority
+    of the stacks on the board, and names only those.
 
-    Scenario: A skip names the arrow that declined to move
-      When I construct a skip move for arrow a1
+    Scenario: A turn in which no stack was named is still a turn
+      When I construct a turn holding only its ending
       Then it is well-formed
-      And it names a source arrow
-      And it names no exit and no count
+      And it differs from a turn that holds a step
 
     Scenario: A turn ends explicitly
       When I construct an end-turn move

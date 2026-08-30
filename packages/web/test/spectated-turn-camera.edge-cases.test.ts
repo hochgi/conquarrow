@@ -200,7 +200,7 @@ describe('The target stack chain bottoms out safely', () => {
     expect(restoreTarget(saved, undefined, vp())).toEqual(saved);
   });
 
-  it('A turn of nothing but skips contributes no exits', () => {
+  it('A turn in which nothing stepped contributes no exits', () => {
     expect(focusArrow({ turnExits: [], owned: ownedSet('k1') })).toBe(arrow('k1'));
   });
 

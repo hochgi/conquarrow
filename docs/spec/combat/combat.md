@@ -74,7 +74,8 @@ positive integer *A*, *D*; the loop states the HoMM intent if the table is retun
   mark the destination.
 - The system shall spend one step of the attacker's allowance for the whole battle.
 - When combat and a cut both apply, the system shall resolve combat before the cut.
-- The system shall permit declining by skip.
+- The system shall compel no step: declining is always legal, and it is the
+  absence of a move rather than a move (P51).
 - The system shall not mutate the input state, and shall return equal outputs for
   equal inputs.
 - The system shall use no randomness and no floating-point loss arithmetic.

@@ -104,10 +104,8 @@ not the classification. `cameraLocked` composes them.
 Per **step** move, in order: ease out to the bridging fit → ease in to the move
 fit → hold → apply.
 
-- `arrowsOfMove(step)` = `[from, exit]`. `arrowsOfMove(skip)` = `[]`.
-  `arrowsOfMove(endTurn)` = `[]`.
-- A move with no arrows gets **no hop**. A `skip` moves the camera to show
-  nothing happening; `endTurn` is the cue to restore.
+- `arrowsOfMove(step)` = `[from, exit]`. `arrowsOfMove(endTurn)` = `[]`.
+- A move with no arrows gets **no hop**: `endTurn` is the cue to restore.
 - The *previous beat* is the arrows of the previous hopped move. For the **first**
   hop of a replay window it is the saved camera centre as a single point, so the
   player's own position stays in frame.
@@ -202,8 +200,8 @@ focusArrow = first candidate in `owned`
    choice.**
 5. No units at all: `undefined` — saved camera only, no nudge.
 
-`turnExits` holds only `step` moves' `exit` arrows, in play order. `skip` and
-`endTurn` contribute nothing.
+`turnExits` holds only `step` moves' `exit` arrows, in play order. `endTurn`
+contributes nothing.
 
 **D9 — "control returns to this client" includes the end of the match.** When a
 spectated seat's move wins the game there is no next seat to spectate, so the
@@ -287,7 +285,7 @@ flowchart TD
   Decide --> Open["replay window opens#59; save the camera as it stands now"]
   Open --> Lock["manual pan/zoom locked"]
   Lock --> Next{"next move"}
-  Next -->|skip or endTurn| NoHop["no hop"]
+  Next -->|endTurn| NoHop["no hop"]
   Next -->|step| Fit["fit prev beat ∪ move arrows"]
   Fit --> Cap{"radius > 24?"}
   Cap -->|yes| Cut["hard-cut to the move fit"]
@@ -332,8 +330,7 @@ flowchart LR
 6. While bots are paused, the system shall keep the camera lock exactly as it
    would be if they were running.
 7. While auto-focus is off, the system shall neither lock the camera nor move it.
-8. The system shall produce a hop for a `step` move and no hop for a `skip` or an
-   `endTurn`.
+8. The system shall produce a hop for a `step` move and no hop for an `endTurn`.
 9. Every fit the system produces shall have a scale within `[ZOOM.min, ZOOM.max]`.
 10. Every fit the system produces shall contain every point it was asked to fit.
 11. If a bridging fit's radius exceeds `FIT_CAP_RADIUS`, then the system shall

@@ -40,7 +40,7 @@ yielded). Tests inject the chooser.
 The P16 stub `POST /moves` (501) is **removed**. Invite routes are unchanged
 (P17). `GET /health` stays unauthenticated.
 
-POST body: `{ "move": <Move> }` (`step` \| `skip` \| `endTurn` from contracts).
+POST body: `{ "move": <Move> }` (`step` \| `endTurn` from contracts).
 
 POST 200 body: `{ "version", "groupHash", "gameNumber" }` — the client then
 GETs state (ADR). GET 200 body: `{ "version", "state", "seats" }` where `state`

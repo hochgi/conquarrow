@@ -75,11 +75,11 @@ const L1: Lesson = {
     },
     {
       kind: 'narrate',
-      text: 'Heads you do not carry stay as a sentry. Skip and End Turn are ordinary moves; exposure is the cost of walking out.',
+      text: 'Heads you do not carry stay as a sentry. Leaving a stack where it is and ending the turn are ordinary play; exposure is the cost of walking out.',
     },
     {
       kind: 'end',
-      summary: 'Leaving territory lays trail. A sentry is heads you chose to leave; Skip and End Turn are normal.',
+      summary: 'Leaving territory lays trail. A sentry is heads you chose to leave; standing still and ending the turn are normal.',
     },
   ],
 };

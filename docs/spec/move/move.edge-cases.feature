@@ -48,22 +48,12 @@ Feature: The move DTO — boundaries and the cases that must stay expressible
       And the moves appear in that order
       # A 3-stack at 11/6 does not have to spend its steps consecutively.
 
-  Rule: A skip is distinguishable from having nothing to do
+  Rule: Declining is the absence of a move
 
-    A replay that could not record a skip could not tell "declined to move" from
-    "had no whole step left". Those are different positions and they lead to
-    different games.
-
-    Scenario: An explicit skip is recorded
-      Given player A has a stack on arrow a1 with a whole step available
-      When player A skips a1
-      Then the turn contains a skip move naming a1
-      And it is distinguishable from a turn in which a1 was never named
-
-    Scenario: A turn may contain nothing but skips
-      When player A skips every stack and ends the turn
-      Then the turn is well-formed
-      # The turtle position (§9) is a legal, accepted state of the game.
+    Nothing compels a step (§4). A stack that stays put is named nowhere in the
+    record — there is no move that means *not*, so a turn in which nothing moved
+    is a turn holding nothing but its ending. (P51 deleted the kind that used to
+    record the decision.)
 
     Scenario: A turn may be empty but for its ending
       When player A ends the turn without moving anything
@@ -83,20 +73,16 @@ Feature: The move DTO — boundaries and the cases that must stay expressible
         | exit   |
         | count  |
 
-    Scenario: A skip cannot carry a count
-      When I construct a skip move with a count
-      Then construction fails
-
     Scenario: A step's source and exit may not be the same arrow
       Given arrow a1 holds 2 heads belonging to player A
       When player A constructs a step move from a1 to a1
       Then the move is rejected as malformed
-      # A step goes somewhere. Staying put is a skip, and it is a different move.
+      # A step goes somewhere. Staying put is no move at all.
 
-    Scenario: There is no fourth move variant
+    Scenario: There is no third move variant
       When I enumerate the move variants the DTO admits
-      Then there are exactly 3
-      And they are step, skip and end-turn
+      Then there are exactly 2
+      And they are step and end-turn
 
   Rule: Counts at the boundary of a stack
 

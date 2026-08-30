@@ -3217,10 +3217,6 @@
       "count": 1
     },
     {
-      "kind": "skip",
-      "from": "tiling:a:2,1,0"
-    },
-    {
       "kind": "endTurn"
     },
     {
@@ -6786,7 +6782,6 @@
   "summary": {
     "steps": 1000,
     "endTurns": 246,
-    "skips": 1,
     "closes": 61,
     "cuts": 122,
     "firstCloseAt": 55

@@ -38,10 +38,20 @@ describe('replay harness', () => {
   it('can skip the legalMoves guard when asked', () => {
     const table = onBoard();
     const from = anArrow(table.geometry);
+    const exit = anExitFrom(table.geometry, from);
+    // An exhausted group is offered nothing, so this step is off-menu.
     const initial = stateOf([{ arrow: from, owner: A, heads: 1, spent: 1 }], A);
-    // Skip of an exhausted group is accepted by apply but not offered.
-    expect(() =>
-      replay(table.rules, initial, [{ kind: 'skip', from }], { requireLegal: false }),
-    ).not.toThrow();
+    const offMenu = step(from, exit, 1);
+
+    // With the guard on, `replay` refuses before `apply` ever sees the move.
+    expect(() => replay(table.rules, initial, [offMenu])).toThrow(/not in legalMoves/);
+
+    // With the guard off, the record reaches `apply`, which answers on its own
+    // terms. That the refusal is the engine's and not the harness's is the whole
+    // of what the option claims. (Before P51 the witness was a no-op move the
+    // offer withheld; there is no such move any more — declining names nothing.)
+    expect(() => replay(table.rules, initial, [offMenu], { requireLegal: false })).toThrow(
+      /has spent 1 of its 1/,
+    );
   });
 });

@@ -12,7 +12,7 @@
  * called without one.
  */
 
-import { endTurn, skip } from '@conquarrow/contracts';
+import { endTurn } from '@conquarrow/contracts';
 import type { ArrowId, GameState, GeometryPort, Move, RulesPort } from '@conquarrow/contracts';
 import type { RefusalReason } from '../fx/present';
 import {
@@ -133,8 +133,6 @@ export interface InputMode {
   send(): InputSnapshot;
   /** Discard the draft and return to idle — Cancel, background click, Escape. */
   cancel(): InputSnapshot;
-  /** Skip the selected source group, if any. */
-  requestSkip(state: GameState, rules: RulesPort): InputSnapshot;
   requestEndTurn(): InputSnapshot;
 }
 
@@ -409,20 +407,6 @@ abstract class BaseMode implements InputMode {
 
   cancel(): InputSnapshot {
     return this.reset();
-  }
-
-  requestSkip(state: GameState, rules: RulesPort): InputSnapshot {
-    const { phase } = this.snap;
-    if (phase.kind === 'idle') return this.snap;
-    const { from } = phase;
-    // A skip is a decision about the *source*; with a route drawn it would throw
-    // the draft away without saying so, which is what Cancel is for.
-    const drafting = phase.kind === 'route' && phase.draft.length > 0;
-    if (drafting || !rules.legalMoves(state).some((m) => m.kind === 'skip' && m.from === from)) {
-      return { ...this.snap, refusal: { arrow: from, reason: 'cannot-skip' } };
-    }
-    this.snap = { phase: { kind: 'idle' }, highlights: emptyHighlights(), pending: [skip(from)] };
-    return this.snap;
   }
 
   requestEndTurn(): InputSnapshot {

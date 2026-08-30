@@ -12,20 +12,19 @@
  * grain relationship it assumes is checked against `GeometryPort` first, so a
  * mistyped arrow fails as a setup error rather than as a rules failure.
  *
- * **The record follows `legalMoves`, not the wider `apply`.** `apply` accepts a
- * skip of a group with no whole step left — a skip spends nothing, so it has no
- * allowance to check — but `legalMoves` does not offer one, and a golden that
- * leaned on the difference would record a turn no player could have played. A
- * guard below asserts every recorded move was on offer when it was made
- * (movement.md, "legalMoves is the narrower half of the port").
+ * **The record follows `legalMoves`, not the wider `apply`.** A golden that leaned
+ * on a move the engine never offered would record a turn no player could have
+ * played, so a guard below asserts every recorded move was on offer when it was
+ * made (movement.md, "legalMoves is the narrower half of the port").
  *
  * The turn it records: a pair advances and splits off a scout, while a garrison
- * elsewhere stands its ground (a skip). The opponent takes an ordinary single
- * step. Next turn the rearguard walks into the scout — an equal merge.
+ * elsewhere stands its ground — which it does by being named nowhere at all,
+ * declining being the absence of a move (P51). The opponent takes an ordinary
+ * single step. Next turn the rearguard walks into the scout — an equal merge.
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, speed, step } from '@conquarrow/contracts';
+import { endTurn, speed, step } from '@conquarrow/contracts';
 import type { GameState, Move } from '@conquarrow/contracts';
 import { MINIMAL, fixtureArrow } from '@conquarrow/geometry-fixtures';
 import { replay } from '../src/replay';
@@ -72,10 +71,9 @@ const MOVES: readonly Move[] = [
   // leaves the other standing — the remainder inherited spent 1 and is done.
   step(A_PAIR, A_ADVANCE, 2),
   step(A_ADVANCE, A_SCOUT, 1),
-  // The garrison is untouched and still has its whole step, so declining to move
-  // it is a choice the engine offered. Skipping the rearguard instead would not
-  // have been: the split left it spent 1 of its speed 1.
-  skip(A_GARRISON),
+  // The garrison is untouched and still has its whole step. It is simply never
+  // named: that is the whole of declining, and it is why the record is shorter
+  // than the turn felt.
   endTurn(),
   // Player B: one step, one head.
   step(B_HEAD, B_ADVANCE, 1),

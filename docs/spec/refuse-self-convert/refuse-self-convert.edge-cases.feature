@@ -73,11 +73,11 @@ Feature: Refuse self-convert — combat, portions, opponent convert, adapter
       Then that group is owned by A after commit
       # encirclement.core / P05b seam
 
-    Scenario: Skip still does not convert an authored encircled group
+    Scenario: Not stepping still does not convert an authored encircled group
       Given an authored state where B is already encircled on A's territory
-      When A skips a different head
-      Then skip returns the state unchanged
-      # encirclement.edge "Skip does not itself convert…"
+      When A steps nothing and ends the turn
+      Then the groups, territory and trails are unchanged
+      # encirclement.edge "Not stepping does not itself convert…"
 
   Rule: Purity / port agreement
 

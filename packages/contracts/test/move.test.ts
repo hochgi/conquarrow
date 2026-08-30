@@ -19,7 +19,6 @@ import {
   MOVE_KINDS,
   mintArrowId,
   movesEqual,
-  skip,
   speed,
   step,
   turnsEqual,
@@ -70,27 +69,18 @@ describe('move — a count must be a positive portion of what is there', () => {
   });
 });
 
-describe('move — skip and end-turn are first-class', () => {
-  it('names the arrow that declined to move', () => {
-    const m = skip(a1);
-    expect(Object.keys(m).toSorted()).toEqual(['from', 'kind']);
-    expect(m.from).toBe(a1);
-  });
-
+describe('move — end-turn is first-class', () => {
   it('ends a turn without naming an arrow', () => {
     const m = endTurn();
     expect(Object.keys(m)).toEqual(['kind']);
   });
 
-  it('distinguishes an explicit skip from never naming the stack', () => {
-    const skipped: Turn = [skip(a1), endTurn()];
-    const silent: Turn = [endTurn()];
-    expect(turnsEqual(skipped, silent)).toBe(false);
-  });
-
-  it('accepts a turn of nothing but skips', () => {
-    const turn: Turn = [skip(a1), skip(a2), endTurn()];
-    expect(turnsEqual(turn, turn)).toBe(true);
+  it('is how a turn ends when no stack was ever named', () => {
+    // Declining is the absence of a move (P51): a turn in which nothing moved
+    // is a turn holding nothing but its ending.
+    const declined: Turn = [endTurn()];
+    expect(turnsEqual(declined, [endTurn()])).toBe(true);
+    expect(turnsEqual(declined, [step(a1, a2, 1), endTurn()])).toBe(false);
   });
 
   it('accepts a turn that is empty but for its ending', () => {
@@ -165,18 +155,9 @@ describe('move — illegal shapes are unrepresentable', () => {
     expect(build).toThrow(ContractViolation);
   });
 
-  it('refuses a skip carrying a count', () => {
-    // A skip is the arrow declining to move. A count on it would imply a
-    // portion declined, which is not a thing — the rest of the stack simply
-    // was not named (§4).
-    expect(() => (skip as (a: typeof a1, c?: number) => unknown)(a1, 1)).toThrow(
-      ContractViolation,
-    );
-  });
-
-  it('admits exactly three variants', () => {
-    expect([...MOVE_KINDS].toSorted()).toEqual(['endTurn', 'skip', 'step']);
-    expect(MOVE_KINDS).toHaveLength(3);
+  it('admits exactly two variants', () => {
+    expect([...MOVE_KINDS].toSorted()).toEqual(['endTurn', 'step']);
+    expect(MOVE_KINDS).toHaveLength(2);
   });
 
   it.each([1, 5, 6])('accepts count %i against a 6-stack', (count) => {

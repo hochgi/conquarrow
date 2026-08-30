@@ -86,22 +86,14 @@ describe('Match summary telemetry — close vs cut, load, seams', () => {
     expect(folded.closes).toBe(2);
   });
 
-  it('Zero skips are omitted from format', () => {
-    const text = formatMatchSummary(summaryOf({ steps: 3, endTurns: 1, skips: 0, closes: 0, cuts: 0 }));
-    expect(text).not.toContain('skips');
+  it('The format is end-turns then closes, with no counter between them', () => {
+    // P51 removed the `n skips` clause the format used to splice in here; the
+    // line is the four counters and nothing else.
+    const text = formatMatchSummary(summaryOf({ steps: 3, endTurns: 1, closes: 0, cuts: 0 }));
+    expect(text).not.toContain('skip');
     expect(text).not.toContain('first close');
     expect(text).toBe('3 steps · 1 end-turns · 0 closes · 0 cuts');
-  });
-
-  it('Positive skips are included in format', () => {
-    const text = formatMatchSummary(summaryOf({ steps: 3, endTurns: 1, skips: 2, closes: 0, cuts: 0 }));
-    expect(text).toContain('2 skips');
-    const endTurnsAt = text.indexOf('end-turns');
-    const skipsAt = text.indexOf('skips');
-    const closesAt = text.indexOf('closes');
-    expect(endTurnsAt).toBeGreaterThanOrEqual(0);
-    expect(skipsAt).toBeGreaterThan(endTurnsAt);
-    expect(closesAt).toBeGreaterThan(skipsAt);
+    expect(text.indexOf('closes')).toBeGreaterThan(text.indexOf('end-turns'));
   });
 
   it('Load of a log missing summary uses empty counters', () => {
@@ -115,7 +107,6 @@ describe('Match summary telemetry — close vs cut, load, seams', () => {
       expect(loaded?.summary).toEqual(emptyMatchSummary());
       expect(loaded?.summary.steps).toBe(0);
       expect(loaded?.summary.endTurns).toBe(0);
-      expect(loaded?.summary.skips).toBe(0);
       expect(loaded?.summary.closes).toBe(0);
       expect(loaded?.summary.cuts).toBe(0);
       expect(loaded?.summary.firstCloseAt).toBeUndefined();

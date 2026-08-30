@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, endTurn, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -25,7 +25,6 @@ import {
   headsOn,
   notAnExitFrom,
   onBoard,
-  ownerOf,
   pathFrom,
   snapshot,
   spentOn,
@@ -181,46 +180,6 @@ describe('the conveyor is priced, not banned', () => {
     expect(headsOn(state, c2)).toBe(3);
     expect(table.rules.effectiveSpeed(state, c2)).toBe(0);
     expect(stepsFrom(table, state, c2)).toEqual([]);
-  });
-});
-
-// ── Rule: skip is a first-class no-op ─────────────────────────────────────────
-
-describe('skip is a first-class no-op', () => {
-  it('changes nothing when an owned group skips', () => {
-    // "Skipping an owned group changes nothing". Standing still is a choice, not
-    // the absence of one (§4), and it neither spends nor banks (§11 item 20).
-    const table = onBoard();
-    const a1 = anArrow(table.geometry);
-    const before = stateOf([{ arrow: a1, owner: A, heads: 2, spent: 0 }]);
-
-    const after = table.rules.apply(before, skip(a1));
-
-    expect(headsOn(after, a1)).toBe(2);
-    expect(ownerOf(after, a1)).toBe(A);
-    expect(spentOn(after, a1)).toBe(0);
-    expect(after.activePlayer).toBe(A);
-    expect(stepsFrom(table, after, a1).length).toBeGreaterThan(0);
-  });
-
-  it('refuses a skip of an arrow the player does not hold', () => {
-    // "Skipping an arrow the player does not hold is refused".
-    const table = onBoard();
-    const a1 = anArrow(table.geometry);
-    const before = stateOf([{ arrow: a1, owner: B, heads: 2 }], A);
-
-    expect(() => table.rules.apply(before, skip(a1))).toThrow(ContractViolation);
-  });
-
-  it('refuses a skip of an empty arrow', () => {
-    // "Skipping an empty arrow is refused". An absent stack declining to move is
-    // not a move (P04 D9 — an absent identifier is not a plausible no-op).
-    const table = onBoard();
-    const before = stateOf([]);
-
-    expect(() => table.rules.apply(before, skip(anArrow(table.geometry)))).toThrow(
-      ContractViolation,
-    );
   });
 });
 

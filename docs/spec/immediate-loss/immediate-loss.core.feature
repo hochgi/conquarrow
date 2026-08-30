@@ -56,7 +56,6 @@ Feature: A loss resolves on the move that causes it
       Examples:
         | move        |
         | a step      |
-        | a skip      |
         | an end turn |
 
     Scenario: A mid-turn loss leaves the mover's allowance alone

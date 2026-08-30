@@ -28,10 +28,11 @@ Feature: Contact combat — stepping onto an enemy-occupied arrow
       Then neither group loses a head to combat
       # §11 item 37: contested-point combat is withdrawn. Shadowing survives.
 
-    Scenario: Skip declines advancing and fights nothing
+    Scenario: Not stepping declines advancing and fights nothing
       Given a head of player A's stands beside an enemy-occupied arrow
-      When player A skips that head
+      When player A leaves it standing and ends the turn
       Then both groups' head counts are unchanged
+      # No step is forced (§6.2), so standing beside an enemy fights nothing.
 
   Rule: Stay-behind on attack
 

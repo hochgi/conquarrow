@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, speed, step } from '@conquarrow/contracts';
+import { endTurn, speed, step } from '@conquarrow/contracts';
 import type { GameState } from '@conquarrow/contracts';
 import { SPACIOUS, fixtureArrow } from '@conquarrow/geometry-fixtures';
 import { playHighlightsAllowed, victoryFx } from '../src/fx/victory';
@@ -665,23 +665,6 @@ describe('P34 edge — the carry rewrites the last run and nothing earlier', () 
 });
 
 describe('P34 edge — turn flow and the rest of the app are undisturbed', () => {
-  it('Skip is refused while a draft is open', () => {
-    const selected = selectOpenField(8);
-    const drafted = clickArrow(selected, second);
-    const original = [...draftOf(drafted)];
-    const snap = selected.mode.requestSkip(selected.state, rules);
-    expect(snap.refusal?.reason).toBe('cannot-skip');
-    expect(pendingOf(snap)).toHaveLength(0);
-    expect(draftOf(snap)).toEqual(original);
-  });
-
-  it('Skip applies to the source with an empty draft', () => {
-    const selected = selectOpenField(8);
-    expect(selected.phase.draft).toHaveLength(0);
-    const snap = selected.mode.requestSkip(selected.state, rules);
-    expect(pendingOf(snap)).toEqual([skip(from)]);
-  });
-
   it('Ending the turn discards an open draft', () => {
     const selected = selectOpenField(8);
     clickArrow(selected, second);

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import type { SeatKind } from '../src/seatPlan';
 import {
   BASE_TIMING,
@@ -74,7 +74,7 @@ describe('Only a step earns a hop', () => {
   });
 
   it('Moves that show nothing get no hop', () => {
-    for (const move of [skip(arrow('a1')), endTurn()]) {
+    for (const move of [endTurn()]) {
       expect(arrowsOfMove(move)).toEqual([]);
       expect(hopTargets([pt(0, 0)], [], vp())).toBeUndefined();
     }

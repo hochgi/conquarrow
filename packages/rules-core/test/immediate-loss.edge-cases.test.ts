@@ -12,7 +12,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, GeometryPort, PlayerId } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
@@ -26,6 +26,7 @@ import {
   lostAlong,
   ownedSharesOf,
   P47_PREFIX_FLOOR,
+  clearExit,
   playtestLog,
   someSeatIsAlive,
   statesAlong,
@@ -168,8 +169,8 @@ describe('every way a seat can lose its last territory resolves at once', () => 
     // play, so the premise can only be authored — and what the scenario asks for is
     // therefore **totality**, not a claim about one kind of move. So it quantifies
     // over every move the engine offers on that board rather than picking one, and
-    // the eight of them include the step into C's stack, the step away from it, the
-    // skip and the pass alike.
+    // they include the step into C's stack, the step away from it, and the pass
+    // alike.
     const ground = aBoard();
     const mover = shareArrow(ground, 0);
     const before = seatState({
@@ -192,10 +193,9 @@ describe('every way a seat can lose its last territory resolves at once', () => 
     const offered = ground.rules.legalMoves(before);
 
     // Non-vacuous, and *totality*: every kind is on offer, so "whatever it is"
-    // really ranges over all three.
+    // really ranges over both.
     expect([...new Set(offered.map((move) => move.kind))].toSorted()).toEqual([
       'endTurn',
-      'skip',
       'step',
     ]);
     const survived: string[] = [];
@@ -283,7 +283,7 @@ describe('resolving sooner cannot change who loses', () => {
       spawners: [[aVertex(ground), { force: FORCE, phase: 0 }]],
     });
 
-    const after = ground.rules.apply(before, skip(shareArrow(ground, 0)));
+    const after = ground.rules.apply(before, endTurn());
 
     expect(isLost(after, C, ground.geometry)).toBe(true);
     expect(isUnowned(after, bare)).toBe(true);
@@ -362,7 +362,7 @@ describe('the win check runs after every seat is resolved', () => {
       spawners: [[aVertex(ground), { force: FORCE, phase: 0 }]],
     });
 
-    const after = ground.rules.apply(before, skip(mover));
+    const after = ground.rules.apply(before, endTurn());
 
     expect(after.winner).toBe(A);
     expect(after.winner).not.toBe(B);
@@ -388,7 +388,7 @@ describe('the win check runs after every seat is resolved', () => {
       spawners: [[aVertex(ground), { force: FORCE, phase: 0 }]],
     });
 
-    const after = ground.rules.apply(before, skip(mover));
+    const after = ground.rules.apply(before, endTurn());
 
     expect(isLost(after, C, ground.geometry)).toBe(true);
     expect(holdingsOf(after, C)).toEqual({ heads: 0, stacks: [], trail: [], land: [] });
@@ -415,7 +415,11 @@ const aBoardWithCGone = (): { ground: ReturnType<typeof aBoard>; state: GameStat
     ],
     spawners: [[aVertex(ground), { force: FORCE, phase: 0 }]],
   });
-  return { ground, state: ground.rules.apply(authored, skip(shareArrow(ground, 0))) };
+  // Any move resolves the loss. A step rather than the pass, so the chair stays
+  // with A and `closeRounds` below still starts on a round boundary.
+  const mover = shareArrow(ground, 0);
+  const move = step(mover, clearExit(ground, authored, mover), 1);
+  return { ground, state: ground.rules.apply(authored, move) };
 };
 
 describe('a lost seat is inert', () => {
@@ -574,8 +578,8 @@ describe('determinism and cost', () => {
         spawners: [[aVertex(ground), { force: FORCE, phase: 0 }]],
       });
 
-    const forward = ground.rules.apply(build(holdings), skip(mover));
-    const backward = ground.rules.apply(build([...holdings].toReversed()), skip(mover));
+    const forward = ground.rules.apply(build(holdings), endTurn());
+    const backward = ground.rules.apply(build([...holdings].toReversed()), endTurn());
 
     expect(snapshot(forward)).toEqual(snapshot(backward));
     // Non-vacuous: three seats really were removed on that move, so the two runs

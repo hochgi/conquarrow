@@ -138,9 +138,9 @@ Feature: A trail's chords at a point, and who crossed whom
     Scenario: Standing at a point the enemy's trail runs through crosses nothing
       Given player B's trail passes through point P
       And player A holds a head on an in-arrow of P
-      When player A skips that group
+      When player A leaves that group standing and ends the turn
       Then no crossing is reported
-      # Skip is a first-class move (P04), which is what makes declining always
+      # No step is ever compelled (§6.2), which is what makes declining always
       # legal — and what makes the three behaviours below possible at all.
 
     Scenario: Shadowing an enemy trail never crosses it

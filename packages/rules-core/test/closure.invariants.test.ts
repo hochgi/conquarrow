@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { skip, step } from '@conquarrow/contracts';
+import { step } from '@conquarrow/contracts';
 import { makeRules } from '../src/index';
 import {
   A,
@@ -18,6 +18,7 @@ import {
   anExitFrom,
   arrowAt,
   claimKeys,
+  exitsFrom,
   countingVertices,
   isTrail,
   onTiling,
@@ -175,7 +176,7 @@ describe('commit writes territory and strips every trail on claimed arrows', () 
     expect(after.groups.get(occupied)?.heads).toBe(2);
   });
 
-  it('requests no vertex beyond what an idle move requests, and does not mutate its input', () => {
+  it('requests no vertex beyond what a non-closing move requests, and does not mutate its input', () => {
     const base = onTiling().geometry;
     const { geometry, vertexReads } = countingVertices(base);
     const rules = makeRules(geometry);
@@ -188,8 +189,15 @@ describe('commit writes territory and strips every trail on claimed arrows', () 
     });
     const before = trailOf(s0, A);
 
+    // No move does nothing (P51), so the baseline is a step that lands nowhere
+    // this seat owns — the same work minus the closure.
+    const open = exitsFrom(geometry, last).find((exit) => exit !== landing && exit !== home);
+    if (open === undefined) throw new Error('setup: the last arrow has no non-landing exit');
+    // The baseline must genuinely not close, or the delta is zero for the wrong
+    // reason: a step onto A's own ground would claim and strip the trail too.
+    expect(trailOf(rules.apply(s0, step(last, open, 1)), A)).not.toEqual([]);
     const idle = vertexReadsOf(vertexReads, () => {
-      rules.apply(s0, skip(last));
+      rules.apply(s0, step(last, open, 1));
     });
     let s1 = s0;
     const closing = vertexReadsOf(vertexReads, () => {
@@ -198,7 +206,7 @@ describe('commit writes territory and strips every trail on claimed arrows', () 
 
     expect(trailOf(s0, A)).toEqual(before);
     expect(trailOf(s1, A)).toEqual([]);
-    // P37: the closure adds no lattice read of its own over an idle move on the same
+    // P37: the closure adds no lattice read of its own over a non-closing move on the same
     // board. Not a hard zero any more, and not because the rule changed: loss
     // resolution sits on the tail of `apply` and counts the *shares* of a seat that
     // owns ground and holds no head, which `stateOf`'s keepalive land makes true of

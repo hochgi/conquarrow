@@ -1,8 +1,8 @@
 # language: en
 # Overview: docs/spec/movement/movement.md
-# SPEC §3 (merge cost, conveyor, allowance), §4 (skip, turn end), §11 items 19–22
+# SPEC §3 (merge cost, conveyor, allowance), §4 (turn end), §11 items 19–22
 
-Feature: Movement — refusals, merge barring, skip and purity
+Feature: Movement — refusals, merge barring and purity
   As the rules core
   I want illegal and boundary moves to fail loudly at apply
   So that a wrong step never becomes a silent wrong board state
@@ -89,25 +89,6 @@ Feature: Movement — refusals, merge barring, skip and purity
       And no further step from c2 is legal this turn
       # §3 conveyor: equal links do not free-roll; the growing arrival outnumbers
       # the next parked head and pays speed 0.
-
-  Rule: Skip is a first-class no-op
-
-    Scenario: Skipping an owned group changes nothing
-      Given arrow a1 holds 2 heads belonging to player A with spent 0
-      When player A skips a1
-      Then a1 still holds 2 heads belonging to player A
-      And the group still has spent 0
-      And further steps from a1 remain legal
-
-    Scenario: Skipping an arrow the player does not hold is refused
-      Given arrow a1 holds 2 heads belonging to player B
-      When player A tries to skip a1
-      Then the skip is refused with a contract violation
-
-    Scenario: Skipping an empty arrow is refused
-      Given arrow a1 is empty
-      When player A tries to skip a1
-      Then the skip is refused with a contract violation
 
   Rule: apply is pure
 

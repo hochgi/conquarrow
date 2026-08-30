@@ -24,7 +24,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { endTurn, mintArrowId, mintVertexId, movesEqual, rational, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, mintVertexId, movesEqual, rational, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -135,8 +135,6 @@ const asMove = (logged: LoggedMove): Move => {
   switch (logged.kind) {
     case 'endTurn':
       return { kind: 'endTurn' };
-    case 'skip':
-      return { kind: 'skip', from: requireArrow(logged.from, 'from') };
     case 'step':
       return {
         kind: 'step',
@@ -156,7 +154,8 @@ const asMove = (logged: LoggedMove): Move => {
  * standing. On this log that demotes an E trail on F land to stack-grade, so
  * P28 refuses E's recorded step `3,-4,0 → 4,-4,0` (zero-based **233**). The log
  * is a **prefix golden** of that length, not a full-match golden. P37/P38
- * (winner at 1242, refuse at 1243) stay proven on `aMatchLosingThree` and
+ * (winner at 1241, refuse at 1242 — P51 shifted both by one) stay proven on
+ * `aMatchLosingThree` and
  * `aWonPosition`.
  *
  * Measured once: `statesAlong(rules, playtestLog().opening, playtestLog().moves).refusedAt`.
@@ -305,10 +304,10 @@ export const aMatchLosingThree = (): {
   const aExit = clearExit(ground, initial, aStack);
   const dExit = clearExit(ground, initial, dStack);
   const moves: readonly Move[] = [
-    // Round 1 — A wanders, B stands, C is passed, D pushes a head out.
+    // Round 1 — A wanders, B stands (naming no move at all), C is passed, D
+    // pushes a head out.
     step(aStack, aExit, 1),
     endTurn(),
-    skip(bStack),
     endTurn(),
     endTurn(),
     step(dStack, dExit, 1),

@@ -411,6 +411,27 @@ export const vertexReadsOf = (reads: () => number, run: () => void): number => {
 export const via = (from: ArrowId, exit: ArrowId): Traversal => ({ from, exit });
 
 /**
+ * An exit from `from` whose traversal cuts nobody's trail.
+ *
+ * The baseline for "what does this move cost when it does *not* cut". Before
+ * P51 that baseline was a skip; there is no move that does nothing any more, so
+ * the honest comparison is the same step down a chord that does not interleave.
+ */
+export const asideExit = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  from: ArrowId,
+): ArrowId => {
+  const victims = [...state.trails.keys()];
+  const aside = exitsFrom(geometry, from).find(
+    (exit) => !victims.some((victim) => rules.crossesTrail(state, via(from, exit), victim)),
+  );
+  if (aside === undefined) throw new Error(`setup: every exit from ${String(from)} cuts a trail`);
+  return aside;
+};
+
+/**
  * Chords as comparable strings, so a set of them can be asserted readably.
  *
  * `chord()` normalizes so the lower slot comes first, which is what makes two

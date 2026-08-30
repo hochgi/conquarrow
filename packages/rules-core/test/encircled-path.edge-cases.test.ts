@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -200,8 +200,8 @@ describe('closure strip and convert bookkeeping still hold', () => {
     expect(spentOn(after, tip)).toBe(0);
   });
 
-  it('does not convert or wipe on skip', () => {
-    // encircled-path.edge: "Skip does not convert and does not wipe"
+  it('does not convert or wipe when nobody steps', () => {
+    // encircled-path.edge: "Not stepping does not convert and does not wipe"
     const table = onBoard();
     const tip = anArrow(table.geometry);
     const distal = anExitFrom(table.geometry, tip);
@@ -222,9 +222,13 @@ describe('closure strip and convert bookkeeping still hold', () => {
       },
     );
 
-    const after = table.rules.apply(before, skip(mover));
+    // Conversion is resolved inside a step (P33). A turn in which nothing stepped
+    // is a turn in which nothing converted — declining is the absence of a move.
+    const after = table.rules.apply(before, endTurn());
 
-    expect(snapshot(after)).toEqual(snapshot(before));
+    expect(snapshot(after).groups).toEqual(snapshot(before).groups);
+    expect(snapshot(after).territory).toEqual(snapshot(before).territory);
+    expect(snapshot(after).trails).toEqual(snapshot(before).trails);
     expect(ownerOf(after, tip)).toBe(B);
     expect(isTrail(after, B, tip)).toBe(true);
     expect(isTrail(after, B, distal)).toBe(true);

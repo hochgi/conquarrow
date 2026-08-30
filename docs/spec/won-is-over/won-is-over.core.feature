@@ -39,7 +39,6 @@ Feature: A won match is over
       Examples:
         | move          |
         | a step        |
-        | a skip        |
         | an end of turn |
 
     Scenario: The refusal happens before the board is read

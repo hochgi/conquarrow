@@ -108,7 +108,7 @@ Feature: Flicker-then-fade when a seat vanishes — the boundaries
       Given seatVanished for C with several remnant arrows
       Then those arrows are in id order
 
-    Scenario: A skip that vanishes nobody emits no seatVanished
+    Scenario: A pass that vanishes nobody emits no seatVanished
       Given before equals after except the active player may have changed
       And every player who had pieces still has pieces
       When events are resolved

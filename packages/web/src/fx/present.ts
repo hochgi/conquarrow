@@ -43,8 +43,7 @@ export type RefusalReason =
   | 'not-yours'
   | 'out-of-reach'
   | 'no-exit'
-  | 'would-convert'
-  | 'cannot-skip';
+  | 'would-convert';
 // P34's `needs-stay-behind` is **retired by P35**. It told the player to lower the
 // carry before clicking, and that gesture is gone: the offer now arms the attack
 // itself, walking the run at the tip's heads and again at one fewer, so an
@@ -58,7 +57,6 @@ export const REFUSAL_TEXT: Readonly<Record<RefusalReason, string>> = {
   'out-of-reach': 'Too far this turn',
   'no-exit': 'Nowhere to go from here',
   'would-convert': 'No trail home — those heads would flip',
-  'cannot-skip': 'Nothing to skip',
 };
 
 /** One arrow inside an overlay, with its own delay from the overlay's origin. */

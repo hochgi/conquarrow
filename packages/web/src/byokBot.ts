@@ -88,14 +88,14 @@ ${contract}`;
 };
 
 /**
- * Moves shown to the model. While any `step` exists, omit `skip` — otherwise
- * models burn the whole turn on skip spam.
+ * Moves shown to the model: the offer as the engine made it.
+ *
+ * This used to drop the no-op move kind while any step existed, or models burned
+ * the whole turn on it. There is no such kind any more (P51), so the offer is
+ * steps plus `endTurn` and every one of them is worth showing. Kept as the one
+ * named place that decides what a model sees.
  */
-export const movesForLlm = (moves: readonly Move[]): readonly Move[] => {
-  const hasStep = moves.some((m) => m.kind === 'step');
-  if (!hasStep) return moves;
-  return moves.filter((m) => m.kind !== 'skip');
-};
+export const movesForLlm = (moves: readonly Move[]): readonly Move[] => moves;
 
 const sortIds = (ids: readonly string[]): string[] =>
   [...ids].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
@@ -250,8 +250,6 @@ export const annotateMove = (
   targets: readonly Finding[] = [],
 ): string => {
   switch (move.kind) {
-    case 'skip':
-      return `skip from=${String(move.from)}`;
     case 'endTurn': {
       const trail = state.trails.get(me)?.size ?? 0;
       const shares = shareCount(geometry, state, me);
@@ -331,8 +329,6 @@ export const formatLegalMoves = (
               switch (m.kind) {
                 case 'step':
                   return `step from=${String(m.from)} exit=${String(m.exit)} count=${String(m.count)}`;
-                case 'skip':
-                  return `skip from=${String(m.from)}`;
                 case 'endTurn':
                   return `endTurn`;
               }

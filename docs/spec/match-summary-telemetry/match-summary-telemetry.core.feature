@@ -15,7 +15,7 @@ Feature: Match summary telemetry — counters and the over line
 
     Scenario: New log starts at zero counters
       When createMatchLog runs
-      Then steps, endTurns, skips, closes, and cuts are 0
+      Then steps, endTurns, closes, and cuts are 0
       And firstCloseAt is unset
 
     Scenario: A step increments steps
@@ -23,20 +23,13 @@ Feature: Match summary telemetry — counters and the over line
       And after equals before
       When foldMatchSummary runs
       Then steps is 1
-      And endTurns, skips, closes, and cuts stay 0
+      And endTurns, closes, and cuts stay 0
 
     Scenario: An end-turn increments end-turns
       Given a batch of one endTurn
       And after equals before
       When foldMatchSummary runs
       Then endTurns is 1
-      And steps stay 0
-
-    Scenario: A skip increments skips
-      Given a batch of one skip
-      And after equals before
-      When foldMatchSummary runs
-      Then skips is 1
       And steps stay 0
 
   Rule: Territory and trail proxies
@@ -69,7 +62,7 @@ Feature: Match summary telemetry — counters and the over line
   Rule: Format and HUD gating
 
     Scenario: Format is the locked one-line string
-      Given a summary of 12 steps, 3 end-turns, 0 skips, 1 close, 0 cuts
+      Given a summary of 12 steps, 3 end-turns, 1 close, 0 cuts
       And firstCloseAt is 7
       Then formatMatchSummary is "12 steps · 3 end-turns · 1 closes · 0 cuts · first close @ move 7"
 
@@ -81,7 +74,7 @@ Feature: Match summary telemetry — counters and the over line
 
     Scenario: Match over shows the summary line
       Given victory.kind is over
-      And a summary of 2 steps, 1 end-turn, 0 skips, 0 closes, 0 cuts
+      And a summary of 2 steps, 1 end-turn, 0 closes, 0 cuts
       Then matchSummaryLine equals "2 steps · 1 end-turns · 0 closes · 0 cuts"
 
     Scenario: In play the summary line is unset
