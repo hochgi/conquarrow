@@ -25,6 +25,15 @@ import type { TutorialHud } from './Hud';
 import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
 import { Lobby } from './Lobby';
+import {
+  advanceCursor,
+  emptyRecency,
+  movableArrows,
+  panForSelection,
+  pushRecency,
+  turnAnchor,
+} from './selection/cursor';
+import type { RecencyStacks } from './selection/cursor';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
 import { commitSequence, divergenceReport, hopMoves } from './online-replay';
@@ -397,6 +406,27 @@ export const App = (): ReactElement => {
   const turnExitsRef = useRef<readonly ArrowId[]>([]);
   const selectedAtCommitRef = useRef<ArrowId | undefined>(undefined);
   const turnOwnerRef = useRef<string | undefined>(undefined);
+  /**
+   * P50. The selection cursor's per-seat recency: the arrows a seat acted on
+   * this turn, most recent first. Adapter state — never persisted, never in
+   * `GameState`, so a reload is exactly the first-turn case. `cursorSeatRef`
+   * remembers which seat we last anchored for, so the turn anchor runs once per
+   * turn rather than on every render.
+   */
+  const recencyRef = useRef<RecencyStacks>(emptyRecency());
+  const cursorSeatRef = useRef<string | undefined>(undefined);
+  /** Where the cursor stands, so the button and the auto-advance agree. */
+  const cursorRef = useRef<ArrowId | undefined>(undefined);
+  /**
+   * A new match is a new lap. Without this, a match opening on the same seat id
+   * the last one ended on would short-circuit the turn anchor — `cursorSeatRef`
+   * would already say that seat — and inherit the dead match's recency.
+   */
+  const resetCursorState = (): void => {
+    recencyRef.current = emptyRecency();
+    cursorSeatRef.current = undefined;
+    cursorRef.current = undefined;
+  };
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1202,6 +1232,23 @@ export const App = (): ReactElement => {
     return { heads, land };
   }, [state]);
 
+  /**
+   * Put the cursor on `arrow`: select it, and pan only when it is actually off
+   * screen. A camera that jumps after every trip destroys the spatial
+   * orientation the capture effect depends on, and the effect is playing at
+   * exactly that moment.
+   */
+  const placeCursor = useCallback(
+    (arrow: ArrowId | undefined, at: GameState): void => {
+      cursorRef.current = arrow;
+      if (arrow === undefined) return;
+      setSnap(mode.onArrowClick(arrow, at, rules));
+      const focus = arrowCentroid(arrow);
+      setViewport((v) => panForSelection(v, focus));
+    },
+    [mode],
+  );
+
   const commitSnap = useCallback(
     (next: InputSnapshot) => {
       setSnap(next);
@@ -1255,48 +1302,36 @@ export const App = (): ReactElement => {
       noteLocalTurn(s, moves, snapRef.current);
       commitApplied(moves, applied);
 
-      // Auto-pick the next stack that can still step — after a trip *or* a skip.
+      // P50. Every acted-upon arrow feeds the acting seat's recency stack, which
+      // the *next* turn of that seat reads for its anchor.
+      const acted = moves.flatMap((m) => (m.kind === 'step' ? [m.from] : []));
+      for (const from of acted) {
+        recencyRef.current = pushRecency(recencyRef.current, s.activePlayer, from);
+      }
+
+      // Advance the cursor onto the next stack that can still step. A commit that
+      // ended the turn is the turn-anchor effect's business, not this one's.
       if (applied.winner !== undefined) return;
       if (tutorialRef.current !== undefined) return;
+      if (applied.activePlayer !== s.activePlayer) return;
       if (aiSeatsRef.current.has(String(applied.activePlayer))) return;
       if (!hasLegalStep(rules, applied)) return;
-      if (!moves.some((m) => m.kind === 'step' || m.kind === 'skip')) return;
-
-      let lastFrom: ArrowId | undefined;
-      for (const m of moves) {
-        if (m.kind === 'step' || m.kind === 'skip') lastFrom = m.from;
-      }
-      const froms: ArrowId[] = [];
-      const seen = new Set<string>();
-      for (const m of rules.legalMoves(applied)) {
-        if (m.kind !== 'step') continue;
-        const key = String(m.from);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        froms.push(m.from);
-      }
-      froms.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
-      const pick =
-        froms.find((arrow) => arrow !== lastFrom) ?? froms[0];
-      if (pick === undefined) return;
-      setSnap(mode.onArrowClick(pick, applied, rules));
-      // Skip / exhaust already picked the next stack — don't make the player hunt
-      // it. But only pan when it is actually off screen: a camera that jumps after
-      // every trip destroys the spatial orientation the capture effect depends on,
-      // and the effect is playing at exactly that moment.
-      const focus = arrowCentroid(pick);
-      setViewport((v) => {
-        const at = toScreen(v, focus.x, focus.y);
-        const margin = Math.min(v.width, v.height) * 0.16;
-        const visible =
-          at.x > margin &&
-          at.x < v.width - margin &&
-          at.y > margin &&
-          at.y < v.height - margin;
-        return visible ? v : centerOn(v, focus.x, focus.y);
-      });
+      const last = moves.findLast((m) => m.kind === 'step');
+      if (last === undefined) return;
+      // The cursor's position for branch F is the *last leg's* source, not the
+      // arrow the trip was drafted from: a multi-leg trip ends there, and the
+      // precedence branches above already read that leg. The two coincide for
+      // every single-leg trip, which is the common case.
+      placeCursor(
+        advanceCursor(last.from, movableArrows(rules, applied), {
+          from: last.from,
+          exit: last.exit,
+        }),
+        applied,
+      );
     },
     [
+      placeCursor,
       commitApplied,
       mode,
       record,
@@ -1307,6 +1342,38 @@ export const App = (): ReactElement => {
       boardHighlights.refused,
     ],
   );
+
+  /**
+   * P50. Turn start is anchored: when a seat's turn begins, its recency stack is
+   * read for the most recently acted arrow that is still movable, and only then
+   * cleared. Read before clear — clearing first would discard the very entry
+   * that chooses the anchor. An empty or fully dead stack falls back to the
+   * first movable arrow in baseline order.
+   */
+  useEffect(() => {
+    if (state === undefined) return;
+    const seat = String(state.activePlayer);
+    if (cursorSeatRef.current === seat) return;
+    cursorSeatRef.current = seat;
+    const movable = state.winner === undefined ? movableArrows(rules, state) : [];
+    const { cursor, recency } = turnAnchor(recencyRef.current, state.activePlayer, movable);
+    recencyRef.current = recency;
+    // A seat somebody else is driving gets no cursor from here: P48/P49 own the
+    // camera for a spectated turn, and online a remote seat's cursor is that
+    // client's business (P50 non-goal). Without this the opponent's turn would
+    // move the local selection and fight the spectated camera.
+    if (tutorialRef.current !== undefined) return;
+    if (aiSeatsRef.current.has(seat) || spectatedIn(state)) return;
+    cursorRef.current = cursor;
+    placeCursor(cursor, state);
+  }, [state, placeCursor, spectatedIn]);
+
+  /** The button: one manual invocation of the advance that already happens. */
+  const nextStack = useCallback(() => {
+    const at = stateRef.current;
+    if (at === undefined || at.winner !== undefined) return;
+    placeCursor(advanceCursor(cursorRef.current, movableArrows(rules, at)), at);
+  }, [placeCursor]);
 
   const setCarry = useCallback(
     (n: number) => {
@@ -1339,6 +1406,7 @@ export const App = (): ReactElement => {
     }
     setState(undefined);
     stateRef.current = undefined;
+    resetCursorState();
     setLog(undefined);
     aiSeatsRef.current = new Set();
     seatConfigsRef.current = new Map();
@@ -1415,6 +1483,7 @@ export const App = (): ReactElement => {
     setByokStatus(undefined);
     setFx(emptyQueue());
     setRefusalNote(undefined);
+    resetCursorState();
     stateRef.current = opening;
     setState(opening);
     setSnap(mode.reset());
@@ -1430,6 +1499,7 @@ export const App = (): ReactElement => {
     if (play === undefined) return;
     play.session.restart();
     const opening = openingOf(play.lesson);
+    resetCursorState();
     stateRef.current = opening;
     setState(opening);
     setSnap(mode.reset());
@@ -1508,6 +1578,7 @@ export const App = (): ReactElement => {
     setLog(nextLog);
     setManualPause(false);
     setByokStatus(hasByokSeat(plan) ? 'BYOK seat(s) armed' : undefined);
+    resetCursorState();
     stateRef.current = opening;
     setState(opening);
     setSnap(mode.reset());
@@ -1751,6 +1822,8 @@ export const App = (): ReactElement => {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
     pointers.current.clear();
+    // Clicking an arrow *is* moving the cursor there, so the lap resumes from it.
+    cursorRef.current = arrow;
     commitSnap(liveInput().onArrowClick(arrow, state, rules));
   };
 
@@ -1848,9 +1921,9 @@ export const App = (): ReactElement => {
           if (inputLocked) return;
           commitSnap(liveInput().requestEndTurn());
         }}
-        onSkip={() => {
+        onNextStack={() => {
           if (inputLocked) return;
-          commitSnap(liveInput().requestSkip(state, rules));
+          nextStack();
         }}
         onDownloadLog={() => {
           downloadMatchLog(withWinner(log, state.winner));
