@@ -13,6 +13,7 @@
 
 import type { ArrowId, Move } from '@conquarrow/contracts';
 import type { SeatKind } from './seatPlan';
+import { bestPartition, greedyGroupCount } from './cameraGroups';
 import { clampZoom, toScreen } from './viewport';
 import type { Viewport } from './viewport';
 
@@ -34,21 +35,8 @@ export interface Pt {
   readonly y: number;
 }
 
-export interface HopTiming {
-  readonly easeOutMs: number;
-  readonly easeInMs: number;
-  readonly holdMs: number;
-  readonly gapMs: number;
-}
-
 export interface Fit {
   readonly target: CameraTarget;
-  readonly hardCut: boolean;
-}
-
-export interface Hop {
-  readonly wide: CameraTarget | undefined;
-  readonly close: CameraTarget;
   readonly hardCut: boolean;
 }
 
@@ -145,32 +133,6 @@ export const fitViewport = (
 };
 
 /**
- * The camera work for one move: a bridging fit over the previous beat and the
- * upcoming one, then a close fit over the upcoming one alone.
- *
- * D3: past the cap the bridge is dropped entirely rather than dollied — a seat
- * that has fled the field is cut to.
- */
-export const hopTargets = (
-  prev: readonly Pt[],
-  next: readonly Pt[],
-  viewport: Viewport,
-  cap: number = FIT_CAP_RADIUS,
-): Hop | undefined => {
-  const closeBounds = boundsOf(next);
-  if (closeBounds === undefined) return undefined;
-  const close = fitViewport(closeBounds, viewport, cap).target;
-  const wideBounds = boundsOf([...prev, ...next]);
-  if (wideBounds === undefined || prev.length === 0) {
-    return { wide: undefined, close, hardCut: false };
-  }
-  const bridge = fitViewport(wideBounds, viewport, cap);
-  return bridge.hardCut
-    ? { wide: undefined, close, hardCut: true }
-    : { wide: bridge.target, close, hardCut: false };
-};
-
-/**
  * The arrow the restore nudges to: the selection at commit, then this turn's
  * step exits latest-first, then the lowest owned `ArrowId`. The final fallback
  * sorts rather than reading `Set` order, which would be a defect.
@@ -222,21 +184,184 @@ export const clampSpeed = (n: number): number => {
   return Math.min(SPEED_MAX, Math.max(SPEED_MIN, n));
 };
 
+/* -------------------------------------------------------------------------- *
+ * P52 — camera grouping. Tuning block; every number here is a knob, not a
+ * finding, and is expected to move after the first play-test.
+ * @see docs/spec/spectated-camera-grouping/spectated-camera-grouping.md
+ * -------------------------------------------------------------------------- */
+
+/** Floor: how far out grouping will zoom to *collect* moves. Governs collection, not display (D5). */
+export const SPECTATE_ZOOM_MIN = 30;
+/** Ceiling: how far in a tight group may punch. */
+export const SPECTATE_ZOOM_MAX = 56;
+/** Fraction of each viewport dimension a group's beats must fit inside. */
+export const SAFE_BOX = 0.72;
+/** Suppression: pan threshold as a fraction of the shorter viewport side. */
+export const GROUP_MOVE_PAN_EPS = 0.04;
+/** Suppression: scale-ratio threshold. */
+export const GROUP_MOVE_SCALE_EPS = 0.03;
+
+/** A maximal run of consecutive beats framed in a single shot. */
+export interface CameraGroup {
+  /** Inclusive index into the turn's beats. */
+  readonly from: number;
+  /** Exclusive. */
+  readonly to: number;
+  readonly target: CameraTarget;
+  readonly hardCut: boolean;
+}
+
+export interface GroupTiming {
+  readonly moveMs: number;
+  readonly holdMs: number;
+  readonly gapMs: number;
+  /**
+   * The restore tween. P52 merges the group boundary's two tweens into
+   * `moveMs`, but the restore is not a group boundary — P48 D8 owns it and is
+   * unamended, so it keeps `easeInMs` alone.
+   */
+  readonly restoreMs: number;
+}
+
+/** A turn's slice of a replay window, as indices into it. */
+export interface TurnRange {
+  /** Inclusive index into the window's moves. */
+  readonly from: number;
+  /** Exclusive. */
+  readonly to: number;
+}
+
 /**
- * D6: reduced motion zeroes the tween durations only. The holds and the move
- * gap stay, because they are reading time, not motion.
+ * Where each turn of a replay window starts and ends: split after every
+ * `endTurn`, with a trailing run its own turn.
+ *
+ * D15: a run that names no arrow is dropped wherever it sits, so no empty turn
+ * is ever emitted and a window of nothing but `endTurn` yields no turn at all.
+ *
+ * This index form is the segmentation; `splitTurns` is its slice. A caller that
+ * needs to map a turn back onto the window it came from takes the ranges and
+ * keeps arithmetic, rather than matching moves back by identity — a reference
+ * comparison on a value type has no place on a determinism-critical path.
  */
-export const hopTiming = (args: {
+export const turnRanges = (moves: readonly Move[]): readonly TurnRange[] => {
+  const out: TurnRange[] = [];
+  let from = 0;
+  const flush = (to: number): void => {
+    const run = moves.slice(from, to);
+    if (run.some((m) => arrowsOfMove(m).length > 0)) out.push({ from, to });
+    from = to;
+  };
+  for (const [at, move] of moves.entries()) {
+    if (move.kind === 'endTurn') flush(at + 1);
+  }
+  flush(moves.length);
+  return out;
+};
+
+/** Split a replay window after every `endTurn`; a trailing run is its own turn. */
+export const splitTurns = (moves: readonly Move[]): readonly (readonly Move[])[] =>
+  turnRanges(moves).map((range) => moves.slice(range.from, range.to));
+
+/** A zero-extent bounds at the origin, so every fit below is total. */
+const ORIGIN_BOUNDS: LatticeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+
+/**
+ * The largest scale at which every point fits the safe box. Uncapped and
+ * unclamped: this is the *collection* scale pass 1 tests against the floor.
+ */
+export const groupScale = (points: readonly Pt[], viewport: Viewport): number => {
+  const b = boundsOf(points) ?? ORIGIN_BOUNDS;
+  const halfW = paddedHalf(b.minX, b.maxX);
+  const halfH = paddedHalf(b.minY, b.maxY);
+  return Math.min(
+    (SAFE_BOX * viewport.width) / (2 * halfW),
+    (SAFE_BOX * viewport.height) / (2 * halfH),
+  );
+};
+
+/**
+ * The display target for a group: centred on the midpoint of its beats, capped
+ * at the ceiling and then globally clamped.
+ *
+ * D5: the floor governs collection, not display — there is no clamp against
+ * `SPECTATE_ZOOM_MIN` here, so a singleton the camera had no choice about
+ * showing zooms out past it rather than being cropped.
+ */
+export const groupTarget = (points: readonly Pt[], viewport: Viewport): Fit => {
+  const b = boundsOf(points) ?? ORIGIN_BOUNDS;
+  const halfW = paddedHalf(b.minX, b.maxX);
+  const halfH = paddedHalf(b.minY, b.maxY);
+  return {
+    target: {
+      cx: midpoint(b.minX, b.maxX),
+      cy: midpoint(b.minY, b.maxY),
+      scale: clampZoom(Math.min(groupScale(points, viewport), SPECTATE_ZOOM_MAX)),
+    },
+    hardCut: Math.hypot(halfW, halfH) > FIT_CAP_RADIUS,
+  };
+};
+
+/**
+ * Pass 1 fixes `k`, the number of camera movements the turn costs; pass 2
+ * redistributes the beats into exactly `k` leximaxmin-best groups. Greedy's own
+ * membership is discarded (D7), and the DP scores *display* scale, so surplus
+ * zoom above the ceiling buys the allocation nothing (D9).
+ */
+export const planGroups = (
+  beats: readonly (readonly Pt[])[],
+  viewport: Viewport,
+): readonly CameraGroup[] => {
+  const n = beats.length;
+  if (n === 0) return [];
+  const pointsOf = (from: number, to: number): readonly Pt[] => beats.slice(from, to).flat();
+  const k = greedyGroupCount(
+    n,
+    (from, to) => groupScale(pointsOf(from, to), viewport) >= SPECTATE_ZOOM_MIN,
+  );
+  const edges = bestPartition(n, k, (from, to) => {
+    return groupTarget(pointsOf(from, to), viewport).target.scale;
+  });
+  const groups: CameraGroup[] = [];
+  for (let i = 0; i + 1 < edges.length; i += 1) {
+    const from = edges[i] ?? 0;
+    const to = edges[i + 1] ?? 0;
+    const fit = groupTarget(pointsOf(from, to), viewport);
+    groups.push({ from, to, target: fit.target, hardCut: fit.hardCut });
+  }
+  return groups;
+};
+
+/**
+ * Is the next target indistinguishable from where the camera stands? Measured
+ * against the camera *as it stands*, so suppression never accumulates drift.
+ */
+export const suppressed = (
+  current: CameraTarget,
+  next: CameraTarget,
+  viewport: Viewport,
+): boolean => {
+  const panPx = Math.hypot(next.cx - current.cx, next.cy - current.cy) * current.scale;
+  const panLimit = GROUP_MOVE_PAN_EPS * Math.min(viewport.width, viewport.height);
+  const ratio = Math.max(next.scale / current.scale, current.scale / next.scale);
+  return panPx <= panLimit && ratio - 1 <= GROUP_MOVE_SCALE_EPS;
+};
+
+/**
+ * D14: P48's ease-out and ease-in merged into one duration, so a group boundary
+ * reads as one gesture. The reading rhythm — gap, hold, turn-boundary hold — is
+ * unchanged in value and in meaning, and reduced motion zeroes the tween only.
+ */
+export const groupTiming = (args: {
   readonly speed: number;
-  readonly seatBoundary: boolean;
+  readonly boundary: boolean;
   readonly reducedMotion: boolean;
-}): HopTiming => {
+}): GroupTiming => {
   const s = clampSpeed(args.speed);
   const scale = (ms: number): number => Math.round(ms / s);
   return {
-    easeOutMs: args.reducedMotion ? 0 : scale(BASE_TIMING.easeOutMs),
-    easeInMs: args.reducedMotion ? 0 : scale(BASE_TIMING.easeInMs),
-    holdMs: scale(args.seatBoundary ? BASE_TIMING.seatHoldMs : BASE_TIMING.holdMs),
+    moveMs: args.reducedMotion ? 0 : scale(BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs),
+    holdMs: scale(args.boundary ? BASE_TIMING.seatHoldMs : BASE_TIMING.holdMs),
     gapMs: scale(BASE_TIMING.gapMs),
+    restoreMs: args.reducedMotion ? 0 : scale(BASE_TIMING.easeInMs),
   };
 };

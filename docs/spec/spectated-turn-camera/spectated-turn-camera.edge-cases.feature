@@ -31,13 +31,9 @@ Feature: Spectated-turn camera — edge cases
 
   Rule: A seat that has fled the field is cut to, not dollied to
 
-    Scenario: A bridging fit past the cap hard-cuts to the move
-      Given a previous beat at lattice point (0, 0)
-      And an upcoming move at lattice points (60, 60) and (61, 60)
-      When hop targets are computed
-      Then the hop is a hard cut
-      And no bridging fit is produced
-      And the move fit is centred on (60.5, 60)
+    # P52: the per-move bridging fit is gone. A group past the cap is still cut
+    # to — see spectated-camera-grouping.edge-cases.feature, "A lone move beyond
+    # the fit cap is cut to, not flown to".
 
     Scenario: A fit exactly at the cap radius is not a hard cut
       Given a bounds whose padded half-diagonal is exactly 24 lattice units
@@ -60,20 +56,13 @@ Feature: Spectated-turn camera — edge cases
 
     Scenario: A move whose from and exit share a centroid still fits
       Given both move points at (4, 4)
-      When hop targets are computed
-      Then a move fit centred on (4, 4) is produced
+      When the group is framed
+      Then a group target centred on (4, 4) is produced
 
-    Scenario: No upcoming arrows means no hop at all
-      Given an empty set of upcoming move points
-      When hop targets are computed
-      Then no hop is produced
-
-    Scenario: An empty previous beat produces no bridging beat
-      Given an empty previous beat
-      And an upcoming move at lattice points (5, 0) and (6, 0)
-      When hop targets are computed
-      Then no bridging fit is produced
-      And the move fit is centred on (5.5, 0)
+    # P52: "no upcoming arrows means no hop" and "an empty previous beat" both
+    # asked about `hopTargets`, which no longer exists. A turn that names no
+    # arrow now plans no group at all — spectated-camera-grouping.edge-cases.feature,
+    # "A turn with nothing to look at asks for nothing".
 
     Scenario: Negative lattice coordinates fit the same as positive ones
       Given lattice points (-7, -9) and (-4, -6)
@@ -87,7 +76,7 @@ Feature: Spectated-turn camera — edge cases
       Given seat B and seat C are both spectated and move back to back
       When B's moves are exhausted and C is to move
       Then the saved camera is not restored
-      And the camera hops from B's last move to C's first move
+      And the camera moves once, to seat C's first camera group
 
     Scenario: Restore when control returns to this client
       Given seat B and seat C have both finished their spectated turns

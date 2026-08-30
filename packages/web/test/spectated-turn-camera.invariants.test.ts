@@ -10,7 +10,6 @@ import type { SeatKind } from '../src/seatPlan';
 import { DEFAULT_PREFS, PREFS_STORAGE_KEY, parsePrefs, serializePrefs } from '../src/prefs';
 import {
   BASE_TIMING,
-  FIT_CAP_RADIUS,
   OFFSCREEN_MARGIN_FRACTION,
   SPEED_MAX,
   SPEED_MIN,
@@ -20,8 +19,8 @@ import {
   clampSpeed,
   fitViewport,
   focusArrow,
-  hopTargets,
-  hopTiming,
+  groupTarget,
+  groupTiming,
   isSpectatedSeat,
   restoreTarget,
 } from '../src/spectate';
@@ -131,35 +130,32 @@ describe('Hops and fits', () => {
     }
   });
 
-  it('11: past the cap there is no bridging tween', () => {
+  // 11 and 12 were `hopTargets` invariants — the bridging tween and the empty
+  // previous beat — and P52 deleted both along with the per-move hop. The cap
+  // itself is still asserted above, and on a group in the P52 suite.
+  it('11: past the cap the camera cuts rather than dollies', () => {
     for (const seed of SEEDS) {
-      const next = pointCloud(seed, 2);
-      const hop = hopTargets([pt(400, 400)], next, vp(), FIT_CAP_RADIUS);
-      expect(hop).toBeDefined();
-      if (hop === undefined) continue;
-      expect(hop.hardCut).toBe(true);
-      expect(hop.wide).toBeUndefined();
+      const far = pointCloud(seed, 2).map((p) => pt(p.x + 400, p.y + 400));
+      expect(groupTarget([pt(0, 0), ...far], vp()).hardCut).toBe(true);
     }
   });
 
-  it('12: an empty previous beat produces no bridging beat and fits the move alone', () => {
+  it('12: a group is framed on its own beats alone', () => {
     for (const seed of SEEDS) {
       const next = pointCloud(seed, 2);
-      const hop = hopTargets([], next, vp());
-      expect(hop).toBeDefined();
-      if (hop === undefined) continue;
-      expect(hop.wide).toBeUndefined();
       const bounds = boundsOf(next);
       if (bounds === undefined) continue;
-      expect(hop.close).toEqual(fitViewport(bounds, vp()).target);
+      const { target } = groupTarget(next, vp());
+      expect(target.cx).toBeCloseTo(fitViewport(bounds, vp()).target.cx, 10);
+      expect(target.cy).toBeCloseTo(fitViewport(bounds, vp()).target.cy, 10);
     }
   });
 
-  it('13: a seat boundary holds for seatHoldMs, an ordinary hop for holdMs', () => {
-    expect(hopTiming({ speed: 1, seatBoundary: true, reducedMotion: false }).holdMs).toBe(
+  it('13: a turn boundary holds for seatHoldMs, an ordinary group for holdMs', () => {
+    expect(groupTiming({ speed: 1, boundary: true, reducedMotion: false }).holdMs).toBe(
       BASE_TIMING.seatHoldMs,
     );
-    expect(hopTiming({ speed: 1, seatBoundary: false, reducedMotion: false }).holdMs).toBe(
+    expect(groupTiming({ speed: 1, boundary: false, reducedMotion: false }).holdMs).toBe(
       BASE_TIMING.holdMs,
     );
   });
@@ -265,24 +261,39 @@ describe('Determinism and timing', () => {
     for (const seed of SEEDS) {
       const prev = pointCloud(seed, 2);
       const next = pointCloud(seed + 1000, 2);
-      expect(hopTargets(prev, next, vp())).toEqual(hopTargets(prev, next, vp()));
-      const timing = { speed: 1.75, seatBoundary: seed % 2 === 0, reducedMotion: false };
-      expect(hopTiming(timing)).toEqual(hopTiming(timing));
+      expect(groupTarget([...prev, ...next], vp())).toEqual(
+        groupTarget([...prev, ...next], vp()),
+      );
+      const timing = { speed: 1.75, boundary: seed % 2 === 0, reducedMotion: false };
+      expect(groupTiming(timing)).toEqual(groupTiming(timing));
       const args = { turnExits: [arrow('e1')], owned: new Set([arrow('e1')]) };
       expect(focusArrow(args)).toBe(focusArrow(args));
     }
   });
 
-  it('24: speed scales ease-out, ease-in, hold and gap together', () => {
+  it('24: speed scales the group tween, hold and gap together', () => {
     for (const speed of [0.5, 0.75, 1, 1.5, 2, 3] as const) {
-      const t = hopTiming({ speed, seatBoundary: false, reducedMotion: false });
+      const t = groupTiming({ speed, boundary: false, reducedMotion: false });
       expect(t).toEqual({
-        easeOutMs: Math.round(BASE_TIMING.easeOutMs / speed),
-        easeInMs: Math.round(BASE_TIMING.easeInMs / speed),
+        moveMs: Math.round((BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs) / speed),
         holdMs: Math.round(BASE_TIMING.holdMs / speed),
         gapMs: Math.round(BASE_TIMING.gapMs / speed),
+        restoreMs: Math.round(BASE_TIMING.easeInMs / speed),
       });
     }
+  });
+
+  // P52 D18 / invariant 25a. The restore is not a group boundary: it keeps P48
+  // D8's ease-in alone, so merging the boundary's two tweens must not have
+  // doubled it. 300 ms at speed 1, never 560.
+  it('25a: the restore runs for the ease-in alone, not the merged boundary tween', () => {
+    for (const speed of [0.5, 1, 2, 3] as const) {
+      const t = groupTiming({ speed, boundary: false, reducedMotion: false });
+      expect(t.restoreMs).toBe(Math.round(BASE_TIMING.easeInMs / speed));
+      expect(t.restoreMs).toBeLessThan(t.moveMs);
+    }
+    expect(groupTiming({ speed: 1, boundary: false, reducedMotion: false }).restoreMs).toBe(300);
+    expect(groupTiming({ speed: 1, boundary: false, reducedMotion: true }).restoreMs).toBe(0);
   });
 
   it('25: playback speed is clamped to [0.5, 3]', () => {
@@ -295,15 +306,14 @@ describe('Determinism and timing', () => {
     expect(clampSpeed(Number.POSITIVE_INFINITY)).toBe(SPEED_MAX);
   });
 
-  it('26: reduced motion zeroes the tweens and still produces a move fit', () => {
+  it('26: reduced motion zeroes the tween and still produces a group target', () => {
     for (const speed of [0.5, 1, 3] as const) {
-      const t = hopTiming({ speed, seatBoundary: false, reducedMotion: true });
-      expect(t.easeOutMs).toBe(0);
-      expect(t.easeInMs).toBe(0);
+      const t = groupTiming({ speed, boundary: false, reducedMotion: true });
+      expect(t.moveMs).toBe(0);
       expect(t.holdMs).toBe(Math.round(BASE_TIMING.holdMs / speed));
       expect(t.gapMs).toBe(Math.round(BASE_TIMING.gapMs / speed));
     }
-    expect(hopTargets([pt(0, 0)], [pt(3, 0), pt(4, 0)], vp())?.close).toBeDefined();
+    expect(groupTarget([pt(3, 0), pt(4, 0)], vp()).target).toBeDefined();
   });
 
   it('27: spectate.ts does not scale or reference the fx timing budgets', () => {

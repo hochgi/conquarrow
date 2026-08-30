@@ -80,6 +80,7 @@ scheduled early in the first place.
 | P49 | Online move-log replay | online + web | — | P48, P14–P20 | **[packet](./packets/P49-online-move-log-replay.md).** `log.jsonl` exists server-side but no route serves it; the client only ever gets a state snapshot, so remote turns have no per-move presentation at all. Replay from what this client last displayed, never from what the server stored; cold start installs the snapshot. Full FX parity with local. |
 | P50 | Next stack cursor | web | — | P11 | **[packet](./packets/P50-next-stack-cursor.md).** *Skip group* was memoryless — with three or more movable stacks it ping-ponged between the two lowest arrow ids and never reached the third. Replaced by a real cursor: baseline `compareArrows` order, destination/remainder preemption after a committed step, per-seat turn anchoring on the stack acted on last. Emits no move; nothing skip-shaped is logged again. Web adapter only. |
 | P51 | Delete `SkipMove` | contracts + rules-core + web + online | — | P50 | **[packet](./packets/P51-delete-skip-move.md).** Removes the move kind P50 stopped producing, plus the test/`.feature` sweep and the SPEC.md prose that had written a UI cursor up as a game rule. No behavioural delta except one deliberate one: a persisted or wire record naming `"skip"` is rejected, not translated — pre-P50 logs do not replay. |
+| P52 | Spectated camera grouping | web | — | P48, P49 | **[packet](./packets/P52-spectated-camera-grouping.md).** P48's per-move hop dribbles micro pans between moves that were already on screen. Replaced by camera groups: greedy prefix at the zoom floor fixes the number of camera movements, a contiguous lexicographic-maximin DP redistributes moves across them, one merged tween per boundary, suppressed when the pan is negligible. Still inside a group; never spans a seat or a turn. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -132,6 +133,7 @@ flowchart TD
   P48 --> P49["P49 online move-log replay"]
   P11 --> P50["P50 next stack cursor"]
   P50 --> P51["P51 delete SkipMove"]
+  P49 --> P52["P52 spectated camera grouping"]
   P11 --> P43["P43 tutorial"]
   P43 --> P44["P44 tutorial mobile + copy"]
   P31 --> P44

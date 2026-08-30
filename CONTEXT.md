@@ -68,9 +68,13 @@ _Avoid_: camera lock, cinematic mode, follow cam
 The span of a spectated turn from the first camera hop to the restore. Distinct from the turn: the decision that precedes it is not part of it, and neither is the wait for the next seat's moves.
 _Avoid_: turn, playback (playback is the move cadence, which continues while the camera yields)
 
-**hop**:
-One camera beat within a replay window: ease out far enough to fit the arrows of the move just played together with those of the move about to play, ease in on the latter, hold, then apply the move. Never a full-board fit.
-_Avoid_: pan, cut, fly-to
+**camera group**:
+A maximal run of consecutive moves by one seat, within one turn, that the camera frames in a single shot. One camera movement per group; none inside one. Grouping never spans a seat or a turn.
+_Avoid_: hop (superseded by P52), batch (that is a replay window's arrival unit), cluster (groups are contiguous in play order, never re-ordered)
+
+**safe box**:
+The fraction of the viewport a camera group's moves must fit inside — every arrow of every member, source and exit — for the group to be framed as one shot.
+_Avoid_: viewport, frame, bounds
 
 **restore**:
 Returning the camera when control comes back to this client: the camera as the player last left it, nudged only if their last-selected stack is off-screen.

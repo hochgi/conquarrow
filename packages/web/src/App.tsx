@@ -36,7 +36,7 @@ import {
 import type { RecencyStacks } from './selection/cursor';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
-import { commitSequence, divergenceReport, hopMoves } from './online-replay';
+import { commitSequence, divergenceReport } from './online-replay';
 import { parsePagesHash } from './online-hash';
 import { isCallerToMove } from './online-pages';
 import { usePagesHost } from './online-runtime';
@@ -86,17 +86,16 @@ import { createCameraTween } from './cameraTween';
 import { Settings } from './Settings';
 import { loadPrefs, savePrefs, type Prefs } from './prefs';
 import {
-  arrowsOfMove,
   cameraLocked,
   focusArrow as targetStack,
-  hopTargets,
-  hopTiming,
+  groupTiming,
   isSpectatedSeat,
   restoreTarget,
+  suppressed,
   type CameraTarget,
   type OwnSeat,
-  type Pt,
 } from './spectate';
+import { cameraCues, type CameraCue } from './cameraCues';
 import { presentRefusal, presentSteps, REFUSAL_TEXT, type FxOverlay } from './fx/present';
 import {
   emptyQueue,
@@ -394,14 +393,11 @@ export const App = (): ReactElement => {
   const snapRef = useRef<InputSnapshot>(snap);
   snapRef.current = snap;
   /**
-   * One saved camera per client, not per seat, plus the previous beat the next
-   * hop bridges from and which seat played it.
+   * One saved camera per client, not per seat. P52 keeps nothing else: a group
+   * is one direct tween from wherever the camera stands, with no bridging fit
+   * to remember (D12), and the hold length is the plan's, not a seat compare.
    */
-  const spectateRef = useRef<{
-    saved: CameraTarget | undefined;
-    prevBeat: readonly Pt[];
-    seat: string | undefined;
-  }>({ saved: undefined, prevBeat: [], seat: undefined });
+  const spectateRef = useRef<{ saved: CameraTarget | undefined }>({ saved: undefined });
   /** This turn's `step` exits in play order, and the selection at the commit. */
   const turnExitsRef = useRef<readonly ArrowId[]>([]);
   const selectedAtCommitRef = useRef<ArrowId | undefined>(undefined);
@@ -622,7 +618,7 @@ export const App = (): ReactElement => {
    */
   const restoreCamera = useCallback(async (): Promise<void> => {
     const saved = spectateRef.current.saved;
-    spectateRef.current = { saved: undefined, prevBeat: [], seat: undefined };
+    spectateRef.current = { saved: undefined };
     replayOpenRef.current = false;
     setReplayOpen(false);
     if (saved === undefined) return;
@@ -645,12 +641,12 @@ export const App = (): ReactElement => {
       focus === undefined ? undefined : arrowCentroid(focus),
       viewportRef.current,
     );
-    const { easeInMs } = hopTiming({
+    const { restoreMs } = groupTiming({
       speed: prefsRef.current.playbackSpeed,
-      seatBoundary: false,
+      boundary: false,
       reducedMotion: reducedMotionRef.current,
     });
-    await tween.run(target, easeInMs);
+    await tween.run(target, restoreMs);
   }, [tween]);
 
   /**
@@ -678,36 +674,32 @@ export const App = (): ReactElement => {
   );
 
   /**
-   * One hop: ease out to the bridging fit, ease in to the move fit, hold. The
-   * move is applied by the caller afterwards, and nothing here can change it.
+   * The camera work at the head of one group (P52): open the window if this is
+   * the first cue, then one tween — or nothing at all when the target is
+   * indistinguishable from where the camera stands — and a hold. The group's
+   * moves then play with the camera perfectly still; nothing here can change
+   * which moves apply.
    */
-  const playHop = useCallback(
-    async (move: Move, seat: string): Promise<void> => {
-      const points: readonly Pt[] = arrowsOfMove(move).map((id) => arrowCentroid(id));
-      if (points.length === 0) return;
+  const playGroup = useCallback(
+    async (cue: CameraCue): Promise<void> => {
       if (!replayOpenRef.current) {
         // The window opens now, so this is the camera we save — panning during
         // a seat's thinking time is respected.
         const v = viewportRef.current;
-        spectateRef.current = {
-          saved: { cx: v.cx, cy: v.cy, scale: v.scale },
-          prevBeat: [{ x: v.cx, y: v.cy }],
-          seat,
-        };
+        spectateRef.current = { saved: { cx: v.cx, cy: v.cy, scale: v.scale } };
         replayOpenRef.current = true;
         setReplayOpen(true);
       }
-      const seatBoundary = spectateRef.current.seat !== seat;
-      const hop = hopTargets(spectateRef.current.prevBeat, points, viewportRef.current);
-      if (hop === undefined) return;
-      spectateRef.current = { ...spectateRef.current, prevBeat: points, seat };
-      const timing = hopTiming({
+      const timing = groupTiming({
         speed: prefsRef.current.playbackSpeed,
-        seatBoundary,
+        boundary: cue.boundary,
         reducedMotion: reducedMotionRef.current,
       });
-      if (hop.wide !== undefined) await tween.run(hop.wide, timing.easeOutMs);
-      await tween.run(hop.close, hop.hardCut ? 0 : timing.easeInMs);
+      const v = viewportRef.current;
+      const standing: CameraTarget = { cx: v.cx, cy: v.cy, scale: v.scale };
+      if (!suppressed(standing, cue.target, v)) {
+        await tween.run(cue.target, cue.hardCut ? 0 : timing.moveMs);
+      }
       await adapterSleep(timing.holdMs);
     },
     [tween],
@@ -759,21 +751,22 @@ export const App = (): ReactElement => {
       const start = stateRef.current;
       if (start === undefined) return;
       const moves = commitSequence([batch]);
-      const hops = new Set(hopMoves(moves));
-      const timing = hopTiming({
+      const cues = cameraCues(moves, arrowCentroid, viewportRef.current);
+      const timing = groupTiming({
         speed: prefsRef.current.playbackSpeed,
-        seatBoundary: false,
+        boundary: false,
         reducedMotion: reducedMotionRef.current,
       });
       await applyMovesSequentially(rules, start, moves, {
         gapMs: timing.gapMs,
         sleep: adapterSleep,
         cancelled,
-        beforeApply: async (move) => {
+        beforeApply: async (move, index) => {
           const at = stateRef.current;
-          if (at === undefined || !hops.has(move)) return;
+          const cue = cues[index];
+          if (at === undefined || cue === undefined) return;
           if (!prefsRef.current.autoFocus || !spectatedIn(at)) return;
-          await playHop(move, String(at.activePlayer));
+          await playGroup(cue);
         },
         onApplied: (move, after) => {
           commitApplied([move], after);
@@ -783,7 +776,7 @@ export const App = (): ReactElement => {
       h.adapter().noteDisplayed(batch.to);
       reportDivergence(h, batch.to, stateRef.current);
     },
-    [commitApplied, playHop, spectatedIn],
+    [commitApplied, playGroup, spectatedIn],
   );
 
   // P49. Drain the queue in arrival order, skipping nothing. Local input is
@@ -1057,17 +1050,24 @@ export const App = (): ReactElement => {
           tutorial: tutorialRef.current !== undefined,
         });
         const speed = prefsRef.current.playbackSpeed;
-        const timingFor = (seatBoundary: boolean): ReturnType<typeof hopTiming> =>
-          hopTiming({ speed, seatBoundary, reducedMotion: reducedMotionRef.current });
+        // Invariant 28: local playback and online replay consume one plan.
+        const cues = cameraCues(plan.moves, arrowCentroid, viewportRef.current);
+        const gap = groupTiming({
+          speed,
+          boundary: false,
+          reducedMotion: reducedMotionRef.current,
+        }).gapMs;
         await applyMovesSequentially(rules, start, plan.moves, {
           // Speed is an *opponent playback* preference, so it scales the gap
           // whether or not the camera is following.
-          gapMs: spectated ? timingFor(false).gapMs : BOT_PLAYBACK_GAP_MS,
+          gapMs: spectated ? gap : BOT_PLAYBACK_GAP_MS,
           sleep: adapterSleep,
           cancelled,
-          beforeApply: async (move) => {
+          beforeApply: async (_move, index) => {
+            const cue = cues[index];
+            if (cue === undefined) return;
             if (!spectated || !prefsRef.current.autoFocus) return;
-            await playHop(move, botChair);
+            await playGroup(cue);
           },
           onApplied: (move, after, index) => {
             if (plan.byok !== undefined && index === plan.moves.length - 1) {
@@ -1090,7 +1090,7 @@ export const App = (): ReactElement => {
     return () => {
       botEpoch.current += 1;
     };
-  }, [botChair, commitApplied, playHop]);
+  }, [botChair, commitApplied, playGroup]);
 
   const arrows = useMemo(
     () => (state === undefined ? [] : cullArrows(geometry, viewport)),
@@ -1423,7 +1423,7 @@ export const App = (): ReactElement => {
     // Leaving the match closes any open replay window: a saved camera from a
     // finished match must never move the next one's (P48).
     tween.cancel();
-    spectateRef.current = { saved: undefined, prevBeat: [], seat: undefined };
+    spectateRef.current = { saved: undefined };
     replayOpenRef.current = false;
     setReplayOpen(false);
     turnExitsRef.current = [];

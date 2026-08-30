@@ -6,6 +6,18 @@
 `prefs.ts`, an `arrowCentroid` export from `App.tsx`, and a rAF tween runner in App.
 **Features:** [core](./spectated-turn-camera.core.feature) · [edge cases](./spectated-turn-camera.edge-cases.feature)
 
+> **Amended by P52.** The per-move choreography below — the *hop*, the bridging
+> fit, the move fit and `hopTargets` — is ~~normative~~ **resolved**: it is
+> replaced by the camera group of
+> [spectated-camera-grouping](../spectated-camera-grouping/spectated-camera-grouping.md),
+> which frames a run of moves once and holds still while they play.
+> `hopTargets`, `Hop` and `hopTiming` no longer exist in `spectate.ts`; the
+> signatures and pseudocode for them below are kept as the record of what was
+> tried first, and why the bridging beat existed. Everything
+> else in this document — the trigger, the input lock, the saved camera, the
+> restore and its target-stack chain, the settings, reduced motion, and the fit
+> formula itself — remains normative and is not restated there.
+
 ## Purpose
 
 `applyMovesSequentially` replays a heuristic turn at `BOT_PLAYBACK_GAP_MS` with a
@@ -99,7 +111,13 @@ isSpectatedSeat({ seatKind, online, tutorial }) =
 Auto-focus (the preference) is *not* part of this predicate; it gates the camera,
 not the classification. `cameraLocked` composes them.
 
-## Choreography (normative)
+## Choreography (~~normative~~ **resolved by P52**)
+
+The per-hop sequence in this section no longer ships; see
+[spectated-camera-grouping](../spectated-camera-grouping/spectated-camera-grouping.md).
+What survives is recorded there: the absence of a full-board fit beat, the
+`FIT_CAP_RADIUS` cut, `fitViewport`, and `arrowsOfMove`. The rest is kept below
+as the record of what was tried first, and why the bridging beat existed.
 
 Per **step** move, in order: ease out to the bridging fit → ease in to the move
 fit → hold → apply.
@@ -268,7 +286,9 @@ hops; it does not put a bot back to 400 ms. An unspectated seat — there is
 none in MVP, since the predicate covers every non-human local seat — keeps
 `BOT_PLAYBACK_GAP_MS`.
 
-**D8 — the restore is a tween of `easeInMs`, and a hard cut is `0` ms.** Past
+**D8 — the restore is a tween of `easeInMs`, and a hard cut is `0` ms.** Still
+normative under P52, which reports it as `groupTiming(...).restoreMs` (see P52
+D18); the merged group-boundary duration is deliberately *not* used here. Past
 the cap (D3) App runs the close fit with a zero duration rather than easing,
 which is what "hard-cut" means to the runner.
 
@@ -318,6 +338,12 @@ flowchart LR
 ```
 
 ## Invariants (EARS)
+
+> **Amended by P52.** Invariants 8, 11, 12 and 13 describe the per-move hop and
+> are **resolved** — their replacements are invariants 4, 14, 21 and 25 of
+> [spectated-camera-grouping](../spectated-camera-grouping/spectated-camera-grouping.md).
+> Invariant 24 now reads "the group tween, the hold and the move gap". Every
+> other invariant here still holds and is still tested.
 
 1. The system shall treat a seat as spectated when and only when the match is not
    a tutorial, is not online, and the seat's kind is not `human`.
