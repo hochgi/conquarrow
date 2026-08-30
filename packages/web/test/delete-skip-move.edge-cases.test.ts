@@ -65,7 +65,7 @@ describe('Consumers that filtered skip are unaffected', () => {
     expect(passIfExhausted(withStep, state).moves).toEqual([]);
   });
 
-  it('A bots offered moves are unchanged wherever a step exists', () => {
+  it("A bot's offered moves are unchanged wherever a step exists", () => {
     const offer: readonly Move[] = [step(FROM, TO, 1), endTurn()];
 
     // Same moves as before the packet: byokBot filtered the skips out itself
