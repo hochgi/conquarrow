@@ -39,7 +39,7 @@ export interface HudProps {
   readonly soundOn: boolean;
   readonly onToggleSound: () => void;
   readonly onEndTurn: () => void;
-  readonly onSkip: () => void;
+  readonly onNextStack: () => void;
   readonly onDownloadLog: () => void;
   readonly onNewMatch: () => void;
   readonly illegal: string | undefined;
@@ -51,7 +51,7 @@ export interface TutorialHud {
   readonly practice: boolean;
   readonly coach: string | undefined;
   readonly onRestart: () => void;
-  readonly onSkipLesson: () => void;
+  readonly onNextLesson: () => void;
 }
 
 const phaseHint = (
@@ -122,7 +122,7 @@ export const Hud = ({
   soundOn,
   onToggleSound,
   onEndTurn,
-  onSkip,
+  onNextStack,
   onDownloadLog,
   onNewMatch,
   illegal,
@@ -131,7 +131,7 @@ export const Hud = ({
   const active = styleFor(state.activePlayer);
   // Read off `winner`, never off the celebration (P38 invariant 12). While the
   // deciding move's overlays play out, `victory` deliberately reads *playing* — so
-  // `controlsLocked(victory)` would unlock Skip and End turn for the length of the
+  // `controlsLocked(victory)` would unlock Next stack and End turn for the length of the
   // winning animation, on a board where `apply` refuses every move. `App.tsx`'s
   // `inputLocked` has always read `winner`; this is the same source of truth.
   const locked = matchLocked(state);
@@ -196,10 +196,10 @@ export const Hud = ({
       <div className="actions">
         <button
           type="button"
-          onClick={onSkip}
-          disabled={controlsLocked || phase.kind === 'idle'}
+          onClick={onNextStack}
+          disabled={controlsLocked}
         >
-          Skip group
+          Next stack
         </button>
         <button type="button" onClick={onEndTurn} disabled={controlsLocked}>
           End turn
@@ -225,7 +225,7 @@ export const Hud = ({
             <button type="button" onClick={tutorial.onRestart}>
               Restart lesson
             </button>
-            <button type="button" onClick={tutorial.onSkipLesson}>
+            <button type="button" onClick={tutorial.onNextLesson}>
               Skip lesson
             </button>
           </>
@@ -245,7 +245,8 @@ export const Hud = ({
 
       <p className="help">
         Drag to pan · pinch or wheel to zoom · gold outline = movable this turn
-        (auto-selects and pans to the next after you finish or skip one) · cream
+        (auto-selects and pans to the next as you finish one; Next stack walks
+        through them all) · cream
         halo = selected · three lit rays = the runs you can draft, click one to add
         a straight leg and click again from the new tip · a faint mark off a ray =
         the one free turn at the end of that run · the brightest chords = the route
