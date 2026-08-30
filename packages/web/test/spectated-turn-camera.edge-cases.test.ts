@@ -15,7 +15,7 @@ import {
   cameraLocked,
   fitViewport,
   focusArrow,
-  hopTargets,
+  groupTarget,
   isSpectatedSeat,
   restoreTarget,
 } from '../src/spectate';
@@ -56,15 +56,8 @@ describe('Contexts where spectating is off entirely', () => {
 });
 
 describe('A seat that has fled the field is cut to, not dollied to', () => {
-  it('A bridging fit past the cap hard-cuts to the move', () => {
-    const hop = hopTargets([pt(0, 0)], [pt(60, 60), pt(61, 60)], vp());
-    expect(hop).toBeDefined();
-    if (hop === undefined) return;
-    expect(hop.hardCut).toBe(true);
-    expect(hop.wide).toBeUndefined();
-    expect(hop.close.cx).toBeCloseTo(60.5, 10);
-    expect(hop.close.cy).toBeCloseTo(60, 10);
-  });
+  // P52 deleted the per-move bridging fit. A group past the cap is still cut to
+  // — see spectated-camera-grouping.edge-cases, "A lone move beyond the fit cap".
 
   it('A fit exactly at the cap radius is not a hard cut', () => {
     const fit = fitViewport(boundsAround(capHalf, capHalf), vp(), capRadius);
@@ -91,23 +84,14 @@ describe('Degenerate geometry is well defined', () => {
   });
 
   it('A move whose from and exit share a centroid still fits', () => {
-    const hop = hopTargets([pt(0, 0)], [pt(4, 4), pt(4, 4)], vp());
-    expect(hop?.close.cx).toBeCloseTo(4, 10);
-    expect(hop?.close.cy).toBeCloseTo(4, 10);
+    const { target } = groupTarget([pt(4, 4), pt(4, 4)], vp());
+    expect(target.cx).toBeCloseTo(4, 10);
+    expect(target.cy).toBeCloseTo(4, 10);
   });
 
-  it('No upcoming arrows means no hop at all', () => {
-    expect(hopTargets([pt(1, 1)], [], vp())).toBeUndefined();
-  });
-
-  it('An empty previous beat produces no bridging beat', () => {
-    const hop = hopTargets([], [pt(5, 0), pt(6, 0)], vp());
-    expect(hop).toBeDefined();
-    if (hop === undefined) return;
-    expect(hop.wide).toBeUndefined();
-    expect(hop.close.cx).toBeCloseTo(5.5, 10);
-    expect(hop.close.cy).toBeCloseTo(0, 10);
-  });
+  // P52: "no upcoming arrows means no hop" and "an empty previous beat" both
+  // asked about `hopTargets`. A turn that names no arrow now plans no group —
+  // spectated-camera-grouping.edge-cases, "A turn with nothing to look at".
 
   it('Negative lattice coordinates fit the same as positive ones', () => {
     const bounds = boundsOf([pt(-7, -9), pt(-4, -6)]);
@@ -127,13 +111,13 @@ describe('Sequential opponents restore once, at the end', () => {
     expect(
       cameraLocked({ spectating: true, autoFocus: true, inReplayWindow: true, paused: false }),
     ).toBe(true);
-    const hop = hopTargets([pt(0, 0), pt(1, 0)], [pt(4, 2), pt(5, 2)], vp());
-    const wide = hop?.wide;
-    expect(wide).toBeDefined();
-    if (wide === undefined) return;
-    for (const p of [pt(0, 0), pt(1, 0), pt(4, 2), pt(5, 2)]) {
-      expect(showsPoint(wide, vp(), p)).toBe(true);
+    // P52: the boundary is one movement to seat C's first group, framed on
+    // that group's beats alone — B's last move is not bridged from.
+    const { target } = groupTarget([pt(4, 2), pt(5, 2)], vp());
+    for (const p of [pt(4, 2), pt(5, 2)]) {
+      expect(showsPoint(target, vp(), p)).toBe(true);
     }
+    expect(showsPoint(target, vp(), pt(-40, 0))).toBe(false);
   });
 
   it('Restore when control returns to this client', () => {
@@ -257,7 +241,7 @@ describe('The camera changes nothing about the game', () => {
         onApplied: (move, after, index) => {
           if (withCamera) {
             // The camera reads the move; it never rewrites one.
-            hopTargets([pt(0, 0)], arrowsOfMove(move).map((_, k) => pt(index + k, 0)), vp());
+            groupTarget(arrowsOfMove(move).map((_, k) => pt(index + k, 0)), vp());
           }
           base.onApplied(move, after, index);
         },

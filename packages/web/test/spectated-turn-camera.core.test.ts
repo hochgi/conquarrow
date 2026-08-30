@@ -14,8 +14,8 @@ import {
   cameraLocked,
   fitViewport,
   focusArrow,
-  hopTargets,
-  hopTiming,
+  groupTarget,
+  groupTiming,
   isSpectatedSeat,
   restoreTarget,
 } from '../src/spectate';
@@ -68,15 +68,14 @@ describe('The camera is locked for the replay window only', () => {
   });
 });
 
-describe('Only a step earns a hop', () => {
+describe('Only a step earns a camera beat', () => {
   it('A step names its two arrows', () => {
     expect(arrowsOfMove(step(arrow('a1'), arrow('a2'), 1))).toEqual([arrow('a1'), arrow('a2')]);
   });
 
-  it('Moves that show nothing get no hop', () => {
+  it('Moves that show nothing get no camera beat', () => {
     for (const move of [endTurn()]) {
       expect(arrowsOfMove(move)).toEqual([]);
-      expect(hopTargets([pt(0, 0)], [], vp())).toBeUndefined();
     }
   });
 });
@@ -101,65 +100,33 @@ describe('A fit frames what it was given and stays inside the zoom clamps', () =
   });
 });
 
-describe('A hop bridges the previous beat and the upcoming move', () => {
-  it('The bridging beat frames both, the move beat frames one', () => {
-    const hop = hopTargets([pt(0, 0), pt(1, 0)], [pt(6, 0), pt(7, 0)], vp());
-    expect(hop).toBeDefined();
-    if (hop === undefined) return;
-    const wide = hop.wide;
-    expect(wide).toBeDefined();
-    if (wide === undefined) return;
-    for (const p of [pt(0, 0), pt(1, 0), pt(6, 0), pt(7, 0)]) {
-      expect(showsPoint(wide, vp(), p)).toBe(true);
-    }
-    expect(hop.close.cx).toBeCloseTo(6.5, 10);
-    expect(hop.close.cy).toBeCloseTo(0, 10);
-    expect(showsPoint(hop.close, vp(), pt(0, 0))).toBe(false);
-    expect(hop.hardCut).toBe(false);
-  });
-
-  it('The first hop of a window bridges from the saved camera centre', () => {
-    const hop = hopTargets([pt(0, 0)], [pt(5, 1), pt(6, 1)], vp());
-    expect(hop).toBeDefined();
-    const wide = hop?.wide;
-    expect(wide).toBeDefined();
-    if (wide === undefined) return;
-    for (const p of [pt(0, 0), pt(5, 1), pt(6, 1)]) {
-      expect(showsPoint(wide, vp(), p)).toBe(true);
-    }
-  });
-
-  it('A seat boundary holds longer', () => {
-    const timing = hopTiming({ speed: 1, seatBoundary: true, reducedMotion: false });
-    expect(timing.holdMs).toBe(BASE_TIMING.seatHoldMs);
-    expect(timing.easeOutMs).toBe(260);
-    expect(timing.easeInMs).toBe(300);
-  });
-});
+// P52 supersedes the per-move bridging fit and the per-move close fit; the two
+// bridging scenarios that stood here went with `hopTargets`. The framing they
+// asserted now lives in the spectated-camera-grouping suite.
 
 describe('Timing scales with the playback speed', () => {
+  it('A turn boundary holds longer', () => {
+    const timing = groupTiming({ speed: 1, boundary: true, reducedMotion: false });
+    expect(timing.holdMs).toBe(BASE_TIMING.seatHoldMs);
+    expect(timing.moveMs).toBe(560);
+  });
+
   it('Speed divides every duration together', () => {
     const rows = [
-      { speed: 1, out: 260, in: 300, hold: 150, gap: 400 },
-      { speed: 2, out: 130, in: 150, hold: 75, gap: 200 },
-      { speed: 0.5, out: 520, in: 600, hold: 300, gap: 800 },
+      { speed: 1, tween: 560, hold: 150, gap: 400 },
+      { speed: 2, tween: 280, hold: 75, gap: 200 },
+      { speed: 0.5, tween: 1120, hold: 300, gap: 800 },
     ] as const;
     for (const row of rows) {
-      const timing = hopTiming({ speed: row.speed, seatBoundary: false, reducedMotion: false });
-      expect(timing).toEqual({
-        easeOutMs: row.out,
-        easeInMs: row.in,
-        holdMs: row.hold,
-        gapMs: row.gap,
-      });
+      const timing = groupTiming({ speed: row.speed, boundary: false, reducedMotion: false });
+      expect(timing).toEqual({ moveMs: row.tween, holdMs: row.hold, gapMs: row.gap });
     }
   });
 
   it('Reduced motion hard-cuts but still takes you there', () => {
-    const timing = hopTiming({ speed: 1, seatBoundary: false, reducedMotion: true });
-    expect(timing).toEqual({ easeOutMs: 0, easeInMs: 0, holdMs: 150, gapMs: 400 });
-    const hop = hopTargets([pt(0, 0)], [pt(2, 0), pt(3, 0)], vp());
-    expect(hop?.close).toBeDefined();
+    const timing = groupTiming({ speed: 1, boundary: false, reducedMotion: true });
+    expect(timing).toEqual({ moveMs: 0, holdMs: 150, gapMs: 400 });
+    expect(groupTarget([pt(2, 0), pt(3, 0)], vp()).target).toBeDefined();
   });
 });
 

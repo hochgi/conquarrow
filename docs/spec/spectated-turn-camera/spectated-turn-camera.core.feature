@@ -51,16 +51,16 @@ Feature: Spectated-turn camera
       When the replay window is open
       Then the camera is not locked
 
-  Rule: Only a step earns a hop
+  Rule: Only a step earns a camera beat
 
     Scenario: A step names its two arrows
       Given a step move from arrow a1 exiting to arrow a2
       Then arrowsOfMove is a1 and a2
 
-    Scenario Outline: Moves that show nothing get no hop
+    Scenario Outline: Moves that show nothing get no camera beat
       Given a <kind> move
       Then arrowsOfMove is empty
-      And no hop is produced for it
+      And it contributes no beat to any camera group
 
       Examples:
         | kind    |
@@ -85,52 +85,39 @@ Feature: Spectated-turn camera
       When they are fitted
       Then the fit scale is ZOOM.min
 
-  Rule: A hop bridges the previous beat and the upcoming move
-
-    Scenario: The bridging beat frames both, the move beat frames one
-      Given a previous beat at lattice points (0, 0) and (1, 0)
-      And an upcoming move at lattice points (6, 0) and (7, 0)
-      When hop targets are computed
-      Then the bridging fit contains all four points
-      And the move fit contains only the two move points
-      And the move fit centre is (6.5, 0)
-      And the hop is not a hard cut
-
-    Scenario: The first hop of a window bridges from the saved camera centre
-      Given a saved camera centred on (0, 0)
-      And an upcoming move at lattice points (5, 1) and (6, 1)
-      When hop targets are computed with the saved centre as the previous beat
-      Then the bridging fit contains (0, 0)
-      And the bridging fit contains (5, 1) and (6, 1)
-
-    Scenario: A seat boundary holds longer
-      Given a hop from seat A's last move to seat B's first move
-      When the timing is computed
-      Then the hold is 400 ms
-      And the ease-out is 260 ms and the ease-in is 300 ms
+  # P52 supersedes the per-move bridging fit and the per-move close fit: a run
+  # of moves is framed once, so there is no beat to bridge from. The two
+  # bridging scenarios that lived here are gone with `hopTargets`; the framing
+  # they asserted is now
+  # docs/spec/spectated-camera-grouping/spectated-camera-grouping.core.feature.
 
   Rule: Timing scales with the playback speed
 
+    Scenario: A turn boundary holds longer
+      Given the first group of a seat's turn
+      When the timing is computed
+      Then the hold is 400 ms
+      And the group tween is 560 ms
+
     Scenario Outline: Speed divides every duration together
       Given playback speed <speed>
-      When the timing of an ordinary hop is computed
-      Then the ease-out is <out> ms
-      And the ease-in is <in> ms
+      When the timing of an ordinary group is computed
+      Then the group tween is <tween> ms
       And the hold is <hold> ms
       And the move gap is <gap> ms
 
       Examples:
-        | speed | out | in  | hold | gap |
-        | 1     | 260 | 300 | 150  | 400 |
-        | 2     | 130 | 150 | 75   | 200 |
-        | 0.5   | 520 | 600 | 300  | 800 |
+        | speed | tween | hold | gap |
+        | 1     | 560   | 150  | 400 |
+        | 2     | 280   | 75   | 200 |
+        | 0.5   | 1120  | 300  | 800 |
 
     Scenario: Reduced motion hard-cuts but still takes you there
       Given reduced motion on
-      When the timing of an ordinary hop is computed
-      Then the ease-out is 0 ms and the ease-in is 0 ms
+      When the timing of an ordinary group is computed
+      Then the group tween is 0 ms
       And the hold is 150 ms and the move gap is 400 ms
-      And the hop still produces a move fit
+      And the group still produces a target
 
   Rule: Restore puts the player back, and nudges only if the target is off screen
 

@@ -214,7 +214,11 @@ For each group in order:
 1. If `suppressed(currentCamera, group.target, viewport)`, do not move at all.
 2. Otherwise run **one** tween to `group.target` over `moveMs`, or a hard cut
    when `group.hardCut`.
-3. Hold: `seatHoldMs` at a turn boundary, `holdMs` otherwise.
+3. Hold: `seatHoldMs` at a turn boundary, `holdMs` otherwise. **D16 — the turn
+   boundary is the *first group of every turn*, the first turn of a replay window
+   included.** The camera arrives at that first group from the player's own view,
+   which is a boundary in P48's sense as much as a seat change is, so it earns the
+   same longer hold. Every later group of the same turn holds for `holdMs`.
 4. Play the group's moves with `gapMs` between them. **The camera does not move
    again until the next group.**
 
@@ -386,5 +390,5 @@ none belongs in SPEC.md §11.
 
 ## Counts
 
-31 scenarios (10 core, 21 edge cases); 30 EARS invariants; 15 decisions
-(D1–D15). No SPEC.md §11 item is touched — this feature reads no game rule.
+31 scenarios (10 core, 21 edge cases); 30 EARS invariants; 16 decisions
+(D1–D16). No SPEC.md §11 item is touched — this feature reads no game rule.

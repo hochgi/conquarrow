@@ -11,6 +11,9 @@
 > replaced by the camera group of
 > [spectated-camera-grouping](../spectated-camera-grouping/spectated-camera-grouping.md),
 > which frames a run of moves once and holds still while they play. Everything
+> `hopTargets`, `Hop` and `hopTiming` no longer exist in `spectate.ts`; the
+> signatures and pseudocode for them below are kept as the record of what was
+> tried first, and why the bridging beat existed. Everything
 > else in this document — the trigger, the input lock, the saved camera, the
 > restore and its target-stack chain, the settings, reduced motion, and the fit
 > formula itself — remains normative and is not restated there.
