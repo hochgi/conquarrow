@@ -78,6 +78,8 @@ scheduled early in the first place.
 | P47 | Fork cut floods every arm | rules | §6.1, §6.1a, §11 50 | P06, P13, P22 | **[packet](./packets/P47-fork-cut-floods-every-arm.md).** Playtest: F interleaved D's trail; sibling fork arm survived. Region between firebreaks is undirected; cutter is not a firebreak. |
 | P48 | Spectated-turn camera | web | — | P11, P13, bot-pause | **[packet](./packets/P48-spectated-turn-camera.md).** Camera performs turns this client did not drive: two-point fit per hop, no full-board beat, restore to last-selected stack. Local AI seats only; hot-seat and tutorial excluded. Adds a cogwheel with auto-focus + playback speed. |
 | P49 | Online move-log replay | online + web | — | P48, P14–P20 | **[packet](./packets/P49-online-move-log-replay.md).** `log.jsonl` exists server-side but no route serves it; the client only ever gets a state snapshot, so remote turns have no per-move presentation at all. Replay from what this client last displayed, never from what the server stored; cold start installs the snapshot. Full FX parity with local. |
+| P50 | Next stack cursor | web | — | P11 | **[packet](./packets/P50-next-stack-cursor.md).** *Skip group* was memoryless — with three or more movable stacks it ping-ponged between the two lowest arrow ids and never reached the third. Replaced by a real cursor: baseline `compareArrows` order, destination/remainder preemption after a committed step, per-seat turn anchoring on the stack acted on last. Emits no move; nothing skip-shaped is logged again. Web adapter only. |
+| P51 | Delete `SkipMove` | contracts + rules-core + web + online | — | P50 | **[packet](./packets/P51-delete-skip-move.md).** Removes the move kind P50 stopped producing, plus the test/`.feature` sweep and the SPEC.md prose that had written a UI cursor up as a game rule. No behavioural delta except one deliberate one: a persisted or wire record naming `"skip"` is rejected, not translated — pre-P50 logs do not replay. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -128,6 +130,8 @@ flowchart TD
   P13 --> P47["P47 fork-cut every arm"]
   P13 --> P48["P48 spectated-turn camera"]
   P48 --> P49["P49 online move-log replay"]
+  P11 --> P50["P50 next stack cursor"]
+  P50 --> P51["P51 delete SkipMove"]
   P11 --> P43["P43 tutorial"]
   P43 --> P44["P44 tutorial mobile + copy"]
   P31 --> P44
