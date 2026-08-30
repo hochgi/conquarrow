@@ -417,6 +417,16 @@ export const App = (): ReactElement => {
   const cursorSeatRef = useRef<string | undefined>(undefined);
   /** Where the cursor stands, so the button and the auto-advance agree. */
   const cursorRef = useRef<ArrowId | undefined>(undefined);
+  /**
+   * A new match is a new lap. Without this, a match opening on the same seat id
+   * the last one ended on would short-circuit the turn anchor — `cursorSeatRef`
+   * would already say that seat — and inherit the dead match's recency.
+   */
+  const resetCursorState = (): void => {
+    recencyRef.current = emptyRecency();
+    cursorSeatRef.current = undefined;
+    cursorRef.current = undefined;
+  };
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1396,6 +1406,7 @@ export const App = (): ReactElement => {
     }
     setState(undefined);
     stateRef.current = undefined;
+    resetCursorState();
     setLog(undefined);
     aiSeatsRef.current = new Set();
     seatConfigsRef.current = new Map();
@@ -1472,6 +1483,7 @@ export const App = (): ReactElement => {
     setByokStatus(undefined);
     setFx(emptyQueue());
     setRefusalNote(undefined);
+    resetCursorState();
     stateRef.current = opening;
     setState(opening);
     setSnap(mode.reset());
@@ -1487,6 +1499,7 @@ export const App = (): ReactElement => {
     if (play === undefined) return;
     play.session.restart();
     const opening = openingOf(play.lesson);
+    resetCursorState();
     stateRef.current = opening;
     setState(opening);
     setSnap(mode.reset());
@@ -1565,6 +1578,7 @@ export const App = (): ReactElement => {
     setLog(nextLog);
     setManualPause(false);
     setByokStatus(hasByokSeat(plan) ? 'BYOK seat(s) armed' : undefined);
+    resetCursorState();
     stateRef.current = opening;
     setState(opening);
     setSnap(mode.reset());
