@@ -10,7 +10,7 @@
 > fit, the move fit and `hopTargets` — is ~~normative~~ **resolved**: it is
 > replaced by the camera group of
 > [spectated-camera-grouping](../spectated-camera-grouping/spectated-camera-grouping.md),
-> which frames a run of moves once and holds still while they play. Everything
+> which frames a run of moves once and holds still while they play.
 > `hopTargets`, `Hop` and `hopTiming` no longer exist in `spectate.ts`; the
 > signatures and pseudocode for them below are kept as the record of what was
 > tried first, and why the bridging beat existed. Everything

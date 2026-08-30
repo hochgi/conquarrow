@@ -2,7 +2,8 @@
  * The rAF tween runner for the spectated-turn camera (P48).
  *
  * A thin clock owner with no decision in it: every target it interpolates
- * towards is a `spectate.ts` value, and every duration is a `hopTiming` one.
+ * towards is a `spectate.ts` value, and every duration is a `groupTiming` one
+ * (P52 merged P48's ease-out and ease-in into that single `moveMs`).
  * Deliberately untested — see the "Deliberately untested" section of
  * docs/spec/spectated-turn-camera/spectated-turn-camera.md.
  */

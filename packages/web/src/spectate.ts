@@ -217,26 +217,44 @@ export interface GroupTiming {
   readonly gapMs: number;
 }
 
+/** A turn's slice of a replay window, as indices into it. */
+export interface TurnRange {
+  /** Inclusive index into the window's moves. */
+  readonly from: number;
+  /** Exclusive. */
+  readonly to: number;
+}
+
 /**
- * Split a replay window after every `endTurn`; a trailing run is its own turn.
+ * Where each turn of a replay window starts and ends: split after every
+ * `endTurn`, with a trailing run its own turn.
  *
  * D15: a run that names no arrow is dropped wherever it sits, so no empty turn
  * is ever emitted and a window of nothing but `endTurn` yields no turn at all.
+ *
+ * This index form is the segmentation; `splitTurns` is its slice. A caller that
+ * needs to map a turn back onto the window it came from takes the ranges and
+ * keeps arithmetic, rather than matching moves back by identity — a reference
+ * comparison on a value type has no place on a determinism-critical path.
  */
-export const splitTurns = (moves: readonly Move[]): readonly (readonly Move[])[] => {
-  const out: (readonly Move[])[] = [];
-  let run: Move[] = [];
-  const flush = (): void => {
-    if (run.some((m) => arrowsOfMove(m).length > 0)) out.push(run);
-    run = [];
+export const turnRanges = (moves: readonly Move[]): readonly TurnRange[] => {
+  const out: TurnRange[] = [];
+  let from = 0;
+  const flush = (to: number): void => {
+    const run = moves.slice(from, to);
+    if (run.some((m) => arrowsOfMove(m).length > 0)) out.push({ from, to });
+    from = to;
   };
-  for (const move of moves) {
-    run.push(move);
-    if (move.kind === 'endTurn') flush();
+  for (const [at, move] of moves.entries()) {
+    if (move.kind === 'endTurn') flush(at + 1);
   }
-  flush();
+  flush(moves.length);
   return out;
 };
+
+/** Split a replay window after every `endTurn`; a trailing run is its own turn. */
+export const splitTurns = (moves: readonly Move[]): readonly (readonly Move[])[] =>
+  turnRanges(moves).map((range) => moves.slice(range.from, range.to));
 
 /** A zero-extent bounds at the origin, so every fit below is total. */
 const ORIGIN_BOUNDS: LatticeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };

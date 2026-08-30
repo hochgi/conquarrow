@@ -27,8 +27,10 @@ import {
   splitTurns,
   suppressed,
 } from '../src/spectate';
+import type { ArrowId } from '@conquarrow/contracts';
+import { cameraCues } from '../src/cameraCues';
 import type { CameraGroup, Pt } from '../src/spectate';
-import { ZOOM } from '../src/viewport';
+import { ZOOM, clampZoom } from '../src/viewport';
 import type { Viewport } from '../src/viewport';
 import {
   beatCloud,
@@ -42,8 +44,11 @@ import {
   pointsOfGroup,
   rangesOf,
   scoreVector,
+  appSource,
+  beatsOfMoves,
+  planSources,
+  pt,
   spanBeat,
-  spectateSource,
   stepMove,
   vp,
 } from './spectated-camera-grouping.support';
@@ -209,22 +214,27 @@ describe('Allocation is total, contiguous and minimal', () => {
     }
   });
 
-  it('17: scale above the ceiling does not influence the allocation', () => {
-    // A group whose raw scale is far above the ceiling reports exactly the
-    // ceiling, so the allocation cannot see the surplus zoom and spends its
-    // moves on the needier neighbour instead.
+  it('17: a group framed above the ceiling scores exactly the ceiling', () => {
+    // D9 is a guard, not a live rule at this spread. Capping can only flip a
+    // comparison when the smaller entries of two score vectors tie exactly, and
+    // while SPECTATE_ZOOM_MAX / SPECTATE_ZOOM_MIN < 2 two adjacent groups can
+    // never both sit at the ceiling — so no reachable turn is currently
+    // allocated differently because of the cap, and nothing here claims one is.
+    // What is asserted is the score: above the ceiling reports the ceiling.
+    expect(SPECTATE_ZOOM_MAX / SPECTATE_ZOOM_MIN).toBeLessThan(2);
+    for (const beats of sampleTurns()) {
+      for (const group of planGroups(beats, viewport)) {
+        const points = pointsOfGroup(beats, group);
+        const raw = expectedScale(points, viewport);
+        if (raw > SPECTATE_ZOOM_MAX) expect(group.target.scale).toBe(SPECTATE_ZOOM_MAX);
+        else expect(group.target.scale).toBeCloseTo(clampZoom(raw), 9);
+      }
+    }
     const tight = beatsAt([0, 0], [0, 0], [0, 0], [0, 0]);
+    expect(expectedScale([{ x: 0, y: 0 }], viewport)).toBeGreaterThan(SPECTATE_ZOOM_MAX);
     for (const group of planGroups(tight, viewport)) {
       expect(group.target.scale).toBe(SPECTATE_ZOOM_MAX);
     }
-    expect(expectedScale([{ x: 0, y: 0 }], viewport)).toBeGreaterThan(SPECTATE_ZOOM_MAX);
-
-    const beats = beatsAt([0, 0], [4, 0], [8, 0], [12, 0], [16, 0], [30, 0]);
-    const plan = planGroups(beats, viewport);
-    // The discarded 5|1 split holds a group far above the ceiling; the chosen
-    // one keeps both groups between the floor and the ceiling.
-    expect(expectedScale(beats.slice(5).flat(), viewport)).toBeGreaterThan(SPECTATE_ZOOM_MAX);
-    expect(splitsOf(plan)).toEqual([4]);
   });
 });
 
@@ -310,36 +320,55 @@ describe('Determinism', () => {
   });
 
   it('19, 29: nothing in the plan reads a clock, a random source, the DOM or Set order', () => {
-    const code = codeOf(spectateSource());
-    for (const forbidden of [
-      'Math.random',
-      'Date.now',
-      'new Date',
-      'performance.now',
-      'document',
-      'window.',
-      'localStorage',
-      'crypto',
-    ]) {
-      expect(code).not.toContain(forbidden);
+    // "No part of a plan" is wider than one file: the DP and the `Move` mapping
+    // are as much a part of it as `spectate.ts` is, so all three are fenced.
+    expect(planSources().map(([name]) => name)).toEqual([
+      'spectate.ts',
+      'cameraGroups.ts',
+      'cameraCues.ts',
+    ]);
+    for (const [name, src] of planSources()) {
+      const code = codeOf(src);
+      for (const forbidden of [
+        'Math.random',
+        'Date.now',
+        'new Date',
+        'performance.now',
+        'document',
+        'window.',
+        'localStorage',
+        'crypto',
+      ]) {
+        expect(`${name}: ${String(code.includes(forbidden))}`).toBe(`${name}: false`);
+      }
+      // No iteration over an unordered collection feeds a decision.
+      expect(code).not.toMatch(/for\s*\(\s*const\s+\w+\s+of\s+new (Set|Map)/);
+      // Nor does a plan lean on reference identity of a value type.
+      expect(code).not.toMatch(/moves\[\w+\]\s*!==/);
     }
-    // No iteration over an unordered collection feeds a decision.
-    expect(code).not.toMatch(/for\s*\(\s*const\s+\w+\s+of\s+new (Set|Map)/);
   });
 
-  it('28: local playback and online replay consume one plan function', () => {
-    for (const beats of sampleTurns()) {
-      const local = planGroups(beats, viewport);
-      const online = planGroups(beats, viewport);
-      expect(local.length).toBe(greedyK(beats));
-      expect(online).toEqual(local);
-    }
+  it('28: local playback and online replay consume one plan, through one function', () => {
+    // Asserting `planGroups(x) === planGroups(x)` would be a tautology that
+    // survived the two drivers calling different things. The guarantee is that
+    // there is only one way in: App reaches the plan through `cameraCues` and
+    // never through `planGroups`, from both drivers — the online batch and the
+    // local bot turn — and both hand the resulting cue to the same `playGroup`.
+    const app = codeOf(appSource());
+    expect(app.match(/cameraCues\(/g)).toHaveLength(2);
+    expect(app).toContain('cameraCues(moves, arrowCentroid, viewportRef.current)');
+    expect(app).toContain('cameraCues(plan.moves, arrowCentroid, viewportRef.current)');
+    expect(app.match(/playGroup\(cue\)/g)).toHaveLength(2);
+    expect(app).not.toContain('planGroups(');
+    expect(app).not.toContain('splitTurns(');
   });
 
-  it('30: spectate.ts touches no game rule', () => {
-    const code = codeOf(spectateSource());
-    for (const forbidden of ['GameState', 'rules-core', 'applyMove', 'legalMoves']) {
-      expect(code).not.toContain(forbidden);
+  it('30: no plan module touches a game rule', () => {
+    for (const [name, src] of planSources()) {
+      const code = codeOf(src);
+      for (const forbidden of ['GameState', 'rules-core', 'applyMove', 'legalMoves']) {
+        expect(`${name}: ${String(code.includes(forbidden))}`).toBe(`${name}: false`);
+      }
     }
   });
 });
@@ -428,5 +457,96 @@ describe('Timing', () => {
         gapMs: Math.round(BASE_TIMING.gapMs / used),
       });
     }
+  });
+});
+
+/**
+ * `cameraCues` is the only path from a window of moves to the choreography, so
+ * it carries the segmentation, the index alignment and D16's boundary rule.
+ */
+describe('Cues bind the plan to the window', () => {
+  /** `stepMove(n)` names arrows `an` and `bn`; place each pair on the lattice. */
+  const at = (xs: Readonly<Record<number, number>>) => (id: ArrowId): Pt => {
+    const name = String(id);
+    const n = Number(name.slice(1));
+    return pt(xs[n] ?? 0, 0);
+  };
+  /** One neighbourhood, so the whole turn fits one group. */
+  const near = at({ 1: 0, 2: 1, 3: 2, 4: 3 });
+
+  it('1, 4, 20, 21: one cue per group, on the group’s first move and nowhere else', () => {
+    // Two neighbourhoods 30 units apart: k = 2, split after the second move.
+    const far = at({ 1: 0, 2: 1, 3: 30, 4: 31 });
+    const moves: readonly Move[] = [stepMove(1), stepMove(2), stepMove(3), stepMove(4)];
+    const beats = beatsOfMoves(moves, far);
+    const plan = planGroups(beats, viewport);
+    expect(plan).toHaveLength(2);
+
+    const cues = cameraCues(moves, far, viewport);
+    expect(cues).toHaveLength(moves.length);
+    const cued = cues.flatMap((cue, i) => (cue === undefined ? [] : [i]));
+    expect(cued).toEqual(plan.map((group) => group.from));
+    for (const [i, group] of plan.entries()) {
+      expect(cues[group.from]?.target).toEqual(group.target);
+      expect(cues[group.from]?.hardCut).toBe(group.hardCut);
+      expect(cues[group.from]?.boundary).toBe(i === 0);
+    }
+  });
+
+  it('4: an endTurn is never cued, and neither is a later member of a group', () => {
+    const moves: readonly Move[] = [stepMove(1), stepMove(2), stepMove(3), endTurn()];
+    const cues = cameraCues(moves, near, viewport);
+    // One neighbourhood is one group: the head is cued, the tail is not.
+    expect(cues[0]).toBeDefined();
+    expect(cues[1]).toBeUndefined();
+    expect(cues[2]).toBeUndefined();
+    expect(cues[3]).toBeUndefined();
+    expect(arrowsOfMove(endTurn())).toEqual([]);
+  });
+
+  it('2, 3, D16: the first group of every turn is a boundary, later groups are not', () => {
+    // Turn one needs two groups; turn two is a single group on top of turn one.
+    const spread = at({ 1: 0, 2: 1, 3: 30, 4: 0 });
+    const moves: readonly Move[] = [
+      stepMove(1),
+      stepMove(2),
+      stepMove(3),
+      endTurn(),
+      stepMove(4),
+      endTurn(),
+    ];
+    const cues = cameraCues(moves, spread, viewport);
+    expect(cues.map((cue) => cue?.boundary)).toEqual([
+      true,
+      undefined,
+      false,
+      undefined,
+      true,
+      undefined,
+    ]);
+    // Never merged across the seam: turn two sits on top of turn one's first
+    // group and would fit it at the floor, and is still framed on its own.
+    expect(cues[4]?.target.cx).toBeCloseTo(0, 10);
+  });
+
+  it('D15: a dropped beatless run does not shift the indices of the turns after it', () => {
+    // A leading lone `endTurn` is dropped from the segmentation entirely; the
+    // cue must still land on the move's own index in the window.
+    const moves: readonly Move[] = [endTurn(), stepMove(1), stepMove(2), endTurn()];
+    expect(splitTurns(moves)).toHaveLength(1);
+    const cues = cameraCues(moves, near, viewport);
+    expect(cues).toHaveLength(4);
+    expect(cues[0]).toBeUndefined();
+    expect(cues[1]?.boundary).toBe(true);
+    expect(cues[1]?.target.cx).toBeCloseTo(0.5, 10);
+    expect(cues[2]).toBeUndefined();
+    expect(cues[3]).toBeUndefined();
+  });
+
+  it('5, 18: a window with nothing to look at cues nothing, and equal windows cue alike', () => {
+    expect(cameraCues([], near, viewport)).toEqual([]);
+    expect(cameraCues([endTurn(), endTurn()], near, viewport)).toEqual([undefined, undefined]);
+    const moves: readonly Move[] = [stepMove(1), stepMove(2), endTurn()];
+    expect(cameraCues(moves, near, viewport)).toEqual(cameraCues(moves, near, viewport));
   });
 });

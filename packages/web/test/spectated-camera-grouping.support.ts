@@ -26,6 +26,19 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const spectateSource = (): string =>
   readFileSync(join(here, '../src/spectate.ts'), 'utf8');
 
+/**
+ * Every pure module a plan is built from, by name. Invariant 19 says "no part
+ * of a plan", which is wider than one file: the DP and the `Move` mapping are
+ * as much a part of it as `spectate.ts` is.
+ */
+export const planSources = (): readonly (readonly [string, string])[] =>
+  (['spectate.ts', 'cameraGroups.ts', 'cameraCues.ts'] as const).map(
+    (name) => [name, readFileSync(join(here, '../src', name), 'utf8')] as const,
+  );
+
+/** App's source, for the structural fences that stand in for its untested runner. */
+export const appSource = (): string => readFileSync(join(here, '../src/App.tsx'), 'utf8');
+
 /** Source with comments stripped — prose may name things the code must not reference. */
 export const codeOf = (src: string): string =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');

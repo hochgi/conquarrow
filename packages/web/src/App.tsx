@@ -393,14 +393,11 @@ export const App = (): ReactElement => {
   const snapRef = useRef<InputSnapshot>(snap);
   snapRef.current = snap;
   /**
-   * One saved camera per client, not per seat, and which seat last played. P52
-   * keeps no previous beat: a group is one direct tween from wherever the
-   * camera stands, with no bridging fit to remember (D12).
+   * One saved camera per client, not per seat. P52 keeps nothing else: a group
+   * is one direct tween from wherever the camera stands, with no bridging fit
+   * to remember (D12), and the hold length is the plan's, not a seat compare.
    */
-  const spectateRef = useRef<{
-    saved: CameraTarget | undefined;
-    seat: string | undefined;
-  }>({ saved: undefined, seat: undefined });
+  const spectateRef = useRef<{ saved: CameraTarget | undefined }>({ saved: undefined });
   /** This turn's `step` exits in play order, and the selection at the commit. */
   const turnExitsRef = useRef<readonly ArrowId[]>([]);
   const selectedAtCommitRef = useRef<ArrowId | undefined>(undefined);
@@ -621,7 +618,7 @@ export const App = (): ReactElement => {
    */
   const restoreCamera = useCallback(async (): Promise<void> => {
     const saved = spectateRef.current.saved;
-    spectateRef.current = { saved: undefined, seat: undefined };
+    spectateRef.current = { saved: undefined };
     replayOpenRef.current = false;
     setReplayOpen(false);
     if (saved === undefined) return;
@@ -684,16 +681,15 @@ export const App = (): ReactElement => {
    * which moves apply.
    */
   const playGroup = useCallback(
-    async (cue: CameraCue, seat: string): Promise<void> => {
+    async (cue: CameraCue): Promise<void> => {
       if (!replayOpenRef.current) {
         // The window opens now, so this is the camera we save — panning during
         // a seat's thinking time is respected.
         const v = viewportRef.current;
-        spectateRef.current = { saved: { cx: v.cx, cy: v.cy, scale: v.scale }, seat };
+        spectateRef.current = { saved: { cx: v.cx, cy: v.cy, scale: v.scale } };
         replayOpenRef.current = true;
         setReplayOpen(true);
       }
-      spectateRef.current = { ...spectateRef.current, seat };
       const timing = groupTiming({
         speed: prefsRef.current.playbackSpeed,
         boundary: cue.boundary,
@@ -770,7 +766,7 @@ export const App = (): ReactElement => {
           const cue = cues[index];
           if (at === undefined || cue === undefined) return;
           if (!prefsRef.current.autoFocus || !spectatedIn(at)) return;
-          await playGroup(cue, String(at.activePlayer));
+          await playGroup(cue);
         },
         onApplied: (move, after) => {
           commitApplied([move], after);
@@ -1071,7 +1067,7 @@ export const App = (): ReactElement => {
             const cue = cues[index];
             if (cue === undefined) return;
             if (!spectated || !prefsRef.current.autoFocus) return;
-            await playGroup(cue, botChair);
+            await playGroup(cue);
           },
           onApplied: (move, after, index) => {
             if (plan.byok !== undefined && index === plan.moves.length - 1) {
@@ -1427,7 +1423,7 @@ export const App = (): ReactElement => {
     // Leaving the match closes any open replay window: a saved camera from a
     // finished match must never move the next one's (P48).
     tween.cancel();
-    spectateRef.current = { saved: undefined, seat: undefined };
+    spectateRef.current = { saved: undefined };
     replayOpenRef.current = false;
     setReplayOpen(false);
     turnExitsRef.current = [];

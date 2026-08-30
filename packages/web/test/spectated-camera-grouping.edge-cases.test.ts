@@ -26,6 +26,7 @@ import {
   beatsAt,
   camera,
   expectedDisplay,
+  expectedScale,
   spanBeat,
   stepMove,
   vp,
@@ -200,18 +201,19 @@ describe('The allocation is exact, total and single-valued', () => {
     }
   });
 
-  it('Zoom above the ceiling does not buy the allocation anything', () => {
-    // Split 5|1 frames the singleton far above the ceiling (raw ~144) and leaves
-    // the worst group at ~30. Split 4|2 keeps both between the floor and the
-    // ceiling with a worst of ~34, so it wins on the worst group.
-    const beats = beatsAt([0, 0], [4, 0], [8, 0], [12, 0], [16, 0], [30, 0]);
-    const plan = planGroups(beats, viewport);
-    expect(plan).toHaveLength(2);
-    expect(plan[0]?.to).toBe(4);
-    const worst = Math.min(...plan.map((g) => g.target.scale));
-    expect(worst).toBeGreaterThan(expectedDisplay(beats.slice(0, 5).flat(), viewport));
-    // The singleton's raw scale is above the ceiling and buys nothing.
-    expect(expectedDisplay(beats.slice(5).flat(), viewport)).toBe(SPECTATE_ZOOM_MAX);
+  it('Zoom above the ceiling scores as the ceiling', () => {
+    // D9 is a guard, not a live rule at this spread: while the ceiling is under
+    // twice the floor, two adjacent groups can never both sit at the ceiling, so
+    // capping cannot flip a comparison and no reachable turn is allocated
+    // differently because of it. The honest assertion is the one the invariant
+    // now makes — a group framed above the ceiling *reports* the ceiling — not a
+    // claim that the cap moved a split.
+    const tight = beatsAt([12, 0]);
+    expect(expectedScale(tight.flat(), viewport)).toBeGreaterThan(SPECTATE_ZOOM_MAX);
+    const plan = planGroups(tight, viewport);
+    expect(plan).toHaveLength(1);
+    expect(plan[0]?.target.scale).toBe(SPECTATE_ZOOM_MAX);
+    expect(expectedDisplay(tight.flat(), viewport)).toBe(SPECTATE_ZOOM_MAX);
   });
 
   it('A group may be infeasible at the floor when k cannot be reduced', () => {

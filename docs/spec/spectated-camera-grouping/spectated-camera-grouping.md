@@ -73,7 +73,8 @@ export interface CameraGroup {
   readonly hardCut: boolean;
 }
 
-splitTurns(moves: readonly Move[]): readonly (readonly Move[])[]
+turnRanges(moves: readonly Move[]): readonly { readonly from: number; readonly to: number }[]
+splitTurns(moves: readonly Move[]): readonly (readonly Move[])[]   // = turnRanges().map(slice)
 groupScale(points: readonly Pt[], viewport: Viewport): number
 groupTarget(points: readonly Pt[], viewport: Viewport): { target: CameraTarget; hardCut: boolean }
 planGroups(beats: readonly (readonly Pt[])[], viewport: Viewport): readonly CameraGroup[]
@@ -95,6 +96,12 @@ splitTurns(moves):
 ```
 
 - A replay window may carry several turns. Each is planned **separately**.
+- **D17 — the segmentation has one implementation and two shapes.**
+  `turnRanges` is the index form; `splitTurns` is its `slice`. A consumer that
+  must line cues up against the original move list uses the ranges, so nothing
+  downstream ever recovers a position by comparing `Move` values — an identity
+  comparison on a value type in the determinism-critical path is a defect waiting
+  to happen, not a style choice.
 - **D15 — `splitTurns` never emits an empty turn.** A window ending in `endTurn`
   yields no trailing empty run, and a window of nothing but `endTurn` yields no
   turn at all. A turn with no beats is indistinguishable from no turn, and the
@@ -402,5 +409,5 @@ none belongs in SPEC.md §11.
 
 ## Counts
 
-31 scenarios (10 core, 21 edge cases); 30 EARS invariants; 16 decisions
-(D1–D16). No SPEC.md §11 item is touched — this feature reads no game rule.
+31 scenarios (10 core, 21 edge cases); 30 EARS invariants; 17 decisions
+(D1–D17). No SPEC.md §11 item is touched — this feature reads no game rule.
