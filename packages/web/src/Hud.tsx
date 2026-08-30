@@ -51,7 +51,7 @@ export interface TutorialHud {
   readonly practice: boolean;
   readonly coach: string | undefined;
   readonly onRestart: () => void;
-  readonly onNextLesson: () => void;
+  readonly onSkipLesson: () => void;
 }
 
 const phaseHint = (
@@ -225,7 +225,7 @@ export const Hud = ({
             <button type="button" onClick={tutorial.onRestart}>
               Restart lesson
             </button>
-            <button type="button" onClick={tutorial.onNextLesson}>
+            <button type="button" onClick={tutorial.onSkipLesson}>
               Skip lesson
             </button>
           </>

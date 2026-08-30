@@ -1308,6 +1308,10 @@ export const App = (): ReactElement => {
       if (!hasLegalStep(rules, applied)) return;
       const last = moves.findLast((m) => m.kind === 'step');
       if (last === undefined) return;
+      // The cursor's position for branch F is the *last leg's* source, not the
+      // arrow the trip was drafted from: a multi-leg trip ends there, and the
+      // precedence branches above already read that leg. The two coincide for
+      // every single-leg trip, which is the common case.
       placeCursor(
         advanceCursor(last.from, movableArrows(rules, applied), {
           from: last.from,
@@ -1344,11 +1348,15 @@ export const App = (): ReactElement => {
     const movable = state.winner === undefined ? movableArrows(rules, state) : [];
     const { cursor, recency } = turnAnchor(recencyRef.current, state.activePlayer, movable);
     recencyRef.current = recency;
-    cursorRef.current = cursor;
+    // A seat somebody else is driving gets no cursor from here: P48/P49 own the
+    // camera for a spectated turn, and online a remote seat's cursor is that
+    // client's business (P50 non-goal). Without this the opponent's turn would
+    // move the local selection and fight the spectated camera.
     if (tutorialRef.current !== undefined) return;
-    if (aiSeatsRef.current.has(seat)) return;
+    if (aiSeatsRef.current.has(seat) || spectatedIn(state)) return;
+    cursorRef.current = cursor;
     placeCursor(cursor, state);
-  }, [state, placeCursor]);
+  }, [state, placeCursor, spectatedIn]);
 
   /** The button: one manual invocation of the advance that already happens. */
   const nextStack = useCallback(() => {
@@ -1857,7 +1865,7 @@ export const App = (): ReactElement => {
           practice: practiceBoard(tutorial.lesson.config),
           coach: tutorialCoach,
           onRestart: restartLesson,
-          onNextLesson: skipLesson,
+          onSkipLesson: skipLesson,
         };
 
   return (

@@ -68,9 +68,11 @@ describe('Pressing next stack is not a move', () => {
     const code = codeOf(appSource());
     expect(code.includes('requestSkip'), 'App.tsx still calls requestSkip').toBe(false);
     expect(/\bskip\s*\(/.test(code), 'App.tsx still builds a skip move').toBe(false);
-    expect(codeOf(hudSource()).includes('onSkip'), 'Hud.tsx still has an onSkip handler').toBe(
-      false,
-    );
+    // `\bonSkip\b` and not a bare substring: the tutorial's own `onSkipLesson`
+    // is a different control and must not be dragged into a rename by this test.
+    const hud = codeOf(hudSource());
+    expect(/\bonSkip\b/.test(hud), 'Hud.tsx still has an onSkip handler').toBe(false);
+    expect(hud.includes('onNextStack'), 'Hud.tsx has no onNextStack handler').toBe(true);
   });
 
   it('The button is usable with nothing selected', () => {
@@ -78,6 +80,13 @@ describe('Pressing next stack is not a move', () => {
     const next = advanceCursor(undefined, movable);
     expect(next).toBeDefined();
     expect(movable.map(String)).toContain(String(next));
+    // ...and the button itself is not gated on having a selection. No RTL here,
+    // so this reads the button's own `disabled` expression out of the source.
+    const hud = codeOf(hudSource());
+    const button = /onClick=\{onNextStack\}([\s\S]*?)Next stack/.exec(hud)?.[1];
+    expect(button, 'the Next stack button is not in Hud.tsx').toBeDefined();
+    expect(button).toContain('disabled={controlsLocked}');
+    expect(/idle/.test(button ?? 'idle'), 'the button is still disabled from idle').toBe(false);
   });
 });
 

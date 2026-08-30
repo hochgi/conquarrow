@@ -48,6 +48,11 @@ in the same lap.
 Pressing *Next stack* with no step just committed has no destination and no
 source, so it always takes branch F.
 
+For a committed trip of several legs, *the step* the rule reads is the **last**
+leg: its destination, its source, and — for branch F — its source as the cursor's
+current position. A single-leg trip, which is the ordinary case, makes that the
+same arrow the player clicked.
+
 ## Turn start
 
 ```mermaid
