@@ -641,12 +641,12 @@ export const App = (): ReactElement => {
       focus === undefined ? undefined : arrowCentroid(focus),
       viewportRef.current,
     );
-    const { moveMs } = groupTiming({
+    const { restoreMs } = groupTiming({
       speed: prefsRef.current.playbackSpeed,
       boundary: false,
       reducedMotion: reducedMotionRef.current,
     });
-    await tween.run(target, moveMs);
+    await tween.run(target, restoreMs);
   }, [tween]);
 
   /**

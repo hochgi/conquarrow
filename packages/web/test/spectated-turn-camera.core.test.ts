@@ -119,13 +119,18 @@ describe('Timing scales with the playback speed', () => {
     ] as const;
     for (const row of rows) {
       const timing = groupTiming({ speed: row.speed, boundary: false, reducedMotion: false });
-      expect(timing).toEqual({ moveMs: row.tween, holdMs: row.hold, gapMs: row.gap });
+      expect(timing).toEqual({
+        moveMs: row.tween,
+        holdMs: row.hold,
+        gapMs: row.gap,
+        restoreMs: Math.round(BASE_TIMING.easeInMs / row.speed),
+      });
     }
   });
 
   it('Reduced motion hard-cuts but still takes you there', () => {
     const timing = groupTiming({ speed: 1, boundary: false, reducedMotion: true });
-    expect(timing).toEqual({ moveMs: 0, holdMs: 150, gapMs: 400 });
+    expect(timing).toEqual({ moveMs: 0, holdMs: 150, gapMs: 400, restoreMs: 0 });
     expect(groupTarget([pt(2, 0), pt(3, 0)], vp()).target).toBeDefined();
   });
 });

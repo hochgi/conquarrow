@@ -455,6 +455,7 @@ describe('Timing', () => {
         moveMs: Math.round((BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs) / used),
         holdMs: Math.round(BASE_TIMING.holdMs / used),
         gapMs: Math.round(BASE_TIMING.gapMs / used),
+        restoreMs: Math.round(BASE_TIMING.easeInMs / used),
       });
     }
   });

@@ -238,6 +238,7 @@ describe('Timing follows the preferences, not the plan', () => {
       moveMs: 0,
       holdMs: BASE_TIMING.holdMs,
       gapMs: BASE_TIMING.gapMs,
+      restoreMs: 0,
     });
   });
 
@@ -252,6 +253,7 @@ describe('Timing follows the preferences, not the plan', () => {
         moveMs: row.tween,
         holdMs: row.hold,
         gapMs: row.gap,
+        restoreMs: Math.round(BASE_TIMING.easeInMs / row.speed),
       });
     }
   });

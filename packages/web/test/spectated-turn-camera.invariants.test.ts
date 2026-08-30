@@ -278,8 +278,22 @@ describe('Determinism and timing', () => {
         moveMs: Math.round((BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs) / speed),
         holdMs: Math.round(BASE_TIMING.holdMs / speed),
         gapMs: Math.round(BASE_TIMING.gapMs / speed),
+        restoreMs: Math.round(BASE_TIMING.easeInMs / speed),
       });
     }
+  });
+
+  // P52 D18 / invariant 25a. The restore is not a group boundary: it keeps P48
+  // D8's ease-in alone, so merging the boundary's two tweens must not have
+  // doubled it. 300 ms at speed 1, never 560.
+  it('25a: the restore runs for the ease-in alone, not the merged boundary tween', () => {
+    for (const speed of [0.5, 1, 2, 3] as const) {
+      const t = groupTiming({ speed, boundary: false, reducedMotion: false });
+      expect(t.restoreMs).toBe(Math.round(BASE_TIMING.easeInMs / speed));
+      expect(t.restoreMs).toBeLessThan(t.moveMs);
+    }
+    expect(groupTiming({ speed: 1, boundary: false, reducedMotion: false }).restoreMs).toBe(300);
+    expect(groupTiming({ speed: 1, boundary: false, reducedMotion: true }).restoreMs).toBe(0);
   });
 
   it('25: playback speed is clamped to [0.5, 3]', () => {

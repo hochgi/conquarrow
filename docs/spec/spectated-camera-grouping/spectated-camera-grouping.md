@@ -264,10 +264,18 @@ suppressed(current, next, viewport):
 groupTiming({ speed, boundary, reducedMotion }):
   s = clampSpeed(speed)
   scale(ms) = round(ms / s)
-  moveMs = reducedMotion ? 0 : scale(BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs)
-  holdMs = scale(boundary ? BASE_TIMING.seatHoldMs : BASE_TIMING.holdMs)
-  gapMs  = scale(BASE_TIMING.gapMs)
+  moveMs    = reducedMotion ? 0 : scale(BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs)
+  holdMs    = scale(boundary ? BASE_TIMING.seatHoldMs : BASE_TIMING.holdMs)
+  gapMs     = scale(BASE_TIMING.gapMs)
+  restoreMs = reducedMotion ? 0 : scale(BASE_TIMING.easeInMs)
 ```
+
+**D18 — the restore is not a group boundary and does not get the merged tween.**
+P48 D8 says the restore runs for `easeInMs`, and P52 does not amend it: the
+restore is the camera coming back to the player, not the camera changing shot
+inside a turn. `groupTiming` therefore reports both durations, and the restore
+keeps `easeInMs` — 300 ms at speed 1, not 560. Merging them would have doubled a
+duration nobody asked to change.
 
 **D14 — one merged tween per group boundary.** P48's ease-out and ease-in are
 summed into a single duration so the pan reads as one gesture rather than two.
@@ -364,6 +372,8 @@ flowchart LR
     and ease-in duration.
 25. The system shall keep the P48 move gap, move hold and turn-boundary hold
     unchanged in value and in meaning.
+25a. The system shall run the restore for the P48 ease-in duration alone, not for
+    the merged group-boundary duration.
 26. While `prefers-reduced-motion` is set, the system shall use a zero-length
     group tween and shall still take the camera to every group.
 27. The system shall scale the group tween, the hold and the move gap by the
@@ -409,5 +419,5 @@ none belongs in SPEC.md §11.
 
 ## Counts
 
-31 scenarios (10 core, 21 edge cases); 30 EARS invariants; 17 decisions
-(D1–D17). No SPEC.md §11 item is touched — this feature reads no game rule.
+31 scenarios (10 core, 21 edge cases); 30 EARS invariants; 18 decisions
+(D1–D18). No SPEC.md §11 item is touched — this feature reads no game rule.

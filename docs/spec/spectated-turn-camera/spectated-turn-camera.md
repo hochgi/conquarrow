@@ -286,7 +286,9 @@ hops; it does not put a bot back to 400 ms. An unspectated seat — there is
 none in MVP, since the predicate covers every non-human local seat — keeps
 `BOT_PLAYBACK_GAP_MS`.
 
-**D8 — the restore is a tween of `easeInMs`, and a hard cut is `0` ms.** Past
+**D8 — the restore is a tween of `easeInMs`, and a hard cut is `0` ms.** Still
+normative under P52, which reports it as `groupTiming(...).restoreMs` (see P52
+D18); the merged group-boundary duration is deliberately *not* used here. Past
 the cap (D3) App runs the close fit with a zero duration rather than easing,
 which is what "hard-cut" means to the runner.
 

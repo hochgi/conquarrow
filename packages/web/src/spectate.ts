@@ -215,6 +215,12 @@ export interface GroupTiming {
   readonly moveMs: number;
   readonly holdMs: number;
   readonly gapMs: number;
+  /**
+   * The restore tween. P52 merges the group boundary's two tweens into
+   * `moveMs`, but the restore is not a group boundary — P48 D8 owns it and is
+   * unamended, so it keeps `easeInMs` alone.
+   */
+  readonly restoreMs: number;
 }
 
 /** A turn's slice of a replay window, as indices into it. */
@@ -356,5 +362,6 @@ export const groupTiming = (args: {
     moveMs: args.reducedMotion ? 0 : scale(BASE_TIMING.easeOutMs + BASE_TIMING.easeInMs),
     holdMs: scale(args.boundary ? BASE_TIMING.seatHoldMs : BASE_TIMING.holdMs),
     gapMs: scale(BASE_TIMING.gapMs),
+    restoreMs: args.reducedMotion ? 0 : scale(BASE_TIMING.easeInMs),
   };
 };
