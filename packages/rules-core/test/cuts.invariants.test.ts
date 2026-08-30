@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { makeRules } from '../src/index';
-import { endTurn, rational, skip, step } from '@conquarrow/contracts';
+import { endTurn, rational, step } from '@conquarrow/contracts';
 import { orderedBorders } from '../src/economy';
 import {
   A,
@@ -19,6 +19,7 @@ import {
   SPACIOUS_DIAMETER,
   aForkArmCut,
   anInterleaving,
+  asideExit,
   countingVertices,
   headsOn,
   isTrail,
@@ -189,7 +190,7 @@ describe('cut resolution is pure and requests no vertex beyond an idle move', ()
     expect(trailOf(s1, B).length).toBeLessThan(before.length);
   });
 
-  it('requests no vertex beyond what an idle move requests, on either fixture board', () => {
+  it('requests no vertex beyond what a non-cutting move requests, on either fixture board', () => {
     for (const { description, diameter } of BOARDS) {
       const base = onBoard(description).geometry;
       const { geometry, vertexReads } = countingVertices(base);
@@ -198,15 +199,18 @@ describe('cut resolution is pure and requests no vertex beyond an idle move', ()
       const before = stateOf([{ arrow: ourIn, owner: A, heads: 1 }], A, {
         trail: { A: [ourIn], B: [trailIn, trailOut] },
       });
+      // No move does nothing (P51): the baseline is the same step down an exit
+      // whose chord does not interleave.
+      const aside = asideExit(geometry, rules, before, ourIn);
       const idle = vertexReadsOf(vertexReads, () => {
-        rules.apply(before, skip(ourIn));
+        rules.apply(before, step(ourIn, aside, 1));
       });
       let after = before;
       const cutting = vertexReadsOf(vertexReads, () => {
         after = rules.apply(before, step(ourIn, ourExit, 1));
       });
       expect(trailOf(after, B).length).toBeLessThan(trailOf(before, B).length);
-      // P37: the cut adds no lattice read of its own over an idle move on the same
+      // P37: the cut adds no lattice read of its own over a non-cutting move on the same
       // board. Not a hard zero any more, and not because the cut changed: loss
       // resolution sits on the tail of `apply` and counts the *shares* of a seat
       // that owns ground and holds no head, which `stateOf`'s keepalive land makes

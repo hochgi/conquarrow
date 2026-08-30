@@ -195,7 +195,7 @@ describe('win-board-celebration invariants', () => {
     }
   });
 
-  it('When state.winner is set, the system shall not offer Skip group or End turn', () => {
+  it('When state.winner is set, the system shall not offer End turn', () => {
     expect(controlsLocked(victoryFx(playingBoard().state, geometry))).toBe(false);
     const boards = [eliminationBoard().state, starvationBoard().state];
     for (const state of boards) {

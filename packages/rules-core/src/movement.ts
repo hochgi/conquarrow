@@ -1,5 +1,5 @@
 /**
- * The movement engine — allowance, splitting, merging, skip and the turn loop.
+ * The movement engine — allowance, splitting, merging and the turn loop.
  *
  * SPEC §3 (speed, merge cost, spending), §4 (turn structure), §2 (movement
  * follows the grain), §11 items 19–22 and 33. P04 decisions D1–D9.
@@ -16,7 +16,7 @@
  * @see docs/spec/movement/movement.md
  */
 
-import { ContractViolation, endTurn, isSatisfiableBy, skip, speed, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, isSatisfiableBy, speed, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -26,7 +26,6 @@ import type {
   Move,
   PlayerId,
   RulesPort,
-  SkipMove,
   StepMove,
 } from '@conquarrow/contracts';
 import { makeCombatRules, resolveBattle } from './combat';
@@ -75,6 +74,10 @@ const asGroup = (
  * mistook a finished match for a live one is told that, rather than handed a
  * movement diagnostic about an arrow nobody read.
  */
+/** A record naming a kind the vocabulary does not have — a stale `skip`, say. */
+const unknownMove = (move: never): string =>
+  `no such move kind: ${String((move as { readonly kind?: unknown }).kind)}`;
+
 const matchOver = (winner: PlayerId): string =>
   `the match is over: ${String(winner)} has won`;
 
@@ -94,7 +97,7 @@ const NO_MOVES: readonly Move[] = [];
 /**
  * Next seat in turn order (§4). **Nobody is ever skipped** (§9 / P36): a lost
  * seat, and a seat with a share but no heads, still receive the chair — they can
- * only `endTurn`, and the hot-seat adapter auto-passes them. Skipping would move
+ * only `endTurn`, and the hot-seat adapter auto-passes them. Passing them over would move
  * or destroy the `players[0]` boundary marker that accrual depends on.
  *
  * Module level rather than a closure: turn order is a function of the state's own
@@ -311,20 +314,10 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
       trails.anchorGrade,
       cuts.evaporateFromArrow,
     );
-    // P36: no loss is evaluated inside a step, a skip or a convert — the round
+    // P36: no loss is evaluated inside a step or a convert — the round
     // boundary owns it (§9, invariants 11-12). A turn stays atomic with respect
     // to removals.
     return afterConvert;
-  };
-
-  /**
-   * Standing still is a choice, not the absence of one (§4, D5). It changes
-   * neither occupancy nor `spent`, and it banks nothing — so the state it was
-   * handed, which is immutable, is already the answer.
-   */
-  const applySkip = (state: GameState, move: SkipMove): GameState => {
-    requireActive(state, move.from);
-    return state;
   };
 
   /**
@@ -382,7 +375,8 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
    *
    * A group with allowance offers each portion of itself down each landable exit
    * — splitting, merging and forking are all a step with a different `count`
-   * (§4, contracts/move.ts) — and the skip that declines to move it. When no
+   * (§4, contracts/move.ts). A group is simply not named when it has nothing it
+   * can do: declining is the absence of a move, not a move (P51). When no
    * group has a whole step left, that leaves `endTurn` alone (D6, confirmed):
    * exhaustion restricts the offer rather than advancing the player behind their
    * back.
@@ -406,7 +400,6 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
           moves.push(step(arrow, exit, count));
         }
       }
-      moves.push(skip(arrow));
     }
     moves.push(endTurn());
     return moves;
@@ -416,10 +409,10 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
     switch (move.kind) {
       case 'step':
         return applyStep(state, move);
-      case 'skip':
-        return applySkip(state, move);
       case 'endTurn':
         return applyEndTurn(state);
+      default:
+        return reject(unknownMove(move));
     }
   };
 

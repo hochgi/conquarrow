@@ -9,7 +9,7 @@
 ## Purpose
 
 A local AI turn is planned as an ordered list of moves, then committed in one
-React update. The board jumps to the end of the turn, so a cut, a skip, and
+React update. The board jumps to the end of the turn, so a cut and
 the next step are indistinguishable. Play the planned list back with a short
 gap so the order of operations is visible.
 

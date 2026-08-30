@@ -20,11 +20,10 @@ export {
 export type { Chord } from './chord';
 export { chord, chordsInterleave, chordsCross } from './chord';
 
-export type { Move, StepMove, SkipMove, EndTurnMove, Turn } from './move';
+export type { Move, StepMove, EndTurnMove, Turn } from './move';
 export {
   MOVE_KINDS,
   step,
-  skip,
   endTurn,
   isSatisfiableBy,
   movesEqual,

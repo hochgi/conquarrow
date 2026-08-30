@@ -16,8 +16,9 @@ describe('passIfExhausted', () => {
     expect(result.moves).toEqual([]);
   });
 
-  it('ends the turn when only skips remain and records endTurn', () => {
-    // Allowance spent — skip/endTurn only. (P22: branch-toll soft-lock is gone.)
+  it('ends the turn when no step remains and records endTurn', () => {
+    // Allowance spent — the offer holds `endTurn` and nothing else. (P22:
+    // branch-toll soft-lock is gone.)
     const geometry = makeTiling();
     const rules = makeRules(geometry);
     const opening = makeMatch();

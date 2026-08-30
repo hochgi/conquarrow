@@ -10,7 +10,7 @@
  * the design is that an attentive player, an AI search and a replay all compute
  * the same next state.
  *
- * P04 lands movement: allowance, splitting, merging, skip and the turn loop.
+ * P04 lands movement: allowance, splitting, merging and the turn loop.
  * Trails (P05), combat (P06), territory (P07) and the economy (P08) grow the same
  * `apply`.
  */

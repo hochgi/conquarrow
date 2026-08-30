@@ -60,9 +60,9 @@ Feature: Encirclement — boundaries, conservation, and purity
       Then that group is owned by the claimer
       # Replaces the P05b "leaves standing" observation.
 
-    Scenario: Skip does not itself convert an already-convertible authored state
+    Scenario: Not stepping does not itself convert an already-convertible authored state
       Given an authored state where player B is already encircled on A's territory
-      When player A skips a different head
-      Then skip returns the state unchanged
-      # Conversion runs on state-changing steps (applyStep), not on skip.
+      When player A steps nothing and ends the turn
+      Then the groups, territory and trails are unchanged
+      # Conversion runs on state-changing steps (applyStep), and nothing else.
       # The prior apply that created the condition is what should have converted.

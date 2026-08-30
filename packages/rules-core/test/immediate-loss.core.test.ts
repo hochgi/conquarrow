@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, speed, step } from '@conquarrow/contracts';
+import { endTurn, speed, step } from '@conquarrow/contracts';
 import type { GameState, PlayerId } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
@@ -205,23 +205,14 @@ const aLandlessSeat = (): {
 };
 
 describe('losses resolve after every kind of move', () => {
-  // The feature's outline has three examples — a step, a skip and an end turn —
-  // and each gets its own test rather than a table, because each names a
+  // The feature's outline has one example per move kind — a step and an end turn
+  // — and each gets its own test rather than a table, because each names a
   // different move and the outline's only variable *is* the move.
   it('resolves a loss after a step', () => {
     const { ground, state, moverArrow } = aLandlessSeat();
     const exit = anExitFrom(ground.geometry, moverArrow);
 
     const after = ground.rules.apply(state, step(moverArrow, exit, 1));
-
-    expect(lostAlong(after, ground.geometry)).toContain('C');
-    expect(holdingsOf(after, C)).toEqual({ heads: 0, stacks: [], trail: [], land: [] });
-  });
-
-  it('resolves a loss after a skip', () => {
-    const { ground, state, moverArrow } = aLandlessSeat();
-
-    const after = ground.rules.apply(state, skip(moverArrow));
 
     expect(lostAlong(after, ground.geometry)).toContain('C');
     expect(holdingsOf(after, C)).toEqual({ heads: 0, stacks: [], trail: [], land: [] });
@@ -400,7 +391,7 @@ describe('some seat is always alive', () => {
     });
     const ownedBefore = ownedSharesOf(before, ground.geometry);
 
-    const after = ground.rules.apply(before, skip(shareArrow(ground, 0)));
+    const after = ground.rules.apply(before, endTurn());
 
     expect(landOf(after, C)).toEqual([]);
     // Read off the *state*, not off the fixture's own split of shares and bare

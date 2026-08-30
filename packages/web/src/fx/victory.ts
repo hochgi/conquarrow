@@ -90,7 +90,7 @@ export const playHighlightsAllowed = (fx: VictoryFx): boolean => fx.kind === 'pl
 /**
  * Whether `fx.kind === 'over'` — P29's reading of the celebration itself.
  *
- * This is not what locks Skip / End turn. While the winning move's overlays play
+ * This is not what locks End turn. While the winning move's overlays play
  * out, `victoryAt` deliberately reads *playing*, so wiring the HUD to this would
  * unlock the board for the length of that animation (P38 invariant 12). Hud locks
  * through `matchLocked` in `./celebration`, which reads `state.winner` and ignores

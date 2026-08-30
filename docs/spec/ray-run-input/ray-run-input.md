@@ -257,8 +257,8 @@ stateDiagram-v2
   `not-yours` when nothing is selected and the arrow is not yours,
   `out-of-reach` for a reachable-but-not-clickable arrow and for a click past a
   ray's stop.
-- `requestSkip` and `requestEndTurn` behave as today. Skip applies to the
-  **source**, and is refused while the draft is non-empty.
+- `requestEndTurn` behaves as today. (`requestSkip` was the other control here;
+  P51 deleted it with the move kind it sent.)
 
 ## Carry (normative) — **largely superseded by P35**
 
@@ -370,7 +370,6 @@ decision.
 - When the draft is sent, the system shall emit its moves in draft order and no others.
 - When a drafted arrow is clicked, the system shall discard every move after it and no move before it.
 - ~~When the carry changes, the system shall leave every already-drafted move unchanged.~~ — **superseded by P35:** the count now rewrites the **last run** and leaves every *earlier* run unchanged. See `count-after-route.md` invariants 8–9.
-- While the draft is non-empty, the system shall refuse a skip of the source.
 - If a click names an arrow that is reachable but not clickable, then the system shall refuse it with `out-of-reach` and apply nothing.
 - The system shall derive the tip's head count from the state after the draft, not from the carry.
 - Equal state, tip, carry and draft shall produce an equal clickable set and equal paint.

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { skip, step } from '@conquarrow/contracts';
+import { step } from '@conquarrow/contracts';
 import { makeRules } from '../src/index';
 import {
   A,
@@ -18,6 +18,7 @@ import {
   aTriangle,
   anExitFrom,
   arrowAt,
+  exitsFrom,
   claimKeys,
   countingVertices,
   isTrail,
@@ -292,7 +293,7 @@ describe('closure is pure and deterministic', () => {
     expect(trailInsertion(right, A)).toEqual(trailInsertion(left, A));
   });
 
-  it('requests no vertex beyond what an idle move requests while resolving a closure', () => {
+  it('requests no vertex beyond what a non-closing move requests while resolving a closure', () => {
     const base = onTiling().geometry;
     const { geometry, vertexReads } = countingVertices(base);
     const rules = makeRules(geometry);
@@ -304,13 +305,17 @@ describe('closure is pure and deterministic', () => {
       territory: owned([home, landing], A),
     });
 
+    // The baseline is a step that lands nowhere it owns. There is no move that
+    // does nothing (P51 deleted it), so "closes nothing" is the comparison.
     // P37: the closure's own reads are the delta over a move that closes nothing.
     // Not a hard zero any more, and not because closure changed: loss resolution
     // sits on the tail of `apply` and counts the *shares* of a seat that owns
     // ground and holds no head, which `stateOf`'s keepalive land makes true of
     // every seat that authored none. See `immediate-loss.md`, *Cost*.
+    const open = exitsFrom(geometry, last).find((exit) => exit !== landing);
+    if (open === undefined) throw new Error('setup: the last arrow has only one exit');
     const idle = vertexReadsOf(vertexReads, () => {
-      rules.apply(state, skip(last));
+      rules.apply(state, step(last, open, 1));
     });
     const closing = vertexReadsOf(vertexReads, () => {
       rules.apply(state, step(last, landing, 1));

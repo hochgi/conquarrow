@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_MATCH_CONFIG, skip } from '@conquarrow/contracts';
+import { DEFAULT_MATCH_CONFIG, endTurn } from '@conquarrow/contracts';
 import { TutorialSession } from '../src/tutorial/session';
 import { firstRunCardVisible, practiceBoard } from '../src/tutorial/chrome';
 import { renderCopy } from '../src/tutorial/copy';
@@ -108,13 +108,13 @@ describe('state-driven: rails offer only what they allow; steps hold until done'
 
   it('an incomplete expect step never advances on unrelated batches', () => {
     const driven = driveToKind('L2', 'expect');
-    // A legal but non-golden batch: skip the selected group instead.
+    // A legal but non-golden batch: end the turn instead of taking the step.
     const before = driven.state;
     const source = [...before.groups.keys()].find(
       (arrow) => before.groups.get(arrow)?.owner === before.activePlayer,
     );
-    if (source === undefined) throw new Error('setup: no own stack to skip');
-    const batch = [skip(source)];
+    if (source === undefined) throw new Error('setup: no own stack to leave standing');
+    const batch = [endTurn()];
     const after = fold(before, batch);
     driven.session.onCommitted(before, after, batch);
     expect(driven.session.stepIndex()).toBe(driven.index);

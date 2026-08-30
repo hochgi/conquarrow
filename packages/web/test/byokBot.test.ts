@@ -186,15 +186,14 @@ describe('byokBot parsing', () => {
     expect(parseMoveIndex('nope', 3)).toBeUndefined();
   });
 
-  it('hides skip from the model while any step remains', () => {
+  it('shows the model the offer as the engine made it', () => {
+    // P51: there is no kind to hide any more. Every move the engine offers is a
+    // move worth showing, so the offer passes through unchanged.
     const from = mintArrowId('a');
     const exit = mintArrowId('b');
-    const moves: Move[] = [step(from, exit, 1), { kind: 'skip', from }, endTurn()];
-    expect(movesForLlm(moves).map((m) => m.kind)).toEqual(['step', 'endTurn']);
-    expect(movesForLlm([{ kind: 'skip', from }, endTurn()]).map((m) => m.kind)).toEqual([
-      'skip',
-      'endTurn',
-    ]);
+    const moves: Move[] = [step(from, exit, 1), endTurn()];
+    expect(movesForLlm(moves)).toEqual(moves);
+    expect(movesForLlm([endTurn()]).map((m) => m.kind)).toEqual(['endTurn']);
   });
 
   it('builds a strategy-aware prompt that lists every offered move', () => {
@@ -355,7 +354,7 @@ describe('byokBot fetch + fallback', () => {
     const choice = await chooseLlmMove(geometry, rules, opening, me, readyConfig(), fetchImpl);
     expect(choice.source).toBe('heuristic');
     expect(choice.reason).toMatch(/fetch failed/);
-    expect(['step', 'endTurn', 'skip']).toContain(choice.move.kind);
+    expect(['step', 'endTurn']).toContain(choice.move.kind);
   });
 
   it('probes the connection with a tiny completion', async () => {

@@ -97,7 +97,8 @@ design (§2), and all three are scenarios here rather than prose:
 - **Racing in parallel** — two trails through one corridor, mutually aware and
   mutually unobligated, until one of them turns.
 
-All three survive §6.2 only because declining is always legal: skip is a
+All three survive §6.2 only because declining is always legal: no step is ever
+forced, so a
 first-class move (P04). What an enemy denies you is passage *through* a point,
 never the right to stand beside it.
 

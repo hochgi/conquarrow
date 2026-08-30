@@ -396,8 +396,6 @@ const moveKey = (move: Move): string => {
   switch (move.kind) {
     case 'step':
       return `step:${String(move.from)}>${String(move.exit)}:${String(move.count)}`;
-    case 'skip':
-      return `skip:${String(move.from)}`;
     case 'endTurn':
       return 'endTurn';
   }

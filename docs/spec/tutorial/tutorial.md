@@ -86,7 +86,7 @@ except where a lesson intends it (L7); P38's terminality applies unchanged.
 | # | Lesson | Teaches | Style |
 |---|---|---|---|
 | L0 | The grain | select · rays · run · Send · arrows-only movement · speed ladder via live ray repaint · merge costs the turn | rails |
-| L1 | Trail & exposure | stepping off lays trail · trail renders distinct · leaving heads behind is the drop · skip and End Turn are normal | rails → observe |
+| L1 | Trail & exposure | stepping off lays trail · trail renders distinct · leaving heads behind is the drop · standing still and End Turn are normal | rails → observe |
 | L2 | Closure | depart and land on own territory claims path + interior · land bridge strip · girth-3 teaser | rails |
 | L3 | Cuts & firebreaks | crossing cuts · evaporation both ways · any head halts a front · sentry spacing prices regions · chord test drawn | objective |
 | L4 | Contact combat | attack = step onto enemy-held arrow · stay-behind · threat-weighted floor rule · equals favour attacker | rails |

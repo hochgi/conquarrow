@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -293,14 +293,17 @@ describe('P33 — convert wipe conserves heads, is pure, and is deterministic', 
   });
 });
 
-describe('P33 — skip does not convert or wipe', () => {
+describe('P33 — not stepping does not convert or wipe', () => {
   it.each(BOARDS)('returns the authored encircled state unchanged on $name', ({ description }) => {
     const table = onBoard(description);
-    const { tip, distal, mover, before } = aRaider(table);
+    const { tip, distal, before } = aRaider(table);
 
-    const after = table.rules.apply(before, skip(mover));
+    // Nothing steps, so nothing converts: the seat simply ends its turn.
+    const after = table.rules.apply(before, endTurn());
 
-    expect(snapshot(after)).toEqual(snapshot(before));
+    expect(snapshot(after).groups).toEqual(snapshot(before).groups);
+    expect(snapshot(after).territory).toEqual(snapshot(before).territory);
+    expect(snapshot(after).trails).toEqual(snapshot(before).trails);
     expect(ownerOf(after, tip)).toBe(B);
     expect(isTrail(after, B, distal)).toBe(true);
   });

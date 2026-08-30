@@ -71,13 +71,12 @@ describe('a won state offers nothing', () => {
 // ── Rule: A won state refuses every move ─────────────────────────────────────
 
 describe('a won state refuses every move', () => {
-  // The Scenario Outline, one Example each. All three kinds, because the gate sits
+  // The Scenario Outline, one Example each. Both kinds, because the gate sits
   // above `dispatch` and a gate written into one branch of the switch would pass
   // for the kind it was written into.
   const kinds: readonly (readonly [string, (position: ReturnType<typeof aWonPosition>) => Move])[] =
     [
       ['a step', (position) => position.good],
-      ['a skip', (position) => position.stand],
       ['an end of turn', () => endTurn()],
     ];
 

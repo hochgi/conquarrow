@@ -75,5 +75,6 @@ Feature: Win board celebration — banner, shine, pulse, quiet board
     Scenario: Match-over hint and controls
       Given A is the winner
       Then the HUD hint is "Match over — pan to look around"
-      And Skip group is disabled
       And End turn is disabled
+      # *Skip group* was the other locked control; P50 removed the button and
+      # P51 removed the move it sent.

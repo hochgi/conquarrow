@@ -21,7 +21,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip } from '@conquarrow/contracts';
+import { endTurn } from '@conquarrow/contracts';
 import type { GameState } from '@conquarrow/contracts';
 import { refusedConvertExits } from '../src/refusedConvert';
 import { autoApplies, buildRouteOffer, clickableSet, routePaint } from '../src/route';
@@ -447,23 +447,6 @@ describe('P35 edge — the auto-apply test is exact at its boundaries', () => {
 });
 
 describe('P35 edge — the rest of the app is undisturbed', () => {
-  it('Skip is refused while a draft is open', () => {
-    const selected = selectOpenField(8);
-    const drafted = clickArrow(selected, second);
-    const before = [...draftOf(drafted)];
-    const snap = selected.mode.requestSkip(selected.state, rules);
-    expect(snap.refusal?.reason).toBe('cannot-skip');
-    expect(pendingOf(snap)).toHaveLength(0);
-    expect(draftOf(snap)).toEqual(before);
-  });
-
-  it('Skip applies to the source with an empty draft', () => {
-    const selected = selectOpenField(8);
-    expect(selected.phase.draft).toHaveLength(0);
-    const snap = selected.mode.requestSkip(selected.state, rules);
-    expect(pendingOf(snap)).toEqual([skip(from)]);
-  });
-
   it('Ending the turn discards an open draft', () => {
     const selected = selectOpenField(8);
     clickArrow(selected, second);

@@ -384,7 +384,6 @@ export const spySend = (
       return send();
     },
     cancel: () => inner.cancel(),
-    requestSkip: (state, rules) => inner.requestSkip(state, rules),
     requestEndTurn: () => inner.requestEndTurn(),
   };
   return { mode, sendCount: () => n };

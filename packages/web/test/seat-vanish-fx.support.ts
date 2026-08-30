@@ -32,7 +32,6 @@ export const C_PAID_LAND = tile(0, 2, 0);
 
 export const STEP: Move = { kind: 'step', from: FROM, exit: TO, count: 1 };
 export const END_TURN: Move = { kind: 'endTurn' };
-export const SKIP: Move = { kind: 'skip', from: FROM };
 
 export interface StepPair {
   readonly before: GameState;
@@ -338,8 +337,9 @@ export const closeOwnLoopA = (): StepPair => {
   };
 };
 
-export const skipNobodyVanishes = (): StepPair => ({
-  move: SKIP,
+/** The chair passes and nobody's holdings change — no seat vanished. */
+export const passNobodyVanishes = (): StepPair => ({
+  move: END_TURN,
   before: livingAB(FROM, {
     groups: [[C_HEAD, C, 1]],
     territory: [[C_PAID_LAND, C]],
@@ -390,7 +390,7 @@ export const VANISH_PAIRS: readonly (readonly [string, StepPair])[] = [
 export const LIVING_PAIRS: readonly (readonly [string, StepPair])[] = [
   ['genuine cut of B', cutLivingB()],
   ['own loop close', closeOwnLoopA()],
-  ['skip nobody', skipNobodyVanishes()],
+  ['pass, nobody gone', passNobodyVanishes()],
   ['already gone', alreadyGoneC()],
   ['headless but paid', headlessButPaidC()],
 ];

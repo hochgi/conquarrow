@@ -174,10 +174,6 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
     send: (): InputSnapshot => delegate(() => inner.send()),
     cancel: (): InputSnapshot => delegate(() => inner.cancel()),
 
-    requestSkip(state, rules): InputSnapshot {
-      return delegate(() => inner.requestSkip(state, rules));
-    },
-
     requestEndTurn(): InputSnapshot {
       return delegate(() => inner.requestEndTurn());
     },

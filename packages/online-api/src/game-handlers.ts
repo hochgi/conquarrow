@@ -4,7 +4,6 @@ import {
   DEFAULT_MATCH_CONFIG,
   endTurn,
   mintArrowId,
-  skip,
   step,
 } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
@@ -203,11 +202,6 @@ const parseMoveValue = (value: unknown): Move | undefined => {
   if (rec === undefined) return undefined;
   const kind = rec['kind'];
   if (kind === 'endTurn') return endTurn();
-  if (kind === 'skip') {
-    const from = rec['from'];
-    if (typeof from !== 'string') return undefined;
-    return skip(mintArrowId(from));
-  }
   if (kind !== 'step') return undefined;
   const from = rec['from'];
   const exit = rec['exit'];

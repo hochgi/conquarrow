@@ -19,7 +19,7 @@ Today a win is `{label} wins` in the HUD and a frozen SVG.
 ## Scope
 
 In: a pure helper `packages/web/src/fx/victory.ts`; Board shine / pulse / dim;
-suppress yield-soon and play highlights while over; Hud banner / hint / Skip
+suppress yield-soon and play highlights while over; Hud banner / hint / Skip group (a control P50 later removed) /
 disabled; CSS reuse of `yield-shine-sweep` plus `.match-over-dim { opacity: 0.4 }`.
 
 Out: new win conditions, splash/modal, auto-pan, audio, shining all winner
@@ -114,7 +114,7 @@ flowchart TD
   Playing -->|no| InPlay["yield-soon + selected-pulse unchanged"]
   Playing -->|yes| Won["banner label wins (P36 #59; no mechanism named)"]
   Won --> Board["dim non-winner #59; shine winner shares #59; pulse winner stacks"]
-  Board --> Hud["hint Match over #59; skip+endTurn disabled #59; pan live"]
+  Board --> Hud["hint Match over #59; endTurn disabled #59; pan live"]
 ```
 
 ## Invariants
@@ -135,7 +135,8 @@ flowchart TD
   winner group and shall not pulse a loser group.
 - When `state.winner` is set, the system shall dim every arrow that is not
   winner territory, winner trail, or a winner group, at opacity 0.4.
-- When `state.winner` is set, the system shall not offer Skip group or End turn.
+- When `state.winner` is set, the system shall not offer End turn. (It also
+  locked *Skip group*, a control P50 removed and P51 emptied of meaning.)
 - When `state.winner` is set, the system shall not render selected, reach, path,
   movable, or preview washes.
 - The system shall not mutate `GameState` to produce the celebration; equal

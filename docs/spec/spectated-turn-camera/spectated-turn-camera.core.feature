@@ -64,7 +64,6 @@ Feature: Spectated-turn camera
 
       Examples:
         | kind    |
-        | skip    |
         | endTurn |
 
   Rule: A fit frames what it was given and stays inside the zoom clamps

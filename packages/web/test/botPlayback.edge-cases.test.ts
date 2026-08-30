@@ -17,13 +17,12 @@ import {
   playbackOpts,
   plannedMoves,
   recorder,
-  skipInMiddle,
   stubRules,
   threeMoves,
   withWinner,
 } from './botPlayback.support';
 
-describe('Local AI move playback — cancel, skip, seams', () => {
+describe('Local AI move playback — cancel and seams', () => {
   it('Cancel before first apply leaves start unchanged', async () => {
     const start = openingState();
     const moves = plannedMoves(2);
@@ -46,29 +45,6 @@ describe('Local AI move playback — cancel, skip, seams', () => {
     expect(rec.applied[0]?.move).toEqual(moves[0]);
     expect(applyCalls).toHaveLength(1);
     expect(applyCalls.map((call) => call.move)).toEqual([moves[0]]);
-  });
-
-  it('Skip in the middle still waits the gap', async () => {
-    const start = openingState();
-    const moves = skipInMiddle();
-    expect(moves[1]?.kind).toBe('skip');
-    const { rules } = stubRules();
-    const rec = recorder();
-    await applyMovesSequentially(rules, start, moves, playbackOpts(rec));
-    expect(rec.applied).toHaveLength(3);
-    expect(rec.applied[1]?.move.kind).toBe('skip');
-    expect(rec.timeline).toEqual([
-      { kind: 'onApplied', index: 0 },
-      { kind: 'sleep', ms: 400 },
-      { kind: 'onApplied', index: 1 },
-      { kind: 'sleep', ms: 400 },
-      { kind: 'onApplied', index: 2 },
-    ]);
-    const skipAt = rec.timeline.findIndex(
-      (event) => event.kind === 'onApplied' && event.index === 1,
-    );
-    expect(rec.timeline[skipAt + 1]).toEqual({ kind: 'sleep', ms: 400 });
-    expect(rec.timeline[skipAt + 2]).toEqual({ kind: 'onApplied', index: 2 });
   });
 
   it('Online play has no local AI chair', () => {

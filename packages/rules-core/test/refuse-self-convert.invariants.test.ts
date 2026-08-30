@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import type { Move, StepMove } from '@conquarrow/contracts';
 import { makeRules } from '../src/index';
 import {
@@ -210,7 +210,7 @@ describe('opponent-caused conversion still runs', () => {
   });
 });
 
-describe('skip does not convert', () => {
+describe('not stepping does not convert', () => {
   it('returns the authored encircled group unchanged', () => {
     const table = onBoard();
     const tip = anArrow(table.geometry);
@@ -229,7 +229,10 @@ describe('skip does not convert', () => {
       },
     );
     const pictured = snapshot(before);
-    expect(snapshot(table.rules.apply(before, skip(mover)))).toEqual(pictured);
+    const after = snapshot(table.rules.apply(before, endTurn()));
+    expect(after.groups).toEqual(pictured.groups);
+    expect(after.territory).toEqual(pictured.territory);
+    expect(after.trails).toEqual(pictured.trails);
     expect(ownerOf(before, tip)).toBe(B);
   });
 });
@@ -344,11 +347,14 @@ describe('the system enumerates no vertex', () => {
     // P37 resolves losses at the tail of `apply`, and the last thing that needs for
     // a seat which owns ground and holds no head is a *share* count, which walks the
     // lattice — and `stateOf`'s keepalive land makes exactly that seat exist here. So
-    // the permitted raid is measured as a delta over an idle move on the same board.
+    // the permitted raid is measured as a delta over a step that raids nothing on the
+    // same board — no move does nothing any more (P51).
     // Listing moves and refusing a self-convert never reach resolution, so their zero
     // stays hard. See `immediate-loss.md`, *Cost*.
+    const open = exitsFrom(geometry, from).find((candidate) => candidate !== exit);
+    if (open === undefined) throw new Error('setup: the raider has only one exit');
     const idle = vertexReadsOf(vertexReads, () => {
-      rules.apply(raid, skip(from));
+      rules.apply(raid, step(from, open, 1));
     });
     const raiding = vertexReadsOf(vertexReads, () => {
       rules.legalMoves(raid);

@@ -28,13 +28,13 @@ is decided.
 **`resolveLosses` runs on every applied move**, not only inside the round
 boundary.
 
-`apply` dispatches to `applyStep`, `applySkip` and `applyEndTurn`. Resolution
+`apply` dispatches to `applyStep` and `applyEndTurn`. Resolution
 moves from inside `applyEndTurn` to the **tail of `apply`**, which preserves the
 boundary's required order for free:
 
 ```
 apply(state, move):
-  next = dispatch(state, move)          # step | skip | endTurn
+  next = dispatch(state, move)          # step | endTurn
   return resolveLosses(next)            # every move, not just the boundary
 
 applyEndTurn(state):
@@ -136,7 +136,7 @@ walk would break that on every move rather than in the one case that needs it.
 3. When a move leaves exactly one player not lost, the system shall set `winner`
    in the state that move returns.
 4. The system shall offer a lost player nothing but the pass. *(`legalMoves` always offers `endTurn`: `players[0]` is the round-boundary marker and a seat is passed, never skipped — P36, *pass, never skip*. "No legal move" throughout this spec means no move that changes the board.)*
-5. The system shall resolve losses after a step, after a skip, and after an end
+5. The system shall resolve losses after a step and after an end
    of turn.
 6. The system shall advance a starvation streak only at a full-round boundary.
 7. At a full-round boundary the system shall accrue, then advance streaks, then

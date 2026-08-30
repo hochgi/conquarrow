@@ -26,7 +26,7 @@ already inside) **stays**.
 In: `legalMoves` omits self-convert steps; `apply` throws before occupancy
 write; web refused-target paint + locked tooltip on the grain-adjacent `exit`.
 
-Out: a second trail fill; changing the §6.3 *predicate*; skip converting;
+Out: a second trail fill; changing the §6.3 *predicate*;
 territory combat modifiers; a reasons enum on `RulesPort`; online protocol.
 
 Tests: rules against `RulesPort` on fixture boards (authored territory — no
@@ -120,7 +120,8 @@ player-facing string.
 - When an opponent's apply claims a tile under an unprotected group, or cuts
   that group's last territory-grade path while they stand on foreign territory,
   the system shall still convert that group intact (§6.3).
-- The system shall not convert on `skip`.
+- The system shall convert only inside a step: a turn in which nothing stepped
+  converts nothing (P51).
 - The system shall refuse a self-convert step before combat, so a contact fight
   cannot land and then convert the attacker.
 - Everything `legalMoves` offers, `apply` shall accept.

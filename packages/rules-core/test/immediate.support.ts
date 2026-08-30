@@ -24,7 +24,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { endTurn, mintArrowId, mintVertexId, movesEqual, rational, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, mintVertexId, movesEqual, rational, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -135,8 +135,6 @@ const asMove = (logged: LoggedMove): Move => {
   switch (logged.kind) {
     case 'endTurn':
       return { kind: 'endTurn' };
-    case 'skip':
-      return { kind: 'skip', from: requireArrow(logged.from, 'from') };
     case 'step':
       return {
         kind: 'step',
@@ -305,10 +303,10 @@ export const aMatchLosingThree = (): {
   const aExit = clearExit(ground, initial, aStack);
   const dExit = clearExit(ground, initial, dStack);
   const moves: readonly Move[] = [
-    // Round 1 — A wanders, B stands, C is passed, D pushes a head out.
+    // Round 1 — A wanders, B stands (naming no move at all), C is passed, D
+    // pushes a head out.
     step(aStack, aExit, 1),
     endTurn(),
-    skip(bStack),
     endTurn(),
     endTurn(),
     step(dStack, dExit, 1),

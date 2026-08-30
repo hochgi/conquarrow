@@ -92,7 +92,7 @@ export interface GameState {
    * them on a hexagon about the origin (§2 / §8).
    */
   readonly players: readonly PlayerId[];
-  /** Whose turn it is. Only this player's groups may step or skip (§4). */
+  /** Whose turn it is. Only this player's groups may step (§4). */
   readonly activePlayer: PlayerId;
   /**
    * Occupancy: at most one owner per arrow (P04 D1). An arrow absent from the map

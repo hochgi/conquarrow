@@ -21,7 +21,6 @@ import {
   hudSource,
   newLog,
   oneEndTurn,
-  oneSkip,
   oneStep,
   summaryOf,
   zeros,
@@ -42,7 +41,6 @@ describe('Match summary telemetry — counters and the over line', () => {
     expect(log.summary).toEqual(emptyMatchSummary());
     expect(log.summary.steps).toBe(0);
     expect(log.summary.endTurns).toBe(0);
-    expect(log.summary.skips).toBe(0);
     expect(log.summary.closes).toBe(0);
     expect(log.summary.cuts).toBe(0);
     expect(log.summary.firstCloseAt).toBeUndefined();
@@ -53,7 +51,6 @@ describe('Match summary telemetry — counters and the over line', () => {
     const folded = foldMatchSummary(zeros(), [oneStep()], board, board, 0);
     expect(folded.steps).toBe(1);
     expect(folded.endTurns).toBe(0);
-    expect(folded.skips).toBe(0);
     expect(folded.closes).toBe(0);
     expect(folded.cuts).toBe(0);
     expect(folded.firstCloseAt).toBeUndefined();
@@ -63,13 +60,6 @@ describe('Match summary telemetry — counters and the over line', () => {
     const board = gameState();
     const folded = foldMatchSummary(zeros(), [oneEndTurn()], board, board, 0);
     expect(folded.endTurns).toBe(1);
-    expect(folded.steps).toBe(0);
-  });
-
-  it('A skip increments skips', () => {
-    const board = gameState();
-    const folded = foldMatchSummary(zeros(), [oneSkip()], board, board, 0);
-    expect(folded.skips).toBe(1);
     expect(folded.steps).toBe(0);
   });
 
@@ -106,7 +96,6 @@ describe('Match summary telemetry — counters and the over line', () => {
     const summary = summaryOf({
       steps: 12,
       endTurns: 3,
-      skips: 0,
       closes: 1,
       cuts: 0,
       firstCloseAt: 7,
@@ -120,7 +109,6 @@ describe('Match summary telemetry — counters and the over line', () => {
     const summary = summaryOf({
       steps: 4,
       endTurns: 1,
-      skips: 2,
       closes: 1,
       cuts: 1,
       firstCloseAt: 0,

@@ -73,7 +73,7 @@ when it seeds — a prior strip of those arrows would no-op and leave the path.
   wipe reached.
 - The system shall not evaporate a different territory-grade trail component of
   the same victim.
-- The system shall not change who converts, head counts on convert, or skip.
+- The system shall not change who converts or head counts on convert.
 - The system shall not mutate the input state, and shall return equal outputs
   for equal inputs.
 

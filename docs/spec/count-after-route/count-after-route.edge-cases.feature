@@ -203,17 +203,6 @@ Feature: Counting a route at the boundaries
 
   Rule: The rest of the app is undisturbed
 
-    Scenario: Skip is refused while a draft is open
-      Given the active player has drafted a run of two steps
-      When the active player requests a skip
-      Then the skip is refused with reason cannot-skip
-
-    Scenario: Skip applies to the source with an empty draft
-      Given the active player has clicked a0
-      And the draft is empty
-      When the active player requests a skip
-      Then pending holds a skip of a0
-
     Scenario: Ending the turn discards an open draft
       Given the active player has drafted a run of two steps
       When the active player requests an end of turn

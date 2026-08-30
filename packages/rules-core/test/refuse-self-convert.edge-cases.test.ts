@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import type { Move, StepMove } from '@conquarrow/contracts';
 import {
   A,
@@ -247,8 +247,8 @@ describe('opponent-caused conversion unchanged', () => {
     expect(headsOn(after, occupied)).toBe(1);
   });
 
-  it('does not convert an authored encircled group on skip', () => {
-    // "Skip still does not convert an authored encircled group"
+  it('does not convert an authored encircled group when nobody steps', () => {
+    // "Not stepping still does not convert an authored encircled group"
     const table = onBoard();
     const tip = anArrow(table.geometry);
     const mover = anExitFrom(table.geometry, tip);
@@ -267,9 +267,12 @@ describe('opponent-caused conversion unchanged', () => {
     );
     const pictured = snapshot(before);
 
-    const after = table.rules.apply(before, skip(mover));
+    // Conversion is resolved inside a step; nothing stepped this turn.
+    const after = table.rules.apply(before, endTurn());
 
-    expect(snapshot(after)).toEqual(pictured);
+    expect(snapshot(after).groups).toEqual(pictured.groups);
+    expect(snapshot(after).territory).toEqual(pictured.territory);
+    expect(snapshot(after).trails).toEqual(pictured.trails);
     expect(ownerOf(after, tip)).toBe(B);
   });
 });

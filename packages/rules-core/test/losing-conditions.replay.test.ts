@@ -20,7 +20,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, rational, skip, step } from '@conquarrow/contracts';
+import { endTurn, rational, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, Move } from '@conquarrow/contracts';
 import { replay, replayIsDeterministic } from '../src/replay';
 import {
@@ -81,10 +81,10 @@ const aMatch = (): { ground: Ground; initial: GameState; moves: readonly Move[] 
   const aExit = clearExit(ground, initial, aStack);
   const dExit = clearExit(ground, initial, dStack);
   const moves: readonly Move[] = [
-    // Round 1 — A wanders, B stands, C waits, D pushes a head out.
+    // Round 1 — A wanders, B stands (naming no move at all), C waits, D pushes a
+    // head out.
     step(aStack, aExit, 1),
     endTurn(),
-    skip(bStack),
     endTurn(),
     endTurn(),
     step(dStack, dExit, 1),

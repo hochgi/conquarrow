@@ -39,7 +39,6 @@ export interface SeatDriverLog {
 export interface MatchSummary {
   readonly steps: number;
   readonly endTurns: number;
-  readonly skips: number;
   readonly closes: number;
   readonly cuts: number;
   /** Index into `moves` when territory first grew for anyone; undefined if never. */
@@ -49,7 +48,6 @@ export interface MatchSummary {
 export const emptyMatchSummary = (): MatchSummary => ({
   steps: 0,
   endTurns: 0,
-  skips: 0,
   closes: 0,
   cuts: 0,
   firstCloseAt: undefined,
@@ -133,7 +131,6 @@ export const foldMatchSummary = (
   if (moves.length === 0) return summary;
   let steps = summary.steps;
   let endTurns = summary.endTurns;
-  let skips = summary.skips;
   for (const m of moves) {
     switch (m.kind) {
       case 'step':
@@ -141,9 +138,6 @@ export const foldMatchSummary = (
         break;
       case 'endTurn':
         endTurns += 1;
-        break;
-      case 'skip':
-        skips += 1;
         break;
     }
   }
@@ -157,7 +151,7 @@ export const foldMatchSummary = (
     // Index of the first move in this batch within the full log.
     firstCloseAt = movesLoggedBefore;
   }
-  return { steps, endTurns, skips, closes, cuts, firstCloseAt };
+  return { steps, endTurns, closes, cuts, firstCloseAt };
 };
 
 /** One-line HUD / review string. */
@@ -168,7 +162,6 @@ export const formatMatchSummary = (summary: MatchSummary): string => {
     `${String(summary.closes)} closes`,
     `${String(summary.cuts)} cuts`,
   ];
-  if (summary.skips > 0) parts.splice(2, 0, `${String(summary.skips)} skips`);
   if (summary.firstCloseAt !== undefined) {
     parts.push(`first close @ move ${String(summary.firstCloseAt)}`);
   }

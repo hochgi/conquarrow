@@ -9,7 +9,8 @@
 > **A move takes a portion of one arrow's heads one step along an out-arrow.
 > A turn is an ordered list of moves, ended explicitly.**
 
-Three variants and no others: **step**, **skip**, **end-turn**.
+Two variants and no others: **step**, **end-turn**. (A third, **skip**, was
+deleted by P51: declining is the absence of a move, not a move.)
 
 Splitting, merging, forking and dropping a sentry are all *the same move with a
 different count*. Any fourth variant is a signal that a mechanic has been
@@ -30,7 +31,7 @@ this feature would bind the DTO to rules that have not been built.
 | **stack** | merged heads on one arrow; stack size **is** lives |
 | **sentry** | heads left behind on a trail; a name, not a kind of unit. Discretionary, except for the anchor §5 charges at a join or a split — a legality rule, not a DTO one |
 | **count** | how many of a source arrow's heads a step takes |
-| **skip** | a stack declining to move; a choice, not the absence of one |
+| **declining** | a stack staying put; the absence of a move, not a move (P51) |
 
 ## Why there is no unit identity
 
@@ -49,10 +50,8 @@ Galcon, on a directed graph.
 flowchart TD
   S["turn begins"] --> P{"player picks"}
   P -- "step" --> M["source arrow, exit arrow, count"]
-  P -- "skip" --> K["a stack declines to move"]
   P -- "end turn" --> E["turn ends"]
   M --> P
-  K --> P
   E --> N["opponent's turn"]
   P -- "no stack has a whole step left" --> E
 ```
@@ -68,14 +67,13 @@ list a replay stores.
   a count, and nothing else.
 - The system shall reject a step whose count is zero, negative, or greater than
   the heads standing on the source.
-- The system shall represent a skip as a source arrow with no exit and no count.
 - The system shall represent an end-turn with no arrow.
 - The system shall preserve the order of moves within a turn.
 - The system shall treat two structurally identical moves as equal, and shall not
   fall back on object identity.
 - The system shall treat two turns containing the same moves in different orders
   as unequal.
-- The system shall offer no move variant beyond step, skip and end-turn.
+- The system shall offer no move variant beyond step and end-turn.
 - The system shall compute a group's movement allowance as `1 + floor(log₂ N)`
   whole steps, and shall never return a fraction.
 - The system shall never return an allowance greater than the group's head count,

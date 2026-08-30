@@ -3,11 +3,13 @@
  * reported playtest log, plus the P38 gates that used to be asserted *on that
  * log* at 1242/1243.
  *
- * The log is 1247 real moves over the generated tiling. Measured against
- * `main` @ `fc5bc2e`: the deciding step is **1242**, and the four moves recorded
- * after it are an `endTurn` (1243), a step by a seat that no longer exists
- * (1244), and two more end-turns (1245, 1246). P37 stopped the fold at 1244;
- * **P38** stopped it at **1243**.
+ * The log is 1246 real moves over the generated tiling — 1247 as filed, less the
+ * one `skip` P51 re-recorded out of it (index 600; it changed no state, so no
+ * state along the fold changed either, and every landmark past it moved one
+ * earlier). Measured against `main` @ `fc5bc2e` and renumbered: the deciding step
+ * is **1241**, and the four moves recorded after it are an `endTurn` (1242), a
+ * step by a seat that no longer exists (1243), and two more end-turns (1244,
+ * 1245). P37 stopped the fold at the dead seat's step; **P38** one earlier.
  *
  * **P47 moved where the fold stops again.** Extra evaporation demotes an E trail
  * on F land; P28 refuses E's recorded step `3,-4,0 → 4,-4,0` at
@@ -117,8 +119,9 @@ describe('the reported playtest log is a P47 prefix golden', () => {
     expect(stops.filter((stop) => stop.at >= DECIDING_MOVE)).toEqual([]);
   });
 
-  it('still records the historical 1242/1243 tail in the fixture', () => {
-    // A guard on the fixture, not on the engine. P38 filed over 1243 as endTurn.
+  it('still records the historical deciding-step tail in the fixture', () => {
+    // A guard on the fixture, not on the engine. P38 was filed over the endTurn
+    // that follows the deciding step.
     const { moves } = theReportedLog();
 
     expect({
@@ -138,7 +141,7 @@ describe('the reported playtest log is a P47 prefix golden', () => {
       deadSeat: 'step',
       tail: ['endTurn', 'step', 'endTurn', 'endTurn'],
       recorded: MOVES_RECORDED_AFTER_THE_WIN,
-      total: 1247,
+      total: 1246,
       sameMove: true,
     });
   });

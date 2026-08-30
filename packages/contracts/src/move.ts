@@ -6,9 +6,12 @@
  *   A move takes a portion of one arrow's heads one step along an out-arrow.
  *   A turn is an ordered list of moves, ended explicitly.
  *
- * Three variants and no others. Splitting, merging, forking and dropping a
- * sentry are all the same move with a different `count` — a fourth variant
+ * Two variants and no others. Splitting, merging, forking and dropping a
+ * sentry are all the same move with a different `count` — a third variant
  * would mean a mechanic had been invented rather than expressed.
+ *
+ * Declining is not one of them: no step is ever compelled, so leaving a stack
+ * where it is means naming no move for it (P51).
  *
  * This module owns the SHAPE of a move. Legality — whether the exit is really
  * an out-arrow of the source's target point, whether the mover has allowance
@@ -38,26 +41,21 @@ export interface StepMove {
   readonly count: number;
 }
 
-export interface SkipMove {
-  readonly kind: 'skip';
-  readonly from: ArrowId;
-}
-
 export interface EndTurnMove {
   readonly kind: 'endTurn';
 }
 
-export type Move = StepMove | SkipMove | EndTurnMove;
+export type Move = StepMove | EndTurnMove;
 
-/** Exactly three, and the suite asserts it. */
-export const MOVE_KINDS = ['step', 'skip', 'endTurn'] as const;
+/** Exactly two, and the suite asserts it. */
+export const MOVE_KINDS = ['step', 'endTurn'] as const;
 
 /**
  * Construct a step.
  *
  * Throws {@link ContractViolation} on a count that is not a positive integer,
  * and on a step whose source and exit are the same arrow — a step goes
- * somewhere, and staying put is a skip, which is a different move.
+ * somewhere, and staying put is not a move at all.
  */
 export const step = (from: ArrowId, exit: ArrowId, count: number): StepMove => {
   requireArrow(from, 'source');
@@ -66,22 +64,9 @@ export const step = (from: ArrowId, exit: ArrowId, count: number): StepMove => {
     reject(`a step moves a whole positive portion, got ${String(count)}`);
   }
   if (from === exit) {
-    reject(`a step goes somewhere; staying put is a skip (${String(from)})`);
+    reject(`a step goes somewhere; staying put is no move (${String(from)})`);
   }
   return { kind: 'step', from, exit, count };
-};
-
-/**
- * A skip names the arrow that declined to move, and carries nothing else.
- *
- * The rest parameter is not decoration: a count on a skip would imply a *portion*
- * declined, which is not a thing — the rest of the stack simply was not named
- * (§4). TypeScript rejects the call; this rejects the data.
- */
-export const skip = (from: ArrowId, ...extra: readonly unknown[]): SkipMove => {
-  requireArrow(from, 'source');
-  if (extra.length > 0) reject('a skip carries no count — it names an arrow and nothing else');
-  return { kind: 'skip', from };
 };
 
 export const endTurn = (): EndTurnMove => ({ kind: 'endTurn' });
@@ -94,7 +79,7 @@ export const endTurn = (): EndTurnMove => ({ kind: 'endTurn' });
  * number keeps P01 free of any dependency on game state.
  */
 export const isSatisfiableBy = (move: Move, headsOnSource: number): boolean => {
-  // A skip or an end-turn asks nothing of the board, so nothing can make it
+  // An end-turn asks nothing of the board, so nothing can make it
   // unsatisfiable. Only a step names a portion.
   if (move.kind !== 'step') return true;
   return Number.isInteger(headsOnSource) && headsOnSource >= move.count;
@@ -107,8 +92,6 @@ export const movesEqual = (a: Move, b: Move): boolean => {
       return (
         b.kind === 'step' && a.from === b.from && a.exit === b.exit && a.count === b.count
       );
-    case 'skip':
-      return b.kind === 'skip' && a.from === b.from;
     case 'endTurn':
       return b.kind === 'endTurn';
   }

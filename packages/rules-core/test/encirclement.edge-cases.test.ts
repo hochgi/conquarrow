@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -212,7 +212,7 @@ describe('order and seams', () => {
     expect(headsOn(after, occupied)).toBe(2);
   });
 
-  it('does not convert on skip alone', () => {
+  it('does not convert when nobody steps', () => {
     const table = onBoard();
     const tip = anArrow(table.geometry);
     const mover = anExitFrom(table.geometry, tip);
@@ -230,9 +230,11 @@ describe('order and seams', () => {
       },
     );
 
-    const after = table.rules.apply(before, skip(mover));
+    // Conversion is resolved inside a step. Nothing stepped, so nothing converted.
+    const after = table.rules.apply(before, endTurn());
 
-    expect(snapshot(after)).toEqual(snapshot(before));
+    expect(snapshot(after).groups).toEqual(snapshot(before).groups);
+    expect(snapshot(after).territory).toEqual(snapshot(before).territory);
     expect(ownerOf(after, tip)).toBe(B);
   });
 });

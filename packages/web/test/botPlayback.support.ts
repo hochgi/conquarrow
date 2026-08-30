@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { endTurn, mintArrowId, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, Move, PlayerId, RulesPort } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import { BOT_PLAYBACK_GAP_MS } from '../src/botPlayback';
@@ -64,22 +64,12 @@ export const plannedMoves = (count: number): Move[] => {
       moves.push(endTurn());
       continue;
     }
-    if (i === 1) {
-      moves.push(skip(from));
-      continue;
-    }
     moves.push(step(from, exit, i + 1));
   }
   return moves;
 };
 
 export const threeMoves = (): readonly Move[] => plannedMoves(3);
-
-export const skipInMiddle = (): readonly Move[] => {
-  const from = mintArrowId('p30-from');
-  const exit = mintArrowId('p30-exit');
-  return [step(from, exit, 1), skip(from), endTurn()];
-};
 
 export type ApplyCall = { readonly state: GameState; readonly move: Move };
 

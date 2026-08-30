@@ -8,7 +8,7 @@
  * @see docs/spec/online-move-log-replay/online-move-log-replay.md
  */
 
-import { endTurn, mintArrowId, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, step } from '@conquarrow/contracts';
 import type { GameState, Move, ReplayBatch } from '@conquarrow/contracts';
 import { arrowsOfMove } from './spectate';
 
@@ -55,7 +55,6 @@ const parseMove = (value: unknown): Move | undefined => {
   const from = rec['from'];
   if (typeof from !== 'string') return undefined;
   try {
-    if (kind === 'skip') return skip(mintArrowId(from));
     if (kind !== 'step') return undefined;
     const exit = rec['exit'];
     const count = rec['count'];

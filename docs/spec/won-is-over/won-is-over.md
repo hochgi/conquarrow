@@ -19,7 +19,7 @@ legalMoves(state):
 
 ```mermaid
 flowchart TD
-  M["the deciding move"] --> D["dispatch: step #59; skip #59; endTurn"]
+  M["the deciding move"] --> D["dispatch: step #59; endTurn"]
   D --> E["its own effects resolve in full<br/>closure, fill, convert, evaporation"]
   E --> R["resolveLosses"]
   R --> W["winner is set"]

@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, mintArrowId, skip } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, step } from '@conquarrow/contracts';
 import type { Move } from '@conquarrow/contracts';
 import {
   ALICE,
@@ -39,7 +39,13 @@ import {
   startHeuristicThenAliceBob,
 } from './support';
 
-const mark = (name: string): Move => skip(mintArrowId(name));
+/**
+ * A distinguishable move to seed a log line with.
+ *
+ * A step rather than the no-op kind P51 deleted: what these tests need is a move
+ * whose identity is readable in the line, and a step from a named arrow is that.
+ */
+const mark = (name: string): Move => step(mintArrowId(name), mintArrowId(`${name}-exit`), 1);
 
 describe('Log lines carry the version their batch produced', () => {
   it('A human move stamps one line with the new version', async () => {

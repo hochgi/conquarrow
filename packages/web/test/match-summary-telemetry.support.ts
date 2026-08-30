@@ -11,7 +11,6 @@ import {
   endTurn,
   mintArrowId,
   mintPlayerId,
-  skip,
   step,
   type ArrowId,
   type GameState,
@@ -38,7 +37,6 @@ export const ARROW_1 = mintArrowId('a1');
 export const ARROW_2 = mintArrowId('a2');
 
 export const oneStep = (): Move => step(FROM, TO, 1);
-export const oneSkip = (): Move => skip(FROM);
 export const oneEndTurn = (): Move => endTurn();
 
 export const webSrcPath = (...parts: readonly string[]): string =>
@@ -75,14 +73,12 @@ export const gameState = (args?: {
 export const summaryOf = (overrides?: {
   readonly steps?: number;
   readonly endTurns?: number;
-  readonly skips?: number;
   readonly closes?: number;
   readonly cuts?: number;
   readonly firstCloseAt?: number;
 }): MatchSummary => ({
   steps: overrides?.steps ?? 0,
   endTurns: overrides?.endTurns ?? 0,
-  skips: overrides?.skips ?? 0,
   closes: overrides?.closes ?? 0,
   cuts: overrides?.cuts ?? 0,
   firstCloseAt: overrides?.firstCloseAt,

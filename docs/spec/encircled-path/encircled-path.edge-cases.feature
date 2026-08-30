@@ -51,10 +51,10 @@ Feature: Encircled path — halt, other components, and cut tails
       Then the group is owned by A with N heads
       And spent is 0
 
-    Scenario: Skip does not convert and does not wipe
+    Scenario: Not stepping does not convert and does not wipe
       Given an authored state where player B is already encircled on A's territory
-      When player A skips a different head
-      Then skip returns the state unchanged
+      When player A steps nothing and ends the turn
+      Then the groups, territory and trails are unchanged
 
     Scenario: Convert wipe conserves heads and does not mutate its input
       Given a state whose occupancy change this apply is conversion

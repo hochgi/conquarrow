@@ -182,13 +182,4 @@ describe('Galcon input — refusals', () => {
     expect(mode.onArrowClick(mine, state, rules).refusal).toBeUndefined();
     expect(mode.reset().refusal).toBeUndefined();
   });
-
-  it('says nothing about a skip requested with nothing selected', () => {
-    const { rules, state, mode } = setup();
-    // Nothing selected: there is no group to skip, so the request cannot apply —
-    // and there is no tile the refusal could be pinned to either.
-    const snap = mode.requestSkip(state, rules);
-    expect(snap.pending).toBeUndefined();
-    expect(snap.refusal).toBeUndefined();
-  });
 });

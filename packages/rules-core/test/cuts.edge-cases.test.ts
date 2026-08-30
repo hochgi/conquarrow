@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, mintPlayerId, rational, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintPlayerId, rational, step } from '@conquarrow/contracts';
 import type { ArrowId, GameState, GeometryPort } from '@conquarrow/contracts';
 import { cellArrow, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '../src/index';
@@ -17,6 +17,7 @@ import {
   aForkArmCut,
   anExitFrom,
   anInterleaving,
+  asideExit,
   arrowAt,
   byId,
   countingVertices,
@@ -466,7 +467,7 @@ describe('cut resolution is pure and deterministic', () => {
     );
   });
 
-  it('requests no vertex beyond what an idle move requests', () => {
+  it('requests no vertex beyond what a non-cutting move requests', () => {
     const base = onBoard().geometry;
     const { geometry, vertexReads } = countingVertices(base);
     const rules = makeRules(geometry);
@@ -475,8 +476,11 @@ describe('cut resolution is pure and deterministic', () => {
       trail: { A: [ourIn], B: [trailIn, trailOut] },
     });
 
+    // No move does nothing (P51), so the baseline is the same step down an exit
+    // whose chord does not interleave: the same work minus the cut.
+    const aside = asideExit(geometry, rules, before, ourIn);
     const idle = vertexReadsOf(vertexReads, () => {
-      rules.apply(before, skip(ourIn));
+      rules.apply(before, step(ourIn, aside, 1));
     });
     let after = before;
     const cutting = vertexReadsOf(vertexReads, () => {
@@ -484,7 +488,7 @@ describe('cut resolution is pure and deterministic', () => {
     });
 
     expect(trailOf(after, B).length).toBeLessThan(trailOf(before, B).length);
-    // P37: the cut adds no lattice read of its own over an idle move on the same
+    // P37: the cut adds no lattice read of its own over a non-cutting move on the same
     // board. Not a hard zero any more, and not because the rule changed: loss
     // resolution sits on the tail of `apply` and counts the *shares* of a seat that
     // owns ground and holds no head, which `stateOf`'s keepalive land makes true of

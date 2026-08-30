@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, endTurn, skip, speed, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, speed, step } from '@conquarrow/contracts';
 import type { GameState, Move } from '@conquarrow/contracts';
 import {
   A,
@@ -40,8 +40,8 @@ const SIZES = [1, 2, 3, 4, 5, 6, 7, 8, 15, 16, 31, 32] as const;
 
 /**
  * A small deterministic catalogue of (state, legal move) pairs, spanning every
- * kind of change a P04 move can make: a whole-stack step, a split, a merge, a
- * skip and an end-turn.
+ * kind of change a P04 move can make: a whole-stack step, a split, a merge and
+ * an end-turn.
  *
  * Hand-authored rather than drawn from `legalMoves`, so a property about `apply`
  * cannot be quietly satisfied by an engine that offers no legal moves at all.
@@ -76,11 +76,6 @@ const legalPairs = (): readonly { label: string; state: GameState; move: Move }[
         { arrow: dest, owner: A, heads: 1 },
       ]),
       move: step(src, dest, 3),
-    },
-    {
-      label: 'a skip',
-      state: stateOf([{ arrow: src, owner: A, heads: 2 }]),
-      move: skip(src),
     },
     {
       label: 'an end-turn with allowance left over',
@@ -383,24 +378,6 @@ describe('a step onto an opponent-occupied arrow is contact combat', () => {
   });
 });
 
-// ── skip ─────────────────────────────────────────────────────────────────────
-
-describe('a skip of an owned group is legal and changes nothing', () => {
-  it.each(SIZES)('leaves a group of %i heads exactly as it was', (heads) => {
-    const table = onBoard();
-    const from = anArrow(table.geometry);
-    const other = anExitFrom(table.geometry, from);
-    const before = stateOf([
-      { arrow: from, owner: A, heads, spent: 1 },
-      { arrow: other, owner: B, heads: 2 },
-    ]);
-
-    const after = table.rules.apply(before, skip(from));
-
-    expect(snapshot(after)).toEqual(snapshot(before));
-  });
-});
-
 // ── the turn loop ────────────────────────────────────────────────────────────
 
 describe('the turn loop', () => {
@@ -554,6 +531,6 @@ describe('apply is pure and determinate', () => {
 
     const offered = table.rules.legalMoves(state);
     expect(offered.some((m) => m.kind === 'step')).toBe(true);
-    expect(offered.some((m) => m.kind === 'skip')).toBe(true);
+    expect(offered.some((m) => m.kind === 'endTurn')).toBe(true);
   });
 });

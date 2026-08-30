@@ -145,7 +145,7 @@ or not that seat is still playing, and `nextPlayer` never skips. There is no
 ```mermaid
 stateDiagram-v2
   [*] --> playing
-  playing --> playing : step / skip #59; no loss is evaluated
+  playing --> playing : step #59; no loss is evaluated
   playing --> boundary : endTurn hands the seat to players[0]
   boundary --> accrue : spawners advance one round-robin step
   accrue --> starve : each destitute living seat's streak advances #59; others clear

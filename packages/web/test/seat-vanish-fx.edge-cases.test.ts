@@ -24,7 +24,7 @@ import {
   resolveOf,
   seatVanishedFor,
   seatVanishOverlay,
-  skipNobodyVanishes,
+  passNobodyVanishes,
   tile,
   trailCutFor,
   VACATED,
@@ -206,8 +206,8 @@ describe('Sound and determinism', () => {
     expect(strings).toEqual([...strings].toSorted());
   });
 
-  it('A skip that vanishes nobody emits no seatVanished', () => {
-    const pair = skipNobodyVanishes();
+  it('A pass that vanishes nobody emits no seatVanished', () => {
+    const pair = passNobodyVanishes();
     expect(hadPieces(pair.before, A)).toBe(true);
     expect(hadPieces(pair.after, A)).toBe(true);
     expect(hadPieces(pair.after, B)).toBe(true);

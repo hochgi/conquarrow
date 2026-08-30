@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, skip, step } from '@conquarrow/contracts';
+import { endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -368,14 +368,14 @@ describe('trail and territory outlive the turn', () => {
     for (const group of after.groups.values()) expect(group.spent).toBe(0);
   });
 
-  it('leaves trail untouched by a skip', () => {
-    // Standing still is a choice (P04 D5) and it marks nothing — a skip changes no
-    // occupancy, no spent, and now no trail either.
+  it('leaves trail untouched when nothing steps', () => {
+    // Trail is marked by a step and by nothing else. Standing still is the absence
+    // of a move (P51), so a turn nobody stepped in marks no arrow.
     const table = onBoard();
     const n1 = anArrow(table.geometry);
     const before = stateOf([{ arrow: n1, owner: A, heads: 1 }], A, { trail: { A: [n1] } });
 
-    const after = table.rules.apply(before, skip(n1));
+    const after = table.rules.apply(before, endTurn());
 
     expect(trailOf(after, A)).toEqual([String(n1)]);
   });

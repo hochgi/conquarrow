@@ -7,7 +7,7 @@
  * catalogue — the validator then gives the content its depth.
  */
 
-import { endTurn, mintPlayerId, skip, step } from '@conquarrow/contracts';
+import { endTurn, mintPlayerId, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -20,7 +20,7 @@ import type {
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
 
-export { endTurn, skip, step };
+export { endTurn, step };
 
 export const geometry: GeometryPort = makeTiling();
 export const rules: RulesPort = makeRules(geometry);

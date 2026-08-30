@@ -5,7 +5,7 @@
  * @see docs/spec/online-move-log-replay/online-move-log-replay.md
  */
 
-import { DEFAULT_MATCH_CONFIG, endTurn, mintArrowId, skip, step } from '@conquarrow/contracts';
+import { DEFAULT_MATCH_CONFIG, endTurn, mintArrowId, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -27,7 +27,11 @@ export const rules = makeRules(geometry);
 export const arrow = (name: string): ArrowId => mintArrowId(name);
 
 /** A named marker move — identity matters, legality does not, on the wire. */
-export const mark = (name: string): Move => skip(arrow(name));
+/**
+ * A distinguishable move to seed a log line with — a step from a named arrow.
+ * (Before P51 this was the no-op kind; there is no such kind any more.)
+ */
+export const mark = (name: string): Move => step(arrow(name), arrow(`${name}-exit`), 1);
 
 export const pass = (): Move => endTurn();
 

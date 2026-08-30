@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -61,7 +61,7 @@ describe('contact combat triggers only on an enemy-occupied destination', () => 
     expect(headsOn(after, pick(ins, 1))).toBe(1);
   });
 
-  it('permits declining by skip', () => {
+  it('permits declining — no step is ever compelled', () => {
     const table = onBoard();
     const from = anArrow(table.geometry);
     const e1 = anExitFrom(table.geometry, from);
@@ -73,7 +73,13 @@ describe('contact combat triggers only on an enemy-occupied destination', () => 
       A,
     );
 
-    expect(snapshot(table.rules.apply(before, skip(from)))).toEqual(snapshot(before));
+    // Declining is the absence of a move (P51): the offer holds `endTurn`, and
+    // taking it leaves both stacks exactly where combat never happened.
+    const offer = table.rules.legalMoves(before);
+    expect(offer.some((m) => m.kind === 'endTurn')).toBe(true);
+    const after = table.rules.apply(before, endTurn());
+    expect(headsOn(after, from)).toBe(3);
+    expect(headsOn(after, e1)).toBe(3);
   });
 });
 

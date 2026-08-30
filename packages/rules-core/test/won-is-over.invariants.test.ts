@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, endTurn, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import type { GameState, Move, PlayerId, RulesPort } from '@conquarrow/contracts';
 import { headsOf, isLost, territoryCountOf } from '../src/victory';
 import { A, B, C, aBoard, bareArrow, held, seatState } from './losing.support';
@@ -80,7 +80,6 @@ const everyKindAgainst = (
   if (exit === undefined) throw new Error('setup: that state owns no second arrow');
   return [
     ['a step', step(held, exit, 1)],
-    ['a skip', skip(held)],
     ['an end of turn', endTurn()],
   ];
 };
@@ -100,7 +99,7 @@ describe('1. when `winner` is set the system shall offer no legal move', () => {
   it('offers a good deal on each of those boards before the winner is set', () => {
     // The other half of the property, and the half that keeps it from being a
     // statement about a barren board: the identical states minus `winner` all offer
-    // steps, a skip and the pass.
+    // steps and the pass.
     const live = wonStates().map(({ name, position }) => ({
       name,
       offered: position.rules.legalMoves(position.live).length > 1,

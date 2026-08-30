@@ -1,8 +1,8 @@
 # language: en
 # Overview: docs/spec/ai-move-playback/ai-move-playback.md
-# Cancel, skip, online, purity
+# Cancel, online, purity
 
-Feature: Local AI move playback — cancel, skip, seams
+Feature: Local AI move playback — cancel and seams
   As the web adapter
   I want playback to stop when the chair leaves and never invent a clock
   So that lobby, unmount, and Strict Mode cannot keep applying after cancel
@@ -28,12 +28,6 @@ Feature: Local AI move playback — cancel, skip, seams
       When applyMovesSequentially runs
       Then onApplied was called once
       And the second and third moves are not applied
-
-    Scenario: Skip in the middle still waits the gap
-      Given a planned list whose second move is skip
-      When applyMovesSequentially runs to completion
-      Then onApplied is called for the skip
-      And sleep still runs between the skip and the following move
 
   Rule: No local playback chair when it is not a local AI turn
 

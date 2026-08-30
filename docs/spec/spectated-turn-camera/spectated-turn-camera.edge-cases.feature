@@ -132,8 +132,8 @@ Feature: Spectated-turn camera — edge cases
       Then there is no target stack
       And the restore target equals the saved camera
 
-    Scenario: A turn of nothing but skips contributes no exits
-      Given a turn whose only moves were skips and an endTurn
+    Scenario: A turn in which nothing stepped contributes no exits
+      Given a turn whose only move was an endTurn
       And no selection at commit
       And the player owns a group on arrow k1 only
       When the target stack is chosen

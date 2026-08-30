@@ -186,9 +186,12 @@ describe('a four-seat match that loses three seats', () => {
       previous = now;
     }
 
+    // P51 re-recorded the hand-authored record without B's `skip` — B stands by
+    // being named nowhere — so the second boundary is move 9, one earlier. Same
+    // match, same removals, one fewer entry in the record.
     expect(removals).toEqual([
       { at: 0, gone: ['C'] },
-      { at: 10, gone: ['A', 'B', 'C'] },
+      { at: 9, gone: ['A', 'B', 'C'] },
     ]);
   });
 

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ContractViolation, skip, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -75,7 +75,7 @@ describe('the only combat trigger is stepping onto an enemy group', () => {
     expect(ownerOf(after, bIn)).toBe(B);
   });
 
-  it('fights nothing when skipping beside an enemy-occupied arrow', () => {
+  it('fights nothing when standing beside an enemy-occupied arrow', () => {
     const table = onBoard();
     const from = anArrow(table.geometry);
     const e1 = anExitFrom(table.geometry, from);
@@ -87,7 +87,10 @@ describe('the only combat trigger is stepping onto an enemy group', () => {
       A,
     );
 
-    const after = table.rules.apply(before, skip(from));
+    // No step is forced (§6.2), so a stack may stand beside an enemy all turn.
+    // Declining is the absence of a move: the seat simply ends its turn.
+    expect(table.rules.legalMoves(before).some((m) => m.kind === 'endTurn')).toBe(true);
+    const after = table.rules.apply(before, endTurn());
 
     expect(headsOn(after, from)).toBe(2);
     expect(headsOn(after, e1)).toBe(2);

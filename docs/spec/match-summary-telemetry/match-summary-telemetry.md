@@ -64,7 +64,6 @@ foldMatchSummary(summary, moves, before, after, movesLoggedBefore):
   if moves is empty: return summary
   steps    += count of kind step
   endTurns += count of kind endTurn
-  skips    += count of kind skip
   if gainers nonempty: closes += 1
   if cutVictims nonempty: cuts += 1
   if gainers nonempty and firstCloseAt is unset:
@@ -84,7 +83,6 @@ fold. `appendMoves` appends and does **not** fold.
 ```
 formatMatchSummary(s) =
   "{steps} steps · {endTurns} end-turns"
-  + (s.skips > 0 ? " · {skips} skips" : "")
   + " · {closes} closes · {cuts} cuts"
   + (s.firstCloseAt defined ? " · first close @ move {firstCloseAt}" : "")
 

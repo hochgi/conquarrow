@@ -39,7 +39,7 @@
  * @see docs/spec/won-is-over/won-is-over.md
  */
 
-import { endTurn, movesEqual, skip, step } from '@conquarrow/contracts';
+import { endTurn, movesEqual, step } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -82,7 +82,7 @@ export interface WonPosition {
   readonly ground: Ground;
   readonly geometry: GeometryPort;
   readonly rules: RulesPort;
-  /** The board with no winner. Offers `good`, `stand` and the pass — checked, below. */
+  /** The board with no winner. Offers `good` and the pass — checked, below. */
   readonly live: GameState;
   /** The same board, `winner` set, and nothing else changed. */
   readonly won: GameState;
@@ -94,8 +94,6 @@ export interface WonPosition {
   readonly bad: Move;
   /** A step whose source holds no group at all. */
   readonly sourceless: Move;
-  /** A skip of {@link stack} — legal on the live board. */
-  readonly stand: Move;
   /** The arrow {@link sourceless} departs, for asserting a message says nothing of it. */
   readonly emptyArrow: ArrowId;
 }
@@ -149,7 +147,6 @@ export const aWonPosition = (
     good: step(stack, exit, 1),
     bad: step(stack, notAnExitFrom(ground.geometry, stack, MINIMAL_DIAMETER), 1),
     sourceless: step(emptyArrow, exitsFrom(ground.geometry, emptyArrow)[0] ?? stack, 1),
-    stand: skip(stack),
     emptyArrow,
   };
   assertLivelyEnough(position);
@@ -168,7 +165,6 @@ const assertLivelyEnough = (position: WonPosition): void => {
   const offered = position.rules.legalMoves(position.live);
   for (const [name, move] of [
     ['the step', position.good],
-    ['the skip', position.stand],
     ['the pass', endTurn()],
   ] as const) {
     if (!offered.some((candidate) => movesEqual(candidate, move))) {
@@ -430,17 +426,20 @@ const assertOneMoveFromDecided = (wipe: WinningWipe): void => {
 /**
  * Historical landmarks **in the fixture**, not the current fold.
  *
- * The 2026-08-20 log still contains D's deciding step at 1242 and the `endTurn`
- * at 1243. P47's incidence flood makes the record unplayable earlier — see
+ * The 2026-08-20 log still contains D's deciding step and the `endTurn` right
+ * after it. **P51 re-recorded the fixture** without its one `skip` (originally
+ * at index 600), so every landmark past that point sits one earlier: the
+ * deciding step was 1242 and is now 1241. The record is the same match — a skip
+ * changed no state, so removing it changes no state along the fold either. P47's incidence flood makes the record unplayable earlier — see
  * {@link P47_FIRST_UNPLAYABLE}. P37/P38 behaviour (winner on the deciding move,
  * refuse the next) is proven on the hand-authored fixtures (`aMatchLosingThree`,
  * {@link aWonPosition}).
  */
-export const DECIDING_MOVE = 1242;
+export const DECIDING_MOVE = 1241;
 /** The `endTurn` right after the deciding step — accepted before P38, refused by it. */
-export const FIRST_MOVE_AFTER_THE_WIN = 1243;
+export const FIRST_MOVE_AFTER_THE_WIN = 1242;
 /** The move a seat that no longer exists makes — P37 stopped the fold here. */
-export const FIRST_MOVE_BY_A_DEAD_SEAT = 1244;
+export const FIRST_MOVE_BY_A_DEAD_SEAT = 1243;
 
 export {
   P47_FIRST_UNPLAYABLE,
