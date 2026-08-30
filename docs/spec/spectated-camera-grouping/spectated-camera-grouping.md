@@ -182,6 +182,16 @@ That is: raise the worst-framed group first, then the second worst, and so on.
   above `SPECTATE_ZOOM_MAX` is worthless on screen, so a group already at the
   ceiling ranks equal to any other capped group and the allocation spends its
   moves on a needier neighbour instead.
+
+  **D9 is a guard, not a live rule at the current spread.** Capping can only flip
+  a comparison when the smaller entries of two score vectors tie exactly, and
+  while `SPECTATE_ZOOM_MAX / SPECTATE_ZOOM_MIN < 2` (see Open question 5) two
+  adjacent groups can never both sit at the ceiling. So no reachable turn is
+  currently allocated differently because of the cap, and **no test should claim
+  to demonstrate one**: the honest assertion is that a group above the ceiling
+  *reports* `SPECTATE_ZOOM_MAX`, which is what invariants 10 and 17 mean. The
+  clamp stays because widening the spread past a factor of two would make it live
+  overnight, and finding out then would be expensive.
 - Splits are contiguous — the camera cannot revisit a neighbourhood it has left —
   so this is a one-dimensional partition with an exact answer, not a clustering
   heuristic. Nothing is re-ordered.
@@ -329,8 +339,10 @@ flowchart LR
     display scales sorted ascending are lexicographically greatest.
 16. The system shall break ties between equally scored partitions on the earliest
     split index, and shall return exactly one partition for a given input.
-17. The system shall score a partition on display scales, so that scale above
-    `SPECTATE_ZOOM_MAX` shall not influence the allocation.
+17. The system shall score a partition on display scales, so that a group framed
+    above `SPECTATE_ZOOM_MAX` shall score exactly `SPECTATE_ZOOM_MAX`. (Per D9
+    this is currently unobservable in the *choice* of partition; it is asserted on
+    the score, not on an allocation it is claimed to change.)
 18. Equal inputs shall yield equal plans, equal targets, and equal timings.
 19. The system shall derive no part of a plan from `Set` or `Map` iteration order,
     a clock, or a random source.
