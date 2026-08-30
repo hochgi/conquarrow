@@ -83,9 +83,15 @@ const theReportedTrace = (): ReturnType<typeof statesAlong> => {
   return TRACE;
 };
 
-/** Historical landmarks in the fixture — not the current fold (see P47). */
-const DECIDING_MOVE = 1242;
-const FIRST_MOVE_AFTER_THE_WIN = 1243;
+/**
+ * Historical landmarks in the fixture — not the current fold (see P47).
+ *
+ * P51 re-recorded the log without its one `skip` (originally index 600), so both
+ * sit one earlier than the 2026-08-20 record did. Kept in step with
+ * `won-is-over.support.ts`, which owns the same two numbers.
+ */
+const DECIDING_MOVE = 1241;
+const FIRST_MOVE_AFTER_THE_WIN = 1242;
 
 describe('the reported playtest log is a P47 prefix golden', () => {
   it('stops the fold at the first unplayable recorded step', () => {

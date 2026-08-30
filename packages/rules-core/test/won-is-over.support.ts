@@ -430,7 +430,9 @@ const assertOneMoveFromDecided = (wipe: WinningWipe): void => {
  * after it. **P51 re-recorded the fixture** without its one `skip` (originally
  * at index 600), so every landmark past that point sits one earlier: the
  * deciding step was 1242 and is now 1241. The record is the same match — a skip
- * changed no state, so removing it changes no state along the fold either. P47's incidence flood makes the record unplayable earlier — see
+ * changed no state, so removing it changes no state along the fold either.
+ *
+ * P47's incidence flood makes the record unplayable earlier — see
  * {@link P47_FIRST_UNPLAYABLE}. P37/P38 behaviour (winner on the deciding move,
  * refuse the next) is proven on the hand-authored fixtures (`aMatchLosingThree`,
  * {@link aWonPosition}).

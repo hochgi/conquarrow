@@ -62,8 +62,10 @@ Feature: Skip deletion — edges
       When auto-pass is evaluated
       Then end turn is applied
 
-    Scenario: A bot's offered moves are unchanged
-      Given a state whose legal moves are shown to a bot
+    Scenario: A bot's offered moves are unchanged wherever a step exists
+      Given a state whose legal moves include a step
       When the moves are rendered
       Then they are the same moves the bot was shown before this packet
-      # byokBot already filtered kind !== 'skip', so nothing it saw changes.
+      # byokBot filtered kind !== 'skip' while any step existed, so nothing it saw
+      # changes here. On a stepless board it now sees endTurn alone rather than a
+      # skip per movable group — the model could only pass either way.

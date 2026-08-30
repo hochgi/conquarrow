@@ -312,8 +312,11 @@ describe('closure is pure and deterministic', () => {
     // sits on the tail of `apply` and counts the *shares* of a seat that owns
     // ground and holds no head, which `stateOf`'s keepalive land makes true of
     // every seat that authored none. See `immediate-loss.md`, *Cost*.
-    const open = exitsFrom(geometry, last).find((exit) => exit !== landing);
-    if (open === undefined) throw new Error('setup: the last arrow has only one exit');
+    const open = exitsFrom(geometry, last).find((exit) => exit !== landing && exit !== home);
+    if (open === undefined) throw new Error('setup: the last arrow has no non-landing exit');
+    // The baseline must genuinely not close, or the delta is zero for the wrong
+    // reason: a step onto A's own ground would claim and strip the trail too.
+    expect(trailOf(rules.apply(state, step(last, open, 1)), A)).not.toEqual([]);
     const idle = vertexReadsOf(vertexReads, () => {
       rules.apply(state, step(last, open, 1));
     });

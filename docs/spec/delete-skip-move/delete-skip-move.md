@@ -63,9 +63,14 @@ Three near-misses, each checked and each genuinely inert:
    [`matchLog.ts:171`](../../../packages/web/src/matchLog.ts) renders the count
    only `if (summary.skips > 0)`, and after P50 nothing increments it — the line
    is already unreachable. Removing the field removes dead output.
-3. **The bot never saw one.** [`byokBot.ts:97`](../../../packages/web/src/byokBot.ts)
-   already does `moves.filter((m) => m.kind !== 'skip')`, so no model has ever
-   been offered a skip.
+3. **The bot all but never saw one.**
+   [`byokBot.ts:97`](../../../packages/web/src/byokBot.ts) did
+   `moves.filter((m) => m.kind !== 'skip')`, but only `while any step exists`, so
+   on a **stepless** board the model was shown the skips. That is the same corner
+   as near-miss 1, and it is the one place a model's prompt changes: it now sees
+   `[endTurn]` where it used to see a skip per movable group plus `endTurn`. The
+   model could only pass either way, so no play changes; `movesForLlm` becomes the
+   identity and is kept as the named seam that decides what a model sees.
 
 The one *observable* change is at the decode boundary, and it is deliberate.
 

@@ -74,12 +74,19 @@ const asGroup = (
  * mistook a finished match for a live one is told that, rather than handed a
  * movement diagnostic about an arrow nobody read.
  */
-/** A record naming a kind the vocabulary does not have — a stale `skip`, say. */
-const unknownMove = (move: never): string =>
-  `no such move kind: ${String((move as { readonly kind?: unknown }).kind)}`;
-
 const matchOver = (winner: PlayerId): string =>
   `the match is over: ${String(winner)} has won`;
+
+/**
+ * A record naming a kind the vocabulary does not have — a stale `skip`, say.
+ *
+ * `never` because both arms of {@link Move} are handled above it: this is
+ * unreachable by type, and reachable only by a value that lied about its shape
+ * on the way in from a log or a wire. Refusing rather than absorbing it is the
+ * P51 decision — a stale record is rejected, never translated.
+ */
+const unknownMove = (move: never): string =>
+  `no such move kind: ${String((move as { readonly kind?: unknown }).kind)}`;
 
 /**
  * The offer list of a won match: nothing, not even the pass.

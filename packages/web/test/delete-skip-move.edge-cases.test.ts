@@ -65,11 +65,14 @@ describe('Consumers that filtered skip are unaffected', () => {
     expect(passIfExhausted(withStep, state).moves).toEqual([]);
   });
 
-  it('A bots offered moves are unchanged', () => {
+  it('A bots offered moves are unchanged wherever a step exists', () => {
     const offer: readonly Move[] = [step(FROM, TO, 1), endTurn()];
 
-    // Same moves as before the packet, because the bot never saw a skip: it
-    // filtered them out itself. With no skip to filter, the offer passes through.
+    // Same moves as before the packet: byokBot filtered the skips out itself
+    // while any step existed. With no skip to filter, the offer passes through.
+    // On a stepless board the model now sees `[endTurn]` rather than a skip per
+    // movable group — it could only pass either way. See the overview,
+    // "Behavioural delta", near-miss 3.
     expect(movesForLlm(offer)).toEqual(offer);
     expect(codeOf(sourceOf('byokBot.ts'))).not.toContain('skip');
   });

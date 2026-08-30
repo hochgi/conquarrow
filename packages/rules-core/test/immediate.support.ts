@@ -154,7 +154,8 @@ const asMove = (logged: LoggedMove): Move => {
  * standing. On this log that demotes an E trail on F land to stack-grade, so
  * P28 refuses E's recorded step `3,-4,0 → 4,-4,0` (zero-based **233**). The log
  * is a **prefix golden** of that length, not a full-match golden. P37/P38
- * (winner at 1242, refuse at 1243) stay proven on `aMatchLosingThree` and
+ * (winner at 1241, refuse at 1242 — P51 shifted both by one) stay proven on
+ * `aMatchLosingThree` and
  * `aWonPosition`.
  *
  * Measured once: `statesAlong(rules, playtestLog().opening, playtestLog().moves).refusedAt`.

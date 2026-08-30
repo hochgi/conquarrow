@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, speed, step } from '@conquarrow/contracts';
+import { ContractViolation, endTurn, speed, step } from '@conquarrow/contracts';
 import type { GameState, Move } from '@conquarrow/contracts';
 import { MINIMAL, fixtureArrow } from '@conquarrow/geometry-fixtures';
 import { replay } from '../src/replay';
@@ -87,14 +87,16 @@ describe('Applying a deleted kind is not a silent no-op', () => {
     const before = snapshot(state);
 
     let returned: GameState | undefined;
-    let refused = false;
+    let thrown: unknown;
     try {
       returned = table.rules.apply(state, skipShaped(a1));
-    } catch {
-      refused = true;
+    } catch (error) {
+      thrown = error;
     }
 
-    expect(refused).toBe(true);
+    // The type, not a bare throw: a skeleton's `Error('not implemented')` would
+    // satisfy `.toThrow()` and satisfy it forever (contracts/errors.ts).
+    expect(thrown).toBeInstanceOf(ContractViolation);
     expect(returned).toBeUndefined();
     // The input is untouched either way — the core never mutates what it is given.
     expect(snapshot(state)).toEqual(before);

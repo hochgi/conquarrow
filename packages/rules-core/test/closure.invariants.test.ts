@@ -191,8 +191,11 @@ describe('commit writes territory and strips every trail on claimed arrows', () 
 
     // No move does nothing (P51), so the baseline is a step that lands nowhere
     // this seat owns — the same work minus the closure.
-    const open = exitsFrom(geometry, last).find((exit) => exit !== landing);
-    if (open === undefined) throw new Error('setup: the last arrow has only one exit');
+    const open = exitsFrom(geometry, last).find((exit) => exit !== landing && exit !== home);
+    if (open === undefined) throw new Error('setup: the last arrow has no non-landing exit');
+    // The baseline must genuinely not close, or the delta is zero for the wrong
+    // reason: a step onto A's own ground would claim and strip the trail too.
+    expect(trailOf(rules.apply(s0, step(last, open, 1)), A)).not.toEqual([]);
     const idle = vertexReadsOf(vertexReads, () => {
       rules.apply(s0, step(last, open, 1));
     });
