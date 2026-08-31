@@ -21,7 +21,6 @@
  */
 
 import type {
-  ArrowId,
   GameState,
   GeometryPort,
   Move,
@@ -29,13 +28,14 @@ import type {
   RulesPort,
   StepMove,
 } from '@conquarrow/contracts';
-import { endTurn, speed } from '@conquarrow/contracts';
+import { closeUrgency, distanceToTerritory, evaluate } from './botEvaluate';
+import { chooseTurnBeam } from './botSearch';
 import { bestFindingMove } from './findings';
 import { playLayout } from './playLayout';
 
+export { closeUrgency, distanceToTerritory, evaluate };
+
 const MAX_CANDIDATES = 64;
-const MAX_MOVES_PER_TURN = 64;
-const DIST_CAP = 16;
 
 const moveKey = (move: Move): string => {
   switch (move.kind) {
@@ -52,12 +52,6 @@ const compareMoves = (left: Move, right: Move): number => {
   return a < b ? -1 : a > b ? 1 : 0;
 };
 
-const headsOf = (state: GameState, player: PlayerId): number => {
-  let n = 0;
-  for (const group of state.groups.values()) if (group.owner === player) n += group.heads;
-  return n;
-};
-
 const territoryOf = (state: GameState, player: PlayerId): number => {
   let n = 0;
   for (const owner of state.territory.values()) if (owner === player) n += 1;
@@ -66,151 +60,6 @@ const territoryOf = (state: GameState, player: PlayerId): number => {
 
 const trailOf = (state: GameState, player: PlayerId): number =>
   state.trails.get(player)?.size ?? 0;
-
-const sharesOf = (
-  geometry: GeometryPort,
-  state: GameState,
-  player: PlayerId,
-): number => {
-  let n = 0;
-  const vertices = [...state.spawners.keys()].toSorted((a, b) =>
-    String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0,
-  );
-  for (const vertex of vertices) {
-    for (const arrow of [...geometry.borderArrows(vertex)].toSorted((a, b) =>
-      String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0,
-    )) {
-      if (state.territory.get(arrow) === player) n += 1;
-    }
-  }
-  return n;
-};
-
-/** Rises with trail length — bias toward returning / claiming, not toward passing. */
-export const closeUrgency = (trailLen: number): number => {
-  if (trailLen <= 2) return 0;
-  return Math.min(100, (trailLen - 2) * 12);
-};
-
-/**
- * Shortest path length along out-arrows to an arrow of `me`'s territory.
- * Movement must follow the grain, so this is the real "how far to a close".
- */
-export const distanceToTerritory = (
-  geometry: GeometryPort,
-  state: GameState,
-  me: PlayerId,
-  start: ArrowId,
-  cap = DIST_CAP,
-): number => {
-  if (state.territory.get(start) === me) return 0;
-  const seen = new Set<string>([String(start)]);
-  let frontier: ArrowId[] = [start];
-  for (let d = 1; d <= cap; d += 1) {
-    const next: ArrowId[] = [];
-    for (const arrow of frontier) {
-      for (const exit of geometry.outArrows(geometry.target(arrow))) {
-        const key = String(exit);
-        if (seen.has(key)) continue;
-        if (state.territory.get(exit) === me) return d;
-        seen.add(key);
-        next.push(exit);
-      }
-    }
-    if (next.length === 0) break;
-    frontier = next;
-  }
-  return cap + 1;
-};
-
-const stackShapeScore = (state: GameState, me: PlayerId, rules: RulesPort): number => {
-  let score = 0;
-  const steppable = new Set<ArrowId>();
-  for (const m of rules.legalMoves(state)) {
-    if (m.kind === 'step') steppable.add(m.from);
-  }
-  for (const [arrow, group] of state.groups) {
-    if (group.owner !== me) continue;
-    if (group.heads === 2) score += 45;
-    else if (group.heads === 1) {
-      score -= 18;
-      const canAct = group.spent < speed(1) && steppable.has(arrow);
-      const onTrail = state.trails.get(me)?.has(arrow) ?? false;
-      if (!canAct && onTrail) score -= 90;
-      else if (onTrail) score -= 35;
-    } else if (group.heads === 3) score += 6;
-    else if (group.heads >= 4) score += 18;
-  }
-  return score;
-};
-
-export const evaluate = (
-  geometry: GeometryPort,
-  state: GameState,
-  me: PlayerId,
-  rules?: RulesPort,
-): number => {
-  if (state.winner === me) return 1_000_000;
-  if (state.winner !== undefined) return -1_000_000;
-
-  let enemyHeads = 0;
-  for (const group of state.groups.values()) {
-    if (group.owner !== me) enemyHeads += group.heads;
-  }
-
-  const territory = territoryOf(state, me);
-  let enemyTerritory = 0;
-  for (const owner of state.territory.values()) {
-    if (owner !== me) enemyTerritory += 1;
-  }
-
-  const trail = trailOf(state, me);
-  let enemyTrail = 0;
-  for (const [player, set] of state.trails) {
-    if (player !== me) enemyTrail += set.size;
-  }
-
-  const shares = sharesOf(geometry, state, me);
-  let enemyShares = 0;
-  for (const player of state.players) {
-    if (player !== me) enemyShares += sharesOf(geometry, state, player);
-  }
-
-  // P36: starvation is per seat. Every enemy clock is good for us, ours is bad.
-  // Read through `players`, never the map's own key order.
-  let domination = 0;
-  for (const player of state.players) {
-    const streak = state.starvationStreaks.get(player) ?? 0;
-    domination += player === me ? -streak * 200 : streak * 200;
-  }
-
-  // Tip pressure: sum of distances for groups sitting on our open trail.
-  let tipPressure = 0;
-  for (const [arrow, group] of state.groups) {
-    if (group.owner !== me) continue;
-    if (!(state.trails.get(me)?.has(arrow) ?? false)) continue;
-    tipPressure += distanceToTerritory(geometry, state, me, arrow);
-  }
-  const urgency = closeUrgency(trail);
-  const tipTerm = -tipPressure * (5 + Math.floor(urgency / 16));
-
-  const shape = rules === undefined ? 0 : stackShapeScore(state, me, rules);
-
-  return (
-    headsOf(state, me) * 120 -
-    enemyHeads * 120 +
-    territory * 25 -
-    enemyTerritory * 18 +
-    shares * 100 -
-    enemyShares * 90 +
-    // Open trail is a cut surface once long — but never so toxic we prefer idling.
-    trail * 1 -
-    enemyTrail * 8 +
-    tipTerm +
-    domination +
-    shape
-  );
-};
 
 const strategicCounts = (maxCount: number): readonly number[] => {
   const counts = new Set<number>();
@@ -434,18 +283,8 @@ export const playBotTurn = (
   if (state.activePlayer !== me || state.winner !== undefined) {
     return { state, moves: [] };
   }
-  const moves: Move[] = [];
+  const moves = chooseTurnBeam(geometry, rules, state, me);
   let at = state;
-  for (let i = 0; i < MAX_MOVES_PER_TURN; i += 1) {
-    if (at.winner !== undefined || at.activePlayer !== me) break;
-    const move = chooseMove(geometry, rules, at, me);
-    at = rules.apply(at, move);
-    moves.push(move);
-  }
-  if (at.winner === undefined && at.activePlayer === me) {
-    const forced = endTurn();
-    at = rules.apply(at, forced);
-    moves.push(forced);
-  }
+  for (const move of moves) at = rules.apply(at, move);
   return { state: at, moves };
 };

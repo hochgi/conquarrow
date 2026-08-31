@@ -91,3 +91,23 @@ _Avoid_: conveyor (that is the priced, deliberate manoeuvre of SPEC §3), split,
 **box**:
 Denying a group every legal exit, so no step it could take is allowed. Not a rule of its own — the standing consequence of territory-illegal steps and a lone head being unable to attack. A boxed group is immobile until something around it changes, and can be closed around and converted.
 _Avoid_: trap, pin, stranded (a stranded group still has somewhere to go)
+
+**chooseTurn**:
+The adapter function that returns one seat's full turn as an ordered list of moves ending in endTurn. greedy-v1 and beam-v1 are the two implementations. Not a contracts port.
+_Avoid_: strategy registry, difficulty picker, AI port
+
+**greedy-v1**:
+The frozen per-step chooser loop — today's chooseMove until the seat is handed back. Baseline for head-to-head. Still short-circuits on findings. Still never passes while a step is legal.
+_Avoid_: the live local heuristic (that is beam-v1)
+
+**beam-v1**:
+Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans.
+_Avoid_: minimax, opponent ply (that is P55)
+
+**turn plan**:
+An ordered list of moves for one seat, last move endTurn. The unit beam-v1 searches.
+_Avoid_: burst (online Lambda), playback (P30 presents a plan)
+
+**mobility**:
+The evaluate term: for each group, sign by whether we own it, times heads, times how many distinct legal exits it has. The gradient that makes a box visible inside one turn.
+_Avoid_: allowance, speed, trapped
