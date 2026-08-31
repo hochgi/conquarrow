@@ -439,12 +439,12 @@ export type PassPosition = {
   readonly Bot: PlayerId;
 };
 
-const isolateHome = (opening: GameState, Bot: PlayerId, home: ArrowId): GameState => {
+const isolateHome = (opening: GameState, Bot: PlayerId, home: ArrowId, heads: number): GameState => {
   const territory = new Map(
     [...opening.territory.entries()].filter(([arrow, owner]) => owner !== Bot || arrow === home),
   );
   return {
-    ...replaceBotGroups(opening, Bot, new Map([[home, { owner: Bot, heads: 2, spent: 0 }]])),
+    ...replaceBotGroups(opening, Bot, new Map([[home, { owner: Bot, heads, spent: 0 }]])),
     activePlayer: Bot,
     territory,
   };
@@ -456,7 +456,9 @@ export const passIsBestPosition = (): PassPosition => {
   const Bot = requireSeat(opening, 1, 'Bot');
   const home = [...opening.groups.entries()].find(([, g]) => g.owner === Bot)?.[0];
   if (home === undefined) throw new Error('setup: Bot has no home group');
-  const state = isolateHome(opening, Bot, home);
+  // A lone home 1-stack: walking onto trail is worse than waiting. A 2-stack
+  // here is the P55 playtest freeze (leaving must beat passing).
+  const state = isolateHome(opening, Bot, home, 1);
   const passEv = evaluate(geometry, rules.apply(state, endTurn()), Bot, rules);
   const steps = legalSteps(state);
   if (steps.length === 0) throw new Error('setup: pass position has no legal step');
@@ -473,29 +475,34 @@ export const passWithManyStepsPosition = (): PassPosition => {
   const Bot = requireSeat(opening, 1, 'Bot');
   const home = [...opening.groups.entries()].find(([, g]) => g.owner === Bot)?.[0];
   if (home === undefined) throw new Error('setup: Bot has no home group');
-  const extra = geometry
-    .window(geometry.origin(home), 4)
-    .arrows.find(
-      (a) =>
-        a !== home &&
-        opening.territory.get(a) === undefined &&
-        !opening.groups.has(a) &&
-        !outsOf(home).includes(a) &&
-        !outsOf(a).includes(home),
-    );
-  if (extra === undefined) throw new Error('setup: no extra arrow for a second group');
+  const extras: ArrowId[] = [];
+  const blocked = new Set<string>([String(home)]);
+  for (const a of geometry.window(geometry.origin(home), 4).arrows) {
+    if (blocked.has(String(a))) continue;
+    if (opening.territory.get(a) !== undefined) continue;
+    if (opening.groups.has(a)) continue;
+    if (outsOf(home).includes(a) || outsOf(a).includes(home)) continue;
+    if (extras.some((e) => outsOf(e).includes(a) || outsOf(a).includes(e))) continue;
+    extras.push(a);
+    blocked.add(String(a));
+    if (extras.length === 2) break;
+  }
+  if (extras.length < 2) throw new Error('setup: need two extra 1-stack sites');
   const territory = new Map(
     [...opening.territory.entries()].filter(([arrow, owner]) => owner !== Bot || arrow === home),
   );
   territory.set(home, Bot);
-  territory.set(extra, Bot);
+  for (const extra of extras) territory.set(extra, Bot);
+  const botGroups = new Map<ArrowId, Group>([
+    [home, { owner: Bot, heads: 1, spent: 0 }],
+    ...extras.map((arrow) => [arrow, { owner: Bot, heads: 1, spent: 0 }] as const),
+  ]);
   const state: GameState = {
     ...opening,
     activePlayer: Bot,
     territory,
     groups: new Map([
-      [home, { owner: Bot, heads: 2, spent: 0 }],
-      [extra, { owner: Bot, heads: 1, spent: 0 }],
+      ...botGroups,
       ...[...opening.groups.entries()].filter(([, g]) => g.owner !== Bot),
     ]),
   };
@@ -697,4 +704,47 @@ export const openingBotState = (): { readonly state: GameState; readonly Bot: Pl
   const opening = makeMatch();
   const Bot = requireSeat(opening, 1, 'Bot');
   return { state: { ...opening, activePlayer: Bot }, Bot };
+};
+
+/** Config of the 2026-08-31 first playtest after P53–P55. */
+export const PLAYTEST_P55_CONFIG = {
+  dominationN: 5,
+  R: 7,
+  homeOffset: 5,
+  playerCount: 6,
+  spawnerSeed: 1,
+} as const;
+
+/**
+ * First round of that playtest, through the human's endTurn. Heuristic seats
+ * milled a 2-stack onto a sibling home arrow; the human left home.
+ */
+export const playtestP55OpeningMoves = (): Move[] => [
+  step(mintArrowId('tiling:a:5,0,0'), mintArrowId('tiling:a:6,0,1'), 2),
+  endTurn(),
+  step(mintArrowId('tiling:a:0,5,0'), mintArrowId('tiling:a:1,5,1'), 2),
+  endTurn(),
+  step(mintArrowId('tiling:a:-4,5,1'), mintArrowId('tiling:a:-5,6,2'), 2),
+  endTurn(),
+  step(mintArrowId('tiling:a:-4,0,1'), mintArrowId('tiling:a:-5,1,2'), 2),
+  endTurn(),
+  step(mintArrowId('tiling:a:0,-4,2'), mintArrowId('tiling:a:0,-5,0'), 2),
+  endTurn(),
+  step(mintArrowId('tiling:a:5,-4,2'), mintArrowId('tiling:a:5,-5,2'), 1),
+  step(mintArrowId('tiling:a:5,-4,2'), mintArrowId('tiling:a:5,-5,1'), 2),
+  step(mintArrowId('tiling:a:5,-5,1'), mintArrowId('tiling:a:4,-4,1'), 2),
+  endTurn(),
+];
+
+export const afterPlaytestP55HumanTurn = (): {
+  readonly state: GameState;
+  readonly me: PlayerId;
+} => {
+  const opening = makeMatch(PLAYTEST_P55_CONFIG);
+  const me = requireSeat(opening, 0, 'A');
+  const state = foldPlan(opening, playtestP55OpeningMoves());
+  if (state.activePlayer !== me) {
+    throw new Error('setup: expected seat A after the playtest first round');
+  }
+  return { state, me };
 };

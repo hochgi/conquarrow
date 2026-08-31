@@ -71,9 +71,16 @@ Feature: Bot turn search — stride by searching a whole turn
 
     Scenario: endTurn is chosen while steps remain when passing evaluates best
       Given Bot has at least one legal step
-      And every one-step terminal evaluates strictly worse than endTurn on the current state
+      And every stepped complete evaluates worse than endTurn by more than IDLE_SLACK
       When chooseTurnBeam runs
       Then the plan is only endTurn
+
+    Scenario: After a home-pinwheel mill the bot still leaves
+      Given the 6-seat generated opening
+      And the committed 2026-08-31 P55 playtest first round has been applied
+      And the active seat has a legal step
+      When chooseTurnBeam runs
+      Then the plan contains a step
 
   Rule: Measuring stick
 

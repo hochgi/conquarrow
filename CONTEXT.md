@@ -101,8 +101,12 @@ The frozen per-step chooser loop — today's chooseMove until the seat is handed
 _Avoid_: the live local heuristic (that is beam-v1)
 
 **beam-v1**:
-Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans.
+Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans. A pass must beat the best stepped complete by more than IDLE_SLACK or the stepped plan wins (playtest 2026-08-31: pinwheel freeze).
 _Avoid_: minimax, opponent ply (that is P55)
+
+**IDLE_SLACK**:
+Sixteen evaluate points. beam-v1 will still pass when walking a lone tip onto trail is clearly worse; it will not pass when the first step off the home pinwheel is only slightly worse than sitting.
+_Avoid_: never-pass (that is greedy-v1), a new evaluate term
 
 **turn plan**:
 An ordered list of moves for one seat, last move endTurn. The unit beam-v1 searches.

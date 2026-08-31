@@ -84,7 +84,9 @@ re-litigate them.
 7. **Budgets** (opening bids, named exports): `BEAM = 8`, `BRANCH = 6`,
    `MAX_PLAN = 8` (including the terminating `endTurn`), `MAX_APPLIES = 2000`
    (successful `rules.apply` calls inside one `chooseTurn`, not playback —
-   including `collectFindings` on the capped port).
+   including `collectFindings` on the capped port). `IDLE_SLACK = 16`: a
+   pass must beat the best stepped complete by more than this or the
+   stepped plan wins (playtest 2026-08-31 pinwheel freeze).
 8. **Cap / horizon.** On `MAX_APPLIES` exhaustion or no extendable plan:
    return the best complete found so far (evaluate desc, then `planKey` asc).
    If none is complete, append `endTurn` to the best incomplete — that one
@@ -166,6 +168,7 @@ export const BRANCH = 6;
 export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
 export const MOBILITY_SCALE = 16;
+export const IDLE_SLACK = 16;
 
 export const chooseTurnGreedy: ChooseTurn; // greedy-v1
 export const chooseTurnBeam: ChooseTurn;   // beam-v1
@@ -281,6 +284,9 @@ chooseTurnBeam(state):
 
   if best is undefined:
     considerEnd(best incomplete in beam, or the seed)
+  if best is [endTurn] and a stepped complete exists
+     and score(best) − score(bestStepped) ≤ IDLE_SLACK:
+    return bestStepped.moves
   return best.moves
 ```
 
@@ -308,6 +314,15 @@ exits raise the score; an enemy group with none (a **box**) raises it by
 position. Size scaling is what makes boxing a 3-stack the 6-head-shaped
 swing the packet wants the gradient to hint at — conversion itself stays
 several turns away (P55 / §6.3).
+
+## Idle slack (normative)
+
+Playtest 2026-08-31 (after P53–P55): `tipTerm` made the first step off the
+home pinwheel score ~9–14 below `[endTurn]`, so `beam-v1` froze. Greedy-v1
+never-passes; beam-v1 still may pass when that is clearly better (a lone
+tip walking onto trail). A pass must beat the best stepped complete by
+more than `IDLE_SLACK = 16` (one `MOBILITY_SCALE`) or the search returns
+that stepped plan.
 
 ## `pnpm bots` (advisory)
 
@@ -375,8 +390,9 @@ flowchart TD
 10. When an enemy 1-stack has one open exit and its other exits are the
     bot's territory, and the bot can occupy that open arrow this turn without
     a competing share/close, `beam-v1` shall put a head on that arrow.
-11. When every legal step's terminal `evaluate` is strictly worse than
-    passing, `beam-v1` shall return `[endTurn]` even though steps are legal.
+11. When every legal step's terminal `evaluate` is worse than passing by
+    more than `IDLE_SLACK`, `beam-v1` shall return `[endTurn]` even though
+    steps are legal.
 12. WHILE `greedy-v1`'s `chooseMove` sees a legal step, the system shall not
     return `endTurn` from `chooseMove`.
 13. The system shall not let `bestFindingMove` short-circuit `beam-v1`: a
@@ -399,6 +415,11 @@ flowchart TD
 21. Returned plans shall be a prefix of legal moves from the start state,
     each applied to the state produced by the previous, last move handing
     the seat or ending the match.
+22. When a 6-seat opening has taken the 2026-08-31 playtest first round
+    (heuristic seats milled a 2-stack onto a sibling home arrow; the human
+    left home) and the next heuristic seat still has a legal step,
+    `beam-v1` shall include a `step`. Sitting on the home pinwheel must not
+    evaluate as a pass.
 
 ## What this file deliberately does not decide
 
