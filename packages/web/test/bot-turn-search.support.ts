@@ -82,6 +82,20 @@ export const foldPlan = (state: GameState, moves: readonly Move[]): GameState =>
   return at;
 };
 
+/** True if some step lands on an arrow that is not `me`'s territory at that moment. */
+export const planDepartsTerritory = (
+  start: GameState,
+  moves: readonly Move[],
+  me: PlayerId,
+): boolean => {
+  let at = start;
+  for (const move of moves) {
+    if (move.kind === 'step' && at.territory.get(move.exit) !== me) return true;
+    at = rules.apply(at, move);
+  }
+  return false;
+};
+
 export const planIsLegalSequence = (
   start: GameState,
   moves: readonly Move[],
@@ -745,6 +759,23 @@ export const afterPlaytestP55HumanTurn = (): {
   const state = foldPlan(opening, playtestP55OpeningMoves());
   if (state.activePlayer !== me) {
     throw new Error('setup: expected seat A after the playtest first round');
+  }
+  return { state, me };
+};
+
+/** Generated 6-seat opening: active seat still has the home 3-stack. */
+export const openingSixSeatHome = (): {
+  readonly state: GameState;
+  readonly me: PlayerId;
+} => {
+  const state = makeMatch(PLAYTEST_P55_CONFIG);
+  const me = state.activePlayer;
+  const home = [...state.groups.entries()].find(([, g]) => g.owner === me);
+  if (home === undefined || home[1].heads !== 3) {
+    throw new Error('setup: expected a home 3-stack for the active seat');
+  }
+  if (state.territory.get(home[0]) !== me) {
+    throw new Error('setup: home 3-stack is not on own territory');
   }
   return { state, me };
 };

@@ -80,7 +80,13 @@ Feature: Bot turn search — stride by searching a whole turn
       And the committed 2026-08-31 P55 playtest first round has been applied
       And the active seat has a legal step
       When chooseTurnBeam runs
-      Then the plan contains a step
+      Then some step lands on an arrow that is not that seat's territory
+
+    Scenario: An opening home 3-stack leaves rather than milling the pinwheel
+      Given the 6-seat generated opening
+      And the active seat has a 3-stack on its home pinwheel
+      When chooseTurnBeam runs
+      Then some step lands on an arrow that is not that seat's territory
 
   Rule: Measuring stick
 

@@ -19,6 +19,7 @@ import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
   enterBeamSearch,
+  hypothesiseChair,
   inBeamSearch,
   leaveBeamSearch,
   REPLY_BEAM,
@@ -56,6 +57,8 @@ export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
 /** Prefer a stepped plan over `[endTurn]` unless passing is better by more than this. */
 export const IDLE_SLACK = MOBILITY_SCALE;
+/** Prefer a leave over a home-pinwheel mill unless the mill is better by more than this. */
+export const SORTIE_SLACK = MOBILITY_SCALE;
 export {
   REPLY_BEAM,
   REPLY_BRANCH,
@@ -138,6 +141,10 @@ type Search = {
   applies: number;
   best: CompletePlan | undefined;
   bestStepped: CompletePlan | undefined;
+  bestSortie: CompletePlan | undefined;
+  readonly origin: GameState;
+  /** Tiny home, no trail, no threatened departing exit — else skip sortie tracking. */
+  readonly trackSortie: boolean;
   readonly geometry: GeometryPort;
   rules: RulesPort;
   readonly inner: RulesPort;
@@ -224,6 +231,86 @@ const planHasStep = (moves: readonly Move[]): boolean =>
 const isIdlePlan = (moves: readonly Move[]): boolean =>
   moves.length === 1 && moves[0]?.kind === 'endTurn';
 
+const ownedTerritory = (state: GameState, me: PlayerId): number => {
+  let n = 0;
+  for (const owner of state.territory.values()) if (owner === me) n += 1;
+  return n;
+};
+
+/** Left home, closed, or still stands off own territory. */
+const isSortieTerminal = (origin: GameState, terminal: GameState, me: PlayerId): boolean => {
+  if ((terminal.trails.get(me)?.size ?? 0) > (origin.trails.get(me)?.size ?? 0)) return true;
+  if (ownedTerritory(terminal, me) > ownedTerritory(origin, me)) return true;
+  for (const [arrow, group] of terminal.groups) {
+    if (group.owner === me && terminal.territory.get(arrow) !== me) return true;
+  }
+  return false;
+};
+
+const pinnedToSmallHome = (state: GameState, me: PlayerId): boolean =>
+  (state.trails.get(me)?.size ?? 0) === 0 && ownedTerritory(state, me) <= 3;
+
+const threatenedExits = (
+  origin: GameState,
+  me: PlayerId,
+  rules: RulesPort,
+): ReadonlySet<string> => {
+  const out = new Set<string>();
+  for (const enemy of origin.players) {
+    if (enemy === me) continue;
+    for (const move of rules.legalMoves(hypothesiseChair(origin, enemy))) {
+      if (move.kind === 'step') out.add(String(move.exit));
+    }
+  }
+  return out;
+};
+
+const departingExitIsThreatened = (
+  origin: GameState,
+  me: PlayerId,
+  rules: RulesPort,
+): boolean => {
+  const threatened = threatenedExits(origin, me, rules);
+  for (const move of rules.legalMoves(origin)) {
+    if (move.kind !== 'step') continue;
+    if (origin.territory.get(move.exit) === me) continue;
+    if (threatened.has(String(move.exit))) return true;
+  }
+  return false;
+};
+
+const pickReturnedPlan = (
+  search: Search,
+  geometry: GeometryPort,
+  me: PlayerId,
+): CompletePlan | undefined => {
+  let chosen = search.best;
+  const stepped = search.bestStepped;
+  if (
+    chosen !== undefined &&
+    stepped !== undefined &&
+    isIdlePlan(chosen.moves) &&
+    completeScore(geometry, search.inner, me, chosen) -
+      completeScore(geometry, search.inner, me, stepped) <=
+      IDLE_SLACK
+  ) {
+    chosen = stepped;
+  }
+  const sortie = search.bestSortie;
+  if (
+    search.trackSortie &&
+    chosen !== undefined &&
+    sortie !== undefined &&
+    !isSortieTerminal(search.origin, chosen.state, me) &&
+    completeScore(geometry, search.inner, me, chosen) -
+      completeScore(geometry, search.inner, me, sortie) <=
+      SORTIE_SLACK
+  ) {
+    chosen = sortie;
+  }
+  return chosen;
+};
+
 const adoptComplete = (search: Search, child: CompletePlan): void => {
   const scored = search.withReplies ? scoreWithReplies(search, child) : child;
   search.best =
@@ -239,6 +326,18 @@ const adoptComplete = (search: Search, child: CompletePlan): void => {
             search.me,
             search.inner,
             search.bestStepped,
+            scored,
+          );
+  }
+  if (search.trackSortie && isSortieTerminal(search.origin, scored.state, search.me)) {
+    search.bestSortie =
+      search.bestSortie === undefined
+        ? scored
+        : pickBetterComplete(
+            search.geometry,
+            search.me,
+            search.inner,
+            search.bestSortie,
             scored,
           );
   }
@@ -424,6 +523,10 @@ export const chooseTurnBeamWithBudget: (
     applies: 0,
     best: undefined,
     bestStepped: undefined,
+    bestSortie: undefined,
+    origin: state,
+    trackSortie:
+      pinnedToSmallHome(state, me) && !departingExitIsThreatened(state, me, rules),
     geometry,
     rules,
     inner: rules,
@@ -445,19 +548,7 @@ export const chooseTurnBeamWithBudget: (
     const fallback = rankIncompletes(search, beam)[0] ?? seed;
     considerEnd(search, fallback);
   }
-  const best = search.best;
-  const stepped = search.bestStepped;
-  if (
-    best !== undefined &&
-    stepped !== undefined &&
-    isIdlePlan(best.moves) &&
-    completeScore(geometry, search.inner, me, best) -
-      completeScore(geometry, search.inner, me, stepped) <=
-      IDLE_SLACK
-  ) {
-    return stepped.moves;
-  }
-  return best?.moves ?? [endTurn()];
+  return pickReturnedPlan(search, geometry, me)?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
   }
