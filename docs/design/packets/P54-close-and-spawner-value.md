@@ -1,5 +1,7 @@
 # P54 — Closing and spawner value
 
+**Spec:** [`docs/spec/close-and-spawner-value/`](../../spec/close-and-spawner-value/close-and-spawner-value.md).
+
 **Layer:** `web` adapter only. No `contracts`, `rules-core`, or `online-api`
 change. **No game rule is added, changed, or implied.** Nothing is owed to
 SPEC §11.
@@ -38,7 +40,9 @@ the bot expresses the trade.
 ### 1. Close value is a rate, discounted by survival
 
 ```
-value(plan) = (shares × S + arrows × A) / turnsToClose × survival(exposure)
+shareTerm(n) = S × n × (n + 1) / 2
+loot = shareTerm(shares) + arrows × A
+closeValue = loot / turnsToClose × survival(exposure, turnsToClose)
 ```
 
 `turnsToClose` is the real clock, so a 2-turn close of one share beats a 6-turn

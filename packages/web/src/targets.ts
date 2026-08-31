@@ -15,6 +15,7 @@ import type {
   RulesPort,
   StepMove,
 } from '@conquarrow/contracts';
+import { distanceToTerritory } from './botEvaluate';
 import {
   collectFindings,
   grainDistance,
@@ -55,6 +56,14 @@ const lockStillValid = (
 ): boolean => {
   const group = state.groups.get(finding.from);
   if (group === undefined || group.owner !== me) return false;
+  if (finding.kind === 'close_path') {
+    if (state.territory.get(finding.goal) !== me) return false;
+    const d0 = distanceToTerritory(geometry, state, me, finding.from, caps.distCap);
+    return rules.legalMoves(state).some((m) => {
+      if (m.kind !== 'step' || m.from !== finding.from) return false;
+      return distanceToTerritory(geometry, state, me, m.exit, caps.distCap) < d0;
+    });
+  }
   if (finding.kind === 'claim_share' || finding.kind === 'approach_spawner') {
     if (state.territory.get(finding.goal) !== undefined) return false;
     const d = grainDistance(geometry, finding.from, finding.goal, caps.distCap);

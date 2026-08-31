@@ -63,6 +63,70 @@ export const closeUrgency = (trailLen: number): number => {
   return Math.min(100, (trailLen - 2) * 12);
 };
 
+export type HomewardPath = {
+  readonly distance: number;
+  readonly landing: ArrowId | undefined;
+  readonly path: readonly ArrowId[];
+};
+
+const reconstructHomeward = (
+  cameFrom: ReadonlyMap<string, ArrowId>,
+  start: ArrowId,
+  last: ArrowId,
+): ArrowId[] => {
+  const rev: ArrowId[] = [last];
+  let cur = last;
+  while (cur !== start) {
+    const prev = cameFrom.get(String(cur));
+    if (prev === undefined) break;
+    rev.push(prev);
+    cur = prev;
+  }
+  return rev.toReversed();
+};
+
+/**
+ * Grain BFS from `start` to the first own-territory arrow.
+ * `path` is start through the predecessor (excludes the landing).
+ * {@link distanceToTerritory} is this search's distance.
+ */
+export const homewardPath = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  start: ArrowId,
+  cap = DIST_CAP,
+): HomewardPath => {
+  if (state.territory.get(start) === me) {
+    return { distance: 0, landing: start, path: [] };
+  }
+  const seen = new Set<string>([String(start)]);
+  const cameFrom = new Map<string, ArrowId>();
+  let frontier: ArrowId[] = [start];
+  for (let d = 1; d <= cap; d += 1) {
+    const next: ArrowId[] = [];
+    for (const arrow of frontier) {
+      for (const exit of geometry.outArrows(geometry.target(arrow))) {
+        const key = String(exit);
+        if (seen.has(key)) continue;
+        if (state.territory.get(exit) === me) {
+          return {
+            distance: d,
+            landing: exit,
+            path: reconstructHomeward(cameFrom, start, arrow),
+          };
+        }
+        seen.add(key);
+        cameFrom.set(key, arrow);
+        next.push(exit);
+      }
+    }
+    if (next.length === 0) break;
+    frontier = next;
+  }
+  return { distance: cap + 1, landing: undefined, path: [start] };
+};
+
 /**
  * Shortest path length along out-arrows to an arrow of `me`'s territory.
  * Movement must follow the grain, so this is the real "how far to a close".
@@ -73,8 +137,16 @@ export const distanceToTerritory = (
   me: PlayerId,
   start: ArrowId,
   cap = DIST_CAP,
+): number => homewardPath(geometry, state, me, start, cap).distance;
+
+/** Grain BFS distance from start to goal (out-arrows only). */
+export const grainDistance = (
+  geometry: GeometryPort,
+  start: ArrowId,
+  goal: ArrowId,
+  cap: number,
 ): number => {
-  if (state.territory.get(start) === me) return 0;
+  if (start === goal) return 0;
   const seen = new Set<string>([String(start)]);
   let frontier: ArrowId[] = [start];
   for (let d = 1; d <= cap; d += 1) {
@@ -83,7 +155,7 @@ export const distanceToTerritory = (
       for (const exit of geometry.outArrows(geometry.target(arrow))) {
         const key = String(exit);
         if (seen.has(key)) continue;
-        if (state.territory.get(exit) === me) return d;
+        if (exit === goal) return d;
         seen.add(key);
         next.push(exit);
       }

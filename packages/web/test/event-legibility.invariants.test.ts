@@ -32,8 +32,8 @@ import { overlayLifetimeMs, presentEvents, type FxOverlay } from '../src/fx/pres
 import { emptyQueue, enqueue, MAX_FX_ITEMS } from '../src/fx/queue';
 import { AUDIBLE_KINDS, cueFor } from '../src/fx/sound';
 import { MAJOR_SEQUENCE_MS } from '../src/fx/timing';
-import { chooseTurnGreedy } from '../src/botSearch';
 import { playBotTurn } from '../src/opponent';
+import { baselineMoves, loadBaselineLog } from './bot-turn-search.support';
 
 const geometry = makeTiling();
 const rules = makeRules(geometry);
@@ -46,51 +46,36 @@ interface Transition {
   readonly overlays: readonly FxOverlay[];
 }
 
-/**
- * A real match, resolved move by move.
- *
- * Bounded turns rather than played to a winner: the properties are per-transition,
- * so a few dozen turns of three seats expanding into each other exercises closures,
- * cuts, splits, merges and production without a minute of bot search.
- *
- * Drive the harness with frozen greedy-v1, not live `playBotTurn`. Beam (P53)
- * strides instead of milling; 60 opening turns then produce no cut and the
- * attribution property goes vacuous. Event-legibility needs a combat-rich
- * trajectory, not the local product policy.
- */
 /** Sequence number each transition was presented with, for the re-present check. */
 const seqs = new Map<GameState, number>();
 
 const seqFor = (t: Transition): number => seqs.get(t.before) ?? 1;
 
-const playMatch = (turns: number): readonly Transition[] => {
-  let at = makeMatch({ ...DEFAULT_MATCH_CONFIG, playerCount: 3 });
+/**
+ * Replay the committed P53 baseline log (6 seats, 24 cuts) rather than live
+ * bot search. The properties are per-transition; a recorded combat-rich
+ * trajectory stays combat-rich after the heuristic learns to walk home.
+ */
+const playMatch = (): readonly Transition[] => {
+  const log = loadBaselineLog();
+  let at = makeMatch(log.config);
   const out: Transition[] = [];
   let seq = 1;
-  for (let turn = 0; turn < turns && at.winner === undefined; turn += 1) {
-    const moves = chooseTurnGreedy(geometry, rules, at, at.activePlayer);
-    if (moves.length === 0) break;
-    for (const move of moves) {
-      const before = at;
-      let after: GameState;
-      try {
-        after = rules.apply(before, move);
-      } catch {
-        break;
-      }
-      const events = resolveEvents({ before, after, move });
-      const overlays = presentEvents(events, { geometry, seq });
-      seqs.set(before, seq);
-      seq += overlays.length + 1;
-      out.push({ before, after, move, events, overlays });
-      at = after;
-      if (at.winner !== undefined) break;
-    }
+  for (const move of baselineMoves(log)) {
+    if (at.winner !== undefined) break;
+    const before = at;
+    const after = rules.apply(before, move);
+    const events = resolveEvents({ before, after, move });
+    const overlays = presentEvents(events, { geometry, seq });
+    seqs.set(before, seq);
+    seq += overlays.length + 1;
+    out.push({ before, after, move, events, overlays });
+    at = after;
   }
   return out;
 };
 
-const transitions = playMatch(60);
+const transitions = playMatch();
 
 const owners = (state: GameState): ReadonlyMap<string, PlayerId> => {
   const out = new Map<string, PlayerId>();

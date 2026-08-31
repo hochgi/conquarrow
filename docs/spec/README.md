@@ -41,6 +41,8 @@ behaviour is not here, it will not be built.**
 | [seat-vanish-fx](./seat-vanish-fx/seat-vanish-fx.md) | P39 | §9, §6.1, §11 item 45 | 28 | — | 16 |
 | [birth-cut](./birth-cut/birth-cut.md) | P40 | §6.1, §7, item 47 | 11 | — | 9 |
 | [trails-simple](./trails-simple/trails-simple.md) | P22, P42 | §5–7, items 42, 49 | 20 | — | 11 |
+| [bot-turn-search](./bot-turn-search/bot-turn-search.md) | P53 | §3, §6.2 (read) | 27 | — | 21 |
+| [close-and-spawner-value](./close-and-spawner-value/close-and-spawner-value.md) | P54 | §3, §7 (read) | 27 | — | 25 |
 
 638 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
 **58 belong to P03**, **18 to P02**, **30 to P04**, **58 to P05**, **49 to P05b**,

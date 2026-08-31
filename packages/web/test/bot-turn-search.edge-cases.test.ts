@@ -176,7 +176,8 @@ describe('Bot turn search — budget, determinism, and frozen greedy-v1', () => 
     const guided = bestFindingMove(geometry, rules, state, Bot, undefined, playLayout);
     expect(guided).toBeDefined();
     if (guided !== undefined) {
-      expect(guided.count).toBe(1);
+      // P54: close_path is max legal count (not pickPortion's count=1 shuttle).
+      expect(guided.count).toBe(2);
       expect(guided.from).toBe(from);
     }
     const plan = chooseTurnBeam(geometry, rules, state, Bot);

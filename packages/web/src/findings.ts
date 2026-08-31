@@ -16,6 +16,10 @@ import type {
   StepMove,
   VertexId,
 } from '@conquarrow/contracts';
+import { closeValue, estimateCloseLoot, exposure, turnsToClose } from './botClose';
+import { distanceToTerritory, grainDistance, homewardPath } from './botEvaluate';
+
+export { grainDistance };
 
 export type FindingKind =
   | 'claim_share'
@@ -23,6 +27,7 @@ export type FindingKind =
   | 'cut'
   | 'intercept'
   | 'close'
+  | 'close_path'
   | 'attack'
   | 'merge_pair';
 
@@ -102,34 +107,6 @@ export const forceInsideTriangle = (
 export const interceptReward = (x: number, n: number): number => {
   const raw = Math.round((160 * x) / Math.max(1, n));
   return Math.min(105, Math.max(25, raw));
-};
-
-/** Grain steps along out-arrows from `start` to any arrow owned as `player` territory. */
-const distanceToTerritory = (
-  geometry: GeometryPort,
-  state: GameState,
-  player: PlayerId,
-  start: ArrowId,
-  cap: number,
-): number => {
-  if (state.territory.get(start) === player) return 0;
-  const seen = new Set<string>([String(start)]);
-  let frontier: ArrowId[] = [start];
-  for (let d = 1; d <= cap; d += 1) {
-    const next: ArrowId[] = [];
-    for (const arrow of frontier) {
-      for (const exit of geometry.outArrows(geometry.target(arrow))) {
-        const key = String(exit);
-        if (seen.has(key)) continue;
-        if (state.territory.get(exit) === player) return d;
-        seen.add(key);
-        next.push(exit);
-      }
-    }
-    if (next.length === 0) break;
-    frontier = next;
-  }
-  return cap + 1;
 };
 
 /**
@@ -453,33 +430,6 @@ const isCutMove = (before: GameState, after: GameState, me: PlayerId): boolean =
   return false;
 };
 
-/** Grain BFS distance from start to goal (out-arrows only). */
-export const grainDistance = (
-  geometry: GeometryPort,
-  start: ArrowId,
-  goal: ArrowId,
-  cap: number,
-): number => {
-  if (start === goal) return 0;
-  const seen = new Set<string>([String(start)]);
-  let frontier: ArrowId[] = [start];
-  for (let d = 1; d <= cap; d += 1) {
-    const next: ArrowId[] = [];
-    for (const arrow of frontier) {
-      for (const exit of geometry.outArrows(geometry.target(arrow))) {
-        const key = String(exit);
-        if (seen.has(key)) continue;
-        if (exit === goal) return d;
-        seen.add(key);
-        next.push(exit);
-      }
-    }
-    if (next.length === 0) break;
-    frontier = next;
-  }
-  return cap + 1;
-};
-
 const openSpawnerBorders = (
   geometry: GeometryPort,
   state: GameState,
@@ -505,6 +455,144 @@ const pickPortion = (heads: number, preferred: number): number => {
   // Prefer power-of-two shaped leave/take when possible.
   if (heads >= 2) return 2;
   return 1;
+};
+
+const bestHomewardStep = (
+  d0: number,
+  moves: readonly StepMove[],
+  distAt: (arrow: ArrowId) => number,
+): StepMove | undefined => {
+  let best: StepMove | undefined;
+  let bestD1 = Number.POSITIVE_INFINITY;
+  for (const m of moves) {
+    const d1 = distAt(m.exit);
+    if (d1 >= d0) continue;
+    if (
+      best === undefined ||
+      d1 < bestD1 ||
+      (d1 === bestD1 && moveKey(m) < moveKey(best))
+    ) {
+      best = m;
+      bestD1 = d1;
+    }
+  }
+  if (best === undefined) return undefined;
+  const exit = best.exit;
+  let chosen = best;
+  for (const m of moves) {
+    if (m.exit !== exit || distAt(m.exit) >= d0) continue;
+    if (m.count > chosen.count) chosen = m;
+  }
+  return chosen;
+};
+
+const collectClosePathFindings = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  caps: FindingsCaps,
+  byFrom: ReadonlyMap<string, readonly StepMove[]>,
+): readonly Finding[] => {
+  const trail = state.trails.get(me);
+  if (trail === undefined || trail.size === 0) return [];
+  const e = exposure(geometry, state, me, caps.distCap);
+  const distAt = (arrow: ArrowId): number =>
+    distanceToTerritory(geometry, state, me, arrow, caps.distCap);
+  const froms = [...state.groups.entries()]
+    .filter(([arrow, group]) => group.owner === me && trail.has(arrow))
+    .map(([arrow]) => arrow)
+    .toSorted((a, b) => compareIds(String(a), String(b)));
+  const out: Finding[] = [];
+  for (const from of froms) {
+    const moves = byFrom.get(String(from));
+    if (moves === undefined || moves.length === 0) continue;
+    const home = homewardPath(geometry, state, me, from, caps.distCap);
+    const d0 = home.distance;
+    if (d0 < 1 || d0 > caps.distCap || home.landing === undefined) continue;
+    const move = bestHomewardStep(d0, moves, distAt);
+    if (move === undefined) continue;
+    const heads = state.groups.get(from)?.heads ?? 1;
+    const T = turnsToClose(d0, heads);
+    const { shares, arrows } = estimateCloseLoot(geometry, state, me, from);
+    const value = closeValue(shares, arrows, T, e);
+    const reward = 80;
+    out.push({
+      kind: 'close_path',
+      from,
+      goal: home.landing,
+      cost: T,
+      reward,
+      score: scoreOf(reward, T) + value,
+      move,
+    });
+  }
+  return out;
+};
+
+const collectApproachSpawnerFindings = (
+  geometry: GeometryPort,
+  state: GameState,
+  caps: FindingsCaps,
+  byFrom: ReadonlyMap<string, readonly StepMove[]>,
+  openShares: readonly ArrowId[],
+): readonly Finding[] => {
+  const out: Finding[] = [];
+  for (const [, moves] of [...byFrom.entries()].toSorted((a, b) =>
+    a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+  )) {
+    const from = moves[0]?.from;
+    if (from === undefined) continue;
+    // Mill: skip approach from an open share so the group does not hop to a
+    // sibling. close_path is emitted separately, not skipped.
+    if (openShares.some((s) => s === from)) continue;
+    const group = state.groups.get(from);
+    const heads = group?.heads ?? 1;
+    const nearestGoals = openShares
+      .map((goal) => ({
+        goal,
+        d: grainDistance(geometry, from, goal, caps.distCap),
+      }))
+      .filter((g) => g.d > 0 && g.d <= caps.distCap)
+      .toSorted((a, b) =>
+        a.d !== b.d ? a.d - b.d : compareIds(String(a.goal), String(b.goal)),
+      )
+      .slice(0, 3);
+    for (const { goal, d: d0 } of nearestGoals) {
+      let best: { move: StepMove; d1: number } | undefined;
+      for (const m of moves) {
+        const d1 = grainDistance(geometry, m.exit, goal, caps.distCap);
+        if (d1 >= d0) continue;
+        if (
+          best === undefined ||
+          d1 < best.d1 ||
+          (d1 === best.d1 && moveKey(m) < moveKey(best.move))
+        ) {
+          best = { move: m, d1 };
+        }
+      }
+      if (best === undefined) continue;
+      const preferred = pickPortion(heads, best.move.count);
+      const adjusted =
+        moves.find(
+          (m) =>
+            m.exit === best.move.exit &&
+            m.count === preferred &&
+            grainDistance(geometry, m.exit, goal, caps.distCap) < d0,
+        ) ?? best.move;
+      const cost = Math.max(1, best.d1);
+      const reward = 40;
+      out.push({
+        kind: 'approach_spawner',
+        from,
+        goal,
+        cost,
+        reward,
+        score: scoreOf(reward, cost),
+        move: adjusted,
+      });
+    }
+  }
+  return out;
 };
 
 /**
@@ -638,60 +726,20 @@ export const collectFindings = (
     }
   }
 
-  for (const [, moves] of [...byFrom.entries()].toSorted((a, b) =>
-    a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+  // Same step may already be merge_pair / attack; close_path must still emit.
+  for (const finding of collectClosePathFindings(geometry, state, me, caps, byFrom)) {
+    found.push(finding);
+    seenMove.add(moveKey(finding.move));
+  }
+
+  for (const finding of collectApproachSpawnerFindings(
+    geometry,
+    state,
+    caps,
+    byFrom,
+    openShares,
   )) {
-    const from = moves[0]?.from;
-    if (from === undefined) continue;
-    // Already on an open share: hopping to a sibling border is a pinwheel mill,
-    // not progress. Closing / evaluate homeward owns the next decision.
-    if (openShares.some((s) => s === from)) continue;
-    const group = state.groups.get(from);
-    const heads = group?.heads ?? 1;
-    const nearestGoals = openShares
-      .map((goal) => ({
-        goal,
-        d: grainDistance(geometry, from, goal, caps.distCap),
-      }))
-      .filter((g) => g.d > 0 && g.d <= caps.distCap)
-      .toSorted((a, b) =>
-        a.d !== b.d ? a.d - b.d : compareIds(String(a.goal), String(b.goal)),
-      )
-      .slice(0, 3);
-    for (const { goal, d: d0 } of nearestGoals) {
-      let best: { move: StepMove; d1: number } | undefined;
-      for (const m of moves) {
-        const d1 = grainDistance(geometry, m.exit, goal, caps.distCap);
-        if (d1 >= d0) continue;
-        if (
-          best === undefined ||
-          d1 < best.d1 ||
-          (d1 === best.d1 && moveKey(m) < moveKey(best.move))
-        ) {
-          best = { move: m, d1 };
-        }
-      }
-      if (best === undefined) continue;
-      const preferred = pickPortion(heads, best.move.count);
-      const adjusted =
-        moves.find(
-          (m) =>
-            m.exit === best.move.exit &&
-            m.count === preferred &&
-            grainDistance(geometry, m.exit, goal, caps.distCap) < d0,
-        ) ?? best.move;
-      const cost = Math.max(1, best.d1);
-      const reward = 40;
-      push({
-        kind: 'approach_spawner',
-        from,
-        goal,
-        cost,
-        reward,
-        score: scoreOf(reward, cost),
-        move: adjusted,
-      });
-    }
+    push(finding);
   }
 
   return found.toSorted(compareFindings).slice(0, caps.maxFindings);
@@ -713,6 +761,7 @@ export const bestFindingMove = (
     'cut',
     'intercept',
     'attack',
+    'close_path',
     'approach_spawner',
     'merge_pair',
   ];
