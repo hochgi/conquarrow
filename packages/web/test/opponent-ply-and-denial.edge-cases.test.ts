@@ -4,7 +4,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn } from '@conquarrow/contracts';
 import { exposure } from '../src/botClose';
 import {
   chooseTurnBeam,
@@ -24,7 +23,6 @@ import {
   foldPlan,
   geometry,
   heuristicTurnStarts,
-  legalSteps,
   loadBaselineLog,
   pagesHeuristicSource,
   planIsLegalSequence,
