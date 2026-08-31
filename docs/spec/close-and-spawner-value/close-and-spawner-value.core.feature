@@ -82,6 +82,7 @@ Feature: Closing and spawner value — walk home at a rate
 
   Rule: Exposure flips the same comparison
 
+    @superseded-P55
     Scenario: An enemy two arrows from the trail raises exposure
       Given two GameStates that differ only by one enemy group's arrow
       And in the threatened state that group is grain distance 2 from Bot's trail
@@ -90,6 +91,7 @@ Feature: Closing and spawner value — walk home at a rate
       Then the threatened exposure is strictly greater than the quiet exposure
       And the quiet exposure is 0
 
+    @superseded-P55
     Scenario: Threatened, the 2-turn close beats the 3-turn two-share close
       Given a 2-turn one-share close and a 3-turn two-share close with equal arrows
       And exposure is the threatened value from an enemy at grain distance 2

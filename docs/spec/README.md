@@ -42,9 +42,10 @@ behaviour is not here, it will not be built.**
 | [birth-cut](./birth-cut/birth-cut.md) | P40 | §6.1, §7, item 47 | 11 | — | 9 |
 | [trails-simple](./trails-simple/trails-simple.md) | P22, P42 | §5–7, items 42, 49 | 20 | — | 11 |
 | [bot-turn-search](./bot-turn-search/bot-turn-search.md) | P53 | §3, §6.2 (read) | 27 | — | 21 |
-| [close-and-spawner-value](./close-and-spawner-value/close-and-spawner-value.md) | P54 | §3, §7 (read) | 27 | — | 25 |
+| [close-and-spawner-value](./close-and-spawner-value/close-and-spawner-value.md) | P54 | §3, §7 (read) | 27 (2 `@superseded-P55`) | — | 25 |
+| [opponent-ply-and-denial](./opponent-ply-and-denial/opponent-ply-and-denial.md) | P55 | §6.2, §6.3 (read) | 21 | — | 23 |
 
-638 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
+659 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
 **58 belong to P03**, **18 to P02**, **30 to P04**, **58 to P05**, **49 to P05b**,
 **39 to P06/P47**, **16 to P07**, **10 to P08**, **25 to P28**, **19 to P29**,
 **16 to P30**, **24 to P31** (22 of them now `@superseded-P34`), **26 to P32**,

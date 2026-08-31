@@ -405,7 +405,7 @@ flowchart TD
 - Close value as a rate, `close_path`, superlinear shares, mill rewrite —
   [P54](../close-and-spawner-value/close-and-spawner-value.md).
 - One enemy reply, exposure as worst-reply, search reuse at a smaller budget
-  — P55.
+  — [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md).
 - Whether Pages should call `chooseTurnBeam` — not this packet (BSSN 2).
 - Retuning `BEAM` / `BRANCH` / `MAX_PLAN` / `MOBILITY_SCALE` after
   playtesting — named exports, same algorithm.

@@ -13,7 +13,8 @@
     "../web/src/playLayout.ts",
     "../web/src/botEvaluate.ts",
     "../web/src/botSearch.ts",
-    "../web/src/botClose.ts"
+    "../web/src/botClose.ts",
+    "../web/src/botReply.ts"
   ],
   "references": [
     { "path": "../contracts" },

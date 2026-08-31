@@ -488,6 +488,7 @@ const bestHomewardStep = (
 
 const collectClosePathFindings = (
   geometry: GeometryPort,
+  rules: RulesPort,
   state: GameState,
   me: PlayerId,
   caps: FindingsCaps,
@@ -495,7 +496,7 @@ const collectClosePathFindings = (
 ): readonly Finding[] => {
   const trail = state.trails.get(me);
   if (trail === undefined || trail.size === 0) return [];
-  const e = exposure(geometry, state, me, caps.distCap);
+  const e = exposure(geometry, rules, state, me, caps.distCap);
   const distAt = (arrow: ArrowId): number =>
     distanceToTerritory(geometry, state, me, arrow, caps.distCap);
   const froms = [...state.groups.entries()]
@@ -726,7 +727,7 @@ export const collectFindings = (
   }
 
   // Same step may already be merge_pair / attack; close_path must still emit.
-  for (const finding of collectClosePathFindings(geometry, state, me, caps, byFrom)) {
+  for (const finding of collectClosePathFindings(geometry, rules, state, me, caps, byFrom)) {
     found.push(finding);
     seenMove.add(moveKey(finding.move));
   }
