@@ -84,9 +84,15 @@ re-litigate them.
 7. **Budgets** (opening bids, named exports): `BEAM = 8`, `BRANCH = 6`,
    `MAX_PLAN = 8` (including the terminating `endTurn`), `MAX_APPLIES = 2000`
    (successful `rules.apply` calls inside one `chooseTurn`, not playback —
-   including `collectFindings` on the capped port). `IDLE_SLACK =
+   including `collectFindings` on the capped port).    `IDLE_SLACK =
    MOBILITY_SCALE`: a pass must beat the best stepped complete by more
    than this or the stepped plan wins (playtest 2026-08-31 pinwheel freeze).
+   `SORTIE_SLACK = MOBILITY_SCALE`: if the seat is still on a ≤3-arrow home
+   with no trail and the best complete never left that territory, a complete
+   that *does* leave wins unless the mill/idle is better by more than this
+   (playtest that evening: mill circled the pinwheel). Do not put this in
+   `evaluate` and do not zero `tipTerm` — both broke constructed 4-stack
+   closes / P55 takeable-stack denial. Do not add a spawner-gravity term.
 8. **Cap / horizon.** On `MAX_APPLIES` exhaustion or no extendable plan:
    return the best complete found so far (evaluate desc, then `planKey` asc).
    If none is complete, append `endTurn` to the best incomplete — that one
@@ -169,6 +175,7 @@ export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
 export const MOBILITY_SCALE = 16;
 export const IDLE_SLACK = MOBILITY_SCALE;
+export const SORTIE_SLACK = MOBILITY_SCALE;
 
 export const chooseTurnGreedy: ChooseTurn; // greedy-v1
 export const chooseTurnBeam: ChooseTurn;   // beam-v1
@@ -286,8 +293,17 @@ chooseTurnBeam(state):
     considerEnd(best incomplete in beam, or the seed)
   if best is [endTurn] and a stepped complete exists
      and score(best) − score(bestStepped) ≤ IDLE_SLACK:
-    return bestStepped.moves
-  return best.moves
+    chosen := bestStepped.moves
+  else:
+    chosen := best.moves
+  if the start has no trail and ≤ 3 own-territory arrows
+     and no legal departing exit is an arrow a hypothesised enemy can
+     step onto this turn
+     and chosen never left that territory
+     and a sortie complete exists
+     and score(chosen) − score(bestSortie) ≤ SORTIE_SLACK:
+    return bestSortie.moves
+  return chosen
 ```
 
 `applies` is an implementation counter, not an observable except: it never
@@ -323,6 +339,33 @@ never-passes; beam-v1 still may pass when that is clearly better (a lone
 tip walking onto trail). A pass must beat the best stepped complete by
 more than `IDLE_SLACK` (one `MOBILITY_SCALE`) or the search returns
 that stepped plan.
+
+## First sortie (normative)
+
+`IDLE_SLACK` only forces *a* step. A sibling mill (3-stack → 2+1 still on
+own territory) scores the same stack-shape bonus as leaving and pays no
+`tipTerm`, so beam then walks the home pinwheel in a circle. Do not zero
+`tipTerm` at urgency 0 and do not add a short-trail term to `evaluate` —
+those made a constructed 4-stack split off home instead of closing a
+pinwheel, and made a takeable leave beat P55's safe mill on unreplied
+score. Prefer the leave only at **return time**, and only on a tiny home:
+
+```
+SORTIE_SLACK = MOBILITY_SCALE
+if start.trail is empty and the seat holds ≤ 3 territory arrows
+   and the chosen complete never laid trail / claimed / stood off home
+   and a sortie complete exists
+   and score(chosen) − score(bestSortie) ≤ SORTIE_SLACK:
+  return bestSortie
+```
+
+A sortie is a complete whose terminal has more of our trail, more of our
+territory, or a group of ours not on our territory. The mill-vs-leave gap
+on the generated home is ~9–14 (`tipTerm`); `SORTIE_SLACK` covers it.
+A lone 1-stack walking onto trail still passes (on-trail shape −35).
+Boxing, splitting onto extra territory, and P55 takeable-stack denial do
+not match the tiny-home gate (a reachable enemy already threatens a
+departing exit), or they lose on reply score by far more than the slack.
 
 ## `pnpm bots` (advisory)
 
@@ -418,8 +461,11 @@ flowchart TD
 22. When a 6-seat opening has taken the 2026-08-31 playtest first round
     (heuristic seats milled a 2-stack onto a sibling home arrow; the human
     left home) and the next heuristic seat still has a legal step,
-    `beam-v1` shall include a `step`. Sitting on the home pinwheel must not
-    evaluate as a pass.
+    `beam-v1` shall include a step onto an arrow that is not that seat's
+    territory. Milling another sibling home arrow is not a leave.
+23. When a 6-seat generated opening has the active seat's 3-stack on its
+    home pinwheel, `beam-v1` shall include a step onto an arrow that is not
+    that seat's territory.
 
 ## What this file deliberately does not decide
 
@@ -434,6 +480,6 @@ flowchart TD
 
 ## Spec files
 
-- `bot-turn-search.core.feature` — 10 scenarios
+- `bot-turn-search.core.feature` — 11 scenarios
 - `bot-turn-search.edge-cases.feature` — 17 scenarios
-- Invariants above — 21 EARS one-liners
+- Invariants above — 23 EARS one-liners

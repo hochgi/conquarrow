@@ -16,6 +16,8 @@ import { playBotTurn } from '../src/opponent';
 import {
   afterPlaytestP55HumanTurn,
   boxOpenExitPosition,
+  openingSixSeatHome,
+  planDepartsTerritory,
   foldPlan,
   fourStackThreeArrowPosition,
   geometry,
@@ -120,7 +122,13 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     const { state, me } = afterPlaytestP55HumanTurn();
     expect(legalSteps(state).length).toBeGreaterThan(0);
     const plan = chooseTurnBeam(geometry, rules, state, me);
-    expect(plan.some((m) => m.kind === 'step')).toBe(true);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
+  }, 30_000);
+
+  it('An opening home 3-stack leaves rather than milling the pinwheel', () => {
+    const { state, me } = openingSixSeatHome();
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
   }, 30_000);
 
   it('beam-v1 beats greedy-v1 on shuttle rate and count greater than 1', () => {

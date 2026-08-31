@@ -16,6 +16,8 @@ import {
 import {
   afterPlaytestP55HumanTurn,
   botEvaluateSource,
+  openingSixSeatHome,
+  planDepartsTerritory,
   botReportSource,
   botSearchSource,
   foldPlan,
@@ -107,9 +109,16 @@ describe('bot-turn-search invariants', () => {
     expect(MAX_APPLIES).toBe(2000);
   });
 
-  it('When a 6-seat opening has taken the 2026-08-31 playtest first round and the next heuristic seat still has a legal step, beam-v1 shall include a step.', () => {
+  it('When a 6-seat opening has taken the 2026-08-31 playtest first round and the next heuristic seat still has a legal step, beam-v1 shall include a step onto an arrow that is not that seat\'s territory.', () => {
     const { state, me } = afterPlaytestP55HumanTurn();
     expect(legalSteps(state).length).toBeGreaterThan(0);
-    expect(chooseTurnBeam(geometry, rules, state, me).some((m) => m.kind === 'step')).toBe(true);
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
+  }, 30_000);
+
+  it("When a 6-seat generated opening has the active seat's 3-stack on its home pinwheel, beam-v1 shall include a step onto an arrow that is not that seat's territory.", () => {
+    const { state, me } = openingSixSeatHome();
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
   }, 30_000);
 });
