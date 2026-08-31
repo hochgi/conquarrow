@@ -143,6 +143,8 @@ type Search = {
   bestStepped: CompletePlan | undefined;
   bestSortie: CompletePlan | undefined;
   readonly origin: GameState;
+  /** Tiny home, no trail, no threatened departing exit — else skip sortie tracking. */
+  readonly trackSortie: boolean;
   readonly geometry: GeometryPort;
   rules: RulesPort;
   readonly inner: RulesPort;
@@ -296,10 +298,9 @@ const pickReturnedPlan = (
   }
   const sortie = search.bestSortie;
   if (
+    search.trackSortie &&
     chosen !== undefined &&
     sortie !== undefined &&
-    pinnedToSmallHome(search.origin, me) &&
-    !departingExitIsThreatened(search.origin, me, search.inner) &&
     !isSortieTerminal(search.origin, chosen.state, me) &&
     completeScore(geometry, search.inner, me, chosen) -
       completeScore(geometry, search.inner, me, sortie) <=
@@ -328,7 +329,7 @@ const adoptComplete = (search: Search, child: CompletePlan): void => {
             scored,
           );
   }
-  if (isSortieTerminal(search.origin, scored.state, search.me)) {
+  if (search.trackSortie && isSortieTerminal(search.origin, scored.state, search.me)) {
     search.bestSortie =
       search.bestSortie === undefined
         ? scored
@@ -524,6 +525,8 @@ export const chooseTurnBeamWithBudget: (
     bestStepped: undefined,
     bestSortie: undefined,
     origin: state,
+    trackSortie:
+      pinnedToSmallHome(state, me) && !departingExitIsThreatened(state, me, rules),
     geometry,
     rules,
     inner: rules,
