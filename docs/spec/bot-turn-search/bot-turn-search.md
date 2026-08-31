@@ -53,8 +53,9 @@ re-litigate them.
    opponent's new import graph. Local and online heuristic quality therefore
    diverge until a follow-on lifts the Lambda chooser. Suites that need a
    combat-rich trajectory rather than the live policy (event-legibility's
-   match harness) keep calling frozen `chooseTurnGreedy` — beam at 60 opening
-   turns does not mill into a cut, and that would make cut-attribution vacuous.
+   match harness) replay the committed P53 baseline log. After P54, frozen
+   `chooseTurnGreedy` also homes via `close_path` and no longer mills into a
+   cut.
 3. **Mobility lives in `evaluate`.** Existing `greedy-v1` coefficients are not
    retuned; `chooseMove` inherits the new term because it already scores with
    `evaluate`. Scale is `MOBILITY_SCALE = 16` so boxing a 3-stack (9 exit-heads)
@@ -402,7 +403,7 @@ flowchart TD
 ## What this file deliberately does not decide
 
 - Close value as a rate, `close_path`, superlinear shares, mill rewrite —
-  P54.
+  [P54](../close-and-spawner-value/close-and-spawner-value.md).
 - One enemy reply, exposure as worst-reply, search reuse at a smaller budget
   — P55.
 - Whether Pages should call `chooseTurnBeam` — not this packet (BSSN 2).

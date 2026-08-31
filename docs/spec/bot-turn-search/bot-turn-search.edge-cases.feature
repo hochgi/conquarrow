@@ -82,11 +82,11 @@ Feature: Bot turn search — budget, determinism, and frozen greedy-v1
       Then the returned move is M
 
     Scenario: Findings order beam expansion but do not short-circuit it
-      Given findings rank a shuttle first
+      Given findings rank a homeward close_path at count 2 on the 2-stack
       And a count=2 homeward close of the same stack evaluates higher
       When chooseTurnBeam runs
       Then the plan strides
-      And the plan does not contain that shuttle
+      And the plan does not contain a shuttle
 
   Rule: Purity and hexagonal seams
 

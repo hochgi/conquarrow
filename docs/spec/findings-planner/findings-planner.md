@@ -7,6 +7,10 @@ P53 demotes this list to **move ordering** for `beam-v1` (exits, not portions).
 `chooseMove` / `greedy-v1` still short-circuit on `bestFindingMove`. See
 [bot-turn-search](../bot-turn-search/bot-turn-search.md).
 
+P54 adds `close_path` (homeward grain BFS ranked by close-value rate) and
+replaces the open-share mill skip with that goal. See
+[close-and-spawner-value](../close-and-spawner-value/close-and-spawner-value.md).
+
 ```mermaid
 flowchart LR
   legal[legal step moves] --> classify[classify + BFS cost]
