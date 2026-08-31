@@ -1,8 +1,10 @@
 /**
  * Heuristic evaluate + mobility (P53). Adapter only — not a game rule.
  *
- * Lives here so `botSearch` can score terminals without importing `opponent`
- * (that import would cycle once `playBotTurn` calls `chooseTurnBeam`).
+ * Lives here so search can score terminals without importing `evaluate` from
+ * `opponent`. That import would cycle through evaluate once `playBotTurn`
+ * calls `chooseTurnBeam`. A remaining cycle (`botSearch` → `chooseMove` in
+ * `opponent`) is greedy-only and ESM-stable.
  * Search talks to the engine only through `RulesPort`.
  */
 
