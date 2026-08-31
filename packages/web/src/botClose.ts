@@ -1,19 +1,17 @@
 /**
- * Close-value arithmetic for the local heuristic (P54). Adapter only — not a
- * game rule. P55 replaces {@link exposure}; {@link survival} stays.
+ * Close-value arithmetic for the local heuristic (P54 / P55). Adapter only — not a
+ * game rule. {@link exposure} is trail damage under the worst enemy reply.
  *
  * Pure: no clocks, no RNG, no I/O.
  */
 
 import { speed } from '@conquarrow/contracts';
-import type { ArrowId, GameState, GeometryPort, PlayerId } from '@conquarrow/contracts';
-import { grainDistance, homewardPath } from './botEvaluate';
+import type { ArrowId, GameState, GeometryPort, PlayerId, RulesPort } from '@conquarrow/contracts';
+import { evaluate, homewardPath } from './botEvaluate';
+import { exposureForBot } from './botReply';
 
 export const SHARE_VALUE_S = 100;
 export const ARROW_VALUE_A = 25;
-
-/** Same default as findings `DEFAULT_FINDINGS_CAPS.distCap` — not imported (cycle). */
-const DEFAULT_EXPOSURE_CAP = 12;
 
 const compareIds = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -53,42 +51,21 @@ const bordersSpawner = (
   arrow: ArrowId,
 ): boolean => geometry.flankVertices(arrow).some((vertex) => state.spawners.has(vertex));
 
-const minGrainToTrail = (
-  geometry: GeometryPort,
-  trailArrows: readonly ArrowId[],
-  start: ArrowId,
-  cap: number,
-): number => {
-  let best = cap + 1;
-  for (const arrow of trailArrows) {
-    const d = grainDistance(geometry, start, arrow, cap);
-    if (d < best) best = d;
-  }
-  return best;
-};
-
 export const exposure = (
   geometry: GeometryPort,
+  rules: RulesPort,
   state: GameState,
   me: PlayerId,
   distCap?: number,
-): number => {
-  const cap = distCap ?? DEFAULT_EXPOSURE_CAP;
-  const trail = state.trails.get(me);
-  if (trail === undefined || trail.size === 0) return 0;
-  const trailLen = trail.size;
-  const trailArrows = [...trail].toSorted((a, b) => compareIds(String(a), String(b)));
-  const enemies = [...state.groups.entries()]
-    .filter(([, group]) => group.owner !== me)
-    .map(([arrow]) => arrow)
-    .toSorted((a, b) => compareIds(String(a), String(b)));
-  let sumProximity = 0;
-  for (const enemyArrow of enemies) {
-    const d = minGrainToTrail(geometry, trailArrows, enemyArrow, cap);
-    sumProximity += Math.max(0, cap + 1 - d);
-  }
-  return (trailLen * sumProximity) / cap;
-};
+): number =>
+  exposureForBot(
+    geometry,
+    rules,
+    state,
+    me,
+    distCap,
+    (s) => evaluate(geometry, s, me, rules),
+  );
 
 export const estimateCloseLoot = (
   geometry: GeometryPort,

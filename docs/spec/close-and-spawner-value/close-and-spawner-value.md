@@ -94,18 +94,10 @@ re-litigate them.
    grain steps per turn (`speed(2) = 2`). Distance 0 (already on own
    territory) is not a close path.
 
-5. **`exposure` is a product, so a quiet board is exactly rate.**
-   For each enemy group, `d_i` is grain distance (out-arrows, cap =
-   `DEFAULT_FINDINGS_CAPS.distCap`) from that group's arrow to the
-   nearest arrow of **my trail**; unreachable / beyond cap is `cap + 1`.
-   `proximity_i = max(0, cap + 1 - d_i)` (zero when out of reach).
-   ```
-   exposure = trailLen × (Σ proximity_i) / cap
-   ```
-   No enemy in cap ⇒ `exposure = 0` even on a long trail. Longer trail
-   scales threat when someone *can* reach. Sum groups in sorted arrow-id
-   order. Do not filter stay-behind 1-stacks (P55). **P55 replaces this
-   function** with worst-reply damage; `survival` stays.
+5. **`exposure` was a product (P54); P55 replaced the function.**
+   The distance-product proxy and the two core scenarios that asserted
+   it are `@superseded-P55`. `survival` is unchanged. Quiet board
+   (`exposure = 0`) still reduces to loot per turn.
 
 6. **`survival` discounts extra turns, not the landing turn.**
    ```
@@ -186,7 +178,7 @@ re-litigate them.
 15. **Module.** `closeValue`, `shareTerm`, `loot`, `exposure`,
     `survival`, `turnsToClose`, `SHARE_VALUE_S`, `ARROW_VALUE_A`,
     `estimateCloseLoot`, and `preferClose` live in
-    `packages/web/src/botClose.ts` (pure). P55 edits `exposure` there.
+    `packages/web/src/botClose.ts` (pure). P55 replaced `exposure`.
     `findings.ts` imports them. `botClose` must not import `findings`
     (cycle). Move `grainDistance` next to `distanceToTerritory` in
     `botEvaluate.ts` and re-export it from `findings.ts` so existing
@@ -202,7 +194,7 @@ re-litigate them.
 | **loot** | `shareTerm(shares) + arrows × A` estimated for one prospective closure |
 | **shareTerm(n)** | `S × n × (n + 1) / 2` — superlinear in shares this closure claims |
 | **turnsToClose** | `max(1, ceil(distanceToTerritory(tip) / speed(walkingHeads)))` — `walkingHeads` is `close_path.move.count` |
-| **exposure** | `trailLen × Σ proximity_i / distCap` — P54 proxy; P55 replaces the function |
+| **exposure** | trail arrows lost under the worst enemy reply — [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md) |
 | **proximity** | `max(0, distCap + 1 - d)` from an enemy group to my trail (`0` if out of cap) |
 | **survival** | `(1 + exposure) ** -(T - 1)` for `T ≥ 1` (and `1` when `T = 1`) |
 | **close_path** | finding kind: one homeward step on a multi-step route back to own territory |
@@ -231,6 +223,7 @@ export const closeValue = (
 ): number;
 export const exposure = (
   geometry: GeometryPort,
+  rules: RulesPort,
   state: GameState,
   me: PlayerId,
   distCap?: number,
@@ -284,12 +277,10 @@ flowchart TD
    `turnsToClose ≥ 1`.
 8. When `turnsToClose` is 1, the system shall return `survival = 1` even
    if `exposure` is positive.
-9. When an otherwise identical trail has an enemy group two grain steps
-   from it versus no enemy in `distCap`, the system shall report a strictly
-   larger `exposure` in the first.
-10. When that threatened `exposure` is applied to a 2-turn one-share close
-    versus a 3-turn two-share close (equal arrows), the system shall prefer
-    the 2-turn close.
+9. *(superseded P55)* Distance-product `exposure` — worst-reply trail
+   damage now lives in opponent-ply-and-denial.
+10. *(superseded P55)* Threatened-proxy flipping the 2-turn vs 3-turn
+    comparison — same.
 11. The system shall compute `turnsToClose` as
     `max(1, ceil(grainDist / speed(walkingHeads)))`.
 12. WHEN a group stands on my trail with `1 ≤ distanceToTerritory ≤ cap`
@@ -326,7 +317,9 @@ flowchart TD
 
 ## What this file deliberately does not decide
 
-- Worst-reply `exposure` and one enemy ply — P55.
+- Worst-reply `exposure` and one enemy ply —
+  [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md) (landed
+  as spec).
 - Whether Pages should call `chooseTurnBeam` — still P53 BSSN 2.
 - Absolute closes-per-100 / `firstCloseAt` gates in CI.
 - Retuning `MOBILITY_SCALE`, beam budgets, or `scoreStepExtras`.
@@ -334,6 +327,6 @@ flowchart TD
 
 ## Spec files
 
-- `close-and-spawner-value.core.feature` — 10 scenarios
+- `close-and-spawner-value.core.feature` — 10 scenarios (2 `@superseded-P55`)
 - `close-and-spawner-value.edge-cases.feature` — 17 scenarios
 - Invariants above — 25 EARS one-liners

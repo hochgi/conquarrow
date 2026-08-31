@@ -1,12 +1,8 @@
 /**
- * Turn-plan search seam (P53). Adapter only — no game rule.
+ * Turn-plan search seam (P53 / P55). Adapter only — no game rule.
  *
  * `chooseTurnGreedy` is frozen greedy-v1 (today's `chooseMove` loop).
- * `chooseTurnBeam` is beam-v1: incomplete plans occupy the beam; every
- * `endTurn` is a complete candidate and does not take a beam slot (BSSN 4).
- *
- * Evaluate / mobility live in `botEvaluate.ts` so this module and `opponent.ts`
- * do not cycle through `evaluate`. Greedy still calls `chooseMove` at runtime.
+ * `chooseTurnBeam` is beam-v1 with optional one-ply opponent replies (P55).
  */
 
 import { endTurn } from '@conquarrow/contracts';
@@ -19,6 +15,21 @@ import type {
   StepMove,
 } from '@conquarrow/contracts';
 import { evaluate, MOBILITY_SCALE } from './botEvaluate';
+import {
+  bindReplySearch,
+  DEFAULT_REPLY_DIST_CAP,
+  enterBeamSearch,
+  foldPlan,
+  inBeamSearch,
+  leaveBeamSearch,
+  REPLY_BEAM,
+  REPLY_BRANCH,
+  REPLY_MAX_APPLIES,
+  REPLY_MAX_PLAN,
+  REPLY_TURN_APPLIES,
+  worstReachableReply,
+  type ReplySearchFn,
+} from './botReply';
 import { collectFindings, DEFAULT_FINDINGS_CAPS } from './findings';
 import { playLayout } from './playLayout';
 import { chooseMove } from './opponent';
@@ -30,23 +41,29 @@ export type ChooseTurn = (
   me: PlayerId,
 ) => readonly Move[];
 
-/**
- * Optional budget for tests (spec “On exhaustion” / BSSN 8). Defaults are the
- * named exports. The terminating `endTurn` apply is allowed over `maxApplies`
- * so the returned list is always a legal turn.
- */
+/** Optional budget for tests (spec “On exhaustion” / BSSN 8). */
 export interface ChooseTurnBudget {
   readonly beam?: number;
   readonly branch?: number;
   readonly maxPlan?: number;
   readonly maxApplies?: number;
+  /** Default false. Live `chooseTurnBeam` passes true (P55). */
+  readonly withReplies?: boolean;
 }
 
 export const BEAM = 8;
 export const BRANCH = 6;
 export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
-export { MOBILITY_SCALE, evaluate };
+export {
+  REPLY_BEAM,
+  REPLY_BRANCH,
+  REPLY_MAX_PLAN,
+  REPLY_MAX_APPLIES,
+  REPLY_TURN_APPLIES,
+  MOBILITY_SCALE,
+  evaluate,
+};
 
 const MAX_MOVES_PER_TURN = 64;
 const UNRANKED = Number.POSITIVE_INFINITY;
@@ -61,6 +78,34 @@ export const moveKey = (move: Move): string => {
 };
 
 export const planKey = (moves: readonly Move[]): string => moves.map(moveKey).join('|');
+
+const enemyReplySearch: ReplySearchFn = (geometry, rules, state, me, budget) =>
+  chooseTurnBeamWithBudget(geometry, rules, state, me, {
+    beam: budget?.beam ?? REPLY_BEAM,
+    branch: budget?.branch ?? REPLY_BRANCH,
+    maxPlan: budget?.maxPlan ?? REPLY_MAX_PLAN,
+    maxApplies: budget?.maxApplies ?? REPLY_MAX_APPLIES,
+    withReplies: false,
+  });
+
+/** Min bot-evaluate after reachable replies (P55). */
+export const replyScore = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  terminal: GameState,
+  me: PlayerId,
+  budget?: { readonly turnAppliesLeft: number },
+): number =>
+  worstReachableReply(
+    geometry,
+    rules,
+    terminal,
+    me,
+    DEFAULT_REPLY_DIST_CAP,
+    budget?.turnAppliesLeft ?? REPLY_TURN_APPLIES,
+    enemyReplySearch,
+    (state) => evaluate(geometry, state, me, rules),
+  ).botScore;
 
 /** Two `count=1` steps in the same plan that share `from` and `exit`. */
 export const isShuttle = (moves: readonly Move[]): boolean => {
@@ -83,6 +128,7 @@ export const isShuttle = (moves: readonly Move[]): boolean => {
 export type CompletePlan = {
   readonly moves: readonly Move[];
   readonly state: GameState;
+  readonly replyScore?: number;
 };
 
 type Incomplete = CompletePlan;
@@ -95,6 +141,17 @@ type Search = {
   readonly inner: RulesPort;
   readonly me: PlayerId;
   readonly maxApplies: number;
+  readonly withReplies: boolean;
+  replyTurnAppliesLeft: number;
+  readonly startState: GameState;
+};
+
+const replyTerminalFromComplete = (search: Search, child: CompletePlan): GameState => {
+  const last = child.moves[child.moves.length - 1];
+  if (last?.kind === 'endTurn' && child.state.winner !== undefined) {
+    return foldPlan(search.inner, search.startState, child.moves.slice(0, -1));
+  }
+  return child.state;
 };
 
 const APPLY_CAP = 'bot-search:apply-cap';
@@ -111,6 +168,17 @@ const capRules = (inner: RulesPort, search: Search): RulesPort => ({
   },
 });
 
+const completeScore = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  me: PlayerId,
+  complete: CompletePlan,
+): number => {
+  if (complete.replyScore !== undefined) return complete.replyScore;
+  if (!inBeamSearch()) return replyScore(geometry, rules, complete.state, me);
+  return evaluate(geometry, complete.state, me, rules);
+};
+
 export const pickBetterComplete = (
   geometry: GeometryPort,
   me: PlayerId,
@@ -118,20 +186,51 @@ export const pickBetterComplete = (
   a: CompletePlan,
   b: CompletePlan,
 ): CompletePlan => {
-  const ea = evaluate(geometry, a.state, me, rules);
-  const eb = evaluate(geometry, b.state, me, rules);
-  if (ea > eb) return a;
-  if (eb > ea) return b;
+  if (rules === undefined) {
+    const ea = evaluate(geometry, a.state, me, rules);
+    const eb = evaluate(geometry, b.state, me, rules);
+    if (ea > eb) return a;
+    if (eb > ea) return b;
+  } else {
+    const ea = completeScore(geometry, rules, me, a);
+    const eb = completeScore(geometry, rules, me, b);
+    if (ea > eb) return a;
+    if (eb > ea) return b;
+  }
   const ka = planKey(a.moves);
   const kb = planKey(b.moves);
   return ka <= kb ? a : b;
 };
 
+const scoreWithReplies = (search: Search, child: CompletePlan): CompletePlan => {
+  const terminal = replyTerminalFromComplete(search, child);
+  if (!search.withReplies || terminal.winner !== undefined) {
+    return {
+      ...child,
+      replyScore: evaluate(search.geometry, terminal, search.me, search.inner),
+    };
+  }
+  const before = search.replyTurnAppliesLeft;
+  const result = worstReachableReply(
+    search.geometry,
+    search.inner,
+    terminal,
+    search.me,
+    DEFAULT_REPLY_DIST_CAP,
+    search.replyTurnAppliesLeft,
+    enemyReplySearch,
+    (state) => evaluate(search.geometry, state, search.me, search.inner),
+  );
+  search.replyTurnAppliesLeft = Math.max(0, before - result.appliesUsed);
+  return { ...child, replyScore: result.botScore };
+};
+
 const adoptComplete = (search: Search, child: CompletePlan): void => {
+  const scored = search.withReplies ? scoreWithReplies(search, child) : child;
   search.best =
     search.best === undefined
-      ? child
-      : pickBetterComplete(search.geometry, search.me, search.rules, search.best, child);
+      ? scored
+      : pickBetterComplete(search.geometry, search.me, search.inner, search.best, scored);
 };
 
 const considerEnd = (search: Search, parent: Incomplete): void => {
@@ -193,12 +292,6 @@ const rankIncompletes = (search: Search, plans: readonly Incomplete[]): Incomple
 const exitKey = (move: StepMove): string =>
   `${String(move.from)}>${String(move.exit)}`;
 
-/**
- * BSSN 6: findings rank *exits*, not portions. Flattening every count of the
- * first exit would fill BRANCH (4+ counts) and drop the other outs — the
- * pinwheel close and the 2+2 split both die that way. Take each ranked exit at
- * its max count, then fill with count=2 (the §3 pair) while slots remain.
- */
 const selectBranch = (sorted: readonly StepMove[], branch: number): StepMove[] => {
   const picked: StepMove[] = [];
   const pickedKey = new Set<string>();
@@ -269,6 +362,9 @@ const expandBeam = (
         adoptComplete(search, child);
       } else {
         next.push(child);
+        if (search.withReplies && isExtendable(child, search.me, maxPlan)) {
+          considerEnd(search, child);
+        }
       }
     }
     if (hitCap) break;
@@ -305,10 +401,13 @@ export const chooseTurnBeamWithBudget: (
   budget?: ChooseTurnBudget,
 ) => readonly Move[] = (geometry, rules, state, me, budget) => {
   if (state.activePlayer !== me || state.winner !== undefined) return [];
+  enterBeamSearch();
+  try {
   const beamWidth = budget?.beam ?? BEAM;
   const branch = budget?.branch ?? BRANCH;
   const maxPlan = budget?.maxPlan ?? MAX_PLAN;
   const maxApplies = budget?.maxApplies ?? MAX_APPLIES;
+  const withReplies = budget?.withReplies ?? false;
   const seed: Incomplete = { moves: [], state };
   const search: Search = {
     applies: 0,
@@ -318,6 +417,9 @@ export const chooseTurnBeamWithBudget: (
     inner: rules,
     me,
     maxApplies,
+    withReplies,
+    replyTurnAppliesLeft: REPLY_TURN_APPLIES,
+    startState: state,
   };
   search.rules = capRules(rules, search);
   let beam: Incomplete[] = [seed];
@@ -333,7 +435,12 @@ export const chooseTurnBeamWithBudget: (
     considerEnd(search, fallback);
   }
   return search.best?.moves ?? [endTurn()];
+  } finally {
+    leaveBeamSearch();
+  }
 };
 
 export const chooseTurnBeam: ChooseTurn = (geometry, rules, state, me) =>
-  chooseTurnBeamWithBudget(geometry, rules, state, me);
+  chooseTurnBeamWithBudget(geometry, rules, state, me, { withReplies: true });
+
+bindReplySearch(enemyReplySearch);

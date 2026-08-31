@@ -8,7 +8,6 @@ import {
   ARROW_VALUE_A,
   SHARE_VALUE_S,
   closeValue,
-  exposure,
   preferClose,
   shareTerm,
 } from '../src/botClose';
@@ -19,7 +18,6 @@ import { playBotTurn } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
 import {
   DIST_CAP,
-  exposurePair,
   homewardClosePathPosition,
   millPosition,
 } from './close-and-spawner-value.support';
@@ -134,28 +132,6 @@ describe('Closing and spawner value — walk home at a rate', () => {
     if (first === undefined || first.kind !== 'step') return;
     expect(first.exit).not.toBe(sibling);
     expect(distanceToTerritory(geometry, state, Bot, first.exit, DIST_CAP)).toBeLessThan(d0);
-  });
-
-  it('An enemy two arrows from the trail raises exposure', () => {
-    const { quiet, threatened, Bot } = exposurePair();
-    const threatenedE = exposure(geometry, threatened, Bot);
-    const quietE = exposure(geometry, quiet, Bot);
-    expect(threatenedE).toBeGreaterThan(quietE);
-    expect(quietE).toBe(0);
-  });
-
-  it('Threatened, the 2-turn close beats the 3-turn two-share close', () => {
-    expect(closeValue(1, 3, 2, 0)).toBeLessThan(closeValue(2, 3, 3, 0));
-    const { threatened, Bot } = exposurePair();
-    const e = exposure(geometry, threatened, Bot);
-    expect(e).toBeGreaterThan(0);
-    expect(closeValue(1, 3, 2, e)).toBeGreaterThan(closeValue(2, 3, 3, e));
-    expect(
-      preferClose(
-        { shares: 1, arrows: 3, turnsToClose: 2, exposure: e },
-        { shares: 2, arrows: 3, turnsToClose: 3, exposure: e },
-      ),
-    ).toBeLessThan(0);
   });
 
   it('playBotTurn still plans with beam-v1', () => {

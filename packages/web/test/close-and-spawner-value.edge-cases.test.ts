@@ -179,7 +179,7 @@ describe('Closing and spawner value — boundaries and seams', () => {
     const { state, Bot } = millPosition();
     const shuffled = shuffleCloseMaps(state);
     expect([...state.groups.keys()]).not.toEqual([...shuffled.groups.keys()]);
-    expect(exposure(geometry, state, Bot)).toBe(exposure(geometry, shuffled, Bot));
+    expect(exposure(geometry, rules, state, Bot)).toBe(exposure(geometry, rules, shuffled, Bot));
     expect(chooseTurnBeam(geometry, rules, state, Bot)).toEqual(
       chooseTurnBeam(geometry, rules, shuffled, Bot),
     );

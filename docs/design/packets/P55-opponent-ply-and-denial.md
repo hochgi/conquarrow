@@ -1,5 +1,7 @@
 # P55 — Opponent ply and denial
 
+**Spec:** [`docs/spec/opponent-ply-and-denial/`](../../spec/opponent-ply-and-denial/opponent-ply-and-denial.md).
+
 **Layer:** `web` adapter only. No `contracts`, `rules-core`, or `online-api`
 change. **No game rule is added, changed, or implied.** Nothing is owed to
 SPEC §11.
@@ -84,9 +86,9 @@ the confirmation (the reply search returns zero legal moves for that group).
 
 ## Acceptance
 
-- Given an enemy group two arrows from the bot's open trail and a legal firebreak
-  placement, the bot places the firebreak — with no firebreak-specific code in
-  the evaluator.
+- Given an enemy group two arrows from the bot's open trail versus an otherwise
+  identical quiet board, `replyScore` on the threatened terminal is no greater
+  than on the quiet board — with no firebreak-specific code in the evaluator.
 - Given an enemy single head with one open exit and two exits into the bot's
   territory, and a bot 2-stack in range, the bot splits and blocks the open exit.
 - After that block, the reply search reports zero legal moves for the boxed group,

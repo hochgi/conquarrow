@@ -28,7 +28,6 @@ import {
   bestFindingPrioritySource,
   botCloseSource,
   DIST_CAP,
-  exposurePair,
   findingsSource,
   homewardClosePathPosition,
   lootEstimatorPosition,
@@ -108,19 +107,6 @@ describe('close-and-spawner-value invariants', () => {
     for (const e of [0.1, 1, 2.5, 11] as const) {
       expect(survival(e, 1), `e=${String(e)}`).toBe(1);
     }
-  });
-
-  it('When an otherwise identical trail has an enemy group two grain steps from it versus no enemy in distCap, the system shall report a strictly larger exposure in the first.', () => {
-    const { quiet, threatened, Bot } = exposurePair();
-    expect(exposure(geometry, threatened, Bot)).toBeGreaterThan(exposure(geometry, quiet, Bot));
-    expect(exposure(geometry, quiet, Bot)).toBe(0);
-  });
-
-  it('When that threatened exposure is applied to a 2-turn one-share close versus a 3-turn two-share close (equal arrows), the system shall prefer the 2-turn close.', () => {
-    const { threatened, Bot } = exposurePair();
-    const e = exposure(geometry, threatened, Bot);
-    expect(e).toBeGreaterThan(0);
-    expect(closeValue(1, 3, 2, e)).toBeGreaterThan(closeValue(2, 3, 3, e));
   });
 
   it('The system shall compute turnsToClose as max(1, ceil(grainDist / speed(walkingHeads))).', () => {
@@ -237,10 +223,10 @@ describe('close-and-spawner-value invariants', () => {
   it("Shuffling state.groups / state.trails / state.territory insertion order shall not change exposure, closeValue, or chooseTurnBeam's plan on a constructed close position.", () => {
     const { state, Bot, from } = homewardClosePathPosition();
     const shuffled = shuffleCloseMaps(state);
-    expect(exposure(geometry, state, Bot)).toBe(exposure(geometry, shuffled, Bot));
+    expect(exposure(geometry, rules, state, Bot)).toBe(exposure(geometry, rules, shuffled, Bot));
     const d = distanceToTerritory(geometry, state, Bot, from, DIST_CAP);
-    expect(closeValue(1, 3, turnsToClose(d, 2), exposure(geometry, state, Bot))).toBe(
-      closeValue(1, 3, turnsToClose(d, 2), exposure(geometry, shuffled, Bot)),
+    expect(closeValue(1, 3, turnsToClose(d, 2), exposure(geometry, rules, state, Bot))).toBe(
+      closeValue(1, 3, turnsToClose(d, 2), exposure(geometry, rules, shuffled, Bot)),
     );
     expect(chooseTurnBeam(geometry, rules, state, Bot)).toEqual(
       chooseTurnBeam(geometry, rules, shuffled, Bot),
