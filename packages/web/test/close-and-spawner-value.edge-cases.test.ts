@@ -94,7 +94,7 @@ describe('Closing and spawner value — boundaries and seams', () => {
     const hit = findings.find((f) => f.kind === 'close_path' && f.from === from);
     expect(hit).toBeDefined();
     if (hit === undefined) return;
-    expect(hit.cost).toBe(turnsToClose(d, state.groups.get(from)?.heads ?? 1));
+    expect(hit.cost).toBe(turnsToClose(d, hit.move.count));
   });
 
   it('Beyond distCap there is no close_path', () => {

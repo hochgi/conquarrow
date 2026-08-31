@@ -86,9 +86,13 @@ re-litigate them.
 
 4. **`turnsToClose` is the real clock.**
    `turnsToClose = max(1, ceil(grainDist / speed(heads)))` where
-   `grainDist` is `distanceToTerritory` from the tip and `heads` is that
-   group's size. A 2-stack covers two grain steps per turn (`speed(2) =
-   2`). Distance 0 (already on own territory) is not a close path.
+   `grainDist` is `distanceToTerritory` from the tip and `heads` is the
+   **walking portion** — `close_path`'s `move.count`, which is the max
+   legal count on the homeward exit (BSSN 8). Stay-behind can cap that
+   below the stack on the arrow; using the stack size would overstate
+   `speed` and understate turns. A 2-stack that can stride covers two
+   grain steps per turn (`speed(2) = 2`). Distance 0 (already on own
+   territory) is not a close path.
 
 5. **`exposure` is a product, so a quiet board is exactly rate.**
    For each enemy group, `d_i` is grain distance (out-arrows, cap =
@@ -197,7 +201,7 @@ re-litigate them.
 | **close value** | `loot / turnsToClose × survival(exposure, turnsToClose)` |
 | **loot** | `shareTerm(shares) + arrows × A` estimated for one prospective closure |
 | **shareTerm(n)** | `S × n × (n + 1) / 2` — superlinear in shares this closure claims |
-| **turnsToClose** | `max(1, ceil(distanceToTerritory(tip) / speed(heads)))` |
+| **turnsToClose** | `max(1, ceil(distanceToTerritory(tip) / speed(walkingHeads)))` — `walkingHeads` is `close_path.move.count` |
 | **exposure** | `trailLen × Σ proximity_i / distCap` — P54 proxy; P55 replaces the function |
 | **proximity** | `max(0, distCap + 1 - d)` from an enemy group to my trail (`0` if out of cap) |
 | **survival** | `(1 + exposure) ** -(T - 1)` for `T ≥ 1` (and `1` when `T = 1`) |
@@ -287,7 +291,7 @@ flowchart TD
     versus a 3-turn two-share close (equal arrows), the system shall prefer
     the 2-turn close.
 11. The system shall compute `turnsToClose` as
-    `max(1, ceil(grainDist / speed(heads)))`.
+    `max(1, ceil(grainDist / speed(walkingHeads)))`.
 12. WHEN a group stands on my trail with `1 ≤ distanceToTerritory ≤ cap`
     and a legal step that reduces that distance, the system shall emit a
     `close_path` finding whose move reduces it.

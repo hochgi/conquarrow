@@ -511,8 +511,7 @@ const collectClosePathFindings = (
     if (d0 < 1 || d0 > caps.distCap || home.landing === undefined) continue;
     const move = bestHomewardStep(d0, moves, distAt);
     if (move === undefined) continue;
-    const heads = state.groups.get(from)?.heads ?? 1;
-    const T = turnsToClose(d0, heads);
+    const T = turnsToClose(d0, move.count);
     const { shares, arrows } = estimateCloseLoot(geometry, state, me, from);
     const value = closeValue(shares, arrows, T, e);
     const reward = 80;

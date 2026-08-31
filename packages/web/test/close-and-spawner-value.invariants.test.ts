@@ -123,7 +123,7 @@ describe('close-and-spawner-value invariants', () => {
     expect(closeValue(1, 3, 2, e)).toBeGreaterThan(closeValue(2, 3, 3, e));
   });
 
-  it('The system shall compute turnsToClose as max(1, ceil(grainDist / speed(heads))).', () => {
+  it('The system shall compute turnsToClose as max(1, ceil(grainDist / speed(walkingHeads))).', () => {
     const rows = [
       [4, 2],
       [4, 1],
