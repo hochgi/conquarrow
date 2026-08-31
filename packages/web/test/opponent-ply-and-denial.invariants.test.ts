@@ -89,7 +89,7 @@ describe('opponent-ply-and-denial invariants', () => {
   it('The system shall hypothesise the enemy chair on the terminal state and shall not apply intervening seats\' endTurns to reach them.', () => {
     const { state, Bot, B, C } = sixSeatThreatIsCPosition();
     const { rules: counted, log } = recordingRules(rules);
-    chooseTurnBeam(geometry, counted, state, Bot);
+    replyScore(geometry, counted, state, Bot);
     expect(log().some((e) => e.seat === C)).toBe(true);
     expect(log().some((e) => e.seat === B && e.kind === 'endTurn')).toBe(false);
   });

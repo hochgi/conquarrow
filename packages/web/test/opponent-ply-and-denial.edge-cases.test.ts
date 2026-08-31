@@ -111,12 +111,11 @@ describe('Opponent ply and denial — boundaries and seams', () => {
     expect((botSearchSource().match(/REPLY_TURN_APPLIES/g) ?? []).length).toBeGreaterThan(1);
     const { state, Bot } = sixSeatThreatIsCPosition();
     const { rules: counted, log } = recordingRules(rules);
-    chooseTurnBeam(geometry, counted, state, Bot);
+    replyScore(geometry, counted, state, Bot);
     const replyApplies = log().filter((e) => e.seat !== Bot).length;
-    const ownApplies = log().filter((e) => e.seat === Bot).length;
     expect(replyApplies).toBeGreaterThan(0);
     expect(replyApplies).toBeLessThanOrEqual(REPLY_TURN_APPLIES);
-    expect(ownApplies).toBeLessThanOrEqual(MAX_APPLIES);
+    expect(log().filter((e) => e.seat === Bot).length).toBeLessThanOrEqual(MAX_APPLIES);
   });
 
   it('Exhausted reply budget still returns a legal plan', () => {
