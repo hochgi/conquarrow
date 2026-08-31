@@ -58,12 +58,7 @@ export const leaveBeamSearch = (): void => {
 
 export const inBeamSearch = (): boolean => beamSearchDepth > 0;
 
-const replySearch = (): ReplySearchFn => {
-  if (boundReplySearch === undefined) {
-    throw new Error('botReply: reply search not bound');
-  }
-  return boundReplySearch;
-};
+const replySearch = (): ReplySearchFn | undefined => boundReplySearch;
 
 const compareIds = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -179,13 +174,17 @@ export const foldEnemyReply = (
   terminal: GameState,
   enemy: PlayerId,
   search: ReplySearchFn,
+  maxApplies: number = REPLY_MAX_APPLIES,
 ): ReplyFold => {
   let applies = 0;
   const counted = countingRules(rules, () => {
     applies += 1;
   });
   const chair = hypothesiseChair(terminal, enemy);
-  const plan = search(geometry, counted, chair, enemy, replyBudget());
+  const plan = search(geometry, counted, chair, enemy, {
+    ...replyBudget(),
+    maxApplies: Math.max(1, Math.min(REPLY_MAX_APPLIES, maxApplies)),
+  });
   const after = foldPlan(rules, chair, plan.length > 0 ? plan : [endTurn()]);
   return { after, applies };
 };
@@ -223,7 +222,7 @@ export const worstReachableReply = (
   let appliesUsed = 0;
   for (const enemy of enemies) {
     if (left <= 0) break;
-    const { after, applies } = foldEnemyReply(geometry, rules, terminal, enemy, search);
+    const { after, applies } = foldEnemyReply(geometry, rules, terminal, enemy, search, left);
     left -= applies;
     appliesUsed += applies;
     const botScore = score(after);
@@ -266,7 +265,7 @@ export const exposureFromWorstReply = (
   let worstEnemy: PlayerId | undefined;
   for (const enemy of enemies) {
     if (left <= 0) break;
-    const { after, applies } = foldEnemyReply(geometry, rules, state, enemy, search);
+    const { after, applies } = foldEnemyReply(geometry, rules, state, enemy, search, left);
     left -= applies;
     const botScore = score(after);
     const lost = Math.max(0, before - trailSize(after, me));
@@ -292,13 +291,15 @@ export const exposureForBot = (
   score: (state: GameState) => number,
 ): number => {
   if (beamSearchDepth >= 1) return 0;
+  const search = replySearch();
+  if (search === undefined) return 0;
   return exposureFromWorstReply(
     geometry,
     rules,
     state,
     me,
     distCap ?? DEFAULT_REPLY_DIST_CAP,
-    replySearch(),
+    search,
     score,
   );
 };

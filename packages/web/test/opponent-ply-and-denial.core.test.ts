@@ -53,7 +53,7 @@ describe('Opponent ply and denial — search the enemy\'s best reply', () => {
   it('The threatening seat is searched even when it is not next', () => {
     const { state, Bot, B, C } = sixSeatThreatIsCPosition();
     const { rules: counted, log } = recordingRules(rules);
-    chooseTurnBeam(geometry, counted, state, Bot);
+    replyScore(geometry, counted, state, Bot);
     const seats = new Set(log().map((e) => e.seat));
     expect(seats.has(C)).toBe(true);
     expect(seats.has(B)).toBe(false);

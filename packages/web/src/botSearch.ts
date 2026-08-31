@@ -19,7 +19,6 @@ import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
   enterBeamSearch,
-  foldPlan,
   inBeamSearch,
   leaveBeamSearch,
   REPLY_BEAM,
@@ -143,15 +142,6 @@ type Search = {
   readonly maxApplies: number;
   readonly withReplies: boolean;
   replyTurnAppliesLeft: number;
-  readonly startState: GameState;
-};
-
-const replyTerminalFromComplete = (search: Search, child: CompletePlan): GameState => {
-  const last = child.moves[child.moves.length - 1];
-  if (last?.kind === 'endTurn' && child.state.winner !== undefined) {
-    return foldPlan(search.inner, search.startState, child.moves.slice(0, -1));
-  }
-  return child.state;
 };
 
 const APPLY_CAP = 'bot-search:apply-cap';
@@ -203,7 +193,7 @@ export const pickBetterComplete = (
 };
 
 const scoreWithReplies = (search: Search, child: CompletePlan): CompletePlan => {
-  const terminal = replyTerminalFromComplete(search, child);
+  const terminal = child.state;
   if (!search.withReplies || terminal.winner !== undefined) {
     return {
       ...child,
@@ -419,7 +409,6 @@ export const chooseTurnBeamWithBudget: (
     maxApplies,
     withReplies,
     replyTurnAppliesLeft: REPLY_TURN_APPLIES,
-    startState: state,
   };
   search.rules = capRules(rules, search);
   let beam: Incomplete[] = [seed];

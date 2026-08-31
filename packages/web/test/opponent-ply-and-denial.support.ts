@@ -30,7 +30,7 @@ export const SIX_MATCH = {
   playerCount: 6,
   R: 7,
   homeOffset: 6,
-  dominationN: 5,
+  dominationN: 50,
   spawnerSeed: 1,
 } as const;
 

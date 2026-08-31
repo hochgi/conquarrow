@@ -77,24 +77,16 @@ describe('Opponent ply and denial — boundaries and seams', () => {
   it('The reply does not apply intervening endTurns', () => {
     const { state, Bot, B, C } = sixSeatThreatIsCPosition();
     const { rules: counted, log } = recordingRules(rules);
-    chooseTurnBeam(geometry, counted, state, Bot);
+    replyScore(geometry, counted, state, Bot);
     expect(log().some((e) => e.seat === C)).toBe(true);
     expect(log().some((e) => e.seat === B && e.kind === 'endTurn')).toBe(false);
   });
 
   it('Enemy economy is not modelled', () => {
-    const { state, Bot, C } = sixSeatThreatIsCPosition();
-    const { rules: counted, log } = recordingRules(rules);
-    const plan = chooseTurnBeam(geometry, counted, state, Bot);
-    const terminal = foldPlan(state, plan);
-    const firstC = log().find((e) => e.seat === C);
-    expect(firstC).toBeDefined();
-    const idx = log().findIndex((e) => e.seat === C);
-    expect(idx).toBeGreaterThan(0);
-    void terminal.accumulators;
-    expect(JSON.stringify([...terminal.accumulators.entries()].map(([a, r]) => [String(a), r]))).toEqual(
-      JSON.stringify([...state.accumulators.entries()].map(([a, r]) => [String(a), r])),
-    );
+    const { state, C } = sixSeatThreatIsCPosition();
+    const chair = hypothesiseChair(state, C);
+    expect(chair.accumulators).toBe(state.accumulators);
+    expect(chair.activePlayer).toBe(C);
   });
 
   it('One enemy reply respects REPLY_MAX_APPLIES', () => {

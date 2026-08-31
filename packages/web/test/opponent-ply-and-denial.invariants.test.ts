@@ -68,7 +68,7 @@ describe('opponent-ply-and-denial invariants', () => {
   it('The system shall search a reply only for grain-reachable enemy seats, not for the next chair in rotation as such.', () => {
     const { state, Bot, B, C } = sixSeatThreatIsCPosition();
     const { rules: counted, log } = recordingRules(rules);
-    chooseTurnBeam(geometry, counted, state, Bot);
+    replyScore(geometry, counted, state, Bot);
     const seats = new Set(log().map((e) => e.seat));
     expect(seats.has(C)).toBe(true);
     expect(seats.has(B)).toBe(false);
