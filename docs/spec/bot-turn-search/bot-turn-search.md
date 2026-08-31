@@ -84,9 +84,9 @@ re-litigate them.
 7. **Budgets** (opening bids, named exports): `BEAM = 8`, `BRANCH = 6`,
    `MAX_PLAN = 8` (including the terminating `endTurn`), `MAX_APPLIES = 2000`
    (successful `rules.apply` calls inside one `chooseTurn`, not playback —
-   including `collectFindings` on the capped port). `IDLE_SLACK = 16`: a
-   pass must beat the best stepped complete by more than this or the
-   stepped plan wins (playtest 2026-08-31 pinwheel freeze).
+   including `collectFindings` on the capped port). `IDLE_SLACK =
+   MOBILITY_SCALE`: a pass must beat the best stepped complete by more
+   than this or the stepped plan wins (playtest 2026-08-31 pinwheel freeze).
 8. **Cap / horizon.** On `MAX_APPLIES` exhaustion or no extendable plan:
    return the best complete found so far (evaluate desc, then `planKey` asc).
    If none is complete, append `endTurn` to the best incomplete — that one
@@ -168,7 +168,7 @@ export const BRANCH = 6;
 export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
 export const MOBILITY_SCALE = 16;
-export const IDLE_SLACK = 16;
+export const IDLE_SLACK = MOBILITY_SCALE;
 
 export const chooseTurnGreedy: ChooseTurn; // greedy-v1
 export const chooseTurnBeam: ChooseTurn;   // beam-v1
@@ -321,7 +321,7 @@ Playtest 2026-08-31 (after P53–P55): `tipTerm` made the first step off the
 home pinwheel score ~9–14 below `[endTurn]`, so `beam-v1` froze. Greedy-v1
 never-passes; beam-v1 still may pass when that is clearly better (a lone
 tip walking onto trail). A pass must beat the best stepped complete by
-more than `IDLE_SLACK = 16` (one `MOBILITY_SCALE`) or the search returns
+more than `IDLE_SLACK` (one `MOBILITY_SCALE`) or the search returns
 that stepped plan.
 
 ## `pnpm bots` (advisory)

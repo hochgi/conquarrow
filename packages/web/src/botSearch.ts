@@ -55,7 +55,7 @@ export const BRANCH = 6;
 export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
 /** Prefer a stepped plan over `[endTurn]` unless passing is better by more than this. */
-export const IDLE_SLACK = 16;
+export const IDLE_SLACK = MOBILITY_SCALE;
 export {
   REPLY_BEAM,
   REPLY_BRANCH,

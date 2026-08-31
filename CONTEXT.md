@@ -105,7 +105,7 @@ Beam search over incomplete turn plans. The live local heuristic. playBotTurn ca
 _Avoid_: minimax, opponent ply (that is P55)
 
 **IDLE_SLACK**:
-Sixteen evaluate points. beam-v1 will still pass when walking a lone tip onto trail is clearly worse; it will not pass when the first step off the home pinwheel is only slightly worse than sitting.
+One MOBILITY_SCALE. beam-v1 will still pass when walking a lone tip onto trail is clearly worse; it will not pass when the first step off the home pinwheel is only slightly worse than sitting.
 _Avoid_: never-pass (that is greedy-v1), a new evaluate term
 
 **turn plan**:
