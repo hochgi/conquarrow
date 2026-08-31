@@ -10,7 +10,9 @@
     "test/**/*.d.ts",
     "../web/src/opponent.ts",
     "../web/src/findings.ts",
-    "../web/src/playLayout.ts"
+    "../web/src/playLayout.ts",
+    "../web/src/botEvaluate.ts",
+    "../web/src/botSearch.ts"
   ],
   "references": [
     { "path": "../contracts" },

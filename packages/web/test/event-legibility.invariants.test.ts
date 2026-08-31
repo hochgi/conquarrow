@@ -32,6 +32,7 @@ import { overlayLifetimeMs, presentEvents, type FxOverlay } from '../src/fx/pres
 import { emptyQueue, enqueue, MAX_FX_ITEMS } from '../src/fx/queue';
 import { AUDIBLE_KINDS, cueFor } from '../src/fx/sound';
 import { MAJOR_SEQUENCE_MS } from '../src/fx/timing';
+import { chooseTurnGreedy } from '../src/botSearch';
 import { playBotTurn } from '../src/opponent';
 
 const geometry = makeTiling();
@@ -51,6 +52,11 @@ interface Transition {
  * Bounded turns rather than played to a winner: the properties are per-transition,
  * so a few dozen turns of three seats expanding into each other exercises closures,
  * cuts, splits, merges and production without a minute of bot search.
+ *
+ * Drive the harness with frozen greedy-v1, not live `playBotTurn`. Beam (P53)
+ * strides instead of milling; 60 opening turns then produce no cut and the
+ * attribution property goes vacuous. Event-legibility needs a combat-rich
+ * trajectory, not the local product policy.
  */
 /** Sequence number each transition was presented with, for the re-present check. */
 const seqs = new Map<GameState, number>();
@@ -62,7 +68,7 @@ const playMatch = (turns: number): readonly Transition[] => {
   const out: Transition[] = [];
   let seq = 1;
   for (let turn = 0; turn < turns && at.winner === undefined; turn += 1) {
-    const { moves } = playBotTurn(geometry, rules, at, at.activePlayer);
+    const moves = chooseTurnGreedy(geometry, rules, at, at.activePlayer);
     if (moves.length === 0) break;
     for (const move of moves) {
       const before = at;

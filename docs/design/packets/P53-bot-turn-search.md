@@ -1,9 +1,13 @@
 # P53 — Bot turn search: the heuristic AI learns to stride
 
-**Layer:** `web` adapter only. No `contracts`, `rules-core`, or `online-api`
-change. **No game rule is added, changed, or implied** — every behaviour this
-packet teaches the bot is already stated in SPEC §3 and §6.2. Nothing is owed to
-SPEC §11.
+**Spec:** [`docs/spec/bot-turn-search/`](../../spec/bot-turn-search/bot-turn-search.md).
+
+**Layer:** `web` adapter only. No `contracts` or `rules-core` change.
+Online-api **behaviour** is unchanged (`pagesHeuristic` still calls
+`chooseMove`); `tsconfig.json` `include` lists the new web modules so Pages
+can typecheck through `opponent`'s import graph. **No game rule is added,
+changed, or implied** — every behaviour this packet teaches the bot is
+already stated in SPEC §3 and §6.2. Nothing is owed to SPEC §11.
 
 ## Problem
 
@@ -87,22 +91,24 @@ a one-line lookup away.
 The unit of search is a **whole turn**: a sequence of steps ending in `endTurn`.
 
 ```
-seed  := [ empty plan at `state` ]
-repeat until no plan can extend, or plan length hits MAX_PLAN:
-  for each plan in the beam:
-    order its legal steps by the findings heuristic (§3 below)
-    extend by the top BRANCH steps, plus the endTurn terminal
-  score every resulting plan's terminal state with `evaluate`
-  keep the best BEAM plans (ties on the plan's stable move-key sequence)
-return the best terminal plan
+seed  := [ empty incomplete plan at `state` ]
+repeat until no incomplete can extend:
+  for each incomplete in the beam:
+    order legal steps (finding exit rank, then count desc, then moveKey)
+    extend by selectBranch (max count per ranked exit, then count=2, then
+      leftover legal steps) — those children stay incomplete
+    also score endTurn as a complete (not a beam slot)
+  keep the best BEAM incompletes (evaluate desc, then planKey)
+return the best complete
 ```
 
 - **`endTurn` becomes a searched decision**, not the forced fallback it is today.
   Ending a turn early to preserve a merge for full speed next turn is now a plan
-  the search can pick. The current hard rule "never pass while a step is legal"
-  (`opponent.ts`, from the idle-turn autopsy) is **deleted** — it existed only
-  because close-urgency was making every extension look worse than `endTurn`, and
-  plan-level scoring removes that failure mode at the root.
+  the search can pick. The live `playBotTurn` path drops the idle-autopsy hard
+  rule "never pass while a step is legal"; `chooseMove` / `greedy-v1` still
+  never-pass (frozen baseline). The rule existed only because close-urgency was
+  making every extension look worse than `endTurn`, and plan-level scoring
+  removes that failure mode at the root.
 - **Stride falls out.** No stride-specific rule is written. The plan that steps a
   2-stack twice simply reaches further and scores higher than the plan that
   shuttles. This is the whole reason for searching plans rather than steps.
@@ -170,14 +176,17 @@ bot-vs-bot matches per implementation and prints a metric table:
 - shares held at turn 50
 - mean `rules.apply` calls per bot turn (the budget check)
 
-**One committed test** asserts `beam-v1` beats `greedy-v1` on shares-at-turn-50
-and closes-per-100-turns over a fixed seed set. Relative, not absolute: it stays
-valid when `beam-v1` is superseded — re-point it at the new pair.
+**Committed head-to-head** asserts `beam-v1` beats `greedy-v1` on shuttle rate
+and on the share of steps with `count > 1`, over the reconstructed baseline
+heuristic turn-starts (human seat skipped). Shares-at-50 and closes-per-100
+stay in the advisory `pnpm bots` table — requiring them would invent P54
+close-value. Relative, not absolute: re-point the pair when a later packet
+supersedes `beam-v1`.
 
-**No absolute thresholds and no CI gate on metric values.** The algorithm will
-change, and a future "easy" tier would legitimately fail an absolute bar. The
-head-to-head plus the existing replay fixtures already fail loudly on real
-regressions.
+**No CI gate on `pnpm bots` metric values.** That report is advisory (like
+`pnpm crap`). The committed head-to-head (shuttle / count>1 on baseline
+turn-starts, plus the 10% shuttle bar) plus the constructed-position tests
+fail loudly on real regressions.
 
 ## Non-goals
 
@@ -196,24 +205,25 @@ regressions.
 
 ## Acceptance
 
-- A fresh 2-stack with a two-arrow run available strides it: one `count=2` step,
-  then a second `count=2` step. It does **not** emit two `count=1` steps sharing
-  a `from` and `exit`.
+- A fresh 2-stack on own trail with a two-arrow **homeward close** strides it:
+  one `count=2` step, then a second `count=2` step. It does **not** emit two
+  `count=1` steps sharing a `from` and `exit`.
 - A 4-stack (speed 3) with a clear run ahead moves three arrows in one turn.
 - On the committed baseline position set, `beam-v1`'s shuttle rate is below
   **10%** of turns (baseline: 48%).
 - `beam-v1` uses `count > 1` on a materially larger share of steps than
   `greedy-v1` (baseline: 11%).
-- The head-to-head test passes: `beam-v1` > `greedy-v1` on shares-at-turn-50 and
-  closes-per-100-turns across the fixed seed set.
+- The head-to-head test passes: `beam-v1` > `greedy-v1` on shuttle rate and
+  count>1 share across those reconstructed turn-starts.
 - Splitting is still chosen when it is right: given a position where two separate
   destinations are each worth more than one deeper advance, the bot splits.
   Striding is not a rule, it is an outcome — SPEC §3 is explicit that splitting
   always wins on raw throughput.
 - Given an enemy single head whose three exits are (a) one open arrow and (b,c)
   the bot's territory, the bot's chosen plan puts a head on the open arrow when
-  it can. A lone blocker suffices — §6.2 stay-behind means a single enemy head
-  cannot attack it.
+  it can. §6.2 stay-behind means a single enemy head cannot attack it; the
+  constructed box parks a **2-stack** on O (a 1-stack left on trail after
+  `endTurn` loses to the lone-tip term).
 - `endTurn` is chosen with steps still legal in at least one constructed
   position where passing is correct.
 - Same state in, same plan out, every time. Two runs on the same position produce

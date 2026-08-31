@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "crap": "vitest run --coverage && node scripts/crap-report.cjs",
+    "bots": "node scripts/bots-report.mjs",
     "test:mutation": "stryker run",
     "test:mutation:incremental": "stryker run --incremental",
     "test:mutation:report": "node scripts/format-stryker-report.cjs",

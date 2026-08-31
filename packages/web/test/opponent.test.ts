@@ -3,6 +3,7 @@ import { endTurn, mintArrowId, step } from '@conquarrow/contracts';
 import type { Move, StepMove } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
+import { chooseTurnGreedy } from '../src/botSearch';
 import {
   chooseMove,
   closeUrgency,
@@ -146,8 +147,9 @@ describe('opponent', () => {
         const afterPick = rules.apply(state, pick);
         expect(isClosingMove(state, afterPick, me, pick)).toBe(true);
       }
-      const turn = playBotTurn(geometry, rules, state, me);
-      state = turn.state;
+      const plan = chooseTurnGreedy(geometry, rules, state, me);
+      if (plan.length === 0) break;
+      for (const move of plan) state = rules.apply(state, move);
     }
     expect(sawClosingChoice).toBe(true);
   });
