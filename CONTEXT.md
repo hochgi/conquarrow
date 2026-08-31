@@ -79,3 +79,15 @@ _Avoid_: viewport, frame, bounds
 **restore**:
 Returning the camera when control comes back to this client: the camera as the player last left it, nudged only if their last-selected stack is off-screen.
 _Avoid_: reset, recenter
+
+**stride**:
+Moving one group the whole distance its size allows in a turn — a 2-stack taking two arrows, a 4-stack taking three. The stack bonus of SPEC §3 spent as intended.
+_Avoid_: sprint, dash, full move (a group can stride a shortened distance and still be striding)
+
+**shuttle**:
+The defect where a group splits and walks its parts one arrow onto the same destination, re-merging there. Spends every step it owns to advance one arrow. Named because a bot did it in half of all turns before it could see stride.
+_Avoid_: conveyor (that is the priced, deliberate manoeuvre of SPEC §3), split, leapfrog
+
+**box**:
+Denying a group every legal exit, so no step it could take is allowed. Not a rule of its own — the standing consequence of territory-illegal steps and a lone head being unable to attack. A boxed group is immobile until something around it changes, and can be closed around and converted.
+_Avoid_: trap, pin, stranded (a stranded group still has somewhere to go)
