@@ -14,6 +14,7 @@ import {
   MAX_APPLIES,
 } from '../src/botSearch';
 import {
+  afterPlaytestP55HumanTurn,
   botEvaluateSource,
   botReportSource,
   botSearchSource,
@@ -105,4 +106,10 @@ describe('bot-turn-search invariants', () => {
   it('WHILE expanding, the system shall not let search rules.apply count exceed MAX_APPLIES.', () => {
     expect(MAX_APPLIES).toBe(2000);
   });
+
+  it('When a 6-seat opening has taken the 2026-08-31 playtest first round and the next heuristic seat still has a legal step, beam-v1 shall include a step.', () => {
+    const { state, me } = afterPlaytestP55HumanTurn();
+    expect(legalSteps(state).length).toBeGreaterThan(0);
+    expect(chooseTurnBeam(geometry, rules, state, me).some((m) => m.kind === 'step')).toBe(true);
+  }, 30_000);
 });

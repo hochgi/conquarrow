@@ -14,11 +14,13 @@ import {
 } from '../src/botSearch';
 import { playBotTurn } from '../src/opponent';
 import {
+  afterPlaytestP55HumanTurn,
   boxOpenExitPosition,
   foldPlan,
   fourStackThreeArrowPosition,
   geometry,
   heuristicTurnStarts,
+  legalSteps,
   loadBaselineLog,
   opponentSource,
   passIsBestPosition,
@@ -113,6 +115,13 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     const plan = chooseTurnBeam(geometry, rules, state, Bot);
     expect(plan).toEqual([{ kind: 'endTurn' }]);
   });
+
+  it('After a home-pinwheel mill the bot still leaves', () => {
+    const { state, me } = afterPlaytestP55HumanTurn();
+    expect(legalSteps(state).length).toBeGreaterThan(0);
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(plan.some((m) => m.kind === 'step')).toBe(true);
+  }, 30_000);
 
   it('beam-v1 beats greedy-v1 on shuttle rate and count greater than 1', () => {
     const starts = heuristicTurnStarts(loadBaselineLog());

@@ -54,6 +54,8 @@ export const BEAM = 8;
 export const BRANCH = 6;
 export const MAX_PLAN = 8;
 export const MAX_APPLIES = 2000;
+/** Prefer a stepped plan over `[endTurn]` unless passing is better by more than this. */
+export const IDLE_SLACK = MOBILITY_SCALE;
 export {
   REPLY_BEAM,
   REPLY_BRANCH,
@@ -135,6 +137,7 @@ type Incomplete = CompletePlan;
 type Search = {
   applies: number;
   best: CompletePlan | undefined;
+  bestStepped: CompletePlan | undefined;
   readonly geometry: GeometryPort;
   rules: RulesPort;
   readonly inner: RulesPort;
@@ -215,12 +218,30 @@ const scoreWithReplies = (search: Search, child: CompletePlan): CompletePlan => 
   return { ...child, replyScore: result.botScore };
 };
 
+const planHasStep = (moves: readonly Move[]): boolean =>
+  moves.some((m) => m.kind === 'step');
+
+const isIdlePlan = (moves: readonly Move[]): boolean =>
+  moves.length === 1 && moves[0]?.kind === 'endTurn';
+
 const adoptComplete = (search: Search, child: CompletePlan): void => {
   const scored = search.withReplies ? scoreWithReplies(search, child) : child;
   search.best =
     search.best === undefined
       ? scored
       : pickBetterComplete(search.geometry, search.me, search.inner, search.best, scored);
+  if (planHasStep(scored.moves)) {
+    search.bestStepped =
+      search.bestStepped === undefined
+        ? scored
+        : pickBetterComplete(
+            search.geometry,
+            search.me,
+            search.inner,
+            search.bestStepped,
+            scored,
+          );
+  }
 };
 
 const considerEnd = (search: Search, parent: Incomplete): void => {
@@ -402,6 +423,7 @@ export const chooseTurnBeamWithBudget: (
   const search: Search = {
     applies: 0,
     best: undefined,
+    bestStepped: undefined,
     geometry,
     rules,
     inner: rules,
@@ -423,7 +445,19 @@ export const chooseTurnBeamWithBudget: (
     const fallback = rankIncompletes(search, beam)[0] ?? seed;
     considerEnd(search, fallback);
   }
-  return search.best?.moves ?? [endTurn()];
+  const best = search.best;
+  const stepped = search.bestStepped;
+  if (
+    best !== undefined &&
+    stepped !== undefined &&
+    isIdlePlan(best.moves) &&
+    completeScore(geometry, search.inner, me, best) -
+      completeScore(geometry, search.inner, me, stepped) <=
+      IDLE_SLACK
+  ) {
+    return stepped.moves;
+  }
+  return best?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
   }

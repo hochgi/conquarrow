@@ -65,7 +65,7 @@ Feature: Bot turn search — budget, determinism, and frozen greedy-v1
 
     Scenario: endTurn is considered even when it is not among the BRANCH steps
       Given a position with more than BRANCH legal steps
-      And passing evaluates strictly better than any one-step extension
+      And passing evaluates better than any stepped complete by more than IDLE_SLACK
       When chooseTurnBeam runs
       Then the plan is only endTurn
 
