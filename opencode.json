@@ -6,8 +6,8 @@
     "xai": {
       "models": {
         "grok-4.6": {
+          "name": "Grok 4.6",
           "variants": {
-            "none": { "reasoningEffort": "none" },
             "low": { "reasoningEffort": "low" },
             "medium": { "reasoningEffort": "medium" },
             "high": { "reasoningEffort": "high" },
@@ -19,19 +19,23 @@
   },
   "agent": {
     "spec-author": {
-      "model": "xai/grok-4.6#xhigh",
+      "model": "xai/grok-4.6",
+      "variant": "xhigh",
       "mode": "all"
     },
     "test-author": {
-      "model": "xai/grok-4.6#xhigh",
+      "model": "xai/grok-4.6",
+      "variant": "xhigh",
       "mode": "subagent"
     },
     "coder": {
-      "model": "xai/grok-4.6#xhigh",
+      "model": "xai/grok-4.6",
+      "variant": "xhigh",
       "mode": "subagent"
     },
     "reviewer": {
-      "model": "xai/grok-4.6#xhigh",
+      "model": "xai/grok-4.6",
+      "variant": "xhigh",
       "mode": "subagent"
     }
   }
