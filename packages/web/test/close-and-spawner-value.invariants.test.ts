@@ -384,8 +384,8 @@ describe('close-and-spawner-value invariants', () => {
   }, 30_000);
 
   it('The system shall not store campaignTarget on GameState.', () => {
-    expect(gameStateSource()).not.toMatch(/campaignTarget/);
-    expect(botCloseSource()).not.toMatch(/state\.campaignTarget/);
+    expect(sourceWithoutComments(gameStateSource())).not.toMatch(/campaignTarget/);
+    expect(sourceWithoutComments(botCloseSource())).not.toMatch(/state\.campaignTarget/);
   });
 
   it('The system shall export BotDrive / BOT_DRIVE with every weight equal to 1.', () => {

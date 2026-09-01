@@ -22,7 +22,6 @@ import { makeRules } from '@conquarrow/rules-core';
 import { exposure } from '../src/botClose';
 import { hypothesiseChair, reachableEnemySeats } from '../src/botReply';
 import { evaluate } from '../src/opponent';
-import '../src/botSearch';
 
 export const geometry: GeometryPort = makeTiling();
 export const rules: RulesPort = makeRules(geometry);
