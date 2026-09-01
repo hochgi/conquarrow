@@ -142,22 +142,12 @@ const ownGroupArrows = (state: GameState, me: PlayerId): ArrowId[] =>
     .map(([arrow]) => arrow)
     .toSorted((a, b) => compareIds(String(a), String(b)));
 
-const campaignStack: (VertexId | undefined)[] = [];
-
-/** Bind the search-origin campaign for the duration of one chooseTurn. */
-export const enterCampaignOrigin = (vertex: VertexId | undefined): void => {
-  campaignStack.push(vertex);
-};
-
-export const leaveCampaignOrigin = (): void => {
-  campaignStack.pop();
-};
-
-const computeCampaignTarget = (
+/** Search-origin campaign vertex (BSSN 16). Pure in its arguments. */
+export const campaignTarget = (
   geometry: GeometryPort,
   state: GameState,
   me: PlayerId,
-  distCap: number,
+  distCap = CAMPAIGN_DIST_CAP,
 ): VertexId | undefined => {
   const groups = ownGroupArrows(state, me);
   if (groups.length === 0) return undefined;
@@ -187,19 +177,6 @@ const computeCampaignTarget = (
     }
   }
   return best;
-};
-
-/** Search-origin campaign vertex (BSSN 16). */
-export const campaignTarget = (
-  geometry: GeometryPort,
-  state: GameState,
-  me: PlayerId,
-  distCap = CAMPAIGN_DIST_CAP,
-): VertexId | undefined => {
-  if (campaignStack.length > 0 && distCap === CAMPAIGN_DIST_CAP) {
-    return campaignStack[campaignStack.length - 1];
-  }
-  return computeCampaignTarget(geometry, state, me, distCap);
 };
 
 const bordersSpawner = (

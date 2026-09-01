@@ -501,11 +501,12 @@ const collectClosePathFindings = (
   me: PlayerId,
   caps: FindingsCaps,
   byFrom: ReadonlyMap<string, readonly StepMove[]>,
+  campaign: VertexId | undefined,
 ): readonly Finding[] => {
   const trail = state.trails.get(me);
   if (trail === undefined || trail.size === 0) return [];
   const e = exposure(geometry, rules, state, me, caps.distCap);
-  const vertex = campaignTarget(geometry, state, me, caps.distCap);
+  const vertex = campaign;
   const distAt = (arrow: ArrowId): number =>
     distanceToTerritory(geometry, state, me, arrow, caps.distCap);
   const froms = [...state.groups.entries()]
@@ -544,13 +545,11 @@ const collectClosePathFindings = (
 
 const approachGoalList = (
   geometry: GeometryPort,
-  state: GameState,
-  me: PlayerId,
   openShares: readonly ArrowId[],
-  distCap: number,
+  campaign: VertexId | undefined,
 ): { readonly goals: readonly ArrowId[]; readonly limit: number } => {
   if (BOT_DRIVE.campaignPull === 0) return { goals: openShares, limit: 3 };
-  const vertex = campaignTarget(geometry, state, me, distCap);
+  const vertex = campaign;
   if (vertex === undefined) return { goals: openShares, limit: 3 };
   return {
     goals: [...geometry.borderArrows(vertex)].toSorted((a, b) =>
@@ -644,9 +643,11 @@ export const collectFindings = (
   me: PlayerId,
   caps: FindingsCaps = DEFAULT_FINDINGS_CAPS,
   layout?: FindingsLayout,
+  campaign?: VertexId,
 ): readonly Finding[] => {
   const legal = rules.legalMoves(state).filter((m): m is StepMove => m.kind === 'step');
   if (legal.length === 0) return [];
+  const originCampaign = campaign ?? campaignTarget(geometry, state, me, caps.distCap);
 
   const byFrom = new Map<string, StepMove[]>();
   for (const m of legal) {
@@ -763,12 +764,20 @@ export const collectFindings = (
   }
 
   // Same step may already be merge_pair / attack; close_path must still emit.
-  for (const finding of collectClosePathFindings(geometry, rules, state, me, caps, byFrom)) {
+  for (const finding of collectClosePathFindings(
+    geometry,
+    rules,
+    state,
+    me,
+    caps,
+    byFrom,
+    originCampaign,
+  )) {
     found.push(finding);
     seenMove.add(moveKey(finding.move));
   }
 
-  const approach = approachGoalList(geometry, state, me, openShares, caps.distCap);
+  const approach = approachGoalList(geometry, openShares, originCampaign);
   for (const finding of collectApproachSpawnerFindings(geometry, state, caps, byFrom, {
     millFrom: openShares,
     goals: approach.goals,

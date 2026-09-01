@@ -17,13 +17,7 @@ import type {
   StepMove,
   VertexId,
 } from '@conquarrow/contracts';
-import {
-  ARROW_VALUE_A,
-  campaignTarget,
-  enterCampaignOrigin,
-  exposure,
-  leaveCampaignOrigin,
-} from './botClose';
+import { ARROW_VALUE_A, campaignTarget, exposure } from './botClose';
 import { evaluate, grainDistanceToAny, MOBILITY_SCALE } from './botEvaluate';
 import {
   bindReplySearch,
@@ -499,6 +493,7 @@ const orderSteps = (
   rules: RulesPort,
   state: GameState,
   me: PlayerId,
+  campaign: VertexId | undefined,
 ): readonly StepMove[] => {
   const findings = collectFindings(
     geometry,
@@ -507,6 +502,7 @@ const orderSteps = (
     me,
     DEFAULT_FINDINGS_CAPS,
     playLayout,
+    campaign,
   );
   const steps = rules.legalMoves(state).filter((m): m is StepMove => m.kind === 'step');
   return steps.toSorted((a, b) => {
@@ -583,7 +579,7 @@ const expandBeam = (
     }
     if (search.applies >= search.maxApplies) break;
     const steps = selectBranch(
-      orderSteps(search.geometry, search.rules, parent.state, search.me),
+      orderSteps(search.geometry, search.rules, parent.state, search.me, search.campaign),
       branch,
     );
     let hitCap = false;
@@ -652,7 +648,6 @@ export const chooseTurnBeamWithBudget: (
     withReplies && trailSizeOf(state, me) > 0
       ? exposure(geometry, rules, state, me)
       : 0;
-  enterCampaignOrigin(campaign);
   enterBeamSearch();
   try {
   const beamWidth = budget?.beam ?? BEAM;
@@ -694,7 +689,6 @@ export const chooseTurnBeamWithBudget: (
   return pickReturnedPlan(search)?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
-    leaveCampaignOrigin();
   }
 };
 
