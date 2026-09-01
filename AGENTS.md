@@ -1,8 +1,8 @@
 # conquarrow — shared conventions
 
 Tool-agnostic conventions for this repo. Every developer and every AI coding tool
-(Claude Code, Cursor, Codex, …) follows these regardless of IDE. Tool-specific
-notes live in each tool's own file (`CLAUDE.md`, `CURSOR.md`, …) and import this
+(Claude Code, Cursor, OpenCode, Codex, …) follows these regardless of IDE. Tool-specific
+notes live in each tool's own file (`CLAUDE.md`, `CURSOR.md`, `OPENCODE.md`, …) and import this
 one as the shared base.
 
 ## What this repo is
@@ -158,8 +158,12 @@ packets always branch from `main`. After a packet lands on `main`, rebase
 ## The spec→ship workflow
 
 Take one work packet all the way to a merged PR through **four phases**. Do not
-stop for a human thumbs-up between them. In Claude Code / Cursor:
+stop for a human thumbs-up between them. In Claude Code / Cursor / OpenCode:
 `/spec-to-ship <path-to-packet>`.
+
+OpenCode pins every phase to `xai/grok-4.6` and bills the **SuperGrok**
+subscription via `/connect` → xAI → SuperGrok Subscription. See `OPENCODE.md`.
+Do not put an `XAI_API_KEY` in the repo.
 
 1. **spec-author** drives `write-spec` → Gherkin `.feature` + mermaid (escape `;`
    as `#59;`) + EARS invariants. Escalate only for a SPEC.md game-rule gap, a
