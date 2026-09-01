@@ -21,8 +21,9 @@ import {
 } from '../src/botSearch';
 import { chooseMove, evaluate, playBotTurn } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
+import { exposure } from '../src/botClose';
 import {
-  afterOpeningOpenTrail,
+  afterOpeningOpenTrailUnderFire,
   botEvaluateSource,
   botSearchSource,
   countingRules,
@@ -249,8 +250,9 @@ describe('Bot turn search — budget, determinism, and frozen greedy-v1', () => 
     expect(delta).toBe(25);
   });
 
-  it('A 0-share land-bridge on an open trail is still taken', () => {
-    const { state, me } = afterOpeningOpenTrail();
+  it('A 0-share land-bridge on an open trail is still taken under fire', () => {
+    const { state, me } = afterOpeningOpenTrailUnderFire();
+    expect(exposure(geometry, rules, state, me)).toBeGreaterThan(0);
     const plan = chooseTurnBeam(geometry, rules, state, me);
     let at = state;
     let landedOnOwn = false;

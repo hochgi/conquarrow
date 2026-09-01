@@ -138,9 +138,10 @@ Feature: Bot turn search — budget, determinism, and frozen greedy-v1
       When evaluate runs with rules on both, for Bot
       Then the larger-territory score exceeds the other by 25
 
-    Scenario: A 0-share land-bridge on an open trail is still taken
+    Scenario: A 0-share land-bridge on an open trail is still taken under fire
       Given Bot has a non-empty trail
-      And a one-turn 0-share land-bridge close evaluates highest
+      And exposure is greater than 0
+      And a one-turn 0-share land-bridge close has the highest P54 closeValue
       When chooseTurnBeam runs
       Then the plan lands that close
       And the terminal trail is empty

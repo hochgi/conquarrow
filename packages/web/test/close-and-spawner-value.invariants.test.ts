@@ -9,10 +9,13 @@ import { describe, expect, it } from 'vitest';
 import { speed } from '@conquarrow/contracts';
 import {
   ARROW_VALUE_A,
+  BOT_DRIVE,
   SHARE_VALUE_S,
+  campaignTarget,
   closeValue,
   estimateCloseLoot,
   exposure,
+  gatedCloseValue,
   loot,
   preferClose,
   shareTerm,
@@ -25,25 +28,37 @@ import { collectFindings, DEFAULT_FINDINGS_CAPS } from '../src/findings';
 import { chooseMove, playBotTurn } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
 import {
+  approachCampaignVsNearerSpawnerPosition,
   bestFindingPrioritySource,
   botCloseSource,
+  campaignTieBreakPosition,
+  contestedVsMonopolisedPosition,
   DIST_CAP,
   findingsSource,
+  gameStateSource,
   homewardClosePathPosition,
+  isQuietDirtCloseComplete,
   lootEstimatorPosition,
   millPosition,
   p53ShuttleAssertionsSource,
+  quietDirtVsCampaignWalkPosition,
   shuffleCloseMaps,
   sourceWithoutComments,
+  specCampaignTarget,
+  stepTowardVertex,
   twoStackStrideClosePosition,
   visitUnclaimedBorderPosition,
 } from './close-and-spawner-value.support';
 import {
+  afterFirstHomeMillClose,
+  botEvaluateSource,
+  foldPlan,
   geometry,
   legalSteps,
   opponentSource,
   pagesHeuristicSource,
   passIsBestPosition,
+  planDepartsTerritory,
   rules,
 } from './bot-turn-search.support';
 
@@ -175,10 +190,9 @@ describe('close-and-spawner-value invariants', () => {
 
   it('The system shall estimate claimed arrows and shares from the current trail and the homeward path only, and shall not run fill.', () => {
     const pos = lootEstimatorPosition();
-    expect(estimateCloseLoot(geometry, pos.state, pos.Bot, pos.tip)).toEqual({
-      shares: 1,
-      arrows: pos.expectedArrows,
-    });
+    const estimated = estimateCloseLoot(geometry, pos.state, pos.Bot, pos.tip);
+    expect(estimated.shares).toBe(1);
+    expect(estimated.arrows).toBe(pos.expectedArrows);
   });
 
   it('The system shall pick the close_path move as a maximum-count legal step that strictly reduces distanceToTerritory.', () => {
@@ -262,6 +276,141 @@ describe('close-and-spawner-value invariants', () => {
     const { state, Bot } = homewardClosePathPosition();
     expect(playBotTurn(geometry, rules, state, Bot).moves).toEqual(
       chooseTurnBeam(geometry, rules, state, Bot),
+    );
+  });
+
+  it('The system shall compute campaignTarget as the spawner vertex V maximising force × missing-own-shares / grainDist among V with ownShares < 3, breaking ties on lesser vertex id.', () => {
+    const contested = contestedVsMonopolisedPosition();
+    expect(campaignTarget(geometry, contested.state, contested.Bot)).toBe(
+      specCampaignTarget(contested.state, contested.Bot),
+    );
+    expect(campaignTarget(geometry, contested.state, contested.Bot)).toBe(contested.contested);
+    const tied = campaignTieBreakPosition();
+    expect(campaignTarget(geometry, tied.state, tied.Bot)).toBe(tied.lesser);
+  });
+
+  it('The system shall measure grain distance to a vertex as the minimum grainDistance from an own group to that vertex\'s border arrows, and shall not write a third grain BFS.', () => {
+    expect(botEvaluateSource()).toMatch(/export const grainDistance/);
+    const src = sourceWithoutComments(botCloseSource());
+    expect(src).not.toMatch(/let frontier/);
+    expect(src).not.toMatch(/cameFrom/);
+  });
+
+  it('When a nearer spawner is monopolised by me and a farther spawner is not, campaignTarget shall return the unmonopolised vertex.', () => {
+    const { state, Bot, monopolised, contested } = contestedVsMonopolisedPosition();
+    expect(campaignTarget(geometry, state, Bot)).toBe(contested);
+    expect(campaignTarget(geometry, state, Bot)).not.toBe(monopolised);
+  });
+
+  it('When a close candidate has shares == 0, does not hit the campaign, and does not advance it, and exposure is 0, the system shall treat its gated close value as 0.', () => {
+    expect(
+      gatedCloseValue(0, 3, 1, 0, { hitsCampaign: false, advancesCampaign: false }),
+    ).toBe(0);
+  });
+
+  it('When that same candidate has exposure > 0, the system shall keep the P54 ungated rate.', () => {
+    const e = 2;
+    expect(
+      gatedCloseValue(0, 3, 1, e, { hitsCampaign: false, advancesCampaign: false }),
+    ).toBe(closeValue(0, 3, 1, e));
+  });
+
+  it('When a 2-turn close banks one share and a 6-turn close banks two, with equal arrows and exposure 0, the system shall still prefer the 2-turn close (dirt-close gate off).', () => {
+    expect(closeValue(1, 3, 2, 0)).toBe(87.5);
+    expect(closeValue(2, 3, 6, 0)).toBe(62.5);
+    expect(
+      preferClose(
+        { shares: 1, arrows: 3, turnsToClose: 2, exposure: 0 },
+        { shares: 2, arrows: 3, turnsToClose: 6, exposure: 0 },
+      ),
+    ).toBeLessThan(0);
+  });
+
+  it('WHILE approach_spawner ranks departing exits and a campaignTarget exists, the system shall rank by grain distance to that vertex, not to the nearest spawner of any kind.', () => {
+    const pos = approachCampaignVsNearerSpawnerPosition();
+    const findings = collectFindings(
+      geometry,
+      rules,
+      pos.state,
+      pos.Bot,
+      { maxFindings: 32, distCap: DIST_CAP },
+      playLayout,
+    );
+    const first = findings.find((f) => f.kind === 'approach_spawner');
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+    expect(geometry.borderArrows(pos.campaign).includes(first.goal)).toBe(true);
+  });
+
+  it("WHEN a group's from is an open share of campaignTarget, the system shall emit close_path and shall not emit approach_spawner from that from.", () => {
+    const { state, Bot, from } = millPosition();
+    const findings = collectFindings(
+      geometry,
+      rules,
+      state,
+      Bot,
+      DEFAULT_FINDINGS_CAPS,
+      playLayout,
+    );
+    expect(findings.some((f) => f.kind === 'close_path' && f.from === from)).toBe(true);
+    expect(findings.some((f) => f.kind === 'approach_spawner' && f.from === from)).toBe(false);
+  });
+
+  it('WHEN chooseTurnBeam plans the generated opening after one 0-share home mill close (territory > 3, trail empty, groups on home), the first departing step shall strictly reduce grain distance to campaignTarget or land on a shortest grain path to it.', () => {
+    const { state, me } = afterFirstHomeMillClose();
+    const expected = specCampaignTarget(state, me);
+    expect(expected).toBeDefined();
+    if (expected === undefined) return;
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
+    let at = state;
+    for (const move of plan) {
+      if (move.kind === 'step' && at.territory.get(move.exit) !== me) {
+        expect(stepTowardVertex(move.from, move.exit, expected)).toBe(true);
+        return;
+      }
+      at = rules.apply(at, move);
+    }
+    throw new Error('no departing step');
+  }, 30_000);
+
+  it('WHEN a quiet board offers a 1-turn 0-share dirt close and a 3-turn walk that would border one unowned share of campaignTarget, chooseTurnBeam shall not terminate on the dirt close.', () => {
+    const pos = quietDirtVsCampaignWalkPosition();
+    const terminal = foldPlan(
+      pos.state,
+      chooseTurnBeam(geometry, rules, pos.state, pos.Bot),
+    );
+    expect(isQuietDirtCloseComplete(pos.state, terminal, pos.Bot, pos.campaign)).toBe(false);
+  }, 30_000);
+
+  it('The system shall not store campaignTarget on GameState.', () => {
+    expect(sourceWithoutComments(gameStateSource())).not.toMatch(/campaignTarget/);
+    expect(sourceWithoutComments(botCloseSource())).not.toMatch(/state\.campaignTarget/);
+  });
+
+  it('The system shall export BotDrive / BOT_DRIVE with every weight equal to 1.', () => {
+    expect(BOT_DRIVE).toEqual({
+      shareLoot: 1,
+      arrowLoot: 1,
+      campaignPull: 1,
+      bankUnderFire: 1,
+    });
+  });
+
+  it('The system shall not use Date, Math.random, performance.now, or an elapsed-time cutoff in campaignTarget.', () => {
+    const src = sourceWithoutComments(botCloseSource());
+    expect(src).not.toContain('Date.now');
+    expect(src).not.toContain('Math.random');
+    expect(src).not.toContain('performance.now');
+    expect(src).not.toContain('new Date');
+  });
+
+  it("Shuffling state.groups / state.spawners / state.territory insertion order shall not change campaignTarget or chooseTurnBeam's plan on a constructed campaign position.", () => {
+    const { state, Bot } = contestedVsMonopolisedPosition();
+    const shuffled = shuffleCloseMaps(state);
+    expect(campaignTarget(geometry, state, Bot)).toBe(campaignTarget(geometry, shuffled, Bot));
+    expect(chooseTurnBeam(geometry, rules, state, Bot)).toEqual(
+      chooseTurnBeam(geometry, rules, shuffled, Bot),
     );
   });
 });

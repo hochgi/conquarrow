@@ -2,10 +2,10 @@
 # Overview: docs/spec/close-and-spawner-value/close-and-spawner-value.md
 # Adapter only — local heuristic close value, not a game rule
 
-Feature: Closing and spawner value — walk home at a rate
+Feature: Closing and spawner value — walk home at a rate, then toward production
   As a local heuristic seat
-  I want close value to be loot per turn, discounted by cut risk
-  So that I bank a share instead of milling a pinwheel, and I take the
+  I want close value to be loot per turn, gated by a campaign vertex
+  So that I bank a share instead of painting empty dirt, and I take the
   fast close when extending is not worth the extra turns
 
   Background:
@@ -104,3 +104,46 @@ Feature: Closing and spawner value — walk home at a rate
       Given a playing GameState whose active player is Bot
       When playBotTurn runs for Bot
       Then the returned moves equal chooseTurnBeam on that state
+
+  Rule: Campaign target aims the leave at production
+
+    Scenario: campaignTarget prefers a contested vertex over a monopolised nearer one
+      Given a constructed board where Bot monopolises a nearer home-adjacent spawner vertex
+      And a farther centre vertex is a spawner Bot owns fewer than 3 shares of
+      When campaignTarget runs for Bot
+      Then the result is the contested farther vertex
+      And the result is not the monopolised nearer vertex
+
+    Scenario: After a 0-share home close the departing exit walks toward campaignTarget
+      Given the 6-seat generated opening
+      And the active seat has completed one 0-share home mill close
+      And that seat holds more than 3 territory arrows
+      And that seat's trail is empty
+      And every own group stands on own territory
+      When chooseTurnBeam runs
+      Then some step lands on an arrow that is not that seat's territory
+      And the first departing step strictly reduces grain distance to campaignTarget
+        or lands on a shortest grain path to it
+
+    Scenario: On a quiet board a 1-turn dirt close loses to a 3-turn campaign-share walk
+      Given exposure is 0
+      And Bot can close a 1-turn 0-share 3-arrow loop that does not hit or advance campaignTarget
+      And Bot can walk 3 turns to border one unowned share of campaignTarget
+      When chooseTurnBeam runs
+      Then the plan does not terminate as that 0-share loop
+      And the plan is not a quiet dirt-close complete
+
+    Scenario: Under fire the 1-turn empty loop is the P54 corridor again
+      Given the same constructed board as the quiet dirt-close case
+      And an enemy group is grain-reachable to Bot's open trail
+      And exposure is greater than 0
+      When preferClose ranks the 1-turn 0-share loop against the 3-turn one-share walk
+      Then the 1-turn loop is preferred
+      And the 1-turn loop's gated close value is the P54 rate, not 0
+
+    Scenario: approach_spawner ranks departing exits toward campaignTarget
+      Given Bot has a legal departing exit that strictly reduces grain distance to campaignTarget
+      And a legal departing exit that is closer to some other unowned spawner and farther from campaignTarget
+      When collectFindings runs for Bot
+      Then an approach_spawner finding exists whose goal is a border of campaignTarget
+      And no higher-ranked approach_spawner finding aims at the farther-from-campaign spawner

@@ -34,7 +34,7 @@ Feature: Closing and spawner value — boundaries and seams
       Given a candidate close with 0 shares and 3 arrows
       And turnsToClose is 3
       And exposure is 0
-      When closeValue runs
+      When ungated closeValue runs
       Then the result equals 25
 
   Rule: Estimator and homeward reuse
@@ -87,9 +87,10 @@ Feature: Closing and spawner value — boundaries and seams
 
     Scenario: Map insertion order does not change exposure or the plan
       Given a constructed close_path position
-      And a second GameState equal except groups, trails, and territory Maps were rebuilt with shuffled insertion
-      When exposure and chooseTurnBeam run on both
+      And a second GameState equal except groups, trails, spawners, and territory Maps were rebuilt with shuffled insertion
+      When exposure, campaignTarget, and chooseTurnBeam run on both
       Then both exposures are equal
+      And both campaign targets are equal
       And both move lists are deeply equal
 
     Scenario: pagesHeuristic still calls chooseMove
@@ -114,3 +115,61 @@ Feature: Closing and spawner value — boundaries and seams
       When the bots report runs
       Then the table still includes closes per 100 turns and firstCloseAt
       And no committed test asserts an absolute threshold on those two columns
+
+  Rule: Campaign gate, weights, and quiet dirt
+
+    Scenario: A quiet dirt close gates to zero
+      Given a candidate close with 0 shares
+      And hitsCampaign is false
+      And advancesCampaign is false
+      And exposure is 0
+      When the dirt-gated close value is computed
+      Then the result equals 0
+
+    Scenario: Under fire a dirt close keeps the P54 rate
+      Given a candidate close with 0 shares and 3 arrows
+      And hitsCampaign is false
+      And advancesCampaign is false
+      And turnsToClose is 1
+      And exposure is greater than 0
+      When the dirt-gated close value is computed
+      Then the result equals ungated closeValue of 0 shares, 3 arrows, 1 turn, that exposure
+
+    Scenario: A 0-share close that advances the campaign keeps the P54 rate
+      Given a candidate close with 0 shares and 3 arrows
+      And hitsCampaign is false
+      And advancesCampaign is true
+      And turnsToClose is 3
+      And exposure is 0
+      When the dirt-gated close value is computed
+      Then the result equals 25
+
+    Scenario: Quiet-board dirt close_path is omitted from findings
+      Given Bot has a trail tip whose close_path is a quiet dirt close
+      And exposure is 0
+      When collectFindings runs for Bot
+      Then no close_path finding exists from that tip
+
+    Scenario: BotDrive weights are all 1
+      Then BOT_DRIVE shareLoot is 1
+      And BOT_DRIVE arrowLoot is 1
+      And BOT_DRIVE campaignPull is 1
+      And BOT_DRIVE bankUnderFire is 1
+
+    Scenario: campaignTarget is undefined when every spawner is monopolised
+      Given Bot owns all three shares of every spawner vertex
+      When campaignTarget runs for Bot
+      Then the result is undefined
+
+    Scenario: campaignTarget ties break on vertex id
+      Given two spawner vertices with equal force, equal missing own shares, and equal grain distance from Bot's nearest group
+      And Bot owns fewer than 3 shares of each
+      When campaignTarget runs for Bot
+      Then the result is the vertex with the lesser id
+
+    Scenario: After the first home close the plan is not a dirt-only close
+      Given the 6-seat generated opening
+      And the active seat has completed one 0-share home mill close
+      And a campaign-advancing complete exists inside the beam
+      When chooseTurnBeam runs
+      Then the plan is not a quiet dirt-close complete

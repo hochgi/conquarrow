@@ -1,13 +1,17 @@
-# close-and-spawner-value — the heuristic learns to walk home
+# close-and-spawner-value — walk home, then walk toward production
 
 **Packet:** [P54 — Closing and spawner value](../../design/packets/P54-close-and-spawner-value.md)
+**Follow-on:** [P57 — Campaign target](../../design/packets/P57-campaign-target.md)
+gates the P54 rate so a quiet-board 0-share dirt close scores zero, and aims
+`approach_spawner` / the P56 leave at one campaign vertex.
 **SPEC:** read [§3](../../../SPEC.md) (speed, split vs merge) and
 [§7](../../../SPEC.md) (closure, shares, spawners). **No game rule is added,
 changed, or implied.** Nothing is owed to SPEC §11. Do not edit SPEC.md.
 **Layer:** `packages/web` only. No `contracts` DTO change, no `rules-core`.
 Online-api **behaviour** is unchanged (`pagesHeuristic` still calls
 `chooseMove`).
-**Depends on:** [bot-turn-search](../bot-turn-search/bot-turn-search.md) (P53).
+**Depends on:** [bot-turn-search](../bot-turn-search/bot-turn-search.md) (P53,
+P56). P55's reply search stays on.
 **Features:** [core](./close-and-spawner-value.core.feature) ·
 [edge cases](./close-and-spawner-value.edge-cases.feature)
 
@@ -29,8 +33,11 @@ game rule:
 3. Fast-and-small versus slow-and-big has no arithmetic: nothing compares
    loot per turn, discounted by how cuttable the trail is.
 
-P53's beam can commit several steps to a route. This packet aims that
-search at a **close value rate** and a **`close_path` goal**.
+P53's beam can commit several steps to a route. P54 aims that search at
+a **close value rate** and a **`close_path` goal**. After P56 they leave
+home; playtest 2026-09-01T09:50 then paints the nearest 1-turn 0-share
+loop (18 closes, 0 cuts). P57 gates that dirt rate and names **one
+campaign vertex**.
 
 ## Scope
 
@@ -39,7 +46,10 @@ seam; superlinear `shareTerm`; a `close_path` finding; mill-guard
 replacement (skip-group → that group's goal is the close that banks the
 share); `collectFindings` / `bestFindingMove` / BYOK lock validity for the
 new kind; constructed tests plus the existing P53 shuttle head-to-head
-left intact.
+left intact. P57: `campaignTarget`; dirt-close gate on the P54 rate;
+`approach_spawner` ranked to that vertex; `BotDrive` all `1`; one
+return-time compare so a quiet dirt complete does not beat a
+campaign-advancing complete the beam already adopted.
 
 Out: opponent plies and replacing the exposure *proxy* with worst-reply
 damage (P55); retuning P53 beam budgets (`BEAM` / `BRANCH` / `MAX_PLAN` /
@@ -47,7 +57,12 @@ damage (P55); retuning P53 beam budgets (`BEAM` / `BRANCH` / `MAX_PLAN` /
 findings-short-circuit; a third close-economy constant besides `S` and
 `A`; an absolute CI threshold on closes-per-100 or `firstCloseAt`;
 `evaluate` occupancy-as-share (P53 BSSN 11 still holds); SPEC.md;
-`rules-core`; Pages calling `chooseTurnBeam`.
+`rules-core`; Pages calling `chooseTurnBeam`. P57 also out: personality
+sliders / lobby / seat-kind / match-log fields (P58); retuning
+`evaluate`, `tipTerm`, `closeUrgency`, `MOBILITY_SCALE`, `S`, `A`,
+`IDLE_SLACK`, `SORTIE_SLACK`, or any beam / reply budget; spawner-gravity
+in `evaluate`; changing P56's expedition predicate; multi-vertex
+campaigns or a stored plan; unfreezing `greedy-v1`.
 
 ## BSSN (recorded)
 
@@ -176,15 +191,150 @@ re-litigate them.
     became owned" as stale — the goal *is* owned.
 
 15. **Module.** `closeValue`, `shareTerm`, `loot`, `exposure`,
-    `survival`, `turnsToClose`, `SHARE_VALUE_S`, `ARROW_VALUE_A`,
-    `estimateCloseLoot`, and `preferClose` live in
-    `packages/web/src/botClose.ts` (pure). P55 replaced `exposure`.
-    `findings.ts` imports them. `botClose` must not import `findings`
-    (cycle). Move `grainDistance` next to `distanceToTerritory` in
-    `botEvaluate.ts` and re-export it from `findings.ts` so existing
-    imports keep compiling. Search still talks to the engine only
-    through `RulesPort`. Add `botClose.ts` to `packages/online-api/tsconfig.json`
-    `include` (same reason as P53: Pages typechecks opponent's graph).
+     `survival`, `turnsToClose`, `SHARE_VALUE_S`, `ARROW_VALUE_A`,
+     `estimateCloseLoot`, and `preferClose` live in
+     `packages/web/src/botClose.ts` (pure). P55 replaced `exposure`.
+     `findings.ts` imports them. `botClose` must not import `findings`
+     (cycle). Move `grainDistance` next to `distanceToTerritory` in
+     `botEvaluate.ts` and re-export it from `findings.ts` so existing
+     imports keep compiling. Search still talks to the engine only
+     through `RulesPort`. Add `botClose.ts` to `packages/online-api/tsconfig.json`
+     `include` (same reason as P53: Pages typechecks opponent's graph).
+
+16. **Campaign target is a search-origin fact (P57).** Recomputed from
+    `(geometry, state, me)` at the start of `chooseTurnBeam` and by
+    `collectFindings` / `estimateCloseLoot`. Not stored on `GameState`.
+    Not a game rule.
+
+    ```
+    campaignTarget(state, me) =
+      the spawner vertex V that maximises
+        force(V) × (3 − ownShares(V, me)) / max(1, grainDist(nearest own group, V))
+      among V with ownShares(V, me) < 3
+      ties: lesser vertex id
+    ```
+
+    `force(V)` is `spawner.force.num / spawner.force.den` as IEEE number
+    — the setup force already on the state (SPEC §7). Do not invent a
+    second table. `ownShares(V, me)` counts V's `borderArrows` whose
+    territory is `me`. `grainDist` to a vertex is `min grainDistance`
+    from an own-group arrow to that vertex's border arrows — the same
+    BFS `approach_spawner` already uses. Default cap is
+    `DEFAULT_FINDINGS_CAPS.distCap` (12). Beyond the cap, distance is
+    `cap + 1`; the vertex still competes. `max(1, dist)` so a group
+    already on a border scores `force × missing`. No own groups, or
+    every spawner monopolised: `undefined`. Same state, same `me`, same
+    `V`. No clock, no RNG.
+
+17. **Dirt close (P57).** A close candidate is a dirt close when all of:
+    `shares == 0`; `hitsCampaign` is false (no claimed-set arrow borders
+    the campaign vertex); `advancesCampaign` is false (the homeward
+    landing is not strictly grain-closer to V than the tip). Then:
+
+    ```
+    if dirtClose and exposure == 0:
+      gatedCloseValue = 0
+    else:
+      gatedCloseValue = loot / T × survival
+    ```
+
+    Four-argument `closeValue(shares, arrows, T, exposure)` **stays the
+    ungated P54 rate** so the 2-turn-one-share vs 6-turn-two-share
+    arithmetic, and `closeValue(0, 3, 3, 0) = 25`, keep their numbers.
+    Findings score, `preferClose` on flagged candidates, and the
+    return-time compare use the gated value. Do not add a second
+    `preferClose` sort key. Do not change `S` or `A`. Do not add
+    `A_dirt`. Under fire (`exposure > 0`) the 1-turn empty land-bridge
+    stays the P54 corridor.
+
+18. **`estimateCloseLoot` booleans (P57).** Return
+    `{ shares, arrows, hitsCampaign, advancesCampaign }`. Both booleans
+    are pure functions of the candidate plus the origin campaign.
+    `advancesCampaign` is `grainDist(landing, V) < grainDist(tip, V)`
+    with `landing = homewardPath.landing`. Missing landing or missing V
+    → both false. A V-border in the claimed set is a share, so
+    `hitsCampaign` with `shares == 0` is typically empty; keep the
+    conjunct as the packet wrote it.
+
+19. **Findings order the campaign (P57).** `approach_spawner` ranks
+    departing exits by grain distance to `campaignTarget`, not to the
+    nearest spawner of any kind. `Finding.goal` stays an `ArrowId`: the
+    nearest border arrow of V, then lesser id. A group already standing
+    on an open share of V keeps P54's mill guard (`close_path`, no
+    `approach_spawner` from that `from`). Quiet-board dirt `close_path`s
+    are **omitted** from `collectFindings` (they must not consume
+    `maxFindings`). Immediate `close` findings still emit — `greedy-v1`
+    short-circuit stays frozen. `cut` / `attack` get no new terms. If
+    `campaignTarget` is `undefined`, `approach_spawner` keeps P54's
+    nearest-open-share ranking.
+
+20. **Return-time campaign compare (P57).** `evaluate` still pays `+25`
+    per painted arrow, so a 1-turn dirt complete can outscore a walk
+    toward V if the homeward exit is expanded. After `IDLE_SLACK` and
+    `SORTIE_SLACK`, if the chosen complete is a quiet dirt-close
+    complete (origin `exposure == 0`, shares did not rise, trail empty
+    at the terminal, no own group strictly closer to V than at origin)
+    **and** the search adopted a campaign-advancing complete (share
+    gain, or some own group or trail tip strictly closer to V than
+    origin groups), return the campaign-advancing complete. No new
+    slack constant. Do not change `SORTIE_SLACK` or P56's expedition
+    predicate. Do not put this in `evaluate`. Do not add
+    spawner-gravity.
+
+21. **`BotDrive` (P57).** Export from `botClose.ts`:
+
+    ```
+    BotDrive = { shareLoot: 1, arrowLoot: 1, campaignPull: 1, bankUnderFire: 1 }
+    ```
+
+    Every factor in this packet multiplies one of those. All stay `1`
+    (identity). `shareLoot` multiplies `shareTerm`; `arrowLoot`
+    multiplies `arrows × A`; `campaignPull` selects campaign-ranked
+    `approach_spawner`; `bankUnderFire` keeps the P54 dirt rate when
+    `exposure > 0` (`dirtClose and (exposure == 0 or bankUnderFire == 0)`
+    — with the weight at 1 that is `dirtClose and exposure == 0`). No
+    UI, no seat kind, no match-log field. P58 may clone the object.
+
+22. **Playtest log (P57).** Citation: 2026-09-01T09:50:40Z (3-seat,
+    `R = 7`, `spawnerSeed = 1`, 18 closes / 0 cuts after P56). Committed
+    tests construct the post-paint leave and the quiet / under-fire
+    boards. The JSON at
+    `docs/design/packets/data/conquarrow-match-2026-09-01T095040-792Z.json`
+    is optional in CI (same stance as P56's 03:39 log). If present,
+    reconstructing heuristic turn-starts after each seat's first close
+    must not return a dirt-only plan when a campaign-advancing complete
+    existed.
+
+23. **P57 module.** `campaignTarget`, `isDirtClose`, `BotDrive` /
+    `BOT_DRIVE`, the loot booleans, and gated ranking live in
+    `botClose.ts`. `findings.ts` imports them. `botSearch.ts` may import
+    `campaignTarget` for the return-time compare and must not write a
+    third grain BFS. `botClose` must not import `findings` or
+    `botSearch`.
+
+24. **Constructed dirt loop size (P57, phase-2).** The packet's "1-turn
+    0-share 3-arrow loop" is the playtest shape (`loot = 75`). A
+    constructed on-path 1-turn 0-share close may be **2 arrows** when a
+    3-on-path loop would require an off-path trail arrow that does not
+    empty on close. The discriminant is 0-share + not hit/advance, not
+    the arrow count: ungated dirt still beats a 3-turn one-share walk;
+    gated dirt loses. The core under-fire ranking may set `exposure` on
+    the **candidate** (numeric, e.g. 2) when live P55 exposure on a
+    1-arrow trail stays 0; the renamed bot-turn-search land-bridge
+    scenario still uses live `exposure > 0`.
+
+25. **Return-time compare vs P56/P55 (P57, phase-3).** The BSSN 20 swap
+    must not steal First sortie or P55 boxing. Two readings, both
+    adapter:
+    1. A quiet dirt-close complete is swapped for a campaign-advancing
+       complete only when the **origin trail is already non-empty**.
+       Origin-at-home 0-share paints stay P56 (`SORTIE_SLACK` /
+       `homeboundScore`). Threatened departing exits still disable
+       `trackSortie`.
+    2. After `SORTIE_SLACK` picks an expedition that does **not**
+       advance V, replace it with a campaign-advancing complete if the
+       search adopted one. That aims the P56 leave without putting
+       spawner-gravity in `evaluate`.
 
 ## Terms
 
@@ -201,15 +351,31 @@ re-litigate them.
 | **open share** | spawner-border arrow not yet owned as territory (visiting ≠ claiming) |
 | **homeward path** | grain BFS from a trail tip to the first own-territory arrow |
 | **mill** | hopping between sibling open borders instead of banking the share |
+| **campaign target** | the one spawner vertex this turn: max `force × missing-own-shares / grainDist`, skip monopolised, ties on id. Not on `GameState` |
+| **dirt close** | 0-share close that does not border the campaign vertex and does not land closer to it. Quiet board → gated `closeValue` 0. Under fire → P54 land-bridge |
+| **hitsCampaign** | some claimed-set arrow borders the campaign vertex |
+| **advancesCampaign** | homeward landing is strictly grain-closer to the campaign vertex than the tip |
+| **BotDrive** | `{ shareLoot, arrowLoot, campaignPull, bankUnderFire }`, all `1` in P57 |
 
 *arrow*, *stack*, *head*, *share*, *trail*, *point*, *vertex*, *closure*,
-*land bridge* keep their AGENTS.md / SPEC §7 meanings.
+*land bridge* keep their AGENTS.md / SPEC §7 meanings. *dirt close* is not
+a **home mill close** (that is still-at-home, P56) and not SPEC §7's
+**land bridge** (correct under fire or when the close hits / advances the
+campaign).
 
 ## Module boundary (normative)
 
 ```ts
 export const SHARE_VALUE_S = 100;
 export const ARROW_VALUE_A = 25;
+
+export type BotDrive = {
+  readonly shareLoot: number;
+  readonly arrowLoot: number;
+  readonly campaignPull: number;
+  readonly bankUnderFire: number;
+};
+export const BOT_DRIVE: BotDrive;
 
 export const shareTerm = (shares: number): number;
 export const loot = (shares: number, arrows: number): number;
@@ -228,16 +394,30 @@ export const exposure = (
   me: PlayerId,
   distCap?: number,
 ): number;
+export const campaignTarget = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  distCap?: number,
+): VertexId | undefined;
+export const isDirtClose = (candidate: {
+  readonly shares: number;
+  readonly hitsCampaign: boolean;
+  readonly advancesCampaign: boolean;
+}): boolean;
 ```
 
 `FindingKind` includes `'close_path'`. `distanceToTerritory` remains
 exported from `botEvaluate.ts` (re-exported from `opponent.ts` as today).
-`estimateCloseLoot(geometry, state, me, tip)` returns `{ shares, arrows }`
-using BSSN 7. `preferClose(a, b)` is negative when `a` ranks better
-(closeValue, then fewer `turnsToClose`, then more arrows, then more
-shares, then smaller `goal` id).
+`estimateCloseLoot(geometry, state, me, tip)` returns
+`{ shares, arrows, hitsCampaign, advancesCampaign }` using BSSN 7 and
+BSSN 18. `preferClose(a, b)` is negative when `a` ranks better
+(gated closeValue, then fewer `turnsToClose`, then more arrows, then more
+shares, then smaller `goal` id). Flagged candidates (`hitsCampaign` /
+`advancesCampaign` present) use the dirt gate; four-arg `closeValue`
+stays ungated.
 
-When two `closeValue`s compare, higher wins; on a numeric tie, fewer
+When two gated `closeValue`s compare, higher wins; on a numeric tie, fewer
 `turnsToClose`, then more arrows, then more shares, then smaller `goal`
 id.
 
@@ -245,17 +425,40 @@ id.
 
 ```mermaid
 flowchart TD
+  State["state + me"] --> Camp["campaignTarget = argmax force × missing / dist"]
   Tips["trail tips with grainDist in 1..cap"] --> Loot["loot = shareTerm + arrows × A<br/>on trail ∪ homeward path"]
   Tips --> T["turnsToClose = ceil dist / speed"]
-  State["current trail + enemy groups"] --> Exp["exposure = trailLen × Σ proximity / cap"]
-  Exp --> Surv["survival = (1 + e)^-(T-1)"]
-  Loot --> Val["closeValue = loot / T × survival"]
-  T --> Val
-  Surv --> Val
-  Val --> Find["emit close_path #59; skip approach from open-share from"]
+  State --> Exp["exposure = worst-reply trail damage"]
+  Camp --> Dirt{"dirtClose and exposure = 0?"}
+  Loot --> Dirt
+  T --> Dirt
+  Exp --> Dirt
+  Dirt -->|yes| Zero["gatedCloseValue = 0"]
+  Dirt -->|no| Val["gatedCloseValue = loot / T × survival"]
+  Zero --> Find["omit dirt close_path #59; approach ranks to V"]
+  Val --> Find
   Find --> Rank["findings rank beam exits #59; greedy may short-circuit"]
   Rank --> Beam["beam-v1 still terminates the turn"]
+  Beam --> Swap{"chosen is quiet dirt close and a campaign complete exists?"}
+  Swap -->|yes| Walk["return campaign-advancing complete"]
+  Swap -->|no| Out["return chosen"]
 ```
+
+## Campaign target (P57, normative)
+
+P54's rate is doing what it was asked: a 1-turn close of three empty
+arrows is `75` loot. After P56 the expedition is one step off home and a
+landing on empty dirt. Empty arrows were priced like production. The
+discriminant is the campaign, not a new `A_dirt`.
+
+`campaignTarget` is recomputed each `chooseTurn` from the board. It is
+not a waypoint stored across turns. A vertex the seat already
+monopolises is not a campaign. Grain distance reuses `grainDistance`;
+do not write a third BFS.
+
+A 0-share home paint is still not an expedition (P56). This packet
+decides what the expedition walks *toward*. Under fire, the 1-turn empty
+loop stays the corridor close. On a quiet board it is no longer a goal.
 
 ## Invariants
 
@@ -314,6 +517,43 @@ flowchart TD
 24. The system shall not import `packages/rules-core` from `botClose.ts`
     except through `RulesPort` (it should need none).
 25. `playBotTurn` shall keep returning `chooseTurnBeam`'s move list.
+26. The system shall compute `campaignTarget` as the spawner vertex V
+    maximising `force(V) × (3 − ownShares(V, me)) / max(1, grainDist(nearest own group, V))`
+    among V with `ownShares < 3`, breaking ties on lesser vertex id.
+27. The system shall measure grain distance to a vertex as the minimum
+    `grainDistance` from an own group to that vertex's border arrows, and
+    shall not write a third grain BFS.
+28. When a nearer spawner is monopolised by me and a farther spawner is
+    not, `campaignTarget` shall return the unmonopolised vertex.
+29. When a close candidate has `shares == 0`, does not hit the campaign,
+    and does not advance it, and `exposure` is 0, the system shall treat
+    its gated close value as 0.
+30. When that same candidate has `exposure > 0`, the system shall keep
+    the P54 ungated rate.
+31. When a 2-turn close banks one share and a 6-turn close banks two,
+    with equal arrows and `exposure` 0, the system shall still prefer
+    the 2-turn close (dirt-close gate off).
+32. WHILE `approach_spawner` ranks departing exits and a `campaignTarget`
+    exists, the system shall rank by grain distance to that vertex, not
+    to the nearest spawner of any kind.
+33. WHEN a group's `from` is an open share of `campaignTarget`, the
+    system shall emit `close_path` and shall not emit `approach_spawner`
+    from that `from`.
+34. WHEN `chooseTurnBeam` plans the generated opening after one 0-share
+    home mill close (territory > 3, trail empty, groups on home), the
+    first departing step shall strictly reduce grain distance to
+    `campaignTarget` or land on a shortest grain path to it.
+35. WHEN a quiet board offers a 1-turn 0-share dirt close and a 3-turn
+    walk that would border one unowned share of `campaignTarget`,
+    `chooseTurnBeam` shall not terminate on the dirt close.
+36. The system shall not store `campaignTarget` on `GameState`.
+37. The system shall export `BotDrive` / `BOT_DRIVE` with every weight
+    equal to 1.
+38. The system shall not use `Date`, `Math.random`, `performance.now`, or
+    an elapsed-time cutoff in `campaignTarget`.
+39. Shuffling `state.groups` / `state.spawners` / `state.territory`
+    insertion order shall not change `campaignTarget` or
+    `chooseTurnBeam`'s plan on a constructed campaign position.
 
 ## What this file deliberately does not decide
 
@@ -324,9 +564,18 @@ flowchart TD
 - Absolute closes-per-100 / `firstCloseAt` gates in CI.
 - Retuning `MOBILITY_SCALE`, beam budgets, or `scoreStepExtras`.
 - A third loot constant, occupancy-as-share, or fill in the estimator.
+- Personality sliders, lobby difficulty, extra `chooseTurn`
+  implementations, seat-kind changes, match-log fields — **P58**.
+- Spawner-gravity in `evaluate`. Multi-vertex campaigns, waypoints, or
+  a plan stored across turns.
+- Game-rule edges (cut mid-closure, fork-stem cut, chord coincide vs
+  interleave, pincer arms on different turns, stranded head, contested
+  spawn, cell far from origin) — already decided in SPEC.md / other
+  packets; this file does not reopen them.
 
 ## Spec files
 
-- `close-and-spawner-value.core.feature` — 10 scenarios (2 `@superseded-P55`)
-- `close-and-spawner-value.edge-cases.feature` — 17 scenarios
-- Invariants above — 25 EARS one-liners
+- `close-and-spawner-value.core.feature` — 15 scenarios (2 `@superseded-P55`)
+- `close-and-spawner-value.edge-cases.feature` — 25 scenarios
+- Invariants above — 39 EARS one-liners
+- BSSN 16–25 (P57) recorded above; no SPEC §11 item; no game rule.

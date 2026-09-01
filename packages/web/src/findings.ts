@@ -16,7 +16,15 @@ import type {
   StepMove,
   VertexId,
 } from '@conquarrow/contracts';
-import { closeValue, estimateCloseLoot, exposure, turnsToClose } from './botClose';
+import {
+  BOT_DRIVE,
+  campaignTarget,
+  estimateCloseLoot,
+  exposure,
+  gatedCloseValue,
+  isDirtClose,
+  turnsToClose,
+} from './botClose';
 import { distanceToTerritory, grainDistance, homewardPath } from './botEvaluate';
 
 export { grainDistance };
@@ -493,10 +501,12 @@ const collectClosePathFindings = (
   me: PlayerId,
   caps: FindingsCaps,
   byFrom: ReadonlyMap<string, readonly StepMove[]>,
+  campaign: VertexId | undefined,
 ): readonly Finding[] => {
   const trail = state.trails.get(me);
   if (trail === undefined || trail.size === 0) return [];
   const e = exposure(geometry, rules, state, me, caps.distCap);
+  const vertex = campaign;
   const distAt = (arrow: ArrowId): number =>
     distanceToTerritory(geometry, state, me, arrow, caps.distCap);
   const froms = [...state.groups.entries()]
@@ -513,8 +523,12 @@ const collectClosePathFindings = (
     const move = bestHomewardStep(d0, moves, distAt);
     if (move === undefined) continue;
     const T = turnsToClose(d0, move.count);
-    const { shares, arrows } = estimateCloseLoot(geometry, state, me, from);
-    const value = closeValue(shares, arrows, T, e);
+    const estimated = estimateCloseLoot(geometry, state, me, from, vertex);
+    if (isDirtClose(estimated) && e === 0) continue;
+    const value = gatedCloseValue(estimated.shares, estimated.arrows, T, e, {
+      hitsCampaign: estimated.hitsCampaign,
+      advancesCampaign: estimated.advancesCampaign,
+    });
     const reward = 80;
     out.push({
       kind: 'close_path',
@@ -529,13 +543,34 @@ const collectClosePathFindings = (
   return out;
 };
 
+const approachGoalList = (
+  geometry: GeometryPort,
+  openShares: readonly ArrowId[],
+  campaign: VertexId | undefined,
+): { readonly goals: readonly ArrowId[]; readonly limit: number } => {
+  if (BOT_DRIVE.campaignPull === 0) return { goals: openShares, limit: 3 };
+  const vertex = campaign;
+  if (vertex === undefined) return { goals: openShares, limit: 3 };
+  return {
+    goals: [...geometry.borderArrows(vertex)].toSorted((a, b) =>
+      compareIds(String(a), String(b)),
+    ),
+    limit: 1,
+  };
+};
+
 const collectApproachSpawnerFindings = (
   geometry: GeometryPort,
   state: GameState,
   caps: FindingsCaps,
   byFrom: ReadonlyMap<string, readonly StepMove[]>,
-  openShares: readonly ArrowId[],
+  plan: {
+    readonly millFrom: readonly ArrowId[];
+    readonly goals: readonly ArrowId[];
+    readonly limit: number;
+  },
 ): readonly Finding[] => {
+  const { millFrom: openShares, goals, limit } = plan;
   const out: Finding[] = [];
   for (const [, moves] of [...byFrom.entries()].toSorted((a, b) =>
     a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
@@ -547,7 +582,7 @@ const collectApproachSpawnerFindings = (
     if (openShares.some((s) => s === from)) continue;
     const group = state.groups.get(from);
     const heads = group?.heads ?? 1;
-    const nearestGoals = openShares
+    const nearestGoals = goals
       .map((goal) => ({
         goal,
         d: grainDistance(geometry, from, goal, caps.distCap),
@@ -556,7 +591,7 @@ const collectApproachSpawnerFindings = (
       .toSorted((a, b) =>
         a.d !== b.d ? a.d - b.d : compareIds(String(a.goal), String(b.goal)),
       )
-      .slice(0, 3);
+      .slice(0, limit);
     for (const { goal, d: d0 } of nearestGoals) {
       let best: { move: StepMove; d1: number } | undefined;
       for (const m of moves) {
@@ -608,9 +643,11 @@ export const collectFindings = (
   me: PlayerId,
   caps: FindingsCaps = DEFAULT_FINDINGS_CAPS,
   layout?: FindingsLayout,
+  campaign?: VertexId,
 ): readonly Finding[] => {
   const legal = rules.legalMoves(state).filter((m): m is StepMove => m.kind === 'step');
   if (legal.length === 0) return [];
+  const originCampaign = campaign ?? campaignTarget(geometry, state, me, caps.distCap);
 
   const byFrom = new Map<string, StepMove[]>();
   for (const m of legal) {
@@ -727,18 +764,25 @@ export const collectFindings = (
   }
 
   // Same step may already be merge_pair / attack; close_path must still emit.
-  for (const finding of collectClosePathFindings(geometry, rules, state, me, caps, byFrom)) {
+  for (const finding of collectClosePathFindings(
+    geometry,
+    rules,
+    state,
+    me,
+    caps,
+    byFrom,
+    originCampaign,
+  )) {
     found.push(finding);
     seenMove.add(moveKey(finding.move));
   }
 
-  for (const finding of collectApproachSpawnerFindings(
-    geometry,
-    state,
-    caps,
-    byFrom,
-    openShares,
-  )) {
+  const approach = approachGoalList(geometry, openShares, originCampaign);
+  for (const finding of collectApproachSpawnerFindings(geometry, state, caps, byFrom, {
+    millFrom: openShares,
+    goals: approach.goals,
+    limit: approach.limit,
+  })) {
     push(finding);
   }
 

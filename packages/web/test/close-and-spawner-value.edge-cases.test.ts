@@ -5,9 +5,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  BOT_DRIVE,
+  campaignTarget,
   closeValue,
   estimateCloseLoot,
   exposure,
+  gatedCloseValue,
   survival,
   turnsToClose,
 } from '../src/botClose';
@@ -18,23 +21,30 @@ import { bestFindingMove, collectFindings, DEFAULT_FINDINGS_CAPS } from '../src/
 import { chooseMove } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
 import {
+  allSpawnersMonopolisedPosition,
   bestFindingPrioritySource,
   beyondDistCapPosition,
   botCloseSource,
+  campaignTieBreakPosition,
   DIST_CAP,
   findingsSource,
   homewardClosePathPosition,
   immediateCloseAndPathPosition,
+  isQuietDirtCloseComplete,
   lootEstimatorPosition,
   millPosition,
   p53ShuttleAssertionsSource,
+  quietDirtVsCampaignWalkPosition,
   shuffleCloseMaps,
   sourceWithoutComments,
+  specCampaignTarget,
   twoStackStrideClosePosition,
   visitUnclaimedBorderPosition,
   webTestSourcesExcluding,
 } from './close-and-spawner-value.support';
 import {
+  afterFirstHomeMillClose,
+  foldPlan,
   geometry,
   legalSteps,
   pagesHeuristicSource,
@@ -180,6 +190,7 @@ describe('Closing and spawner value — boundaries and seams', () => {
     const shuffled = shuffleCloseMaps(state);
     expect([...state.groups.keys()]).not.toEqual([...shuffled.groups.keys()]);
     expect(exposure(geometry, rules, state, Bot)).toBe(exposure(geometry, rules, shuffled, Bot));
+    expect(campaignTarget(geometry, state, Bot)).toBe(campaignTarget(geometry, shuffled, Bot));
     expect(chooseTurnBeam(geometry, rules, state, Bot)).toEqual(
       chooseTurnBeam(geometry, rules, shuffled, Bot),
     );
@@ -237,4 +248,62 @@ describe('Closing and spawner value — boundaries and seams', () => {
     expect(others).not.toContain('firstCloseAt).toBe(56)');
     expect(others).not.toContain('firstCloseAt).toBe(15)');
   });
+
+  it('A quiet dirt close gates to zero', () => {
+    const flags = { hitsCampaign: false, advancesCampaign: false } as const;
+    expect(gatedCloseValue(0, 3, 1, 0, flags)).toBe(0);
+  });
+
+  it('Under fire a dirt close keeps the P54 rate', () => {
+    const flags = { hitsCampaign: false, advancesCampaign: false } as const;
+    const e = 2;
+    expect(gatedCloseValue(0, 3, 1, e, flags)).toBe(closeValue(0, 3, 1, e));
+  });
+
+  it('A 0-share close that advances the campaign keeps the P54 rate', () => {
+    const flags = { hitsCampaign: false, advancesCampaign: true } as const;
+    expect(gatedCloseValue(0, 3, 3, 0, flags)).toBe(25);
+  });
+
+  it('Quiet-board dirt close_path is omitted from findings', () => {
+    const pos = quietDirtVsCampaignWalkPosition();
+    expect(exposure(geometry, rules, pos.state, pos.Bot)).toBe(0);
+    const findings = collectFindings(
+      geometry,
+      rules,
+      pos.state,
+      pos.Bot,
+      DEFAULT_FINDINGS_CAPS,
+      playLayout,
+    );
+    expect(findings.some((f) => f.kind === 'close_path' && f.from === pos.from)).toBe(false);
+  });
+
+  it('BotDrive weights are all 1', () => {
+    expect(BOT_DRIVE.shareLoot).toBe(1);
+    expect(BOT_DRIVE.arrowLoot).toBe(1);
+    expect(BOT_DRIVE.campaignPull).toBe(1);
+    expect(BOT_DRIVE.bankUnderFire).toBe(1);
+  });
+
+  it('campaignTarget is undefined when every spawner is monopolised', () => {
+    const { state, Bot } = allSpawnersMonopolisedPosition();
+    expect(campaignTarget(geometry, state, Bot)).toBeUndefined();
+    expect(specCampaignTarget(state, Bot)).toBeUndefined();
+  });
+
+  it('campaignTarget ties break on vertex id', () => {
+    const { state, Bot, lesser, greater } = campaignTieBreakPosition();
+    expect(String(lesser) < String(greater)).toBe(true);
+    expect(campaignTarget(geometry, state, Bot)).toBe(lesser);
+    expect(specCampaignTarget(state, Bot)).toBe(lesser);
+  });
+
+  it('After the first home close the plan is not a dirt-only close', () => {
+    const { state, me } = afterFirstHomeMillClose();
+    const campaign = specCampaignTarget(state, me);
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    const terminal = foldPlan(state, plan);
+    expect(isQuietDirtCloseComplete(state, terminal, me, campaign)).toBe(false);
+  }, 30_000);
 });
