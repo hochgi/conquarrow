@@ -2,7 +2,7 @@
 name: spec-author
 description: Turns a conquarrow work packet into a detailed specification — Gherkin (.feature) + mermaid + EARS, derived from SPEC.md / ADR 0002. Escalates only for game-rule gaps, unexpected cost, or a big behavioral shift. Use as phase 1 of /spec-to-ship.
 mode: all
-model: xai/grok-4.6#high
+model: xai/grok-4.6#xhigh
 ---
 
 # spec-author

@@ -30,36 +30,32 @@ Then:
 /models
 ```
 
-Confirm the session is on `xai/grok-4.6`. Session effort (none / low / medium / high)
-is yours to pick. Do **not** use `/connect` → “Manually enter API Key” unless you
-intentionally want prepaid console credits instead of the subscription.
+Confirm the session is on `xai/grok-4.6`. Session effort is yours to pick.
+
+Requires **OpenCode ≥ 1.18.18** (xhigh for xAI). Latest as of 2026-08-28 is
+**1.18.25**. Upgrade:
+
+```
+opencode upgrade
+opencode --version
+```
 
 ## Model pin
 
 Canonical OpenCode id: `xai/grok-4.6`.
 
-| Surface | Slug | Why |
-|---|---|---|
-| Session / `build` / `plan` / `general` / `explore` | `xai/grok-4.6` (no `#variant`) | You pick the effort tier |
-| `spec-author`, `test-author`, `coder`, `reviewer`, `/spec-to-ship` | `xai/grok-4.6#high` | Highest effort OpenCode’s xAI SDK will actually send |
+| Surface | Slug |
+|---|---|
+| Session / built-in `build` `plan` `general` `explore` | `xai/grok-4.6` (pick the tier) |
+| `spec-author` `test-author` `coder` `reviewer` `/spec-to-ship` | `xai/grok-4.6#xhigh` |
 
-`cursor-grok-4.6-xhigh` is a **Cursor** slug. Do not paste it into OpenCode.
-Claude Code keeps `opus` in `.claude/agents/`.
+`cursor-grok-4.6-xhigh` is a Cursor slug. Do not paste it into OpenCode.
 
-### Why `xhigh` blows up here
-
-`invalid xai provider options` with `reasoningEffort: "xhigh"` is
-[anomalyco/opencode#43226](https://github.com/anomalyco/opencode/issues/43226).
-
-- xAI’s API **does** accept `reasoning_effort: "xhigh"` on grok-4.6.
-- Cursor’s own backend **does** accept `xhigh` (that is what `.cursor/agents` pins).
-- OpenCode’s picker advertises an `xhigh` variant.
-- The bundled `@ai-sdk/xai` Zod schema only allows `none \| low \| medium \| high`,
-  so the request dies **before** it leaves the machine.
-
-Until that SDK/catalog split is fixed, `#high` is the ceiling in OpenCode.
-`opencode.json` remaps the advertised `xhigh` variant to `high` so picking it in
-the UI does not crash; it does **not** buy you Cursor’s xhigh budget.
+On OpenCode **&lt; 1.18.18**, `#xhigh` dies locally (`invalid xai provider options`)
+because `@ai-sdk/xai` only allowed `none\|low\|medium\|high`. 1.18.18 release
+notes: “Fix xhigh reasoning effort for xai models.” [#43226](https://github.com/anomalyco/opencode/issues/43226)
+was filed *against* 1.18.18 (closed as not planned). If `#xhigh` still 400s after
+1.18.25, drop the agents back to `#high`.
 
 ## Command, subagents & skills
 

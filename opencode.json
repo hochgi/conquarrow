@@ -11,7 +11,7 @@
             "low": { "reasoningEffort": "low" },
             "medium": { "reasoningEffort": "medium" },
             "high": { "reasoningEffort": "high" },
-            "xhigh": { "reasoningEffort": "high" }
+            "xhigh": { "reasoningEffort": "xhigh" }
           }
         }
       }
@@ -19,19 +19,19 @@
   },
   "agent": {
     "spec-author": {
-      "model": "xai/grok-4.6#high",
+      "model": "xai/grok-4.6#xhigh",
       "mode": "all"
     },
     "test-author": {
-      "model": "xai/grok-4.6#high",
+      "model": "xai/grok-4.6#xhigh",
       "mode": "subagent"
     },
     "coder": {
-      "model": "xai/grok-4.6#high",
+      "model": "xai/grok-4.6#xhigh",
       "mode": "subagent"
     },
     "reviewer": {
-      "model": "xai/grok-4.6#high",
+      "model": "xai/grok-4.6#xhigh",
       "mode": "subagent"
     }
   }
