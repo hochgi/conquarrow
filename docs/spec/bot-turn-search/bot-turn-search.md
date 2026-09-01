@@ -1,9 +1,13 @@
 # bot-turn-search — the heuristic learns to stride
 
 **Packet:** [P53 — Bot turn search](../../design/packets/P53-bot-turn-search.md)
+**Follow-on:** [P56 — Home expedition](../../design/packets/P56-home-expedition.md)
+rewrites First sortie (drop the ≤3 cap, a 0-share paint is not an expedition,
+compare mill vs leave on `homeboundScore`).
 **SPEC:** read [§3](../../../SPEC.md) (speed, split vs merge, allowance) and
 [§6.2](../../../SPEC.md) (stay-behind: a lone head cannot attack). **No game
-rule is added, changed, or implied.** Nothing is owed to SPEC §11.
+rule is added, changed, or implied.** Nothing is owed to SPEC §11. P56 does
+not edit SPEC.md.
 **Layer:** `packages/web` only. No `contracts` DTO change, no `rules-core`.
 Online-api **behaviour** is unchanged (`pagesHeuristic` still calls
 `chooseMove`); `tsconfig.json` `include` lists the new web modules so Pages
@@ -23,7 +27,8 @@ head count.
 
 This packet searches **whole turn plans** so that stride, a correct split, a
 correct pass, and a one-turn box are visible to `evaluate`. Close valuation,
-the spawner mill, and opponent replies stay P54 / P55.
+the spawner mill, and opponent replies stay P54 / P55. P56 is a return-time
+gate on this search: stop treating a 0-share home paint as the expedition.
 
 ## Scope
 
@@ -87,12 +92,15 @@ re-litigate them.
    including `collectFindings` on the capped port).    `IDLE_SLACK =
    MOBILITY_SCALE`: a pass must beat the best stepped complete by more
    than this or the stepped plan wins (playtest 2026-08-31 pinwheel freeze).
-   `SORTIE_SLACK = MOBILITY_SCALE`: if the seat is still on a ≤3-arrow home
-   with no trail and the best complete never left that territory, a complete
-   that *does* leave wins unless the mill/idle is better by more than this
-   (playtest that evening: mill circled the pinwheel). Do not put this in
-   `evaluate` and do not zero `tipTerm` — both broke constructed 4-stack
-   closes / P55 takeable-stack denial. Do not add a spawner-gravity term.
+   `SORTIE_SLACK = MOBILITY_SCALE`: if the origin is still at home (empty
+   trail, every own group on own territory, no threatened departing exit),
+   prefer an **expedition** complete over a **home mill close** unless the
+   mill wins on **homeboundScore** by more than this. Territory count is
+   not the gate (P56; playtest 2026-09-01 painted past 3 and milled). A
+   0-share paint is not an expedition. Do not put this in `evaluate` and
+   do not zero `tipTerm` — both broke constructed 4-stack closes / P55
+   takeable-stack denial. Do not add a spawner-gravity term. Do not add a
+   third slack constant.
 8. **Cap / horizon.** On `MAX_APPLIES` exhaustion or no extendable plan:
    return the best complete found so far (evaluate desc, then `planKey` asc).
    If none is complete, append `endTurn` to the best incomplete — that one
@@ -132,6 +140,32 @@ re-litigate them.
     `MOBILITY_SCALE * 1`. The constructed box uses a **2-stack** parking on
     O (pair stays; §6.2 still means the enemy 1-stack cannot attack it).
     Do not raise `MOBILITY_SCALE` to paper over the lone-tip term.
+14. **Home expedition (P56).** Adapter, not a game rule. `trackSortie`
+    drops `ownedTerritory ≤ 3`. Still at home means: origin trail empty,
+    every own group on own territory, no legal departing exit an enemy
+    can step onto this turn (same hypothesised-chair `legalMoves` as
+    P55). `isExpeditionTerminal` is share-gain **or** a group off home
+    **or** (trail grew **and** trail still non-empty at the terminal).
+    Territory growth alone is **not** an expedition — walking one arrow
+    out and landing so the loop paints is a **home mill close**. At
+    return time only, when `trackSortie` is set:
+
+    ```
+    homeboundScore(complete) =
+      completeScore(complete) − ARROW_VALUE_A × ownTerritoryCount(complete.state)
+    ```
+
+    Then the existing swap, on `homeboundScore` rather than raw
+    `completeScore`. `complete.state` is the bot terminal (before any
+    P55 reply). Import `ARROW_VALUE_A` from `botClose.ts` (P54); do not
+    write `25` a second time in search. Do not strip shares, enemy
+    territory, or mobility. Do not change `evaluate`. Identifier rename
+    (`isSortieTerminal` → `isExpeditionTerminal`, `bestSortie` →
+    `bestExpedition`) is optional; tests assert plans. The 2026-09-01
+    3-seat log is not required in-tree; the committed scenario
+    constructs the post-close position from the generated 6-seat
+    opening (packet: either is fine). `greedy-v1` stays frozen. P55
+    reply search stays on.
 
 ## Terms
 
@@ -149,10 +183,18 @@ re-litigate them.
 | **moveKey** | `step:{from}>{exit}:{count}` or `endTurn` |
 | **planKey** | `moveKey`s joined with `\|` (a character `moveKey` never contains) |
 | **apply count** | successful `rules.apply` calls inside one `chooseTurn` search |
+| **home mill close** | a complete that never left home: no share gained, no group off own territory, trail empty again at the terminal. Walking one arrow out and landing so the loop paints is this, not an expedition |
+| **expedition** | a complete that left home: open trail still down at `endTurn`, or a group standing off own territory, or a share gained this plan |
+| **homeboundScore** | return-time only: `completeScore − ARROW_VALUE_A × ownTerritoryCount(complete.state)`. Not an `evaluate` term |
+| **trackSortie** | origin still at home: empty trail, every own group on own territory, no threatened departing exit. Territory count is not part of the predicate |
 
 *arrow*, *stack*, *head*, *share*, *trail*, *point*, *vertex* keep their
 AGENTS.md meanings. *shuttle* is not SPEC §3's **conveyor** (a priced
-concentration manoeuvre). *box* is not P52's **safe box**.
+concentration manoeuvre). *box* is not P52's **safe box**. *home mill
+close* is not SPEC §7's **land bridge** (correct on an expedition) and
+not P54's **spawner mill**. *expedition* is the same fact P53 called a
+*sortie* on a 3-arrow home; P56 drops the size cap. CONTEXT.md holds the
+adapter vocabulary.
 
 ## Module boundary (normative)
 
@@ -251,6 +293,25 @@ betterComplete(a, b):
   evaluate(a.state) > evaluate(b.state)
   or equal and planKey(a.moves) < planKey(b.moves)
 
+ownTerritoryCount(state) = |{ arrow | territory[arrow] = me }|
+
+sharesOf(state) counts territory on spawner-border arrows (same as evaluate)
+
+trackSortie :=
+  origin.trail is empty
+  AND every own group stands on own territory
+  AND no legal departing exit is an arrow a hypothesised enemy can
+      step onto this turn
+
+isExpeditionTerminal(origin, terminal) :=
+  sharesOf(terminal) > sharesOf(origin)
+  OR some own group stands off own territory
+  OR (terminal.trail.size > origin.trail.size
+      AND terminal.trail is still non-empty)
+
+homeboundScore(complete) =
+  completeScore(complete) − ARROW_VALUE_A × ownTerritoryCount(complete.state)
+
 chooseTurnBeam(state):
   if not our chair or winner set: return []
   applies := 0
@@ -290,21 +351,24 @@ chooseTurnBeam(state):
     beam := first BEAM of next
 
   if best is undefined:
-    considerEnd(best incomplete in beam, or the seed)
+     considerEnd(best incomplete in beam, or the seed)
   if best is [endTurn] and a stepped complete exists
      and score(best) − score(bestStepped) ≤ IDLE_SLACK:
-    chosen := bestStepped.moves
+    chosen := bestStepped
   else:
-    chosen := best.moves
-  if the start has no trail and ≤ 3 own-territory arrows
-     and no legal departing exit is an arrow a hypothesised enemy can
-     step onto this turn
-     and chosen never left that territory
-     and a sortie complete exists
-     and score(chosen) − score(bestSortie) ≤ SORTIE_SLACK:
-    return bestSortie.moves
-  return chosen
+    chosen := best
+  if trackSortie
+     and chosen is not an expedition terminal
+     and an expedition complete exists
+     and homeboundScore(chosen) − homeboundScore(bestExpedition) ≤ SORTIE_SLACK:
+    return bestExpedition.moves
+  return chosen.moves
 ```
+
+Every adopted complete that contains a step updates `bestStepped`. Every
+adopted complete that is an expedition terminal updates `bestExpedition`
+(only while `trackSortie`). A 0-share home mill close can be `best` and
+must not occupy `bestExpedition`.
 
 `applies` is an implementation counter, not an observable except: it never
 exceeds `MAX_APPLIES` for search applies (every successful `rules.apply`
@@ -348,24 +412,60 @@ own territory) scores the same stack-shape bonus as leaving and pays no
 `tipTerm` at urgency 0 and do not add a short-trail term to `evaluate` —
 those made a constructed 4-stack split off home instead of closing a
 pinwheel, and made a takeable leave beat P55's safe mill on unreplied
-score. Prefer the leave only at **return time**, and only on a tiny home:
+score. Prefer the leave only at **return time**.
+
+The ≤3 territory cap was an opening-shaped special case of **still at
+home, not yet on an expedition**. After the first 0-share close, the
+same pinwheel is a 4-, 5-, 6-arrow home with no trail. `close_path`
+still sees 1-turn 0-share land-bridges (`loot = arrows × A`). `evaluate`
+pays `+25` per own-territory arrow. The mill then wins raw `evaluate` by
+~75–150, several times `SORTIE_SLACK` (16). Territory count is not the
+predicate. A 0-share paint is not an expedition either.
 
 ```
+trackSortie :=
+  origin.trail is empty
+  AND every own group stands on own territory
+  AND no legal departing exit is an arrow a hypothesised enemy can
+      step onto this turn
+
+isExpeditionTerminal(origin, terminal) :=
+  sharesOf(terminal, me) > sharesOf(origin, me)
+  OR some own group stands off own territory
+  OR (terminal.trail.size > origin.trail.size
+      AND terminal.trail is still non-empty)
+
+homeboundScore(complete) =
+  completeScore(complete) − ARROW_VALUE_A × ownTerritoryCount(complete.state)
+
 SORTIE_SLACK = MOBILITY_SCALE
-if start.trail is empty and the seat holds ≤ 3 territory arrows
-   and the chosen complete never laid trail / claimed / stood off home
-   and a sortie complete exists
-   and score(chosen) − score(bestSortie) ≤ SORTIE_SLACK:
-  return bestSortie
+if trackSortie
+   and chosen is not an expedition terminal
+   and an expedition complete exists
+   and homeboundScore(chosen) − homeboundScore(bestExpedition) ≤ SORTIE_SLACK:
+  return bestExpedition
 ```
 
-A sortie is a complete whose terminal has more of our trail, more of our
-territory, or a group of ours not on our territory. The mill-vs-leave gap
-on the generated home is ~9–14 (`tipTerm`); `SORTIE_SLACK` covers it.
-A lone 1-stack walking onto trail still passes (on-trail shape −35).
-Boxing, splitting onto extra territory, and P55 takeable-stack denial do
-not match the tiny-home gate (a reachable enemy already threatens a
-departing exit), or they lose on reply score by far more than the slack.
+`bestExpedition` only remembers real leaves / share-takes. The paint can
+still be `best` on raw `evaluate`; it no longer occupies the expedition
+slot the swap uses.
+
+Stripping own-territory arrow value makes a 0-share paint and a leave
+comparable on the terms that actually differ (`tipTerm`, shape, shares,
+heads, mobility, reply damage). A suicidal leave still loses by
+`heads × 120` and is not swapped in. Do not strip shares, enemy
+territory, or mobility. Do not change `evaluate` itself. Import
+`ARROW_VALUE_A`; do not write `25` a second time.
+
+The mill-vs-leave `tipTerm` gap on the generated home is ~9–14;
+`SORTIE_SLACK` covers it once territory is stripped. A lone 1-stack
+walking onto trail still passes (on-trail shape −35). Boxing, splitting
+onto extra territory, and P55 takeable-stack denial do not match
+`trackSortie` (a reachable enemy already threatens a departing exit), or
+they lose on reply score by far more than the slack. Findings should
+keep offering 0-share land-bridges — they are legal, and on an
+already-open trail they are the land-bridge P54 wants. Only the
+origin-at-home return-time swap prefers the leave.
 
 ## `pnpm bots` (advisory)
 
@@ -403,7 +503,16 @@ flowchart TD
   Expand --> End["endTurn is a complete candidate #59; not a beam slot"]
   End --> Keep["keep BEAM incompletes by evaluate then planKey"]
   Keep --> Expand
-  Keep --> Best["return best complete"]
+  Keep --> Best["best complete"]
+  Best --> Idle{"pass and gap ≤ IDLE_SLACK?"}
+  Idle -->|yes| Stepped["best stepped"]
+  Idle -->|no| Chosen["chosen"]
+  Stepped --> Chosen
+  Chosen --> Home{"trackSortie and chosen is a home mill close?"}
+  Home -->|no| Out["return chosen"]
+  Home -->|yes| Slack{"homeboundScore mill − expedition ≤ SORTIE_SLACK?"}
+  Slack -->|yes| Exp["return best expedition"]
+  Slack -->|no| Out
 ```
 
 ## Invariants
@@ -466,20 +575,40 @@ flowchart TD
 23. When a 6-seat generated opening has the active seat's 3-stack on its
     home pinwheel, `beam-v1` shall include a step onto an arrow that is not
     that seat's territory.
+24. When a 6-seat generated opening's active seat has completed one
+    0-share home mill close so it holds more than 3 territory arrows, its
+    trail is empty, and every own group stands on own territory, `beam-v1`
+    shall include a step onto an arrow that is not that seat's territory.
+25. When invariant 24's position is planned and an expedition complete
+    existed inside the beam, the returned plan's terminal shall be an
+    expedition: open trail, or a group off own territory, or a share
+    gained. A second 0-share home mill close is not an acceptable return.
+26. WHILE a legal departing exit is an arrow a hypothesised enemy can
+    step onto this turn, the system shall not apply the `SORTIE_SLACK`
+    swap.
+27. The system shall not change `evaluate`'s own-territory term.
+    `homeboundScore` is return-time only.
 
 ## What this file deliberately does not decide
 
 - Close value as a rate, `close_path`, superlinear shares, mill rewrite —
-  [P54](../close-and-spawner-value/close-and-spawner-value.md).
+  [P54](../close-and-spawner-value/close-and-spawner-value.md). P56 does
+  not zero 0-share land-bridges in `closeValue`; those closes are correct
+  on an expedition.
 - One enemy reply, exposure as worst-reply, search reuse at a smaller budget
-  — [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md).
+  — [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md). P56 does
+  not retune the reply search.
 - Whether Pages should call `chooseTurnBeam` — not this packet (BSSN 2).
 - Retuning `BEAM` / `BRANCH` / `MAX_PLAN` / `MOBILITY_SCALE` after
   playtesting — named exports, same algorithm.
+- Retuning `evaluate`, `tipTerm`, `closeUrgency`, `SHARE_VALUE_S`, or
+  `ARROW_VALUE_A`. A short-trail term, a "don't close small" term, or
+  spawner-gravity. A third slack constant.
+- Teaching the bot which distant spawner to walk toward.
 - A worker thread.
 
 ## Spec files
 
-- `bot-turn-search.core.feature` — 11 scenarios
-- `bot-turn-search.edge-cases.feature` — 17 scenarios
-- Invariants above — 23 EARS one-liners
+- `bot-turn-search.core.feature` — 14 scenarios
+- `bot-turn-search.edge-cases.feature` — 21 scenarios
+- Invariants above — 27 EARS one-liners

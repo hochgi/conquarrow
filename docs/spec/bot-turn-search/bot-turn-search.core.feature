@@ -88,6 +88,26 @@ Feature: Bot turn search — stride by searching a whole turn
       When chooseTurnBeam runs
       Then some step lands on an arrow that is not that seat's territory
 
+    Scenario: After a 0-share home close past three arrows the bot still leaves
+      Given the 6-seat generated opening
+      And the active seat has completed one 0-share home mill close
+      And that seat holds more than 3 territory arrows
+      And that seat's trail is empty
+      And every own group stands on own territory
+      When chooseTurnBeam runs
+      Then some step lands on an arrow that is not that seat's territory
+
+    Scenario: The post-paint plan is an expedition not another home mill close
+      Given the 6-seat generated opening
+      And the active seat has completed one 0-share home mill close
+      And that seat holds more than 3 territory arrows
+      And that seat's trail is empty
+      And every own group stands on own territory
+      And an expedition complete exists inside the beam
+      When chooseTurnBeam runs
+      Then the plan's terminal has open trail, or a group off own territory, or a share gained
+      And the plan does not terminate as a 0-share home mill close
+
   Rule: Measuring stick
 
     Scenario: beam-v1 beats greedy-v1 on shuttle rate and count greater than 1

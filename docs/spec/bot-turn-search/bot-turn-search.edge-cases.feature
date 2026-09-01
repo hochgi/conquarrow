@@ -116,3 +116,31 @@ Feature: Bot turn search — budget, determinism, and frozen greedy-v1
       And a second state where that group has 0 legal exits and nothing else changed
       When evaluate runs with rules on both, for Bot
       Then the boxed-self score is lower by MOBILITY_SCALE times heads times 3
+
+  Rule: Home expedition after the first paint
+
+    Scenario: A threatened departing exit does not swap the bot onto that exit
+      Given Bot is at home with empty trail, every own group on own territory, and more than 3 territory arrows
+      And a hypothesised enemy can step onto Bot's only departing exit this turn
+      And a safe complete that stays on home exists
+      When chooseTurnBeam runs
+      Then no step of the plan has that threatened departing exit
+
+    Scenario: A suicidal leave is not preferred over a home mill close
+      Given Bot is at home with empty trail and every own group on own territory
+      And the only expedition complete loses a head
+      And a 0-share home mill close keeps the heads
+      When chooseTurnBeam runs
+      Then Bot's head count at the terminal equals the origin head count
+
+    Scenario: evaluate still pays own-territory arrows after a paint
+      Given two otherwise identical terminals that differ by one own-territory arrow
+      When evaluate runs with rules on both, for Bot
+      Then the larger-territory score exceeds the other by 25
+
+    Scenario: A 0-share land-bridge on an open trail is still taken
+      Given Bot has a non-empty trail
+      And a one-turn 0-share land-bridge close evaluates highest
+      When chooseTurnBeam runs
+      Then the plan lands that close
+      And the terminal trail is empty
