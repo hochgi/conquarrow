@@ -19,8 +19,10 @@ import type {
 } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
-import { hypothesiseChair } from '../src/botReply';
+import { exposure } from '../src/botClose';
+import { hypothesiseChair, reachableEnemySeats } from '../src/botReply';
 import { evaluate } from '../src/opponent';
+import '../src/botSearch';
 
 export const geometry: GeometryPort = makeTiling();
 export const rules: RulesPort = makeRules(geometry);
@@ -942,6 +944,35 @@ export const afterOpeningOpenTrail = (): {
     throw new Error('setup: expected a non-empty trail after the opening expedition');
   }
   return { state, me };
+};
+
+/**
+ * Same open trail as {@link afterOpeningOpenTrail}, with an enemy relocated onto
+ * a feeder so P55 exposure is strictly positive (P57 under-fire land-bridge).
+ */
+export const afterOpeningOpenTrailUnderFire = (): {
+  readonly state: GameState;
+  readonly me: PlayerId;
+} => {
+  const { state, me } = afterOpeningOpenTrail();
+  const enemy = state.players.find((p) => p !== me);
+  if (enemy === undefined) throw new Error('setup: need an enemy seat');
+  const trail = [...(state.trails.get(me) ?? [])];
+  if (trail.length === 0) throw new Error('setup: open trail empty');
+  const tip = [...state.groups.entries()].find(([, g]) => g.owner === me)?.[0];
+  if (tip === undefined) throw new Error('setup: no group on the open trail');
+  const near = [...geometry.window(geometry.origin(tip), 5).arrows, ...trail];
+  let grainReachable: GameState | undefined;
+  for (const at of near) {
+    if (state.groups.has(at) && state.groups.get(at)?.owner === me) continue;
+    const next = relocatePlayer(state, enemy, at, 2);
+    if (trailSizeOf(next, me) === 0) continue;
+    if (reachableEnemySeats(geometry, next, me, 12).length === 0) continue;
+    grainReachable ??= next;
+    if (exposure(geometry, rules, next, me) > 0) return { state: next, me };
+  }
+  if (grainReachable !== undefined) return { state: grainReachable, me };
+  throw new Error('setup: no enemy feeder grain-reachable to the open trail');
 };
 
 const predecessorsOf = (arrow: ArrowId): readonly ArrowId[] =>

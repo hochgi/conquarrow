@@ -8,15 +8,23 @@
 
 import { endTurn } from '@conquarrow/contracts';
 import type {
+  ArrowId,
   GameState,
   GeometryPort,
   Move,
   PlayerId,
   RulesPort,
   StepMove,
+  VertexId,
 } from '@conquarrow/contracts';
-import { ARROW_VALUE_A } from './botClose';
-import { evaluate, MOBILITY_SCALE } from './botEvaluate';
+import {
+  ARROW_VALUE_A,
+  campaignTarget,
+  enterCampaignOrigin,
+  exposure,
+  leaveCampaignOrigin,
+} from './botClose';
+import { evaluate, grainDistanceToAny, MOBILITY_SCALE } from './botEvaluate';
 import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
@@ -73,6 +81,9 @@ export {
 
 const MAX_MOVES_PER_TURN = 64;
 const UNRANKED = Number.POSITIVE_INFINITY;
+const CAMPAIGN_DIST_CAP = DEFAULT_FINDINGS_CAPS.distCap;
+
+const compareIds = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 export const moveKey = (move: Move): string => {
   switch (move.kind) {
@@ -144,9 +155,12 @@ type Search = {
   best: CompletePlan | undefined;
   bestStepped: CompletePlan | undefined;
   bestExpedition: CompletePlan | undefined;
+  bestCampaign: CompletePlan | undefined;
   readonly origin: GameState;
   /** Empty trail, groups on own territory, no threatened departing exit. */
   readonly trackSortie: boolean;
+  readonly campaign: VertexId | undefined;
+  readonly originExposure: number;
   readonly geometry: GeometryPort;
   rules: RulesPort;
   readonly inner: RulesPort;
@@ -313,30 +327,108 @@ const departingExitIsThreatened = (
   return false;
 };
 
-const pickReturnedPlan = (search: Search): CompletePlan | undefined => {
-  let chosen = search.best;
-  const stepped = search.bestStepped;
-  if (
-    chosen !== undefined &&
-    stepped !== undefined &&
-    isIdlePlan(chosen.moves) &&
-    completeScore(search.geometry, search.inner, search.me, chosen) -
-      completeScore(search.geometry, search.inner, search.me, stepped) <=
-      IDLE_SLACK
-  ) {
-    chosen = stepped;
+const grainDistToVertex = (
+  geometry: GeometryPort,
+  from: ArrowId,
+  vertex: VertexId,
+  cap: number,
+): number =>
+  grainDistanceToAny(
+    geometry,
+    from,
+    [...geometry.borderArrows(vertex)].toSorted((a, b) =>
+      compareIds(String(a), String(b)),
+    ),
+    cap,
+  );
+
+const nearestOwnGroupDist = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  vertex: VertexId,
+): number => {
+  let best = CAMPAIGN_DIST_CAP + 1;
+  let any = false;
+  const arrows = [...state.groups.entries()]
+    .filter(([, group]) => group.owner === me)
+    .map(([arrow]) => arrow)
+    .toSorted((a, b) => compareIds(String(a), String(b)));
+  for (const from of arrows) {
+    any = true;
+    const d = grainDistToVertex(geometry, from, vertex, CAMPAIGN_DIST_CAP);
+    if (d < best) best = d;
   }
+  return any ? best : CAMPAIGN_DIST_CAP + 1;
+};
+
+const closerToCampaign = (search: Search, terminal: GameState): boolean => {
+  const vertex = search.campaign;
+  if (vertex === undefined) return false;
+  const originDist = nearestOwnGroupDist(
+    search.geometry,
+    search.origin,
+    search.me,
+    vertex,
+  );
+  return nearestOwnGroupDist(search.geometry, terminal, search.me, vertex) < originDist;
+};
+
+const isCampaignAdvancing = (search: Search, terminal: GameState): boolean => {
+  const originShares = sharesOf(search.geometry, search.origin, search.me);
+  if (sharesOf(search.geometry, terminal, search.me) > originShares) return true;
+  return closerToCampaign(search, terminal);
+};
+
+const isQuietDirtComplete = (search: Search, complete: CompletePlan): boolean => {
+  if (search.originExposure !== 0) return false;
+  const originShares = sharesOf(search.geometry, search.origin, search.me);
+  if (sharesOf(search.geometry, complete.state, search.me) > originShares) return false;
+  if (trailSizeOf(complete.state, search.me) !== 0) return false;
+  if (search.campaign === undefined) return true;
+  return !closerToCampaign(search, complete.state);
+};
+
+const swapIdle = (search: Search, chosen: CompletePlan): CompletePlan => {
+  const stepped = search.bestStepped;
+  if (stepped === undefined || !isIdlePlan(chosen.moves)) return chosen;
+  const delta =
+    completeScore(search.geometry, search.inner, search.me, chosen) -
+    completeScore(search.geometry, search.inner, search.me, stepped);
+  return delta <= IDLE_SLACK ? stepped : chosen;
+};
+
+const swapSortie = (search: Search, chosen: CompletePlan): CompletePlan => {
   const expedition = search.bestExpedition;
+  if (!search.trackSortie || expedition === undefined) return chosen;
+  if (isExpeditionTerminal(search.geometry, search.origin, chosen.state, search.me)) {
+    return chosen;
+  }
+  const delta = homeboundScore(search, chosen) - homeboundScore(search, expedition);
+  return delta <= SORTIE_SLACK ? expedition : chosen;
+};
+
+const swapCampaign = (search: Search, chosen: CompletePlan): CompletePlan => {
+  const walk = search.bestCampaign;
+  // Nested enemy replies (`withReplies: false`) skip the swap so P55 boxing
+  // is not stolen (BSSN 25). Live chooseTurnBeam always passes true.
+  if (!search.withReplies || walk === undefined) return chosen;
+  if (trailSizeOf(search.origin, search.me) > 0 && isQuietDirtComplete(search, chosen)) {
+    return walk;
+  }
   if (
     search.trackSortie &&
-    chosen !== undefined &&
-    expedition !== undefined &&
-    !isExpeditionTerminal(search.geometry, search.origin, chosen.state, search.me) &&
-    homeboundScore(search, chosen) - homeboundScore(search, expedition) <= SORTIE_SLACK
+    isExpeditionTerminal(search.geometry, search.origin, chosen.state, search.me) &&
+    !isCampaignAdvancing(search, chosen.state)
   ) {
-    chosen = expedition;
+    return walk;
   }
   return chosen;
+};
+
+const pickReturnedPlan = (search: Search): CompletePlan | undefined => {
+  if (search.best === undefined) return undefined;
+  return swapCampaign(search, swapSortie(search, swapIdle(search, search.best)));
 };
 
 const adoptComplete = (search: Search, child: CompletePlan): void => {
@@ -369,6 +461,18 @@ const adoptComplete = (search: Search, child: CompletePlan): void => {
             search.me,
             search.inner,
             search.bestExpedition,
+            scored,
+          );
+  }
+  if (isCampaignAdvancing(search, scored.state)) {
+    search.bestCampaign =
+      search.bestCampaign === undefined
+        ? scored
+        : pickBetterComplete(
+            search.geometry,
+            search.me,
+            search.inner,
+            search.bestCampaign,
             scored,
           );
   }
@@ -542,21 +646,30 @@ export const chooseTurnBeamWithBudget: (
   budget?: ChooseTurnBudget,
 ) => readonly Move[] = (geometry, rules, state, me, budget) => {
   if (state.activePlayer !== me || state.winner !== undefined) return [];
+  const withReplies = budget?.withReplies ?? false;
+  const campaign = campaignTarget(geometry, state, me);
+  const originExposure =
+    withReplies && trailSizeOf(state, me) > 0
+      ? exposure(geometry, rules, state, me)
+      : 0;
+  enterCampaignOrigin(campaign);
   enterBeamSearch();
   try {
   const beamWidth = budget?.beam ?? BEAM;
   const branch = budget?.branch ?? BRANCH;
   const maxPlan = budget?.maxPlan ?? MAX_PLAN;
   const maxApplies = budget?.maxApplies ?? MAX_APPLIES;
-  const withReplies = budget?.withReplies ?? false;
   const seed: Incomplete = { moves: [], state };
   const search: Search = {
     applies: 0,
     best: undefined,
     bestStepped: undefined,
     bestExpedition: undefined,
+    bestCampaign: undefined,
     origin: state,
     trackSortie: stillAtHome(state, me) && !departingExitIsThreatened(state, me, rules),
+    campaign,
+    originExposure,
     geometry,
     rules,
     inner: rules,
@@ -581,6 +694,7 @@ export const chooseTurnBeamWithBudget: (
   return pickReturnedPlan(search)?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
+    leaveCampaignOrigin();
   }
 };
 

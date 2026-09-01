@@ -16,14 +16,17 @@ import type {
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import { DEFAULT_FINDINGS_CAPS, grainDistance } from '../src/findings';
 import { distanceToTerritory } from '../src/botEvaluate';
+import { estimateCloseLoot, exposure, turnsToClose } from '../src/botClose';
 import {
   botAndEnemy,
   geometry,
   legalSteps,
   outsOf,
   rules,
+  sharesOf,
   SMALL_MATCH,
   strideTwoStackPosition,
+  trailSizeOf,
 } from './bot-turn-search.support';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +35,9 @@ export const DIST_CAP = DEFAULT_FINDINGS_CAPS.distCap;
 
 export const botCloseSource = (): string =>
   readFileSync(join(here, '../src/botClose.ts'), 'utf8');
+
+export const gameStateSource = (): string =>
+  readFileSync(join(here, '../../contracts/src/game-state.ts'), 'utf8');
 
 export const findingsSource = (): string =>
   readFileSync(join(here, '../src/findings.ts'), 'utf8');
@@ -80,6 +86,7 @@ export const shuffleCloseMaps = (state: GameState): GameState => {
   const groups = [...state.groups.entries()];
   const territory = [...state.territory.entries()];
   const trails = [...state.trails.entries()];
+  const spawners = [...state.spawners.entries()];
   const rotatedGroups = new Map([...groups.slice(1), ...groups.slice(0, 1)]);
   const reversedTerritory = new Map(territory.toReversed());
   const shuffledTrails = new Map(
@@ -88,11 +95,13 @@ export const shuffleCloseMaps = (state: GameState): GameState => {
       return [player, new Set([...arrows.slice(1), ...arrows.slice(0, 1)])] as const;
     }),
   );
+  const rotatedSpawners = new Map([...spawners.slice(1), ...spawners.slice(0, 1)]);
   return {
     ...state,
     groups: rotatedGroups,
     territory: reversedTerritory,
     trails: shuffledTrails,
+    spawners: rotatedSpawners,
   };
 };
 
@@ -386,13 +395,14 @@ const relocateEnemy = (
   Bot: PlayerId,
   E: PlayerId,
   at: ArrowId,
+  heads = 1,
 ): GameState => {
   const groups = new Map<ArrowId, Group>();
   for (const [arrow, group] of state.groups) {
     if (group.owner === E) continue;
     groups.set(arrow, group);
   }
-  groups.set(at, { owner: E, heads: 1, spent: 0 });
+  groups.set(at, { owner: E, heads, spent: 0 });
   const botGroup = [...state.groups.entries()].find(([, g]) => g.owner === Bot);
   if (botGroup !== undefined && !groups.has(botGroup[0])) {
     groups.set(botGroup[0], botGroup[1]);
@@ -533,4 +543,373 @@ const shareCount = (state: GameState, player: PlayerId): number => {
     }
   }
   return n;
+};
+
+const compareVertexIds = (a: VertexId, b: VertexId): number =>
+  String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+
+export const ownSharesOf = (state: GameState, vertex: VertexId, me: PlayerId): number => {
+  let n = 0;
+  for (const arrow of geometry.borderArrows(vertex)) {
+    if (state.territory.get(arrow) === me) n += 1;
+  }
+  return n;
+};
+
+export const grainDistToVertex = (
+  from: ArrowId,
+  vertex: VertexId,
+  cap = DIST_CAP,
+): number => {
+  let best = cap + 1;
+  for (const border of geometry.borderArrows(vertex)) {
+    const d = grainDistance(geometry, from, border, cap);
+    if (d < best) best = d;
+  }
+  return best;
+};
+
+export const nearestOwnGroupDistToVertex = (
+  state: GameState,
+  me: PlayerId,
+  vertex: VertexId,
+  cap = DIST_CAP,
+): number => {
+  let best = cap + 1;
+  let any = false;
+  for (const [arrow, group] of state.groups) {
+    if (group.owner !== me) continue;
+    any = true;
+    const d = grainDistToVertex(arrow, vertex, cap);
+    if (d < best) best = d;
+  }
+  return any ? best : cap + 1;
+};
+
+/** Test-side BSSN 16 oracle. Production {@link campaignTarget} must match this. */
+export const specCampaignTarget = (
+  state: GameState,
+  me: PlayerId,
+  cap = DIST_CAP,
+): VertexId | undefined => {
+  let hasGroup = false;
+  for (const group of state.groups.values()) {
+    if (group.owner === me) {
+      hasGroup = true;
+      break;
+    }
+  }
+  if (!hasGroup) return undefined;
+  let best: VertexId | undefined;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  const vertices = [...state.spawners.keys()].toSorted(compareVertexIds);
+  for (const vertex of vertices) {
+    const own = ownSharesOf(state, vertex, me);
+    if (own >= 3) continue;
+    const spawner = state.spawners.get(vertex);
+    if (spawner === undefined) continue;
+    const dist = Math.max(1, nearestOwnGroupDistToVertex(state, me, vertex, cap));
+    const score = ((spawner.force.num / spawner.force.den) * (3 - own)) / dist;
+    if (
+      best === undefined ||
+      score > bestScore ||
+      (score === bestScore && String(vertex) < String(best))
+    ) {
+      best = vertex;
+      bestScore = score;
+    }
+  }
+  return best;
+};
+
+const restrictSpawners = (
+  state: GameState,
+  vertices: readonly VertexId[],
+): GameState => {
+  const spawners = new Map(state.spawners);
+  const keep = new Set(vertices.map(String));
+  for (const vertex of state.spawners.keys()) {
+    if (!keep.has(String(vertex))) spawners.delete(vertex);
+  }
+  return { ...state, spawners };
+};
+
+export const stepTowardVertex = (
+  from: ArrowId,
+  exit: ArrowId,
+  vertex: VertexId,
+): boolean => {
+  const d0 = grainDistToVertex(from, vertex);
+  const d1 = grainDistToVertex(exit, vertex);
+  if (d1 < d0) return true;
+  const stepD = grainDistance(geometry, from, exit, DIST_CAP);
+  return stepD + d1 === d0;
+};
+
+export const isQuietDirtCloseComplete = (
+  origin: GameState,
+  terminal: GameState,
+  me: PlayerId,
+  campaign: VertexId | undefined,
+): boolean => {
+  if (exposure(geometry, rules, origin, me) !== 0) return false;
+  if (sharesOf(terminal, me) > sharesOf(origin, me)) return false;
+  if (trailSizeOf(terminal, me) !== 0) return false;
+  if (campaign === undefined) return true;
+  return (
+    nearestOwnGroupDistToVertex(terminal, me, campaign) >=
+    nearestOwnGroupDistToVertex(origin, me, campaign)
+  );
+};
+
+export type ContestedVsMonopolised = {
+  readonly state: GameState;
+  readonly Bot: PlayerId;
+  readonly monopolised: VertexId;
+  readonly contested: VertexId;
+};
+
+/** Nearer home vertex monopolised; one farther unowned spawner remains. */
+export const contestedVsMonopolisedPosition = (): ContestedVsMonopolised => {
+  const opening = makeMatch(SMALL_MATCH);
+  const { Bot } = botAndEnemy(opening);
+  const home = [...opening.groups.entries()].find(([, g]) => g.owner === Bot)?.[0];
+  if (home === undefined) throw new Error('setup: Bot has no group');
+  const monopolised = [...opening.spawners.keys()].find(
+    (vertex) => ownSharesOf(opening, vertex, Bot) === 3,
+  );
+  if (monopolised === undefined) throw new Error('setup: no monopolised home spawner');
+  const nearDist = grainDistToVertex(home, monopolised);
+  const contested = [...opening.spawners.keys()]
+    .filter(
+      (vertex) =>
+        vertex !== monopolised &&
+        ownSharesOf(opening, vertex, Bot) < 3 &&
+        grainDistToVertex(home, vertex) > nearDist,
+    )
+    .toSorted((a, b) => grainDistToVertex(home, a) - grainDistToVertex(home, b))[0];
+  if (contested === undefined) throw new Error('setup: no farther unowned spawner');
+  const state = restrictSpawners(
+    { ...opening, activePlayer: Bot },
+    [monopolised, contested],
+  );
+  return { state, Bot, monopolised, contested };
+};
+
+export type CampaignTie = {
+  readonly state: GameState;
+  readonly Bot: PlayerId;
+  readonly lesser: VertexId;
+  readonly greater: VertexId;
+};
+
+export const campaignTieBreakPosition = (): CampaignTie => {
+  const opening = makeMatch(SMALL_MATCH);
+  const { Bot } = botAndEnemy(opening);
+  const home = [...opening.groups.entries()].find(([, g]) => g.owner === Bot)?.[0];
+  if (home === undefined) throw new Error('setup: Bot has no group');
+  const verts = [...opening.spawners.keys()];
+  for (let i = 0; i < verts.length; i += 1) {
+    const a = verts[i];
+    if (a === undefined) continue;
+    if (ownSharesOf(opening, a, Bot) >= 3) continue;
+    for (let j = i + 1; j < verts.length; j += 1) {
+      const b = verts[j];
+      if (b === undefined) continue;
+      if (ownSharesOf(opening, b, Bot) >= 3) continue;
+      const da = grainDistToVertex(home, a);
+      const db = grainDistToVertex(home, b);
+      if (da !== db || da > DIST_CAP) continue;
+      const forceA = opening.spawners.get(a);
+      const prevB = opening.spawners.get(b);
+      if (forceA === undefined || prevB === undefined) continue;
+      const spawners = new Map<VertexId, NonNullable<typeof forceA>>();
+      spawners.set(a, forceA);
+      spawners.set(b, { force: forceA.force, phase: prevB.phase });
+      const state: GameState = { ...opening, spawners, activePlayer: Bot };
+      const lesser = compareVertexIds(a, b) < 0 ? a : b;
+      const greater = lesser === a ? b : a;
+      return { state, Bot, lesser, greater };
+    }
+  }
+  throw new Error('setup: no equal-distance unmonopolised spawner pair');
+};
+
+export const allSpawnersMonopolisedPosition = (): {
+  readonly state: GameState;
+  readonly Bot: PlayerId;
+} => {
+  const opening = makeMatch(SMALL_MATCH);
+  const { Bot } = botAndEnemy(opening);
+  const territory = new Map(opening.territory);
+  for (const vertex of opening.spawners.keys()) {
+    for (const arrow of geometry.borderArrows(vertex)) territory.set(arrow, Bot);
+  }
+  return { state: { ...opening, territory, activePlayer: Bot }, Bot };
+};
+
+export type QuietDirtVsCampaign = {
+  readonly state: GameState;
+  readonly Bot: PlayerId;
+  readonly campaign: VertexId;
+  readonly from: ArrowId;
+  readonly home: ArrowId;
+  readonly dirtArrows: number;
+  readonly campaignTurns: number;
+};
+
+const tryQuietDirtBoard = (
+  opening: GameState,
+  Bot: PlayerId,
+  from: ArrowId,
+  first: ArrowId,
+  home: ArrowId,
+  heads: number,
+): QuietDirtVsCampaign | undefined => {
+  if (from === first || first === home || from === home) return undefined;
+  if (opening.groups.has(from) || opening.groups.has(first) || opening.groups.has(home)) {
+    return undefined;
+  }
+  const territory = new Map(opening.territory);
+  territory.delete(from);
+  territory.delete(first);
+  territory.set(home, Bot);
+  const state: GameState = {
+    ...replaceBotGroups(opening, Bot, new Map([[from, { owner: Bot, heads, spent: 0 }]])),
+    activePlayer: Bot,
+    territory,
+    trails: new Map([[Bot, new Set([from, first])]]),
+  };
+  const estimated = estimateCloseLoot(geometry, state, Bot, from);
+  if (estimated.shares !== 0 || estimated.arrows < 2) return undefined;
+  const d0 = distanceToTerritory(geometry, state, Bot, from, DIST_CAP);
+  if (d0 < 1 || turnsToClose(d0, heads) !== 1) return undefined;
+  const homeward = legalSteps(state).find(
+    (m) =>
+      m.from === from &&
+      m.exit === first &&
+      distanceToTerritory(geometry, state, Bot, m.exit, DIST_CAP) < d0,
+  );
+  if (homeward === undefined) return undefined;
+  if (exposure(geometry, rules, state, Bot) !== 0) return undefined;
+  for (const vertex of state.spawners.keys()) {
+    if (ownSharesOf(state, vertex, Bot) >= 3) continue;
+    const dist = grainDistToVertex(from, vertex);
+    const campaignTurns = turnsToClose(dist, heads);
+    if (campaignTurns !== 3) continue;
+    if (grainDistToVertex(home, vertex) < dist) continue;
+    const toward = legalSteps(state).find(
+      (m) => m.from === from && m.exit !== first && stepTowardVertex(from, m.exit, vertex),
+    );
+    if (toward === undefined) continue;
+    const next = restrictSpawners(state, [vertex]);
+    if (specCampaignTarget(next, Bot) !== vertex) continue;
+    if (exposure(geometry, rules, next, Bot) !== 0) continue;
+    return {
+      state: next,
+      Bot,
+      campaign: vertex,
+      from,
+      home,
+      dirtArrows: estimated.arrows,
+      campaignTurns,
+    };
+  }
+  return undefined;
+};
+
+/** Quiet 1-turn 0-share homeward loop vs a 3-turn walk to an unowned campaign share. */
+export const quietDirtVsCampaignWalkPosition = (): QuietDirtVsCampaign => {
+  const opening = makeMatch(SMALL_MATCH);
+  const { Bot } = botAndEnemy(opening);
+  const homes = [...opening.territory.entries()]
+    .filter(([, owner]) => owner === Bot)
+    .map(([arrow]) => arrow);
+  for (const home of homes) {
+    const near = geometry.window(geometry.origin(home), 5).arrows;
+    for (const first of near) {
+      if (first === home) continue;
+      if (!outsOf(first).includes(home)) continue;
+      if (opening.territory.get(first) === Bot) continue;
+      for (const from of near) {
+        if (from === first || from === home) continue;
+        if (!outsOf(from).includes(first)) continue;
+        if (opening.territory.get(from) === Bot) continue;
+        const hit = tryQuietDirtBoard(opening, Bot, from, first, home, 2);
+        if (hit !== undefined) return hit;
+      }
+    }
+  }
+  throw new Error('setup: no quiet 1-turn dirt close vs 3-turn campaign walk');
+};
+
+export type ApproachCampaignPosition = {
+  readonly state: GameState;
+  readonly Bot: PlayerId;
+  readonly campaign: VertexId;
+  readonly nearer: VertexId;
+  readonly towardCampaign: ArrowId;
+  readonly towardNearer: ArrowId;
+};
+
+export const approachCampaignVsNearerSpawnerPosition = (): ApproachCampaignPosition => {
+  const opening = makeMatch(SMALL_MATCH);
+  const { Bot } = botAndEnemy(opening);
+  const home = [...opening.groups.entries()].find(([, g]) => g.owner === Bot)?.[0];
+  if (home === undefined) throw new Error('setup: Bot has no group');
+  const oneStack = replaceBotGroups(
+    opening,
+    Bot,
+    new Map([[home, { owner: Bot, heads: 1, spent: 0 }]]),
+  );
+  const verts = [...opening.spawners.keys()];
+  for (const nearer of verts) {
+    if (ownSharesOf(oneStack, nearer, Bot) >= 3) continue;
+    const nearBorders = [...geometry.borderArrows(nearer)].filter(
+      (arrow) => !oneStack.groups.has(arrow),
+    );
+    if (nearBorders.length < 3) continue;
+    const byDist = nearBorders.toSorted(
+      (a, b) =>
+        grainDistance(geometry, home, a, DIST_CAP) - grainDistance(geometry, home, b, DIST_CAP),
+    );
+    const territory = new Map(oneStack.territory);
+    for (const arrow of byDist.slice(1)) territory.set(arrow, Bot);
+    if (ownSharesOf({ ...oneStack, territory }, nearer, Bot) !== 2) continue;
+    for (const campaign of verts) {
+      if (campaign === nearer) continue;
+      if (ownSharesOf({ ...oneStack, territory }, campaign, Bot) >= 3) continue;
+      const state: GameState = restrictSpawners(
+        { ...oneStack, territory, activePlayer: Bot },
+        [nearer, campaign],
+      );
+      if (specCampaignTarget(state, Bot) !== campaign) continue;
+      let towardCampaign: ArrowId | undefined;
+      let towardNearer: ArrowId | undefined;
+      for (const move of legalSteps(state)) {
+        if (state.territory.get(move.exit) === Bot) continue;
+        const near0 = grainDistToVertex(move.from, nearer);
+        const near1 = grainDistToVertex(move.exit, nearer);
+        const far0 = grainDistToVertex(move.from, campaign);
+        const far1 = grainDistToVertex(move.exit, campaign);
+        if (far1 < far0) towardCampaign = move.exit;
+        if (near1 < near0 && far1 > far0) towardNearer = move.exit;
+      }
+      if (towardCampaign === undefined || towardNearer === undefined) continue;
+      const openNear = [...geometry.borderArrows(nearer)].find(
+        (arrow) => state.territory.get(arrow) === undefined,
+      );
+      if (openNear === undefined) continue;
+      const dNear = grainDistance(geometry, home, openNear, DIST_CAP);
+      let dCamp = DIST_CAP + 1;
+      for (const border of geometry.borderArrows(campaign)) {
+        if (state.territory.get(border) !== undefined) continue;
+        const d = grainDistance(geometry, home, border, DIST_CAP);
+        if (d < dCamp) dCamp = d;
+      }
+      if (!(dNear < dCamp)) continue;
+      return { state, Bot, campaign, nearer, towardCampaign, towardNearer };
+    }
+  }
+  throw new Error('setup: no approach ranking board (campaign farther than another open share)');
 };

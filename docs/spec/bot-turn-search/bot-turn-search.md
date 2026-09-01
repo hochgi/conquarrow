@@ -4,10 +4,15 @@
 **Follow-on:** [P56 — Home expedition](../../design/packets/P56-home-expedition.md)
 rewrites First sortie (drop the ≤3 cap, a 0-share paint is not an expedition,
 compare mill vs leave on `homeboundScore`).
+[P57 — Campaign target](../../design/packets/P57-campaign-target.md) lives in
+[close-and-spawner-value](../close-and-spawner-value/close-and-spawner-value.md):
+it gates quiet-board dirt closes and aims the P56 leave at one vertex. This
+file keeps First sortie. One P56 edge scenario (0-share land-bridge on an
+open trail) is restricted to `exposure > 0` so the specs do not fight.
 **SPEC:** read [§3](../../../SPEC.md) (speed, split vs merge, allowance) and
 [§6.2](../../../SPEC.md) (stay-behind: a lone head cannot attack). **No game
-rule is added, changed, or implied.** Nothing is owed to SPEC §11. P56 does
-not edit SPEC.md.
+rule is added, changed, or implied.** Nothing is owed to SPEC §11. P56 and
+P57 do not edit SPEC.md.
 **Layer:** `packages/web` only. No `contracts` DTO change, no `rules-core`.
 Online-api **behaviour** is unchanged (`pagesHeuristic` still calls
 `chooseMove`); `tsconfig.json` `include` lists the new web modules so Pages
@@ -462,10 +467,11 @@ The mill-vs-leave `tipTerm` gap on the generated home is ~9–14;
 walking onto trail still passes (on-trail shape −35). Boxing, splitting
 onto extra territory, and P55 takeable-stack denial do not match
 `trackSortie` (a reachable enemy already threatens a departing exit), or
-they lose on reply score by far more than the slack. Findings should
-keep offering 0-share land-bridges — they are legal, and on an
-already-open trail they are the land-bridge P54 wants. Only the
-origin-at-home return-time swap prefers the leave.
+they lose on reply score by far more than the slack. P57 gates 0-share
+land-bridges on a quiet board (dirt `closeValue` 0) and aims the leave
+at `campaignTarget`. Under fire they stay the P54 corridor. This packet
+still does not retune `evaluate`. The origin-at-home return-time swap is
+unchanged.
 
 ## `pnpm bots` (advisory)
 
@@ -591,10 +597,11 @@ flowchart TD
 
 ## What this file deliberately does not decide
 
-- Close value as a rate, `close_path`, superlinear shares, mill rewrite —
-  [P54](../close-and-spawner-value/close-and-spawner-value.md). P56 does
-  not zero 0-share land-bridges in `closeValue`; those closes are correct
-  on an expedition.
+- Close value as a rate, `close_path`, superlinear shares, mill rewrite,
+  campaign target, dirt-close gate —
+  [P54 / P57](../close-and-spawner-value/close-and-spawner-value.md).
+  Quiet-board 0-share dirt closes score zero (P57). Under fire they stay
+  the P54 corridor.
 - One enemy reply, exposure as worst-reply, search reuse at a smaller budget
   — [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md). P56 does
   not retune the reply search.
@@ -604,7 +611,8 @@ flowchart TD
 - Retuning `evaluate`, `tipTerm`, `closeUrgency`, `SHARE_VALUE_S`, or
   `ARROW_VALUE_A`. A short-trail term, a "don't close small" term, or
   spawner-gravity. A third slack constant.
-- Teaching the bot which distant spawner to walk toward.
+- Personality sliders, lobby difficulty, extra `chooseTurn`
+  implementations — P58.
 - A worker thread.
 
 ## Spec files

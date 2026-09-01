@@ -145,8 +145,18 @@ export const grainDistance = (
   start: ArrowId,
   goal: ArrowId,
   cap: number,
+): number => grainDistanceToAny(geometry, start, [goal], cap);
+
+/** Grain BFS distance from start to the nearest of `goals`. */
+export const grainDistanceToAny = (
+  geometry: GeometryPort,
+  start: ArrowId,
+  goals: readonly ArrowId[],
+  cap: number,
 ): number => {
-  if (start === goal) return 0;
+  const want = new Set(goals.map((arrow) => String(arrow)));
+  if (want.has(String(start))) return 0;
+  if (want.size === 0) return cap + 1;
   const seen = new Set<string>([String(start)]);
   let frontier: ArrowId[] = [start];
   for (let d = 1; d <= cap; d += 1) {
@@ -155,7 +165,7 @@ export const grainDistance = (
       for (const exit of geometry.outArrows(geometry.target(arrow))) {
         const key = String(exit);
         if (seen.has(key)) continue;
-        if (exit === goal) return d;
+        if (want.has(key)) return d;
         seen.add(key);
         next.push(exit);
       }
