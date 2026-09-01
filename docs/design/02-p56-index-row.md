@@ -1,0 +1,3 @@
+Insert this row in `docs/design/02-work-packets.md` immediately above `P20+`:
+
+| P56 | Home expedition | web | §3, §7 (read) | P53, P54 | **[packet](./packets/P56-home-expedition.md).** Playtest 2026-09-01: both heuristic seats closed a tiny home loop then milled the painted pinwheel. `SORTIE_SLACK` only tracked a ≤3-arrow home, and `isSortieTerminal` treated any territory gain as a leave — so the first 0-share paint both satisfied the swap and disabled tracking. Drops the cap; a 0-share home paint is not an expedition; mill-vs-leave compares `homeboundScore` (own-territory × `ARROW_VALUE_A` stripped) so the slack stays one `MOBILITY_SCALE`. |
