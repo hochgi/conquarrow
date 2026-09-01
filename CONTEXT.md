@@ -101,7 +101,7 @@ The frozen per-step chooser loop — today's chooseMove until the seat is handed
 _Avoid_: the live local heuristic (that is beam-v1)
 
 **beam-v1**:
-Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans. A pass must beat the best stepped complete by more than IDLE_SLACK or the stepped plan wins. On a tiny home with no trail, SORTIE_SLACK prefers leaving over milling the pinwheel (playtest 2026-08-31).
+Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans. A pass must beat the best stepped complete by more than IDLE_SLACK or the stepped plan wins. When the origin is still at home (no trail, every own group on own territory, no threatened departing exit) SORTIE_SLACK prefers an expedition over a home mill close — including after the first small close has painted past three arrows (playtest 2026-09-01).
 _Avoid_: minimax, opponent ply (that is P55)
 
 **IDLE_SLACK**:
@@ -109,8 +109,20 @@ One MOBILITY_SCALE. beam-v1 will still pass when walking a lone tip onto trail i
 _Avoid_: never-pass (that is greedy-v1), a new evaluate term
 
 **SORTIE_SLACK**:
-One MOBILITY_SCALE. On a ≤3-arrow home with no trail, beam-v1 prefers a plan that leaves over a sibling mill unless the mill wins by more than this. Playtest 2026-08-31 evening: IDLE_SLACK made them mill the pinwheel in a circle.
-_Avoid_: zeroing tipTerm, a short-trail evaluate bonus, spawner-gravity
+One MOBILITY_SCALE. When the origin is still at home, beam-v1 prefers an expedition complete over a home mill close unless the mill wins — on homeboundScore, which strips own-territory × ARROW_VALUE_A — by more than this. Territory count is not the gate (P56). Playtest 2026-08-31 evening needed the leave; playtest 2026-09-01 showed the ≤3 cap dying after the first paint.
+_Avoid_: zeroing tipTerm, a short-trail evaluate bonus, spawner-gravity, a second slack constant
+
+**home mill close**:
+A complete that never left home: no share gained, no group off own territory, trail empty again at the terminal. Walking one arrow out and landing so the loop paints is this, not an expedition. evaluate still likes it (+25 / arrow); the P56 swap is what declines it.
+_Avoid_: land bridge (that is SPEC §7 and correct on an expedition), spawner mill (P54, hopping sibling open borders)
+
+**expedition**:
+A complete that left home: open trail still down at endTurn, or a group standing off own territory, or a share gained this plan. The thing SORTIE_SLACK prefers over a home mill close.
+_Avoid_: sortie as a second idea (same fact; P53 used the word for the first step off a 3-arrow home)
+
+**homeboundScore**:
+Return-time comparison only: completeScore minus ARROW_VALUE_A times own territory. Lets SORTIE_SLACK stay sized for tipTerm after a paint. Not an evaluate term.
+_Avoid_: retuning evaluate, subtracting shares
 
 **turn plan**:
 An ordered list of moves for one seat, last move endTurn. The unit beam-v1 searches.
