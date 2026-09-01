@@ -19,6 +19,7 @@ import type {
 } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
+import { hypothesiseChair } from '../src/botReply';
 import { evaluate } from '../src/opponent';
 
 export const geometry: GeometryPort = makeTiling();
@@ -235,10 +236,65 @@ export const strideTwoStackPosition = (): StridePosition => {
   throw new Error('setup: no 2-stack two-arrow homeward close');
 };
 
-const territoryOf = (state: GameState, player: PlayerId): number => {
+export const territoryOf = (state: GameState, player: PlayerId): number => {
   let n = 0;
   for (const owner of state.territory.values()) if (owner === player) n += 1;
   return n;
+};
+
+export const sharesOf = (state: GameState, player: PlayerId): number => {
+  let n = 0;
+  for (const vertex of state.spawners.keys()) {
+    for (const arrow of geometry.borderArrows(vertex)) {
+      if (state.territory.get(arrow) === player) n += 1;
+    }
+  }
+  return n;
+};
+
+export const trailSizeOf = (state: GameState, player: PlayerId): number =>
+  state.trails.get(player)?.size ?? 0;
+
+export const everyOwnGroupOnOwnTerritory = (state: GameState, me: PlayerId): boolean => {
+  for (const [arrow, group] of state.groups) {
+    if (group.owner === me && state.territory.get(arrow) !== me) return false;
+  }
+  return true;
+};
+
+/** P56 expedition: share gained, a group off home, or trail grew and is still down. */
+export const isExpeditionTerminal = (
+  origin: GameState,
+  terminal: GameState,
+  me: PlayerId,
+): boolean => {
+  if (sharesOf(terminal, me) > sharesOf(origin, me)) return true;
+  if (!everyOwnGroupOnOwnTerritory(terminal, me)) return true;
+  const originTrail = trailSizeOf(origin, me);
+  const terminalTrail = trailSizeOf(terminal, me);
+  return terminalTrail > originTrail && terminalTrail > 0;
+};
+
+/** P56 home mill close: no share gained, groups on home, trail empty at the terminal. */
+export const isHomeMillCloseTerminal = (
+  origin: GameState,
+  terminal: GameState,
+  me: PlayerId,
+): boolean => {
+  if (sharesOf(terminal, me) > sharesOf(origin, me)) return false;
+  if (!everyOwnGroupOnOwnTerritory(terminal, me)) return false;
+  return trailSizeOf(terminal, me) === 0;
+};
+
+export const passToSeat = (state: GameState, me: PlayerId): GameState => {
+  let at = state;
+  let guard = 0;
+  while (at.activePlayer !== me) {
+    at = rules.apply(at, endTurn());
+    guard += 1;
+    if (guard > 16) throw new Error('setup: passToSeat did not reach seat');
+  }
+  return at;
 };
 
 export type FourStackRun = {
@@ -778,4 +834,215 @@ export const openingSixSeatHome = (): {
     throw new Error('setup: home 3-stack is not on own territory');
   }
   return { state, me };
+};
+
+const walkOffHomePinwheel = (): Move[] => [
+  step(mintArrowId('tiling:a:5,0,0'), mintArrowId('tiling:a:6,0,1'), 3),
+  step(mintArrowId('tiling:a:6,0,1'), mintArrowId('tiling:a:5,1,0'), 3),
+  endTurn(),
+];
+
+const knownZeroShareLandBridge = (): Move[] => [
+  step(mintArrowId('tiling:a:5,1,0'), mintArrowId('tiling:a:6,1,2'), 3),
+  step(mintArrowId('tiling:a:6,1,2'), mintArrowId('tiling:a:6,0,1'), 3),
+  endTurn(),
+];
+
+const discoverZeroShareLandBridge = (
+  origin: GameState,
+  me: PlayerId,
+  originShares: number,
+  originTerr: number,
+): Move[] => {
+  for (const first of legalSteps(origin)) {
+    let mid: GameState;
+    try {
+      mid = rules.apply(origin, first);
+    } catch {
+      continue;
+    }
+    if (mid.activePlayer !== me) continue;
+    for (const second of legalSteps(mid)) {
+      let landed: GameState;
+      try {
+        landed = rules.apply(mid, second);
+      } catch {
+        continue;
+      }
+      if (landed.activePlayer !== me) continue;
+      let closed: GameState;
+      try {
+        closed = passToSeat(rules.apply(landed, endTurn()), me);
+      } catch {
+        continue;
+      }
+      if (trailSizeOf(closed, me) !== 0) continue;
+      if (territoryOf(closed, me) <= 3) continue;
+      if (territoryOf(closed, me) <= originTerr) continue;
+      if (sharesOf(closed, me) !== originShares) continue;
+      if (!everyOwnGroupOnOwnTerritory(closed, me)) continue;
+      return [first, second, endTurn()];
+    }
+  }
+  return knownZeroShareLandBridge();
+};
+
+const assertPostPaintHome = (state: GameState, me: PlayerId, originShares: number): void => {
+  if (state.activePlayer !== me) {
+    throw new Error('setup: expected the painted seat to be active');
+  }
+  if (territoryOf(state, me) <= 3) {
+    throw new Error(
+      `setup: expected more than 3 territory arrows after the home mill close (got ${String(territoryOf(state, me))})`,
+    );
+  }
+  if (trailSizeOf(state, me) !== 0) {
+    throw new Error('setup: expected an empty trail after the home mill close');
+  }
+  if (!everyOwnGroupOnOwnTerritory(state, me)) {
+    throw new Error('setup: expected every own group on own territory after the home mill close');
+  }
+  if (sharesOf(state, me) !== originShares) {
+    throw new Error('setup: home mill close was not 0-share');
+  }
+};
+
+/**
+ * Generated 6-seat opening after one legal 0-share home mill close and a pass back.
+ * The opening pinwheel is already 3 owned arrows, so the close is two of Bot's
+ * turns applied through `rules.apply`: walk off, pass around, land-bridge home.
+ */
+export const afterFirstHomeMillClose = (): {
+  readonly state: GameState;
+  readonly me: PlayerId;
+} => {
+  const { state: opening, me } = openingSixSeatHome();
+  const originShares = sharesOf(opening, me);
+  const originTerr = territoryOf(opening, me);
+  const walked = passToSeat(foldPlan(opening, walkOffHomePinwheel()), me);
+  const closed = foldPlan(walked, discoverZeroShareLandBridge(walked, me, originShares, originTerr));
+  const state = passToSeat(closed, me);
+  assertPostPaintHome(state, me, originShares);
+  return { state, me };
+};
+
+/** Opening 3-stack walked two arrows out; trail still down after the pass back. */
+export const afterOpeningOpenTrail = (): {
+  readonly state: GameState;
+  readonly me: PlayerId;
+} => {
+  const { state: opening, me } = openingSixSeatHome();
+  const left = foldPlan(opening, [
+    step(mintArrowId('tiling:a:5,0,0'), mintArrowId('tiling:a:6,0,0'), 3),
+    step(mintArrowId('tiling:a:6,0,0'), mintArrowId('tiling:a:7,0,2'), 3),
+    endTurn(),
+  ]);
+  const state = passToSeat(left, me);
+  if (trailSizeOf(state, me) === 0) {
+    throw new Error('setup: expected a non-empty trail after the opening expedition');
+  }
+  return { state, me };
+};
+
+const predecessorsOf = (arrow: ArrowId): readonly ArrowId[] =>
+  geometry.inArrows(geometry.origin(arrow));
+
+const relocatePlayer = (
+  state: GameState,
+  player: PlayerId,
+  at: ArrowId,
+  heads: number,
+): GameState => {
+  const groups = new Map<ArrowId, Group>();
+  for (const [arrow, group] of state.groups) {
+    if (group.owner !== player) groups.set(arrow, group);
+  }
+  groups.set(at, { owner: player, heads, spent: 0 });
+  return { ...state, groups };
+};
+
+const isSpawnerBorder = (state: GameState, arrow: ArrowId): boolean => {
+  for (const vertex of state.spawners.keys()) {
+    if (geometry.borderArrows(vertex).includes(arrow)) return true;
+  }
+  return false;
+};
+
+/**
+ * Post-paint home, plus an enemy relocated onto a feeder of a departing exit.
+ * Returns undefined when no such legal relocation exists (caller should skip).
+ */
+export const threatenedDepartingExitAfterPaint = ():
+  | {
+      readonly state: GameState;
+      readonly me: PlayerId;
+      readonly threatenedExit: ArrowId;
+    }
+  | undefined => {
+  const { state: home, me } = afterFirstHomeMillClose();
+  const enemy = home.players.find((p) => p !== me);
+  if (enemy === undefined) return undefined;
+  const uniqueExits: ArrowId[] = [];
+  const seen = new Set<string>();
+  for (const move of legalSteps(home)) {
+    if (home.territory.get(move.exit) === me) continue;
+    const key = String(move.exit);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueExits.push(move.exit);
+  }
+  if (uniqueExits.length === 0) return undefined;
+  let fallback:
+    | { readonly state: GameState; readonly me: PlayerId; readonly threatenedExit: ArrowId }
+    | undefined;
+  for (const exit of uniqueExits) {
+    for (const feed of predecessorsOf(exit)) {
+      if (home.groups.has(feed)) continue;
+      const state = relocatePlayer(home, enemy, feed, 2);
+      if (trailSizeOf(state, me) !== 0) continue;
+      if (!everyOwnGroupOnOwnTerritory(state, me)) continue;
+      if (territoryOf(state, me) <= 3) continue;
+      const canStep = legalSteps(hypothesiseChair(state, enemy)).some((m) => m.exit === exit);
+      if (!canStep) continue;
+      const homeSteps = legalSteps(state).filter((m) => state.territory.get(m.exit) === me);
+      if (homeSteps.length === 0) continue;
+      const departingKeys = new Set(
+        legalSteps(state)
+          .filter((m) => state.territory.get(m.exit) !== me)
+          .map((m) => String(m.exit)),
+      );
+      const candidate = { state, me, threatenedExit: exit };
+      if (departingKeys.size === 1 && departingKeys.has(String(exit))) return candidate;
+      fallback ??= candidate;
+    }
+  }
+  return fallback;
+};
+
+/** Two terminals that differ by one own-territory arrow and nothing evaluate should price. */
+export const terminalsDifferByOneOwnTerritory = (): {
+  readonly smaller: GameState;
+  readonly larger: GameState;
+  readonly me: PlayerId;
+} => {
+  const { state, me } = afterFirstHomeMillClose();
+  const forbidden = new Set<string>();
+  for (const [arrow] of state.territory) forbidden.add(String(arrow));
+  for (const [arrow] of state.groups) {
+    forbidden.add(String(arrow));
+    for (const o of outsOf(arrow)) forbidden.add(String(o));
+  }
+  const home = [...state.groups.entries()].find(([, g]) => g.owner === me)?.[0];
+  if (home === undefined) throw new Error('setup: no home group after paint');
+  for (const arrow of geometry.window(geometry.origin(home), 8).arrows) {
+    if (forbidden.has(String(arrow))) continue;
+    if (isSpawnerBorder(state, arrow)) continue;
+    const territory = new Map(state.territory);
+    territory.set(arrow, me);
+    const larger: GameState = { ...state, territory };
+    if (territoryOf(larger, me) !== territoryOf(state, me) + 1) continue;
+    if (sharesOf(larger, me) !== sharesOf(state, me)) continue;
+    return { smaller: state, larger, me };
+  }
+  throw new Error('setup: no otherwise-identical extra own-territory arrow');
 };

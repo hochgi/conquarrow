@@ -14,6 +14,7 @@ import {
   MAX_APPLIES,
 } from '../src/botSearch';
 import {
+  afterFirstHomeMillClose,
   afterPlaytestP55HumanTurn,
   botEvaluateSource,
   openingSixSeatHome,
@@ -22,6 +23,8 @@ import {
   botSearchSource,
   foldPlan,
   geometry,
+  isExpeditionTerminal,
+  isHomeMillCloseTerminal,
   legalSteps,
   openingBotState,
   opponentSource,
@@ -31,6 +34,7 @@ import {
   rules,
   shuffleMaps,
   strideTwoStackPosition,
+  threatenedDepartingExitAfterPaint,
   withWinner,
   withWrongSeat,
 } from './bot-turn-search.support';
@@ -121,4 +125,34 @@ describe('bot-turn-search invariants', () => {
     const plan = chooseTurnBeam(geometry, rules, state, me);
     expect(planDepartsTerritory(state, plan, me)).toBe(true);
   }, 30_000);
+
+  it("When a 6-seat generated opening's active seat has completed one 0-share home mill close so it holds more than 3 territory arrows, its trail is empty, and every own group stands on own territory, beam-v1 shall include a step onto an arrow that is not that seat's territory.", () => {
+    const { state, me } = afterFirstHomeMillClose();
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
+  }, 30_000);
+
+  it("When invariant 24's position is planned and an expedition complete existed inside the beam, the returned plan's terminal shall be an expedition: open trail, or a group off own territory, or a share gained. A second 0-share home mill close is not an acceptable return.", () => {
+    const { state, me } = afterFirstHomeMillClose();
+    expect(legalSteps(state).some((m) => state.territory.get(m.exit) !== me)).toBe(true);
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    const terminal = foldPlan(state, plan);
+    expect(isExpeditionTerminal(state, terminal, me)).toBe(true);
+    expect(isHomeMillCloseTerminal(state, terminal, me)).toBe(false);
+  }, 30_000);
+
+  it('WHILE a legal departing exit is an arrow a hypothesised enemy can step onto this turn, the system shall not apply the SORTIE_SLACK swap.', () => {
+    const constructed = threatenedDepartingExitAfterPaint();
+    if (constructed === undefined) {
+      throw new Error('setup: no threatened departing exit after paint');
+    }
+    const { state, me, threatenedExit } = constructed;
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(plan.some((m) => m.kind === 'step' && m.exit === threatenedExit)).toBe(false);
+  }, 30_000);
+
+  it("The system shall not change evaluate's own-territory term. homeboundScore is return-time only.", () => {
+    expect(botEvaluateSource()).toMatch(/territory \* 25/);
+    expect(botEvaluateSource()).not.toMatch(/homeboundScore/);
+  });
 });

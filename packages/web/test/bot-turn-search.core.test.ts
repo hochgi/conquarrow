@@ -14,6 +14,7 @@ import {
 } from '../src/botSearch';
 import { playBotTurn } from '../src/opponent';
 import {
+  afterFirstHomeMillClose,
   afterPlaytestP55HumanTurn,
   boxOpenExitPosition,
   openingSixSeatHome,
@@ -22,6 +23,8 @@ import {
   fourStackThreeArrowPosition,
   geometry,
   heuristicTurnStarts,
+  isExpeditionTerminal,
+  isHomeMillCloseTerminal,
   legalSteps,
   loadBaselineLog,
   opponentSource,
@@ -129,6 +132,22 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     const { state, me } = openingSixSeatHome();
     const plan = chooseTurnBeam(geometry, rules, state, me);
     expect(planDepartsTerritory(state, plan, me)).toBe(true);
+  }, 30_000);
+
+  it('After a 0-share home close past three arrows the bot still leaves', () => {
+    const { state, me } = afterFirstHomeMillClose();
+    expect(legalSteps(state).some((m) => state.territory.get(m.exit) !== me)).toBe(true);
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(planDepartsTerritory(state, plan, me)).toBe(true);
+  }, 30_000);
+
+  it('The post-paint plan is an expedition not another home mill close', () => {
+    const { state, me } = afterFirstHomeMillClose();
+    expect(legalSteps(state).some((m) => state.territory.get(m.exit) !== me)).toBe(true);
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    const terminal = foldPlan(state, plan);
+    expect(isExpeditionTerminal(state, terminal, me)).toBe(true);
+    expect(isHomeMillCloseTerminal(state, terminal, me)).toBe(false);
   }, 30_000);
 
   it('beam-v1 beats greedy-v1 on shuttle rate and count greater than 1', () => {

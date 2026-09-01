@@ -1,8 +1,9 @@
 /**
- * Turn-plan search seam (P53 / P55). Adapter only — no game rule.
+ * Turn-plan search seam (P53 / P55 / P56). Adapter only — no game rule.
  *
  * `chooseTurnGreedy` is frozen greedy-v1 (today's `chooseMove` loop).
- * `chooseTurnBeam` is beam-v1 with optional one-ply opponent replies (P55).
+ * `chooseTurnBeam` is beam-v1 with optional one-ply opponent replies (P55)
+ * and a return-time home-expedition gate (P56).
  */
 
 import { endTurn } from '@conquarrow/contracts';
@@ -14,6 +15,7 @@ import type {
   RulesPort,
   StepMove,
 } from '@conquarrow/contracts';
+import { ARROW_VALUE_A } from './botClose';
 import { evaluate, MOBILITY_SCALE } from './botEvaluate';
 import {
   bindReplySearch,
@@ -141,9 +143,9 @@ type Search = {
   applies: number;
   best: CompletePlan | undefined;
   bestStepped: CompletePlan | undefined;
-  bestSortie: CompletePlan | undefined;
+  bestExpedition: CompletePlan | undefined;
   readonly origin: GameState;
-  /** Tiny home, no trail, no threatened departing exit — else skip sortie tracking. */
+  /** Empty trail, groups on own territory, no threatened departing exit. */
   readonly trackSortie: boolean;
   readonly geometry: GeometryPort;
   rules: RulesPort;
@@ -237,18 +239,50 @@ const ownedTerritory = (state: GameState, me: PlayerId): number => {
   return n;
 };
 
-/** Left home, closed, or still stands off own territory. */
-const isSortieTerminal = (origin: GameState, terminal: GameState, me: PlayerId): boolean => {
-  if ((terminal.trails.get(me)?.size ?? 0) > (origin.trails.get(me)?.size ?? 0)) return true;
-  if (ownedTerritory(terminal, me) > ownedTerritory(origin, me)) return true;
-  for (const [arrow, group] of terminal.groups) {
-    if (group.owner === me && terminal.territory.get(arrow) !== me) return true;
+const trailSizeOf = (state: GameState, me: PlayerId): number =>
+  state.trails.get(me)?.size ?? 0;
+
+const sharesOf = (
+  geometry: GeometryPort,
+  state: GameState,
+  player: PlayerId,
+): number => {
+  let n = 0;
+  for (const vertex of state.spawners.keys()) {
+    for (const arrow of geometry.borderArrows(vertex)) {
+      if (state.territory.get(arrow) === player) n += 1;
+    }
+  }
+  return n;
+};
+
+const someOwnGroupOffHome = (state: GameState, me: PlayerId): boolean => {
+  for (const [arrow, group] of state.groups) {
+    if (group.owner === me && state.territory.get(arrow) !== me) return true;
   }
   return false;
 };
 
-const pinnedToSmallHome = (state: GameState, me: PlayerId): boolean =>
-  (state.trails.get(me)?.size ?? 0) === 0 && ownedTerritory(state, me) <= 3;
+const stillAtHome = (state: GameState, me: PlayerId): boolean =>
+  trailSizeOf(state, me) === 0 && !someOwnGroupOffHome(state, me);
+
+/** Share gained, a group off home, or trail grew and is still down. */
+const isExpeditionTerminal = (
+  geometry: GeometryPort,
+  origin: GameState,
+  terminal: GameState,
+  me: PlayerId,
+): boolean => {
+  if (sharesOf(geometry, terminal, me) > sharesOf(geometry, origin, me)) return true;
+  if (someOwnGroupOffHome(terminal, me)) return true;
+  const originTrail = trailSizeOf(origin, me);
+  const terminalTrail = trailSizeOf(terminal, me);
+  return terminalTrail > originTrail && terminalTrail > 0;
+};
+
+const homeboundScore = (search: Search, complete: CompletePlan): number =>
+  completeScore(search.geometry, search.inner, search.me, complete) -
+  ARROW_VALUE_A * ownedTerritory(complete.state, search.me);
 
 const threatenedExits = (
   origin: GameState,
@@ -279,34 +313,28 @@ const departingExitIsThreatened = (
   return false;
 };
 
-const pickReturnedPlan = (
-  search: Search,
-  geometry: GeometryPort,
-  me: PlayerId,
-): CompletePlan | undefined => {
+const pickReturnedPlan = (search: Search): CompletePlan | undefined => {
   let chosen = search.best;
   const stepped = search.bestStepped;
   if (
     chosen !== undefined &&
     stepped !== undefined &&
     isIdlePlan(chosen.moves) &&
-    completeScore(geometry, search.inner, me, chosen) -
-      completeScore(geometry, search.inner, me, stepped) <=
+    completeScore(search.geometry, search.inner, search.me, chosen) -
+      completeScore(search.geometry, search.inner, search.me, stepped) <=
       IDLE_SLACK
   ) {
     chosen = stepped;
   }
-  const sortie = search.bestSortie;
+  const expedition = search.bestExpedition;
   if (
     search.trackSortie &&
     chosen !== undefined &&
-    sortie !== undefined &&
-    !isSortieTerminal(search.origin, chosen.state, me) &&
-    completeScore(geometry, search.inner, me, chosen) -
-      completeScore(geometry, search.inner, me, sortie) <=
-      SORTIE_SLACK
+    expedition !== undefined &&
+    !isExpeditionTerminal(search.geometry, search.origin, chosen.state, search.me) &&
+    homeboundScore(search, chosen) - homeboundScore(search, expedition) <= SORTIE_SLACK
   ) {
-    chosen = sortie;
+    chosen = expedition;
   }
   return chosen;
 };
@@ -329,15 +357,18 @@ const adoptComplete = (search: Search, child: CompletePlan): void => {
             scored,
           );
   }
-  if (search.trackSortie && isSortieTerminal(search.origin, scored.state, search.me)) {
-    search.bestSortie =
-      search.bestSortie === undefined
+  if (
+    search.trackSortie &&
+    isExpeditionTerminal(search.geometry, search.origin, scored.state, search.me)
+  ) {
+    search.bestExpedition =
+      search.bestExpedition === undefined
         ? scored
         : pickBetterComplete(
             search.geometry,
             search.me,
             search.inner,
-            search.bestSortie,
+            search.bestExpedition,
             scored,
           );
   }
@@ -523,10 +554,9 @@ export const chooseTurnBeamWithBudget: (
     applies: 0,
     best: undefined,
     bestStepped: undefined,
-    bestSortie: undefined,
+    bestExpedition: undefined,
     origin: state,
-    trackSortie:
-      pinnedToSmallHome(state, me) && !departingExitIsThreatened(state, me, rules),
+    trackSortie: stillAtHome(state, me) && !departingExitIsThreatened(state, me, rules),
     geometry,
     rules,
     inner: rules,
@@ -548,7 +578,7 @@ export const chooseTurnBeamWithBudget: (
     const fallback = rankIncompletes(search, beam)[0] ?? seed;
     considerEnd(search, fallback);
   }
-  return pickReturnedPlan(search, geometry, me)?.moves ?? [endTurn()];
+  return pickReturnedPlan(search)?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
   }

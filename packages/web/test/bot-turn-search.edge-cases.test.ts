@@ -22,10 +22,12 @@ import {
 import { chooseMove, evaluate, playBotTurn } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
 import {
+  afterOpeningOpenTrail,
   botEvaluateSource,
   botSearchSource,
   countingRules,
   enemyBoxMobilityPair,
+  foldPlan,
   geometry,
   heuristicTurnStarts,
   legalSteps,
@@ -42,6 +44,9 @@ import {
   selfBoxMobilityPair,
   shuffleMaps,
   strideTwoStackPosition,
+  terminalsDifferByOneOwnTerritory,
+  threatenedDepartingExitAfterPaint,
+  trailSizeOf,
   withWinner,
 } from './bot-turn-search.support';
 
@@ -219,4 +224,41 @@ describe('Bot turn search — budget, determinism, and frozen greedy-v1', () => 
     const delta = evaluate(geometry, open, Bot, rules) - evaluate(geometry, boxed, Bot, rules);
     expect(delta).toBe(MOBILITY_SCALE * heads * exitsLost);
   });
+
+  it('A threatened departing exit does not swap the bot onto that exit', () => {
+    const constructed = threatenedDepartingExitAfterPaint();
+    if (constructed === undefined) {
+      throw new Error('setup: no threatened departing exit after paint');
+    }
+    const { state, me, threatenedExit } = constructed;
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    expect(plan.some((m) => m.kind === 'step' && m.exit === threatenedExit)).toBe(false);
+  }, 30_000);
+
+  it.skip('A suicidal leave is not preferred over a home mill close', () => {
+    // Skip: a unique expedition complete that loses a head, while a 0-share
+    // home mill close keeps them, needs a combat fixture this packet does not
+    // have. Inventing one would invent a rule. heads×120 already dominates
+    // SORTIE_SLACK, so the observable is not the P56 discriminant.
+    return;
+  });
+
+  it('evaluate still pays own-territory arrows after a paint', () => {
+    const { smaller, larger, me } = terminalsDifferByOneOwnTerritory();
+    const delta = evaluate(geometry, larger, me, rules) - evaluate(geometry, smaller, me, rules);
+    expect(delta).toBe(25);
+  });
+
+  it('A 0-share land-bridge on an open trail is still taken', () => {
+    const { state, me } = afterOpeningOpenTrail();
+    const plan = chooseTurnBeam(geometry, rules, state, me);
+    let at = state;
+    let landedOnOwn = false;
+    for (const move of plan) {
+      if (move.kind === 'step' && at.territory.get(move.exit) === me) landedOnOwn = true;
+      at = rules.apply(at, move);
+    }
+    expect(landedOnOwn).toBe(true);
+    expect(trailSizeOf(foldPlan(state, plan), me)).toBe(0);
+  }, 30_000);
 });
