@@ -1,7 +1,7 @@
 ---
 description: Orchestrate spec→tests→code→review→PR+Copilot+merge for one work packet. No human gates.
 agent: spec-author
-model: xai/grok-4.6
+model: xai/grok-4.6#high
 ---
 
 # /spec-to-ship
@@ -24,8 +24,10 @@ relevant `SPEC.md` sections; online packets: ADR 0002). Also read `OPENCODE.md`.
   engine, ever.
 - **Never invent a game rule.** SPEC.md silence is an escalate, not a default.
   Online/infra BSSN: decide, document, continue.
-- **Model.** Every phase uses `xai/grok-4.6` (SuperGrok OAuth). Do not pass a
-  different model when launching a subagent unless the human named one.
+- **Model.** Pipeline phases use `xai/grok-4.6#high` (SuperGrok OAuth). Do not
+  pass a different model when launching a subagent unless the human named one.
+  Session chat may use other effort tiers; `#xhigh` is not sendable in OpenCode
+  until @ai-sdk/xai accepts it.
 
 **Escalate and wait** only for: a substantial unexpected cost, a big behavioral
 shift versus SPEC.md / ADR 0002 / a shipped packet, or a SPEC.md game-rule gap.

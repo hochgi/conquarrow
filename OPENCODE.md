@@ -30,45 +30,46 @@ Then:
 /models
 ```
 
-Confirm the session is on `xai/grok-4.6`. The project `opencode.json` already
-selects that id for the primary agent and every subagent below.
-
-Do **not** use `/connect` → “Manually enter API Key” unless you intentionally
-want prepaid console credits instead of the subscription. That is a different ledger.
+Confirm the session is on `xai/grok-4.6`. Session effort (none / low / medium / high)
+is yours to pick. Do **not** use `/connect` → “Manually enter API Key” unless you
+intentionally want prepaid console credits instead of the subscription.
 
 ## Model pin
 
 Canonical OpenCode id: `xai/grok-4.6`.
 
-Pinned in:
+| Surface | Slug | Why |
+|---|---|---|
+| Session / `build` / `plan` / `general` / `explore` | `xai/grok-4.6` (no `#variant`) | You pick the effort tier |
+| `spec-author`, `test-author`, `coder`, `reviewer`, `/spec-to-ship` | `xai/grok-4.6#high` | Highest effort OpenCode’s xAI SDK will actually send |
 
-- `opencode.json` (`model`, `small_model`, built-in `build` / `plan` / `general` / `explore`)
-- `.opencode/agent/{spec-author,test-author,coder,reviewer}.md`
-- `.opencode/command/spec-to-ship.md`
+`cursor-grok-4.6-xhigh` is a **Cursor** slug. Do not paste it into OpenCode.
+Claude Code keeps `opus` in `.claude/agents/`.
 
-When launching a subagent, **omit a model override** unless the human named one.
-Passing a slug is how a phase silently lands on the wrong provider (the other
-models you used in this checkout before).
+### Why `xhigh` blows up here
 
-Cursor keeps `cursor-grok-4.6-xhigh` in `.cursor/agents/`. Claude Code keeps
-`opus` in `.claude/agents/`. Do not copy those slugs into OpenCode — they are not
-xAI catalog ids and will not hit SuperGrok.
+`invalid xai provider options` with `reasoningEffort: "xhigh"` is
+[anomalyco/opencode#43226](https://github.com/anomalyco/opencode/issues/43226).
+
+- xAI’s API **does** accept `reasoning_effort: "xhigh"` on grok-4.6.
+- Cursor’s own backend **does** accept `xhigh` (that is what `.cursor/agents` pins).
+- OpenCode’s picker advertises an `xhigh` variant.
+- The bundled `@ai-sdk/xai` Zod schema only allows `none \| low \| medium \| high`,
+  so the request dies **before** it leaves the machine.
+
+Until that SDK/catalog split is fixed, `#high` is the ceiling in OpenCode.
+`opencode.json` remaps the advertised `xhigh` variant to `high` so picking it in
+the UI does not crash; it does **not** buy you Cursor’s xhigh budget.
 
 ## Command, subagents & skills
 
 - **Command**: `/spec-to-ship <path-to-packet>` — `.opencode/command/spec-to-ship.md`.
-  Same four-phase pipeline as Claude/Cursor. No human gate between phases.
 - **Subagents**: `.opencode/agent/` — `spec-author`, `test-author`, `coder`, `reviewer`.
-- **Skills**: still `.claude/skills/` (`spec-to-ship`, `write-spec`,
-  `write-failing-tests`, `code-to-green`, `review-changes`, `rules-invariants`,
-  `engineering-principles`, `mutation-testing`). Agents reference those paths.
+- **Skills**: `.claude/skills/`.
 
-`.agents/skills/` is the Matt Pocock skill pack (OpenCode honors it as skills).
-It is **not** the spec-to-ship roster and does not choose the model.
+`.agents/skills/` is the Matt Pocock pack. It does not choose the model.
 
 ## Local-only branches
 
 When the human says the branch is local-only, **never push or open a PR**.
-
-`local-main` is always local-only. It may carry `@vnatures/test-kit` and
-`*.kit.test.ts`. **Never push it.** Product packets always branch from `main`.
+`local-main` is always local-only. Never push it. Product packets branch from `main`.

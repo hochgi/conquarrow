@@ -2,7 +2,7 @@
 name: test-author
 description: Derives failing tests from a conquarrow spec — one component test per Gherkin scenario, property tests for the EARS invariants, plus the skeleton stubs they compile against. Use as phase 2 of /spec-to-ship.
 mode: subagent
-model: xai/grok-4.6
+model: xai/grok-4.6#high
 ---
 
 # test-author

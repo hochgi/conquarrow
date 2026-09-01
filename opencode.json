@@ -4,36 +4,34 @@
   "small_model": "xai/grok-4.6",
   "provider": {
     "xai": {
-      "name": "xAI (SuperGrok OAuth)"
+      "models": {
+        "grok-4.6": {
+          "variants": {
+            "none": { "reasoningEffort": "none" },
+            "low": { "reasoningEffort": "low" },
+            "medium": { "reasoningEffort": "medium" },
+            "high": { "reasoningEffort": "high" },
+            "xhigh": { "reasoningEffort": "high" }
+          }
+        }
+      }
     }
   },
   "agent": {
-    "build": {
-      "model": "xai/grok-4.6"
-    },
-    "plan": {
-      "model": "xai/grok-4.6"
-    },
-    "general": {
-      "model": "xai/grok-4.6"
-    },
-    "explore": {
-      "model": "xai/grok-4.6"
-    },
     "spec-author": {
-      "model": "xai/grok-4.6",
+      "model": "xai/grok-4.6#high",
       "mode": "all"
     },
     "test-author": {
-      "model": "xai/grok-4.6",
+      "model": "xai/grok-4.6#high",
       "mode": "subagent"
     },
     "coder": {
-      "model": "xai/grok-4.6",
+      "model": "xai/grok-4.6#high",
       "mode": "subagent"
     },
     "reviewer": {
-      "model": "xai/grok-4.6",
+      "model": "xai/grok-4.6#high",
       "mode": "subagent"
     }
   }
