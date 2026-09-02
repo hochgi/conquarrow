@@ -101,7 +101,7 @@ The frozen per-step chooser loop — today's chooseMove until the seat is handed
 _Avoid_: the live local heuristic (that is beam-v1)
 
 **beam-v1**:
-Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans. A pass must beat the best stepped complete by more than IDLE_SLACK or the stepped plan wins. When the origin is still at home (no trail, every own group on own territory, no threatened departing exit) SORTIE_SLACK prefers an expedition over a home mill close — including after the first small close has painted past three arrows (playtest 2026-09-01). After P56 they leave; P57 aims the leave at a campaign target so a quiet-board dirt close does not beat walking to production.
+Beam search over incomplete turn plans. The live local heuristic. playBotTurn calls this. Findings order which exits expand first; evaluate scores completed plans. A pass must beat the best stepped complete by more than IDLE_SLACK or the stepped plan wins. When the origin is still at home (no trail, every own group on own territory, no threatened departing exit) SORTIE_SLACK prefers an expedition over a home mill close — including after the first small close has painted past three arrows (playtest 2026-09-01). After P56 they leave; P57 aims the leave at a campaign target so a quiet-board dirt close does not beat walking to production. P59 further keeps only on-mission partial plans and reply-scores finalists only.
 _Avoid_: minimax, opponent ply (that is P55)
 
 **IDLE_SLACK**:
@@ -129,8 +129,8 @@ The one spawner vertex beam-v1 is walking toward this turn (P57). Recomputed fro
 _Avoid_: spawner-gravity in evaluate, nearest-any-spawner, a stored multi-turn plan
 
 **dirt close**:
-A 0-share close that does not border the campaign target and does not land closer to it. On a quiet board (exposure 0) its closeValue is 0 (P57). Under fire it stays the P54 land-bridge.
-_Avoid_: home mill close (that is still-at-home), land bridge (correct on a real expedition or under fire)
+A 0-share close that does not border the campaign target and does not reduce remaining path to it. On a quiet board (exposure 0) its closeValue is 0 (P57) unless it is staging (P59). Under fire it stays the P54 land-bridge.
+_Avoid_: home mill close (that is still-at-home), land bridge (correct on a real expedition or under fire), staging close (that one is allowed)
 
 **BotDrive**:
 Named weights over shareLoot / arrowLoot / campaignPull / bankUnderFire. All 1 in P57. The hook P58 clones into personalities. Not a lobby control in this packet.
@@ -143,3 +143,51 @@ _Avoid_: burst (online Lambda), playback (P30 presents a plan)
 **mobility**:
 The evaluate term: for each group, sign by whether we own it, times heads, times how many distinct legal exits it has. The gradient that makes a box visible inside one turn.
 _Avoid_: allowance, speed, trapped
+
+**mission**:
+The one job beam-v1 is allowed to spend this turn on (P59). One of bank, cut, contest, deny — computed at chooseTurn start from the board, not stored on GameState. Partial plans that do not serve a listed mission are not expanded.
+_Avoid_: personality, BotDrive slider, a stored multi-turn plan
+
+**bank**:
+The mission when our trail is already down and exposure > 0. Close or get home. Contest waits.
+_Avoid_: staging (that is optional paint toward V while not yet cuttable)
+
+**cut**:
+The mission when an enemy trail is grain-reachable this turn. Take the cut. Not an extra evaluate term.
+_Avoid_: attack bonus, harass weight
+
+**contest**:
+The default quiet mission: take a share of the campaign target V, or move the border toward V.
+_Avoid_: nearest any spawner, paint any empty loop
+
+**deny**:
+The mission when an enemy group is boxable this turn (P55 constructed box). Occupy the open exit.
+_Avoid_: a new mobility coefficient
+
+**staging close**:
+A 0-share close that is a tool, not a goal: remaining path to V is strictly smaller after it, and the trail it leaves is not a threatened kite. Scored with the P54 rate (loot / T × survival, including arrows × A). No second staging constant.
+_Avoid_: dirt close (sideways / pinwheel), home mill close
+
+**remaining path**:
+Grain distance from the nearest own group or own-territory arrow to a border arrow of campaign target V. Recomputed on origin and on each complete.
+_Avoid_: approach_spawner d1 on one stack only
+
+**kite**:
+A contest plan whose close-back (or open trail still down) is at least KITE_RATIO times the outbound grain distance to V.
+_Avoid_: expedition (that can be a short walk), land bridge
+
+**kite length**:
+Arrow count of the homeward / close_path from the far contest tip back onto *origin* territory — the against-grain return, not the outbound 3.
+_Avoid_: turnsToClose as a second unit in the kite test (use arrows)
+
+**threatened kite**:
+A kite whose projected trail (outbound union close-back) is grain-reachable by some enemy group within DEFAULT_REPLY_DIST_CAP. Forbidden as the returned contest plan when a staging complete exists.
+_Avoid_: exposure on the current empty trail (that is bank)
+
+**KITE_RATIO**:
+2. Named export. A 3-out / 9-back return is a kite. Do not invent a second ratio.
+_Avoid_: a slack constant, retuning SORTIE_SLACK
+
+**finalist**:
+At most one best complete per mission slot (≤ 3). Only finalists run P55 worstReachableReply. Every other complete is scored with evaluate only.
+_Avoid_: withReplies on every considerEnd child

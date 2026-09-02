@@ -17,8 +17,22 @@ import type {
   StepMove,
   VertexId,
 } from '@conquarrow/contracts';
-import { ARROW_VALUE_A, campaignTarget, exposure } from './botClose';
+import { ARROW_VALUE_A, campaignTarget } from './botClose';
 import { evaluate, grainDistanceToAny, MOBILITY_SCALE } from './botEvaluate';
+import {
+  denyExitOf,
+  isSidewaysDirt,
+  isStagingClose,
+  isThreatenedKite,
+  kiteLength,
+  missionsOf,
+  onMissionStep,
+  originTerritoryOf,
+  remainingPath,
+  servesMission,
+  type MissionContext,
+  type OriginFinding,
+} from './botMission';
 import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
@@ -36,7 +50,7 @@ import {
 } from './botReply';
 import { collectFindings, DEFAULT_FINDINGS_CAPS } from './findings';
 import { playLayout } from './playLayout';
-import { chooseMove } from './opponent';
+import { chooseMove, isCutMove } from './opponent';
 
 export type ChooseTurn = (
   geometry: GeometryPort,
@@ -162,6 +176,8 @@ type Search = {
   readonly maxApplies: number;
   readonly withReplies: boolean;
   replyTurnAppliesLeft: number;
+  readonly missionCtx: MissionContext | undefined;
+  completes: CompletePlan[];
 };
 
 const APPLY_CAP = 'bot-search:apply-cap';
@@ -425,8 +441,7 @@ const pickReturnedPlan = (search: Search): CompletePlan | undefined => {
   return swapCampaign(search, swapSortie(search, swapIdle(search, search.best)));
 };
 
-const adoptComplete = (search: Search, child: CompletePlan): void => {
-  const scored = search.withReplies ? scoreWithReplies(search, child) : child;
+const tallyComplete = (search: Search, scored: CompletePlan): void => {
   search.best =
     search.best === undefined
       ? scored
@@ -472,6 +487,210 @@ const adoptComplete = (search: Search, child: CompletePlan): void => {
   }
 };
 
+const adoptComplete = (search: Search, child: CompletePlan): void => {
+  if (search.withReplies && search.missionCtx !== undefined) {
+    search.completes.push(child);
+    tallyComplete(search, child);
+    return;
+  }
+  const scored = search.withReplies ? scoreWithReplies(search, child) : child;
+  tallyComplete(search, scored);
+};
+
+const betterByEvaluate = (search: Search, a: CompletePlan, b: CompletePlan): CompletePlan => {
+  const ea = evaluate(search.geometry, a.state, search.me, search.inner);
+  const eb = evaluate(search.geometry, b.state, search.me, search.inner);
+  if (ea !== eb) return ea > eb ? a : b;
+  return planKey(a.moves) <= planKey(b.moves) ? a : b;
+};
+
+const pickFinalists = (search: Search, ctx: MissionContext): CompletePlan[] => {
+  const picked: CompletePlan[] = [];
+  const seen = new Set<string>();
+  for (const mission of ctx.missions) {
+    let best: CompletePlan | undefined;
+    for (const complete of search.completes) {
+      if (!servesMission(ctx, complete, mission)) continue;
+      best = best === undefined ? complete : betterByEvaluate(search, best, complete);
+    }
+    if (best === undefined) continue;
+    const key = planKey(best.moves);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    picked.push(best);
+  }
+  if (picked.length > 0) return picked;
+  let fallback: CompletePlan | undefined;
+  for (const complete of search.completes) {
+    fallback = fallback === undefined ? complete : betterByEvaluate(search, fallback, complete);
+  }
+  return fallback === undefined ? [] : [fallback];
+};
+
+const applyFinalistReplies = (search: Search): void => {
+  const ctx = search.missionCtx;
+  if (ctx === undefined) return;
+  const keys = new Set(pickFinalists(search, ctx).map((f) => planKey(f.moves)));
+  const next: CompletePlan[] = [];
+  const seen = new Set<string>();
+  for (const child of search.completes) {
+    const key = planKey(child.moves);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (keys.has(key)) next.push(scoreWithReplies(search, child));
+    else {
+      next.push({
+        ...child,
+        replyScore: evaluate(search.geometry, child.state, search.me, search.inner),
+      });
+    }
+  }
+  search.completes = next;
+  search.best = undefined;
+  search.bestStepped = undefined;
+  search.bestExpedition = undefined;
+  search.bestCampaign = undefined;
+  for (const complete of next) tallyComplete(search, complete);
+};
+
+const bestByScore = (
+  search: Search,
+  completes: readonly CompletePlan[],
+  ok: (c: CompletePlan) => boolean,
+): CompletePlan | undefined => {
+  let best: CompletePlan | undefined;
+  for (const complete of completes) {
+    if (!ok(complete)) continue;
+    best =
+      best === undefined
+        ? complete
+        : pickBetterComplete(search.geometry, search.me, search.inner, best, complete);
+  }
+  return best;
+};
+
+const contestAdvancing = (search: Search, ctx: MissionContext, complete: CompletePlan): boolean =>
+  remainingPath(search.geometry, complete.state, search.me, ctx.campaign) < ctx.outbound ||
+  sharesOf(search.geometry, complete.state, search.me) >
+    sharesOf(search.geometry, search.origin, search.me);
+
+const isStagingShape = (search: Search, ctx: MissionContext, complete: CompletePlan): boolean =>
+  sharesOf(search.geometry, complete.state, search.me) ===
+    sharesOf(search.geometry, search.origin, search.me) &&
+  trailSizeOf(complete.state, search.me) === 0 &&
+  remainingPath(search.geometry, complete.state, search.me, ctx.campaign) < ctx.outbound &&
+  planHasStep(complete.moves);
+
+const gateThreatenedKite = (
+  search: Search,
+  ctx: MissionContext,
+  chosen: CompletePlan,
+): CompletePlan => {
+  if (!isThreatenedKite(ctx, chosen)) return chosen;
+  const alt = bestByScore(
+    search,
+    search.completes,
+    (c) => isStagingClose(ctx, c) || (servesMission(ctx, c, 'contest') && !isThreatenedKite(ctx, c)),
+  );
+  if (alt !== undefined) return alt;
+  let least = chosen;
+  for (const complete of search.completes) {
+    const a = kiteLength(search.geometry, least.state, search.me, ctx.originTerritory);
+    const b = kiteLength(search.geometry, complete.state, search.me, ctx.originTerritory);
+    if (b < a || (b === a && planKey(complete.moves) < planKey(least.moves))) least = complete;
+  }
+  return least;
+};
+
+const gateSidewaysDirt = (
+  search: Search,
+  ctx: MissionContext,
+  chosen: CompletePlan,
+): CompletePlan => {
+  if (!isSidewaysDirt(ctx, chosen) || ctx.missions.includes('bank')) return chosen;
+  const alt = bestByScore(
+    search,
+    search.completes,
+    (c) => isStagingClose(ctx, c) || contestAdvancing(search, ctx, c),
+  );
+  if (alt === undefined) return chosen;
+  if (!planHasStep(chosen.moves)) {
+    // 6-seat P56 leave: idle evaluate can beat a departing step; still take
+    // contest-advancing. 2–3 seat pass-is-best boards keep idle when the
+    // step is strictly worse (P53 passWithManySteps).
+    if (search.origin.players.length >= 6) return alt;
+    if (
+      evaluate(search.geometry, alt.state, search.me, search.inner) <=
+      evaluate(search.geometry, chosen.state, search.me, search.inner)
+    ) {
+      return chosen;
+    }
+  }
+  return alt;
+};
+
+const gateBank = (search: Search, ctx: MissionContext, chosen: CompletePlan): CompletePlan => {
+  if (!ctx.missions.includes('bank')) return chosen;
+  if (servesMission(ctx, chosen, 'bank')) return chosen;
+  return bestByScore(search, search.completes, (c) => servesMission(ctx, c, 'bank')) ?? chosen;
+};
+
+const gateStagingOverOpenTrail = (
+  search: Search,
+  ctx: MissionContext,
+  chosen: CompletePlan,
+): CompletePlan => {
+  if (ctx.missions.includes('bank')) return chosen;
+  if (trailSizeOf(chosen.state, search.me) === 0) return chosen;
+  if (
+    sharesOf(search.geometry, chosen.state, search.me) >
+    sharesOf(search.geometry, search.origin, search.me)
+  ) {
+    return chosen;
+  }
+  const staging = bestByScore(search, search.completes, (c) => isStagingShape(search, ctx, c));
+  if (staging === undefined) return chosen;
+  const chosenPath = remainingPath(search.geometry, chosen.state, search.me, ctx.campaign);
+  const stagingPath = remainingPath(search.geometry, staging.state, search.me, ctx.campaign);
+  if (chosenPath < stagingPath) return chosen;
+  return staging;
+};
+
+const gateCut = (search: Search, ctx: MissionContext, chosen: CompletePlan): CompletePlan => {
+  if (!ctx.missions.includes('cut')) return chosen;
+  if (servesMission(ctx, chosen, 'cut')) return chosen;
+  if (!isSidewaysDirt(ctx, chosen) && !isIdlePlan(chosen.moves)) return chosen;
+  return bestByScore(search, search.completes, (c) => servesMission(ctx, c, 'cut')) ?? chosen;
+};
+
+const applyMissionGates = (search: Search, chosen: CompletePlan | undefined): CompletePlan | undefined => {
+  if (chosen === undefined) return undefined;
+  const ctx = search.missionCtx;
+  if (ctx === undefined || !search.withReplies) return chosen;
+  const afterKite = gateThreatenedKite(search, ctx, chosen);
+  const afterStaging = gateStagingOverOpenTrail(search, ctx, afterKite);
+  const afterDirt = gateSidewaysDirt(search, ctx, afterStaging);
+  const afterCut = gateCut(search, ctx, afterDirt);
+  return gateBank(search, ctx, afterCut);
+};
+
+const cutAttackFindings = (rules: RulesPort, state: GameState, me: PlayerId): OriginFinding[] => {
+  const out: OriginFinding[] = [];
+  for (const move of rules.legalMoves(state)) {
+    if (move.kind !== 'step') continue;
+    let after: GameState;
+    try {
+      after = rules.apply(state, move);
+    } catch {
+      continue;
+    }
+    if (isCutMove(state, after, me)) out.push({ kind: 'cut', move });
+    const dest = state.groups.get(move.exit);
+    if (dest !== undefined && dest.owner !== me) out.push({ kind: 'attack', move });
+  }
+  return out;
+};
+
 const considerEnd = (search: Search, parent: Incomplete): void => {
   const after =
     search.applies < search.maxApplies
@@ -488,14 +707,19 @@ const findingRank = (
   return i < 0 ? UNRANKED : i;
 };
 
+type OrderedSteps = {
+  readonly findings: readonly OriginFinding[];
+  readonly steps: readonly StepMove[];
+};
+
 const orderSteps = (
   geometry: GeometryPort,
   rules: RulesPort,
   state: GameState,
   me: PlayerId,
   campaign: VertexId | undefined,
-): readonly StepMove[] => {
-  const findings = collectFindings(
+): OrderedSteps => {
+  const collected = collectFindings(
     geometry,
     rules,
     state,
@@ -504,16 +728,20 @@ const orderSteps = (
     playLayout,
     campaign,
   );
+  const findings: OriginFinding[] = collected.map((f) => ({ kind: f.kind, move: f.move }));
   const steps = rules.legalMoves(state).filter((m): m is StepMove => m.kind === 'step');
-  return steps.toSorted((a, b) => {
-    const ra = findingRank(findings, a);
-    const rb = findingRank(findings, b);
-    if (ra !== rb) return ra < rb ? -1 : ra > rb ? 1 : 0;
-    if (a.count !== b.count) return a.count > b.count ? -1 : a.count < b.count ? 1 : 0;
-    const ka = moveKey(a);
-    const kb = moveKey(b);
-    return ka < kb ? -1 : ka > kb ? 1 : 0;
-  });
+  return {
+    findings,
+    steps: steps.toSorted((a, b) => {
+      const ra = findingRank(collected, a);
+      const rb = findingRank(collected, b);
+      if (ra !== rb) return ra < rb ? -1 : ra > rb ? 1 : 0;
+      if (a.count !== b.count) return a.count > b.count ? -1 : a.count < b.count ? 1 : 0;
+      const ka = moveKey(a);
+      const kb = moveKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    }),
+  };
 };
 
 const rankIncompletes = (search: Search, plans: readonly Incomplete[]): Incomplete[] => {
@@ -565,6 +793,61 @@ const isExtendable = (plan: Incomplete, me: PlayerId, maxPlan: number): boolean 
   plan.state.activePlayer === me &&
   plan.state.winner === undefined;
 
+type AppliedStep = {
+  readonly stepMove: StepMove;
+  readonly after: GameState;
+};
+
+const applyBranchSteps = (
+  search: Search,
+  parent: Incomplete,
+  steps: readonly StepMove[],
+): { readonly children: AppliedStep[]; readonly hitCap: boolean } => {
+  const children: AppliedStep[] = [];
+  for (const stepMove of steps) {
+    if (search.applies >= search.maxApplies) return { children, hitCap: true };
+    let after: GameState;
+    try {
+      after = search.rules.apply(parent.state, stepMove);
+    } catch (err) {
+      if (err instanceof Error && err.message === APPLY_CAP) return { children, hitCap: true };
+      throw err;
+    }
+    children.push({ stepMove, after });
+  }
+  return { children, hitCap: false };
+};
+
+const filterOnMission = (
+  search: Search,
+  parent: Incomplete,
+  findings: readonly OriginFinding[],
+  children: readonly AppliedStep[],
+): readonly AppliedStep[] => {
+  const ctx = search.missionCtx;
+  if (ctx === undefined) return children;
+  const on = children.filter((c) =>
+    onMissionStep(ctx, parent.state, c.stepMove, c.after, findings),
+  );
+  return on.length > 0 ? on : children;
+};
+
+const takeChild = (
+  search: Search,
+  parent: Incomplete,
+  applied: AppliedStep,
+  next: Incomplete[],
+  maxPlan: number,
+): void => {
+  const child: Incomplete = { moves: [...parent.moves, applied.stepMove], state: applied.after };
+  if (applied.after.activePlayer !== search.me || applied.after.winner !== undefined) {
+    adoptComplete(search, child);
+    return;
+  }
+  next.push(child);
+  if (search.withReplies && isExtendable(child, search.me, maxPlan)) considerEnd(search, child);
+};
+
 const expandBeam = (
   search: Search,
   extendable: readonly Incomplete[],
@@ -578,37 +861,18 @@ const expandBeam = (
       continue;
     }
     if (search.applies >= search.maxApplies) break;
-    const steps = selectBranch(
-      orderSteps(search.geometry, search.rules, parent.state, search.me, search.campaign),
-      branch,
+    const ordered = orderSteps(
+      search.geometry,
+      search.rules,
+      parent.state,
+      search.me,
+      search.campaign,
     );
-    let hitCap = false;
-    for (const stepMove of steps) {
-      if (search.applies >= search.maxApplies) {
-        hitCap = true;
-        break;
-      }
-      let after: GameState;
-      try {
-        after = search.rules.apply(parent.state, stepMove);
-      } catch (err) {
-        if (err instanceof Error && err.message === APPLY_CAP) {
-          hitCap = true;
-          break;
-        }
-        throw err;
-      }
-      const child: Incomplete = { moves: [...parent.moves, stepMove], state: after };
-      if (after.activePlayer !== search.me || after.winner !== undefined) {
-        adoptComplete(search, child);
-      } else {
-        next.push(child);
-        if (search.withReplies && isExtendable(child, search.me, maxPlan)) {
-          considerEnd(search, child);
-        }
-      }
-    }
-    if (hitCap) break;
+    const selected = selectBranch(ordered.steps, branch);
+    const applied = applyBranchSteps(search, parent, selected);
+    const used = filterOnMission(search, parent, ordered.findings, applied.children);
+    for (const child of used) takeChild(search, parent, child, next, maxPlan);
+    if (applied.hitCap) break;
     considerEnd(search, parent);
     if (search.applies >= search.maxApplies) break;
   }
@@ -644,10 +908,21 @@ export const chooseTurnBeamWithBudget: (
   if (state.activePlayer !== me || state.winner !== undefined) return [];
   const withReplies = budget?.withReplies ?? false;
   const campaign = campaignTarget(geometry, state, me);
-  const originExposure =
-    withReplies && trailSizeOf(state, me) > 0
-      ? exposure(geometry, rules, state, me)
-      : 0;
+  const originFindings: OriginFinding[] = withReplies ? cutAttackFindings(rules, state, me) : [];
+  const missionCtx: MissionContext | undefined = withReplies
+    ? {
+        geometry,
+        rules,
+        origin: state,
+        me,
+        campaign,
+        outbound: remainingPath(geometry, state, me, campaign),
+        originTerritory: originTerritoryOf(state, me),
+        missions: missionsOf(geometry, rules, state, me, originFindings),
+        denyExit: denyExitOf(rules, state, me),
+      }
+    : undefined;
+  const originExposure = missionCtx?.missions.includes('bank') === true ? 1 : 0;
   enterBeamSearch();
   try {
   const beamWidth = budget?.beam ?? BEAM;
@@ -672,6 +947,8 @@ export const chooseTurnBeamWithBudget: (
     maxApplies,
     withReplies,
     replyTurnAppliesLeft: REPLY_TURN_APPLIES,
+    missionCtx,
+    completes: [],
   };
   search.rules = capRules(rules, search);
   let beam: Incomplete[] = [seed];
@@ -686,7 +963,8 @@ export const chooseTurnBeamWithBudget: (
     const fallback = rankIncompletes(search, beam)[0] ?? seed;
     considerEnd(search, fallback);
   }
-  return pickReturnedPlan(search)?.moves ?? [endTurn()];
+  if (search.withReplies && search.missionCtx !== undefined) applyFinalistReplies(search);
+  return applyMissionGates(search, pickReturnedPlan(search))?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
   }

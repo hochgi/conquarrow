@@ -14,7 +14,8 @@
     "../web/src/botEvaluate.ts",
     "../web/src/botSearch.ts",
     "../web/src/botClose.ts",
-    "../web/src/botReply.ts"
+    "../web/src/botReply.ts",
+    "../web/src/botMission.ts"
   ],
   "references": [
     { "path": "../contracts" },

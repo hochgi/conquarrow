@@ -9,6 +9,9 @@ compare mill vs leave on `homeboundScore`).
 it gates quiet-board dirt closes and aims the P56 leave at one vertex. This
 file keeps First sortie. One P56 edge scenario (0-share land-bridge on an
 open trail) is restricted to `exposure > 0` so the specs do not fight.
+[P59 — Mission and staging](../mission-and-staging/mission-and-staging.md)
+filters which children enter the beam and which completes pay for a P55
+reply; this file does not restate those predicates.
 **SPEC:** read [§3](../../../SPEC.md) (speed, split vs merge, allowance) and
 [§6.2](../../../SPEC.md) (stay-behind: a lone head cannot attack). **No game
 rule is added, changed, or implied.** Nothing is owed to SPEC §11. P56 and
@@ -264,6 +267,12 @@ argmax `evaluate(next) + scoreStepExtras` with `moveKey` ties.
 Do not retune those weights in this packet.
 
 ## beam-v1 (normative)
+
+P59 ([mission-and-staging](../mission-and-staging/mission-and-staging.md))
+keeps this algorithm and these budgets. It restricts **which step-children
+enter `next`** (on-mission, with unfiltered fallback) and **which completes
+call `worstReachableReply`** (finalists only). Expansion order and
+`endTurn`-is-not-a-beam-slot (BSSN 4, 6) stay here.
 
 ```
 moveKey(step) = "step:{from}>{exit}:{count}"
@@ -600,11 +609,16 @@ flowchart TD
 - Close value as a rate, `close_path`, superlinear shares, mill rewrite,
   campaign target, dirt-close gate —
   [P54 / P57](../close-and-spawner-value/close-and-spawner-value.md).
-  Quiet-board 0-share dirt closes score zero (P57). Under fire they stay
-  the P54 corridor.
+  Quiet-board 0-share dirt closes score zero (P57) unless the close is
+  staging ([P59](../mission-and-staging/mission-and-staging.md)). Under
+  fire they stay the P54 corridor.
 - One enemy reply, exposure as worst-reply, search reuse at a smaller budget
   — [P55](../opponent-ply-and-denial/opponent-ply-and-denial.md). P56 does
-  not retune the reply search.
+  not retune the reply search. P59 does not change the reply *algorithm*;
+  it reply-scores **finalists** only
+  ([mission-and-staging](../mission-and-staging/mission-and-staging.md)).
+- On-mission expansion (which children enter `next`) —
+  [P59](../mission-and-staging/mission-and-staging.md).
 - Whether Pages should call `chooseTurnBeam` — not this packet (BSSN 2).
 - Retuning `BEAM` / `BRANCH` / `MAX_PLAN` / `MOBILITY_SCALE` after
   playtesting — named exports, same algorithm.

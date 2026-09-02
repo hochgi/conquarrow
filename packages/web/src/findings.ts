@@ -19,13 +19,18 @@ import type {
 import {
   BOT_DRIVE,
   campaignTarget,
+  closeValue,
   estimateCloseLoot,
   exposure,
-  gatedCloseValue,
-  isDirtClose,
   turnsToClose,
 } from './botClose';
 import { distanceToTerritory, grainDistance, homewardPath } from './botEvaluate';
+import {
+  isSidewaysDirt,
+  originTerritoryOf,
+  remainingPath,
+  type MissionContext,
+} from './botMission';
 
 export { grainDistance };
 
@@ -494,6 +499,48 @@ const bestHomewardStep = (
   return chosen;
 };
 
+const claimedForClose = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  tip: ArrowId,
+): ArrowId[] => {
+  const seen = new Set<string>();
+  const claimed: ArrowId[] = [];
+  const add = (arrow: ArrowId): void => {
+    const key = String(arrow);
+    if (seen.has(key)) return;
+    seen.add(key);
+    claimed.push(arrow);
+  };
+  const trail = state.trails.get(me);
+  if (trail !== undefined) {
+    for (const arrow of trail) {
+      if (state.territory.get(arrow) !== me) add(arrow);
+    }
+  }
+  for (const arrow of homewardPath(geometry, state, me, tip).path) add(arrow);
+  if (state.territory.get(tip) !== me) add(tip);
+  return claimed.toSorted((a, b) => compareIds(String(a), String(b)));
+};
+
+const overlayClaimed = (state: GameState, me: PlayerId, claimed: readonly ArrowId[]): GameState => {
+  const territory = new Map(state.territory);
+  for (const arrow of claimed) territory.set(arrow, me);
+  const trails = new Map(state.trails);
+  trails.set(me, new Set());
+  return { ...state, territory, trails };
+};
+
+const closePathSideways = (ctx: MissionContext, tip: ArrowId, move: StepMove): boolean => {
+  const overlay = overlayClaimed(
+    ctx.origin,
+    ctx.me,
+    claimedForClose(ctx.geometry, ctx.origin, ctx.me, tip),
+  );
+  return isSidewaysDirt(ctx, { moves: [move], state: overlay });
+};
+
 const collectClosePathFindings = (
   geometry: GeometryPort,
   rules: RulesPort,
@@ -507,6 +554,17 @@ const collectClosePathFindings = (
   if (trail === undefined || trail.size === 0) return [];
   const e = exposure(geometry, rules, state, me, caps.distCap);
   const vertex = campaign;
+  const dirtCtx: MissionContext = {
+    geometry,
+    rules,
+    origin: state,
+    me,
+    campaign: vertex,
+    outbound: remainingPath(geometry, state, me, vertex),
+    originTerritory: originTerritoryOf(state, me),
+    missions: [],
+    denyExit: undefined,
+  };
   const distAt = (arrow: ArrowId): number =>
     distanceToTerritory(geometry, state, me, arrow, caps.distCap);
   const froms = [...state.groups.entries()]
@@ -524,11 +582,8 @@ const collectClosePathFindings = (
     if (move === undefined) continue;
     const T = turnsToClose(d0, move.count);
     const estimated = estimateCloseLoot(geometry, state, me, from, vertex);
-    if (isDirtClose(estimated) && e === 0) continue;
-    const value = gatedCloseValue(estimated.shares, estimated.arrows, T, e, {
-      hitsCampaign: estimated.hitsCampaign,
-      advancesCampaign: estimated.advancesCampaign,
-    });
+    if (closePathSideways(dirtCtx, from, move) && e === 0) continue;
+    const value = closeValue(estimated.shares, estimated.arrows, T, e);
     const reward = 80;
     out.push({
       kind: 'close_path',
