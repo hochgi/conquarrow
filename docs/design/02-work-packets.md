@@ -85,6 +85,9 @@ scheduled early in the first place.
 | P54 | Closing & spawner value | web | §3, §7 (read) | P53 | **[packet](./packets/P54-close-and-spawner-value.md).** 11 closes in 71 turns across 6 seats, first at move 56 — there is a goal that walks the bot out (`approach_spawner`) and none that walks it home. Ships close value as a rate — `(shares×S + arrows×A) / turnsToClose × survival(exposure)` — so fast-and-small versus slow-and-big resolves by division rather than a tuned weight, plus a multi-step `close_path` goal, superlinear share value for taking all three of a vertex, and a replacement for the spawner mill guard. |
 | P55 | Opponent ply & denial | web | §6.2, §6.3 (read) | P53, P54 | **[packet](./packets/P55-opponent-ply-and-denial.md).** Firebreaks, blocking, spawner denial and the *box* are four views of one thing — the enemy's best reply got worse — so they are searched, not enumerated. Ships one enemy reply, worst-case across enemies within grain-reach, reusing `beam-v1` at a small budget; replaces P54's `exposure` proxy with the real worst reply. Adds no new denial terms: P53's mobility gradient is what lets a bounded search build the box. |
 | P56 | Home expedition | web | — | P53, P54 | **[packet](./packets/P56-home-expedition.md).** Playtest 2026-09-01: both AIs close a tiny home loop then mill the pinwheel. `SORTIE_SLACK` died after the first paint because `trackSortie` required `ownedTerritory ≤ 3` and `isSortieTerminal` treated any territory increase as a leave. Drops the cap; a 0-share paint is not an expedition; mill vs leave compares on `homeboundScore` (strips own-territory × `ARROW_VALUE_A`). Return-time only. No `evaluate` retune. |
+| P57 | Campaign target | web | §7 (read) | P53–P56 | **[packet](./packets/P57-campaign-target.md).** Quiet-board 0-share dirt closes score zero unless they border or approach the one campaign vertex `V`. Findings aim at `V`, not nearest empty loop. `BotDrive` weights all 1. Personalities parked as P58. |
+| P58 | Heuristic personalities | web | — | P57, P59 | **Parked.** Clone `BotDrive` into lobby presets (`raider` / `holder`, …). Do not ship until P59 is the live policy — three weight vectors over the 09:50 dirt painter are three dirt painters. No packet doc until unparked. |
+| P59 | Mission and staging | web | §3, §7 (read) | P53–P57 | **[packet](./packets/P59-mission-and-staging.md).** Mission-conditioned beam: one of bank / cut / contest / deny per turn; 0-share close only as *staging* (remaining path to `V` drops); forbid a threatened kite (return trail ≥ `KITE_RATIO` × outbound and an enemy can reach it); P55 replies only on finalists. Not a worker. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -142,6 +145,17 @@ flowchart TD
   P43 --> P44["P44 tutorial mobile + copy"]
   P31 --> P44
   P35["P35 count after route"] --> P44
+  P53["P53 bot turn search"] --> P54["P54 close value"]
+  P53 --> P55["P55 opponent ply"]
+  P53 --> P56["P56 home expedition"]
+  P54 --> P56
+  P54 --> P57["P57 campaign target"]
+  P56 --> P57
+  P53 --> P59["P59 mission and staging"]
+  P54 --> P59
+  P55 --> P59
+  P57 --> P59
+  P59 -.-> P58["P58 personalities — parked"]
 ```
 
 ## Build order and why
