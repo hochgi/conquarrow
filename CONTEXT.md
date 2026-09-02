@@ -165,7 +165,7 @@ The mission when an enemy group is boxable this turn (P55 constructed box). Occu
 _Avoid_: a new mobility coefficient
 
 **staging close**:
-A 0-share close that is a tool, not a goal: remaining path to V is strictly smaller after it, and the trail it leaves is not a threatened kite. Scored by path/risk removed, not by arrows × A.
+A 0-share close that is a tool, not a goal: remaining path to V is strictly smaller after it, and the trail it leaves is not a threatened kite. Scored with the P54 rate (loot / T × survival, including arrows × A). No second staging constant.
 _Avoid_: dirt close (sideways / pinwheel), home mill close
 
 **remaining path**:

@@ -132,7 +132,8 @@ describe('mission-and-staging invariants', () => {
   });
 
   it('WHEN origin exposure > 0, the system shall keep the P54 ungated rate for a 1-turn empty land-bridge (bank corridor).', () => {
-    expect(closeValue(0, 3, 1, 2)).toBe(closeValue(0, 3, 1, 2));
+    // T = 1 ⇒ survival = 1 even with exposure; loot = 3 × ARROW_VALUE_A.
+    expect(closeValue(0, 3, 1, 2)).toBe(75);
     expect(/isSidewaysDirt|bank/.test(botSearchSource())).toBe(true);
   });
 
