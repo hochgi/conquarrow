@@ -2,7 +2,9 @@
 
 **Packet:** [P54 — Closing and spawner value](../../design/packets/P54-close-and-spawner-value.md)
 **Follow-on:** [P57 — Campaign target](../../design/packets/P57-campaign-target.md)
-gates the P54 rate so a quiet-board 0-share dirt close scores zero, and aims
+gates the P54 rate so a quiet-board 0-share dirt close scores zero unless
+it is **staging** (remaining path to `V` drops —
+[P59](../mission-and-staging/mission-and-staging.md)), and aims
 `approach_spawner` / the P56 leave at one campaign vertex.
 **SPEC:** read [§3](../../../SPEC.md) (speed, split vs merge) and
 [§7](../../../SPEC.md) (closure, shares, spawners). **No game rule is added,
@@ -238,6 +240,12 @@ re-litigate them.
       gatedCloseValue = loot / T × survival
     ```
 
+    P59: quiet dirt stays 0 unless the close is **staging** (remaining
+    path to `V` drops). Staging uses this same P54 rate — not a second
+    loot constant. Live search/findings zeroing is `isSidewaysDirt`, not
+    a second `preferClose` key. See
+    [mission-and-staging](../mission-and-staging/mission-and-staging.md).
+
     Four-argument `closeValue(shares, arrows, T, exposure)` **stays the
     ungated P54 rate** so the 2-turn-one-share vs 6-turn-two-share
     arithmetic, and `closeValue(0, 3, 3, 0) = 25`, keep their numbers.
@@ -352,7 +360,7 @@ re-litigate them.
 | **homeward path** | grain BFS from a trail tip to the first own-territory arrow |
 | **mill** | hopping between sibling open borders instead of banking the share |
 | **campaign target** | the one spawner vertex this turn: max `force × missing-own-shares / grainDist`, skip monopolised, ties on id. Not on `GameState` |
-| **dirt close** | 0-share close that does not border the campaign vertex and does not land closer to it. Quiet board → gated `closeValue` 0. Under fire → P54 land-bridge |
+| **dirt close** | 0-share close that does not border the campaign vertex and does not land closer to it. Quiet board → gated `closeValue` 0 **unless staging** ([P59](../mission-and-staging/mission-and-staging.md)). Under fire → P54 land-bridge |
 | **hitsCampaign** | some claimed-set arrow borders the campaign vertex |
 | **advancesCampaign** | homeward landing is strictly grain-closer to the campaign vertex than the tip |
 | **BotDrive** | `{ shareLoot, arrowLoot, campaignPull, bankUnderFire }`, all `1` in P57 |
@@ -527,7 +535,8 @@ loop stays the corridor close. On a quiet board it is no longer a goal.
     not, `campaignTarget` shall return the unmonopolised vertex.
 29. When a close candidate has `shares == 0`, does not hit the campaign,
     and does not advance it, and `exposure` is 0, the system shall treat
-    its gated close value as 0.
+    its gated close value as 0, unless the close is staging
+    ([P59](../mission-and-staging/mission-and-staging.md)).
 30. When that same candidate has `exposure > 0`, the system shall keep
     the P54 ungated rate.
 31. When a 2-turn close banks one share and a 6-turn close banks two,
@@ -566,6 +575,9 @@ loop stays the corridor close. On a quiet board it is no longer a goal.
 - A third loot constant, occupancy-as-share, or fill in the estimator.
 - Personality sliders, lobby difficulty, extra `chooseTurn`
   implementations, seat-kind changes, match-log fields — **P58**.
+- Staging closes, remaining path, kite / threatened kite, on-mission
+  expansion, reply-finalists —
+  [P59](../mission-and-staging/mission-and-staging.md).
 - Spawner-gravity in `evaluate`. Multi-vertex campaigns, waypoints, or
   a plan stored across turns.
 - Game-rule edges (cut mid-closure, fork-stem cut, chord coincide vs

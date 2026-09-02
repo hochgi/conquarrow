@@ -96,8 +96,11 @@ export const homewardPath = (
   me: PlayerId,
   start: ArrowId,
   cap = DIST_CAP,
+  home?: ReadonlySet<string>,
 ): HomewardPath => {
-  if (state.territory.get(start) === me) {
+  const atHome = (arrow: ArrowId): boolean =>
+    home === undefined ? state.territory.get(arrow) === me : home.has(String(arrow));
+  if (atHome(start)) {
     return { distance: 0, landing: start, path: [] };
   }
   const seen = new Set<string>([String(start)]);
@@ -109,7 +112,7 @@ export const homewardPath = (
       for (const exit of geometry.outArrows(geometry.target(arrow))) {
         const key = String(exit);
         if (seen.has(key)) continue;
-        if (state.territory.get(exit) === me) {
+        if (atHome(exit)) {
           return {
             distance: d,
             landing: exit,
