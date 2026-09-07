@@ -7,12 +7,8 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   byokCompletionBody,
-  chooseLlmMove,
-  fetchLlmMoveIndex,
   formatLegalMoves,
   movesForLlm,
-  parseMoveIndex,
-  playLlmBotTurn,
   postChatCompletions,
   snapshotForPrompt,
   testByokConnection,
@@ -106,12 +102,13 @@ describe('seatPlan', () => {
 });
 
 describe('byokBot parsing', () => {
-  it('formats legal moves with stable indices', () => {
+  it('formats legal moves with stable indices and does not number endTurn in the offer', () => {
     const from = mintArrowId('a');
     const exit = mintArrowId('b');
     const moves: Move[] = [step(from, exit, 1), endTurn()];
     expect(formatLegalMoves(moves)).toContain('[0] step');
-    expect(formatLegalMoves(moves)).toContain('[1] endTurn');
+    expect(movesForLlm(moves).map((m) => m.kind)).toEqual(['step']);
+    expect(formatLegalMoves(movesForLlm(moves))).not.toMatch(/\[\d+\] endTurn/);
   });
 
   it('annotates steps with tipDist and outcome tags', () => {
@@ -168,32 +165,12 @@ describe('byokBot parsing', () => {
     expect(listed).toMatch(/count=1 spd=1 spent=0/);
   });
 
-  it('parses strict index replies and ignores digits inside arrow prose', () => {
-    expect(parseMoveIndex('3', 5)).toBe(3);
-    expect(parseMoveIndex('{"move":2,"why":"step"}', 4)).toBe(2);
-    expect(parseMoveIndex('thinking...\n<<<MOVE:2>>>\n', 4)).toBe(2);
-    expect(parseMoveIndex('ANSWER: 2', 4)).toBe(2);
-    expect(parseMoveIndex('INDEX: 1', 4)).toBe(1);
-    // Truncated Nemotron prose with tiling ids must NOT become a false hit.
-    expect(
-      parseMoveIndex(
-        'We are seat B. We have groups:\n- B group at tiling:a:-4,6,0 with ',
-        20,
-      ),
-    ).toBeUndefined();
-    expect(parseMoveIndex('ramble 0 then answer 3', 4)).toBeUndefined();
-    expect(parseMoveIndex('99', 3)).toBeUndefined();
-    expect(parseMoveIndex('nope', 3)).toBeUndefined();
-  });
-
-  it('shows the model the offer as the engine made it', () => {
-    // P51: there is no kind to hide any more. Every move the engine offers is a
-    // move worth showing, so the offer passes through unchanged.
+  it('shows the model steps only — endTurn is not an offer index', () => {
     const from = mintArrowId('a');
     const exit = mintArrowId('b');
     const moves: Move[] = [step(from, exit, 1), endTurn()];
-    expect(movesForLlm(moves)).toEqual(moves);
-    expect(movesForLlm([endTurn()]).map((m) => m.kind)).toEqual(['endTurn']);
+    expect(movesForLlm(moves).map((m) => m.kind)).toEqual(['step']);
+    expect(movesForLlm([endTurn()])).toEqual([]);
   });
 
   it('builds a strategy-aware prompt that lists every offered move', () => {
@@ -211,11 +188,15 @@ describe('byokBot parsing', () => {
     const prompt = buildUserPrompt(geometry, state, seat, moves, true, rules);
     expect(prompt).toContain('LEGAL_MOVES');
     expect(prompt).toContain('[0]');
-    expect(prompt).toContain('{"move":N');
+    expect(prompt).toContain('"moves"');
+    expect(prompt).not.toContain('Pick one LEGAL_MOVES index');
+    expect(prompt).not.toContain('{"move":N');
     expect(prompt).toContain('tipDist=');
     expect(prompt).toMatch(/shares|spawner shares/i);
     expect(buildSystemPrompt(seat, true)).toContain(`seat ${String(seat)}`);
-    expect(buildSystemPrompt(seat, true)).toContain('{"move":N');
+    expect(buildSystemPrompt(seat, true)).toContain('"moves"');
+    expect(buildSystemPrompt(seat, true)).toContain('endTurn');
+    expect(buildSystemPrompt(seat, true)).not.toContain('{"move":N');
     expect(buildSystemPrompt(seat, true)).toContain('leave_home');
     const snap = snapshotForPrompt(geometry, state, seat);
     expect(typeof snap).toBe('object');
@@ -246,34 +227,6 @@ describe('byokBot fetch + fallback', () => {
     expect(headers[BYOK_UPSTREAM_HEADER]).toBe('https://api.openai.com/v1/chat/completions');
   });
 
-  it('reads an index from a chat-completions response', async () => {
-    const fetchImpl: FetchLike = () => Promise.resolve(jsonResponse('{"move":1,"why":"ok"}'));
-    const spy = vi.fn(fetchImpl);
-    const opening = makeMatch();
-    const result = await fetchLlmMoveIndex(
-      readyConfig(),
-      'prompt',
-      4,
-      opening.activePlayer,
-      spy,
-    );
-    expect(result).toEqual({ ok: true, index: 1 });
-    expect(spy).toHaveBeenCalledOnce();
-    const rawBody = spy.mock.calls[0]?.[1]?.body;
-    expect(typeof rawBody).toBe('string');
-    if (typeof rawBody !== 'string') return;
-    const body = JSON.parse(rawBody) as {
-      max_tokens: number;
-      response_format: { type: string };
-      chat_template_kwargs?: { enable_thinking: boolean };
-    };
-    expect(body.max_tokens).toBe(512);
-    expect(body.response_format).toEqual({ type: 'json_object' });
-    expect(body.chat_template_kwargs).toEqual(
-      expect.objectContaining({ enable_thinking: false }),
-    );
-  });
-
   it('builds a completion body with json_object and thinking forced off', () => {
     const body = byokCompletionBody(readyConfig(), [{ role: 'user', content: '0' }]);
     expect(body['response_format']).toEqual({ type: 'json_object' });
@@ -288,73 +241,6 @@ describe('byokBot fetch + fallback', () => {
       { role: 'user', content: '0' },
     ]);
     expect(body['max_tokens']).toBe(64);
-  });
-
-  it('retries with a fast extract when the first reply is unusable prose', async () => {
-    const prose =
-      'Let me analyze. Group at tiling:a:-5,5,0. I think move 0 toward center is best because...';
-    const spy = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(prose))
-      .mockResolvedValueOnce(jsonResponse('{"move":0}'));
-    const opening = makeMatch();
-    const result = await fetchLlmMoveIndex(
-      readyConfig(),
-      'prompt',
-      4,
-      opening.activePlayer,
-      spy,
-    );
-    expect(result).toEqual({ ok: true, index: 0 });
-    expect(spy).toHaveBeenCalledTimes(2);
-  });
-
-  it('routes picks through the turn runner when enabled', async () => {
-    const spy = vi.fn((_url: string, _init?: RequestInit) =>
-      Promise.resolve(
-        new Response(JSON.stringify({ ok: true, move: 2, why: 'plan' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-    const opening = makeMatch();
-    const result = await fetchLlmMoveIndex(
-      readyConfig({
-        useTurnRunner: true,
-        turnRunnerUrl: 'http://127.0.0.1:4010',
-      }),
-      'STATE_JSON…',
-      4,
-      opening.activePlayer,
-      spy,
-    );
-    expect(result).toEqual({ ok: true, index: 2 });
-    expect(spy).toHaveBeenCalledOnce();
-    expect(spy.mock.calls[0]?.[0]).toBe('http://127.0.0.1:4010/v1/pick');
-    const rawBody = spy.mock.calls[0]?.[1]?.body;
-    expect(typeof rawBody).toBe('string');
-    if (typeof rawBody !== 'string') return;
-    const body = JSON.parse(rawBody) as {
-      moveCount: number;
-      plan: boolean;
-      upstream: string;
-    };
-    expect(body.moveCount).toBe(4);
-    expect(body.plan).toBe(true);
-    expect(body.upstream).toBe('https://api.openai.com/v1');
-  });
-
-  it('falls back to the heuristic when the model is unreachable', async () => {
-    const geometry = makeTiling();
-    const rules = makeRules(geometry);
-    const opening = makeMatch();
-    const me = opening.activePlayer;
-    const fetchImpl: FetchLike = () => Promise.reject(new Error('network'));
-    const choice = await chooseLlmMove(geometry, rules, opening, me, readyConfig(), fetchImpl);
-    expect(choice.source).toBe('heuristic');
-    expect(choice.reason).toMatch(/fetch failed/);
-    expect(['step', 'endTurn']).toContain(choice.move.kind);
   });
 
   it('probes the connection with a tiny completion', async () => {
@@ -409,40 +295,4 @@ describe('byokBot fetch + fallback', () => {
     expect(result.reason).toContain('Incorrect API key');
   });
 
-  it('plays a full LLM turn using mocked endTurn picks then hands the seat back', async () => {
-    const geometry = makeTiling();
-    const rules = makeRules(geometry);
-    const opening = makeMatch();
-    const A = opening.players[0];
-    const B = opening.players[1];
-    expect(A).toBeDefined();
-    expect(B).toBeDefined();
-    if (A === undefined || B === undefined) return;
-
-    const afterA = rules.apply(opening, endTurn());
-    expect(afterA.activePlayer).toBe(B);
-
-    const fetchImpl: FetchLike = (_url, init) => {
-      const bodyUnknown: unknown = init?.body;
-      const raw = typeof bodyUnknown === 'string' ? bodyUnknown : '';
-      const match = /\[(\d+)\] endTurn/.exec(raw);
-      return Promise.resolve(jsonResponse(`{"move":${match?.[1] ?? '0'}}`));
-    };
-    const spy = vi.fn(fetchImpl);
-
-    const { state, moves, llmHits, llmFallbacks } = await playLlmBotTurn(
-      geometry,
-      rules,
-      afterA,
-      B,
-      readyConfig(),
-      spy,
-    );
-    expect(moves.length).toBeGreaterThan(0);
-    expect(moves.some((m) => m.kind === 'endTurn')).toBe(true);
-    expect(state.activePlayer).toBe(A);
-    expect(spy.mock.calls.length).toBeGreaterThan(0);
-    expect(llmHits).toBeGreaterThan(0);
-    expect(llmFallbacks).toBe(0);
-  });
 });
