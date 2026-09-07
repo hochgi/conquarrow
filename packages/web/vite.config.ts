@@ -19,7 +19,10 @@ export default defineConfig(({ mode }) => ({
   base: mode === 'pages' ? '/conquarrow/' : '/',
   plugins: [react(), byokDevProxy()],
   root: '.',
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    fs: { allow: [docsDir] },
+  },
   resolve: {
     // Workspace packages export .ts sources; Vite handles them directly.
     alias: { docs: docsDir },

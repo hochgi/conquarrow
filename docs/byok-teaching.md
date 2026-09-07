@@ -4,7 +4,7 @@ Curated for the BYOK seat. If this disagrees with SPEC.md, SPEC wins.
 
 ## Win
 
-The match ends when one seat remains. A won match offers nothing. A seat with no territory is lost. A seat with no shares for consecutive rounds is starvation. Loop: risk heads → take territory → hold specials → make heads.
+The match ends when one seat remains. A won match offers nothing. A seat with no territory is lost. A living player who owns no spawner share at all for N consecutive full rounds loses (starvation). Loop: risk heads → take territory → hold specials → make heads.
 
 ## Board
 
