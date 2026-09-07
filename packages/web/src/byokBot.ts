@@ -27,14 +27,16 @@ import {
   isByokReady,
   resolveByokProxyUrl,
 } from './byokConfig';
-import { closeUrgency, distanceToTerritory, playBotTurn, type BotTurn } from './opponent';
-import type { Finding } from './findings';
 import {
-  advanceTargetLock,
-  formatTargetsForPrompt,
-  syncTargetLocks,
-  tagOnTarget,
-} from './targets';
+  chooseMove,
+  closeUrgency,
+  distanceToTerritory,
+  playBotTurn,
+  type BotTurn,
+} from './opponent';
+import type { Finding } from './findings';
+import { advanceTargetLock, syncTargetLocks, tagOnTarget } from './targets';
+import teachingBody from 'docs/byok-teaching.md?raw';
 
 /** Completions cap (POSTs), not applied steps — a single batch may spend the offer. */
 const MAX_COMPLETIONS_PER_TURN = 64;
@@ -62,25 +64,12 @@ export const BYOK_REASONING_MAX_TOKENS = 512;
 export const BYOK_FAST_MAX_TOKENS = 64;
 
 export const buildSystemPrompt = (me: PlayerId, reasoning: boolean): string => {
-  const priorities = `Goal: claim spawner shares by leaving home, walking a SHORT open trail, then closing. Domination needs shares; milling forever on home loses.
-Priorities (context-dependent):
-1. If you hold few/no shares: prefer tags leave_home, share, borders_spawner, on_target, or short outward scouts. Do NOT pick onto_home / home_mill just to keep tipDist=0.
-2. Prefer tags closes / land_bridge / share / on_target when available — claim ground.
-3. When trailLen>=4 (or tipDist is high): prefer homeward / onto_home / closes. Do NOT grow tipDist then. Giant loops lose.
-4. Prefer cut when it does not strand a long trail. Merge toward powers of 2.
-Tempo: a 2^k lump walks k+1 steps this turn — send it as one count=2^k (spd=k+1), not as 2^k singletons. The band 2^k..2^{k+1}-1 is the same speed (a 3-stack is as fast as a pair). Split order does not trap the leftover: it keeps the parent's spent, so you may send the lump first and still move the remainder, or peel 1 first then walk the lump. After a split, prefer the lump's count over another count=1.
-onto_home with trailLen=0 and no expansion is wasted tempo.`;
-  const contract = `Return ONLY a JSON object (no markdown fence):
-{"moves":[i,...],"endTurn":false,"why":"short reason"}
-"moves" is an ordered array of LEGAL_MOVES step indices from this offer. Set endTurn true when this seat is done this turn. Read count, spd, leave, tags, and tipDist. Do not invent moves. Do not reprint STATE_JSON.`;
   const role = reasoning
     ? `You are seat ${String(me)} in Conquarrow (territorial conquest on directed arrows).`
     : `You are seat ${String(me)} in Conquarrow.`;
   return `${role}
 Pick an ordered moves index array from this offer; set endTurn when the seat is done.
-${priorities}
-
-${contract}`;
+${teachingBody}`;
 };
 
 /**
@@ -338,6 +327,24 @@ export const formatLegalMoves = (
     })
     .join('\n');
 
+const greedyBaselineLines = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  offer: readonly Move[],
+): readonly string[] => {
+  if (offer.length === 0) return [];
+  const chosen = chooseMove(geometry, rules, state, me);
+  if (chosen.kind !== 'step') return [];
+  const index = offer.findIndex((entry) => movesEqual(entry, chosen));
+  if (index < 0) return [];
+  return [
+    `A weak one-ply baseline would play \`[${String(index)}]\` (\`count=${String(chosen.count)} from=${String(chosen.from)} exit=${String(chosen.exit)}\`).`,
+    'Suggestion only — you may return any ordered indices from this offer.',
+  ];
+};
+
 export const buildUserPrompt = (
   geometry: GeometryPort,
   state: GameState,
@@ -359,17 +366,12 @@ export const buildUserPrompt = (
       `${String(arrow)} tipDist=${String(distanceToTerritory(geometry, state, me, arrow))} heads=${String(group.heads)}`,
     );
   }
-  const phaseHint =
-    myShares === 0
-      ? `You hold 0 spawner shares. Prefer leave_home / borders_spawner / on_target / short outward — do NOT home_mill.`
-      : trail >= 4
-        ? `Open trailLen=${String(trail)} with ${String(myShares)} shares — prefer homeward/closes; do not extend tipDist.`
-        : `Shares=${String(myShares)}, trailLen=${String(trail)}. Prefer on_target when present; short scouts OK.`;
+  const baseline =
+    rules === undefined ? [] : greedyBaselineLines(geometry, rules, state, me, moves);
   return [
     `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
-    phaseHint,
+    `Shares=${String(myShares)}, trailLen=${String(trail)}.`,
     tipLines.length > 0 ? `Exposed tips: ${tipLines.join('; ')}` : 'Exposed tips: none',
-    formatTargetsForPrompt(targets),
     '',
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me)),
@@ -377,6 +379,8 @@ export const buildUserPrompt = (
     'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
+    ...baseline,
+    ...(baseline.length > 0 ? [''] : []),
     'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short"}',
   ].join('\n');
 };

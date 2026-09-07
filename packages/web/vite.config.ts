@@ -1,6 +1,11 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { byokDevProxy } from './vite.byok-proxy';
+
+const webRoot = dirname(fileURLToPath(import.meta.url));
+const docsDir = resolve(webRoot, '../../docs');
 
 /**
  * GitHub Pages serves this package at `/conquarrow/` under
@@ -14,9 +19,13 @@ export default defineConfig(({ mode }) => ({
   base: mode === 'pages' ? '/conquarrow/' : '/',
   plugins: [react(), byokDevProxy()],
   root: '.',
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    fs: { allow: [docsDir] },
+  },
   resolve: {
     // Workspace packages export .ts sources; Vite handles them directly.
+    alias: { docs: docsDir },
     dedupe: ['react', 'react-dom'],
   },
 }));

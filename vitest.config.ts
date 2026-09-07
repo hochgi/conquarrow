@@ -1,6 +1,13 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+const repoRoot = dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
+  resolve: {
+    alias: { docs: resolve(repoRoot, 'docs') },
+  },
   test: {
     include: ['packages/*/test/**/*.test.ts'],
     // Pure packages stay on node. The web adapter's unit tests are also pure
