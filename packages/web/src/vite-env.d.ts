@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare module '*.md?raw' {
+  const content: string;
+  export default content;
+}
+
 interface ImportMetaEnv {
   readonly DEV: boolean;
   readonly VITE_BYOK_PROXY?: string;
