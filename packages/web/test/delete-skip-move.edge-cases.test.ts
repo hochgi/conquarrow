@@ -68,12 +68,8 @@ describe('Consumers that filtered skip are unaffected', () => {
   it("A bot's offered moves are unchanged wherever a step exists", () => {
     const offer: readonly Move[] = [step(FROM, TO, 1), endTurn()];
 
-    // Same moves as before the packet: byokBot filtered the skips out itself
-    // while any step existed. With no skip to filter, the offer passes through.
-    // On a stepless board the model now sees `[endTurn]` rather than a skip per
-    // movable group — it could only pass either way. See the overview,
-    // "Behavioural delta", near-miss 3.
-    expect(movesForLlm(offer)).toEqual(offer);
+    // P51: skip is gone. P61: the LLM offer is steps only — endTurn is a flag.
+    expect(movesForLlm(offer)).toEqual([step(FROM, TO, 1)]);
     expect(codeOf(sourceOf('byokBot.ts'))).not.toContain('skip');
   });
 });

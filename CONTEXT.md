@@ -41,8 +41,8 @@ A provider that sells many companies' models through one key, almost always on t
 _Avoid_: treating each gateway as its own API shape
 
 **API shape**:
-The HTTP dialect used to ask a model for a legalMoves index. v1 is OpenAI chat/completions only. A small port stays in code so Anthropic Messages or Gemini can be added later without a rewrite. Seats still take turns.
-_Avoid_: adapter per company, talk (ambiguous)
+The HTTP dialect used to ask a model for a JSON batch of legalMoves-step indices plus an endTurn flag. v1 is OpenAI chat/completions only. A small port stays in code so Anthropic Messages or Gemini can be added later without a rewrite. Seats still take turns.
+_Avoid_: adapter per company, talk (ambiguous), a single move index
 
 **pause**:
 An operator control that stops bot LLM decisions until resumed. It does not block a human from playing when it is a human chair's turn.

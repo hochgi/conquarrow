@@ -1,9 +1,10 @@
 /**
- * Optional LLM move chooser — adapter only (P15).
+ * Optional LLM move chooser — adapter only (P15 / P61).
  *
- * The model never invents a move: it picks an index from an exhaustive
- * `legalMoves` list. Failures fall back to the heuristic `chooseMove`, and the
- * caller can see how often that happened (silent fallback hid bugs in playtest).
+ * The model never invents a move: one completion returns an ordered batch of
+ * `legalMoves` step indices plus an `endTurn` flag. Empty prefix falls back to
+ * frozen greedy-v1 for the rest of the seat-turn. Hits and fallbacks count
+ * seat-turns, not steps.
  */
 
 import type {
@@ -13,9 +14,11 @@ import type {
   Move,
   PlayerId,
   RulesPort,
+  StepMove,
 } from '@conquarrow/contracts';
-import { endTurn, speed } from '@conquarrow/contracts';
+import { endTurn, movesEqual, speed } from '@conquarrow/contracts';
 import { compareArrows } from '@conquarrow/rules-core';
+import { chooseTurnGreedy } from './botSearch';
 import type { ByokConfig } from './byokConfig';
 import {
   BYOK_CORS_HINT,
@@ -23,9 +26,8 @@ import {
   chatCompletionsUrl,
   isByokReady,
   resolveByokProxyUrl,
-  resolveTurnRunnerUrl,
 } from './byokConfig';
-import { chooseMove, closeUrgency, distanceToTerritory, playBotTurn, type BotTurn } from './opponent';
+import { closeUrgency, distanceToTerritory, playBotTurn, type BotTurn } from './opponent';
 import type { Finding } from './findings';
 import {
   advanceTargetLock,
@@ -34,14 +36,15 @@ import {
   tagOnTarget,
 } from './targets';
 
-const MAX_MOVES_PER_TURN = 64;
+/** Completions cap (POSTs), not applied steps — a single batch may spend the offer. */
+const MAX_COMPLETIONS_PER_TURN = 64;
 const MAX_LISTED_ARROWS = 24;
 /** Keep the board summary small — huge spawner dumps make models restate state until max_tokens. */
 const MAX_SPAWNER_ROWS = 12;
 
 /**
  * Reasoning models (Nemotron Ultra, etc.) need thinking on to play well.
- * Output must still be machine-parseable via `{"move":N}` / `<<<MOVE:N>>>`.
+ * Live turn parse is the batch JSON object, not a per-step index tag.
  */
 export const BYOK_THINKING_ON = {
   enable_thinking: true,
@@ -58,9 +61,6 @@ export const BYOK_REASONING_MAX_TOKENS = 512;
 /** Tiny budget when thinking is disabled. */
 export const BYOK_FAST_MAX_TOKENS = 64;
 
-/** Distinctive machine tag — accepted by the parser as a non-JSON fallback. */
-export const MOVE_TAG = (n: number): string => `<<<MOVE:${String(n)}>>>`;
-
 export const buildSystemPrompt = (me: PlayerId, reasoning: boolean): string => {
   const priorities = `Goal: claim spawner shares by leaving home, walking a SHORT open trail, then closing. Domination needs shares; milling forever on home loses.
 Priorities (context-dependent):
@@ -71,31 +71,24 @@ Priorities (context-dependent):
 Tempo: a 2^k lump walks k+1 steps this turn — send it as one count=2^k (spd=k+1), not as 2^k singletons. The band 2^k..2^{k+1}-1 is the same speed (a 3-stack is as fast as a pair). Split order does not trap the leftover: it keeps the parent's spent, so you may send the lump first and still move the remainder, or peel 1 first then walk the lump. After a split, prefer the lump's count over another count=1.
 onto_home with trailLen=0 and no expansion is wasted tempo.`;
   const contract = `Return ONLY a JSON object (no markdown fence):
-{"move":N,"why":"short reason"}
-N is a LEGAL_MOVES index. Read count, spd, leave, tags, and tipDist. Do not invent moves. Do not reprint STATE_JSON.`;
-  if (reasoning) {
-    return `You are seat ${String(me)} in Conquarrow (territorial conquest on directed arrows).
-Choose the best LEGAL_MOVES index for this seat.
-${priorities}
-
-${contract}`;
-  }
-  return `You are seat ${String(me)} in Conquarrow.
-Choose the best LEGAL_MOVES index for this seat.
+{"moves":[i,...],"endTurn":false,"why":"short reason"}
+"moves" is an ordered array of LEGAL_MOVES step indices from this offer. Set endTurn true when this seat is done this turn. Read count, spd, leave, tags, and tipDist. Do not invent moves. Do not reprint STATE_JSON.`;
+  const role = reasoning
+    ? `You are seat ${String(me)} in Conquarrow (territorial conquest on directed arrows).`
+    : `You are seat ${String(me)} in Conquarrow.`;
+  return `${role}
+Pick an ordered moves index array from this offer; set endTurn when the seat is done.
 ${priorities}
 
 ${contract}`;
 };
 
 /**
- * Moves shown to the model: the offer as the engine made it.
- *
- * This used to drop the no-op move kind while any step existed, or models burned
- * the whole turn on it. There is no such kind any more (P51), so the offer is
- * steps plus `endTurn` and every one of them is worth showing. Kept as the one
- * named place that decides what a model sees.
+ * Moves shown to the model: engine `legalMoves` filtered to steps, same order.
+ * `endTurn` is a flag on the reply, never an offer index.
  */
-export const movesForLlm = (moves: readonly Move[]): readonly Move[] => moves;
+export const movesForLlm = (moves: readonly Move[]): readonly Move[] =>
+  moves.filter((move): move is StepMove => move.kind === 'step');
 
 const sortIds = (ids: readonly string[]): string[] =>
   [...ids].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
@@ -309,6 +302,21 @@ export const annotateMove = (
   }
 };
 
+/** Group steps by `from` in first-seen-in-offer order; keep global `[i]`. */
+const groupedStepEntries = (
+  moves: readonly Move[],
+): readonly { readonly index: number; readonly move: StepMove }[] => {
+  const buckets = new Map<string, { index: number; move: StepMove }[]>();
+  for (const [index, move] of moves.entries()) {
+    if (move.kind !== 'step') continue;
+    const from = String(move.from);
+    const bucket = buckets.get(from);
+    if (bucket === undefined) buckets.set(from, [{ index, move }]);
+    else bucket.push({ index, move });
+  }
+  return [...buckets.values()].flat();
+};
+
 export const formatLegalMoves = (
   moves: readonly Move[],
   geometry?: GeometryPort,
@@ -317,23 +325,16 @@ export const formatLegalMoves = (
   me?: PlayerId,
   targets: readonly Finding[] = [],
 ): string =>
-  moves
-    .map((m, i) => {
+  groupedStepEntries(moves)
+    .map(({ index, move }) => {
       const body =
         geometry !== undefined &&
         rules !== undefined &&
         state !== undefined &&
         me !== undefined
-          ? annotateMove(geometry, rules, state, me, m, targets)
-          : (() => {
-              switch (m.kind) {
-                case 'step':
-                  return `step from=${String(m.from)} exit=${String(m.exit)} count=${String(m.count)}`;
-                case 'endTurn':
-                  return `endTurn`;
-              }
-            })();
-      return `[${String(i)}] ${body}`;
+          ? annotateMove(geometry, rules, state, me, move, targets)
+          : `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}`;
+      return `[${String(index)}] ${body}`;
     })
     .join('\n');
 
@@ -365,7 +366,7 @@ export const buildUserPrompt = (
         ? `Open trailLen=${String(trail)} with ${String(myShares)} shares — prefer homeward/closes; do not extend tipDist.`
         : `Shares=${String(myShares)}, trailLen=${String(trail)}. Prefer on_target when present; short scouts OK.`;
   return [
-    `Seat ${String(me)}. Pick one LEGAL_MOVES index.`,
+    `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
     phaseHint,
     tipLines.length > 0 ? `Exposed tips: ${tipLines.join('; ')}` : 'Exposed tips: none',
     formatTargetsForPrompt(targets),
@@ -373,59 +374,54 @@ export const buildUserPrompt = (
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me)),
     '',
-    'LEGAL_MOVES (count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes):',
+    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
-    'Reply with only JSON: {"move":N,"why":"short"}',
+    'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short"}',
   ].join('\n');
 };
-/**
- * Strict move-index parse — never harvest digits from arrow ids in prose.
- * Accepts: `{"move":N}`, `<<<MOVE:N>>>`, `ANSWER: N`, lone digit line/string.
- */
-export const parseMoveIndex = (text: string, length: number): number | undefined => {
-  if (length <= 0) return undefined;
+export interface ParsedMoveBatch {
+  readonly indices: readonly number[];
+  readonly endTurn: boolean;
+}
 
-  const accept = (raw: string): number | undefined => {
-    const n = Number(raw);
-    if (Number.isInteger(n) && n >= 0 && n < length) return n;
-    return undefined;
-  };
-
+const stripMarkdownFence = (text: string): string => {
   const trimmed = text.trim();
-  if (/^\d+$/.test(trimmed)) return accept(trimmed);
+  const lines = trimmed.split(/\r?\n/);
+  if (lines.length < 2) return trimmed;
+  const first = lines[0]?.trim() ?? '';
+  const last = lines[lines.length - 1]?.trim() ?? '';
+  if (!/^```(?:json)?$/i.test(first) || last !== '```') return trimmed;
+  return lines.slice(1, -1).join('\n').trim();
+};
 
-  // Prefer explicit machine forms anywhere (last match wins — models often draft then fix).
-  const tagged: number[] = [];
-  for (const m of trimmed.matchAll(/\{\s*"move"\s*:\s*(\d+)\s*\}/g)) {
-    const n = accept(m[1] ?? '');
-    if (n !== undefined) tagged.push(n);
+const integerIndices = (moves: unknown): number[] | undefined => {
+  if (!Array.isArray(moves)) return undefined;
+  const indices: number[] = [];
+  for (const entry of moves) {
+    if (typeof entry !== 'number' || !Number.isInteger(entry)) return undefined;
+    indices.push(entry);
   }
-  for (const m of trimmed.matchAll(/"move"\s*:\s*(\d+)/g)) {
-    const n = accept(m[1] ?? '');
-    if (n !== undefined) tagged.push(n);
-  }
-  for (const m of trimmed.matchAll(/<<<MOVE:(\d+)>>>/g)) {
-    const n = accept(m[1] ?? '');
-    if (n !== undefined) tagged.push(n);
-  }
-  if (tagged.length > 0) return tagged[tagged.length - 1];
+  return indices;
+};
 
-  const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
-    const line = lines[i];
-    if (line === undefined) continue;
-    if (/^\d+$/.test(line)) {
-      const n = accept(line);
-      if (n !== undefined) return n;
-    }
-    const legacy = /^(?:ANSWER|INDEX|MOVE|PICK)\s*[:=]\s*(\d+)\s*$/i.exec(line);
-    if (legacy?.[1] !== undefined) {
-      const n = accept(legacy[1]);
-      if (n !== undefined) return n;
-    }
+/**
+ * Live turn parse: JSON batch object only. No digit harvest, no last-match-wins,
+ * no extract retry. Out-of-range integers stay and become illegal items at apply.
+ */
+export const parseMoveBatch = (text: string): ParsedMoveBatch | undefined => {
+  let value: unknown;
+  try {
+    value = JSON.parse(stripMarkdownFence(text));
+  } catch {
+    return undefined;
   }
-  return undefined;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const rec = value as Record<string, unknown>;
+  if (typeof rec['endTurn'] !== 'boolean') return undefined;
+  const indices = integerIndices(rec['moves']);
+  if (indices === undefined) return undefined;
+  return { indices, endTurn: rec['endTurn'] };
 };
 
 /** Request body fields shared by move picks and the lobby probe. */
@@ -459,7 +455,21 @@ interface ChatCompletionResponse {
   }[];
 }
 
+const extractReplyText = (body: ChatCompletionResponse): string => {
+  const message = body.choices?.[0]?.message;
+  if (message === undefined) return '';
+  const content = typeof message.content === 'string' ? message.content : '';
+  const reasoning =
+    typeof message.reasoning_content === 'string' ? message.reasoning_content : '';
+  if (content.trim().length > 0) return content;
+  return reasoning;
+};
+
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+
+export type LlmBatchFetchResult =
+  | { readonly ok: true; readonly text: string }
+  | { readonly ok: false; readonly reason: string };
 
 /** POST chat/completions via optional same-origin / player-owned CORS relay. */
 export const postChatCompletions = (
@@ -482,173 +492,49 @@ export const postChatCompletions = (
   });
 };
 
-export type LlmFetchResult =
-  | { readonly ok: true; readonly index: number }
-  | { readonly ok: false; readonly reason: string };
-
-const extractReplyText = (body: ChatCompletionResponse): string => {
-  const message = body.choices?.[0]?.message;
-  if (message === undefined) return '';
-  const content = typeof message.content === 'string' ? message.content : '';
-  const reasoning =
-    typeof message.reasoning_content === 'string' ? message.reasoning_content : '';
-  // Prefer content (usually the final ANSWER line); fall back to reasoning tail.
-  if (content.trim().length > 0) return content;
-  return reasoning;
-};
-
-/** POST /v1/pick on the local turn runner (plan→commit→validate). */
-export const fetchTurnRunnerMoveIndex = async (
+/**
+ * One chat/completions POST. No extract retry, no /v1/pick, no conversation history.
+ */
+export const fetchLlmMoveBatch = async (
   config: ByokConfig,
   prompt: string,
-  moveCount: number,
   me: PlayerId,
   fetchImpl: FetchLike = fetch,
-): Promise<LlmFetchResult> => {
-  const runner = resolveTurnRunnerUrl(config);
-  if (runner.length === 0) return { ok: false, reason: 'turn runner not configured' };
-  if (moveCount === 0) return { ok: false, reason: 'no legal moves' };
-
-  const url = `${runner.replace(/\/+$/, '')}/v1/pick`;
+): Promise<LlmBatchFetchResult> => {
+  if (!isByokReady(config)) return { ok: false, reason: 'byok not ready' };
+  const messages = [
+    { role: 'system', content: buildSystemPrompt(me, config.reasoning) },
+    { role: 'user', content: prompt },
+  ];
   let response: Response;
   try {
-    response = await fetchImpl(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        upstream: config.baseUrl.trim(),
-        apiKey: config.apiKey.trim(),
-        model: config.model.trim(),
-        seat: String(me),
-        moveCount,
-        system: buildSystemPrompt(me, config.reasoning),
-        user: prompt,
-        // Reasoning seats get a free-form plan step; fast seats skip to commit.
-        plan: config.reasoning,
-      }),
-    });
+    response = await postChatCompletions(config, byokCompletionBody(config, messages), fetchImpl);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'network error';
+    const via = resolveByokProxyUrl(config);
     return {
       ok: false,
-      reason: `turn runner fetch failed: ${msg} (run pnpm byok-turn on :4010)`,
+      reason:
+        via.length === 0 ? `fetch failed: ${msg} (${BYOK_CORS_HINT})` : `fetch failed: ${msg}`,
     };
   }
-
+  if (!response.ok) {
+    return {
+      ok: false,
+      reason: `HTTP ${String(response.status)} from ${chatCompletionsUrl(config.baseUrl)}`,
+    };
+  }
   let body: unknown;
   try {
     body = await response.json();
   } catch {
-    return { ok: false, reason: `turn runner HTTP ${String(response.status)}: not JSON` };
+    return { ok: false, reason: 'response was not JSON' };
   }
-  if (typeof body !== 'object' || body === null) {
-    return { ok: false, reason: 'turn runner returned non-object' };
+  const text = extractReplyText(body as ChatCompletionResponse);
+  if (text.trim().length === 0) {
+    return { ok: false, reason: 'missing choices[0].message.content' };
   }
-  const o = body as Record<string, unknown>;
-  if (o['ok'] === true && typeof o['move'] === 'number' && Number.isInteger(o['move'])) {
-    const index = o['move'];
-    if (index >= 0 && index < moveCount) return { ok: true, index };
-    return { ok: false, reason: `turn runner move out of range: ${String(index)}` };
-  }
-  const err =
-    typeof o['error'] === 'string'
-      ? o['error']
-      : `HTTP ${String(response.status)} from turn runner`;
-  return { ok: false, reason: err };
-};
-
-export const fetchLlmMoveIndex = async (
-  config: ByokConfig,
-  prompt: string,
-  moveCount: number,
-  me: PlayerId,
-  fetchImpl: FetchLike = fetch,
-): Promise<LlmFetchResult> => {
-  if (!isByokReady(config)) return { ok: false, reason: 'byok not ready' };
-  if (moveCount === 0) return { ok: false, reason: 'no legal moves' };
-
-  if (resolveTurnRunnerUrl(config).length > 0) {
-    return fetchTurnRunnerMoveIndex(config, prompt, moveCount, me, fetchImpl);
-  }
-
-  const runOnce = async (
-    messages: readonly { readonly role: string; readonly content: string }[],
-    maxTokens?: number,
-    forceFast?: boolean,
-  ): Promise<{ text: string } | { error: string }> => {
-    const cfg = forceFast === true ? { ...config, reasoning: false } : config;
-    let response: Response;
-    try {
-      response = await postChatCompletions(
-        config,
-        byokCompletionBody(cfg, messages, maxTokens),
-        fetchImpl,
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'network error';
-      const via = resolveByokProxyUrl(config);
-      return {
-        error:
-          via.length === 0
-            ? `fetch failed: ${msg} (${BYOK_CORS_HINT})`
-            : `fetch failed: ${msg}`,
-      };
-    }
-    if (!response.ok) {
-      return { error: `HTTP ${String(response.status)} from ${chatCompletionsUrl(config.baseUrl)}` };
-    }
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      return { error: 'response was not JSON' };
-    }
-    const text = extractReplyText(body as ChatCompletionResponse);
-    if (text.trim().length === 0) {
-      return { error: 'missing choices[0].message.content' };
-    }
-    return { text };
-  };
-
-  const first = await runOnce([
-    { role: 'system', content: buildSystemPrompt(me, config.reasoning) },
-    { role: 'user', content: prompt },
-  ]);
-  if ('error' in first) return { ok: false, reason: first.error };
-
-  let index = parseMoveIndex(first.text, moveCount);
-  if (index !== undefined) return { ok: true, index };
-
-  // Second shot: extract a move from the truncated essay (thinking dumped into content).
-  const draft = first.text.slice(0, 1200);
-  const extract = await runOnce(
-    [
-      {
-        role: 'system',
-        content: `Extract the LEGAL_MOVES index the draft was about to choose. Reply ONLY JSON: {"move":N}. Valid N is 0..${String(moveCount - 1)}.`,
-      },
-      {
-        role: 'user',
-        content: `Draft (may be truncated):\n${draft}\n\nLEGAL_MOVES count=${String(moveCount)}. Reply {"move":N} only.`,
-      },
-    ],
-    64,
-    true,
-  );
-  if ('error' in extract) {
-    return {
-      ok: false,
-      reason: `unusable model reply: ${JSON.stringify(first.text.slice(0, 240))}`,
-    };
-  }
-  index = parseMoveIndex(extract.text, moveCount);
-  if (index === undefined) {
-    return {
-      ok: false,
-      reason: `unusable model reply: ${JSON.stringify(first.text.slice(0, 240))}`,
-    };
-  }
-  return { ok: true, index };
+  return { ok: true, text };
 };
 
 /** Tiny probe so the lobby can verify base URL + key + model before a match. */
@@ -723,70 +609,136 @@ export const testByokConnection = async (
   return { ok: true, sample };
 };
 
-export interface LlmChoice {
-  readonly move: Move;
-  readonly source: 'llm' | 'heuristic';
-  readonly reason?: string;
-}
-
-export const chooseLlmMove = async (
-  geometry: GeometryPort,
-  rules: RulesPort,
-  state: GameState,
-  me: PlayerId,
-  config: ByokConfig,
-  fetchImpl: FetchLike = fetch,
-): Promise<LlmChoice> => {
-  const offered = movesForLlm(rules.legalMoves(state));
-  if (offered.length === 0) {
-    return {
-      move: chooseMove(geometry, rules, state, me),
-      source: 'heuristic',
-      reason: 'no legal moves listed',
-    };
-  }
-  const targets = syncTargetLocks(geometry, rules, state, me);
-  const prompt = buildUserPrompt(
-    geometry,
-    state,
-    me,
-    offered,
-    config.reasoning,
-    rules,
-    targets,
-  );
-  const result = await fetchLlmMoveIndex(config, prompt, offered.length, me, fetchImpl);
-  if (result.ok) {
-    const picked = offered[result.index];
-    if (picked !== undefined) return { move: picked, source: 'llm' };
-  }
-  const reason = result.ok ? 'index out of range' : result.reason;
-  // Prefer locked target step when falling back.
-  const guided = targets[0]?.move;
-  if (guided !== undefined) {
-    const ok = offered.some(
-      (m) =>
-        m.kind === 'step' &&
-        m.from === guided.from &&
-        m.exit === guided.exit &&
-        m.count === guided.count,
-    );
-    if (ok) {
-      return { move: guided, source: 'heuristic', reason };
-    }
-  }
-  return {
-    move: chooseMove(geometry, rules, state, me),
-    source: 'heuristic',
-    reason,
-  };
-};
-
 export interface LlmBotTurn extends BotTurn {
   readonly llmHits: number;
   readonly llmFallbacks: number;
   readonly lastError: string | undefined;
 }
+
+interface SeatTurnCtx {
+  readonly geometry: GeometryPort;
+  readonly rules: RulesPort;
+  readonly me: PlayerId;
+}
+
+const recordApplied = (ctx: SeatTurnCtx, move: Move, moves: Move[]): void => {
+  advanceTargetLock(ctx.me, move, ctx.geometry);
+  moves.push(move);
+};
+
+const forceEndTurn = (ctx: SeatTurnCtx, at: GameState, moves: Move[]): GameState => {
+  if (at.winner !== undefined || at.activePlayer !== ctx.me) return at;
+  const forced = endTurn();
+  const next = ctx.rules.apply(at, forced);
+  recordApplied(ctx, forced, moves);
+  return next;
+};
+
+const greedyRemainder = (ctx: SeatTurnCtx, at: GameState, moves: Move[]): GameState => {
+  const remainder = chooseTurnGreedy(ctx.geometry, ctx.rules, at, ctx.me);
+  let now = at;
+  for (const move of remainder) {
+    now = ctx.rules.apply(now, move);
+    recordApplied(ctx, move, moves);
+  }
+  return now;
+};
+
+const stepIsLegalNow = (rules: RulesPort, state: GameState, move: Move): boolean =>
+  rules.legalMoves(state).some((offered) => movesEqual(offered, move));
+
+interface MappedPrefix {
+  readonly at: GameState;
+  readonly applied: readonly Move[];
+  readonly illegalIndices: readonly number[];
+}
+
+const applyMappedPrefix = (
+  rules: RulesPort,
+  at: GameState,
+  offer: readonly Move[],
+  indices: readonly number[],
+): MappedPrefix => {
+  const applied: Move[] = [];
+  const illegalIndices: number[] = [];
+  let now = at;
+  let stopped = false;
+  for (const index of indices) {
+    if (now.winner !== undefined) break;
+    if (stopped) {
+      illegalIndices.push(index);
+      continue;
+    }
+    const mapped = index >= 0 ? offer[index] : undefined;
+    if (mapped === undefined || !stepIsLegalNow(rules, now, mapped)) {
+      stopped = true;
+      illegalIndices.push(index);
+      continue;
+    }
+    now = rules.apply(now, mapped);
+    applied.push(mapped);
+  }
+  return { at: now, applied, illegalIndices };
+};
+
+const commitPrefix = (ctx: SeatTurnCtx, mapped: MappedPrefix, moves: Move[]): GameState => {
+  for (const move of mapped.applied) recordApplied(ctx, move, moves);
+  return mapped.at;
+};
+
+type AfterPrefix =
+  | {
+      readonly kind: 'stop';
+      readonly at: GameState;
+      readonly lastError: string | undefined;
+      readonly fellBack: boolean;
+    }
+  | { readonly kind: 'continue'; readonly at: GameState; readonly lastError: string | undefined };
+
+const afterPrefix = (
+  ctx: SeatTurnCtx,
+  parsed: ParsedMoveBatch,
+  mapped: MappedPrefix,
+  moves: Move[],
+): AfterPrefix => {
+  const at = mapped.at;
+  const tailError =
+    mapped.illegalIndices.length > 0
+      ? `illegal tail indices: ${mapped.illegalIndices.join(', ')}`
+      : undefined;
+  if (at.winner !== undefined) {
+    return { kind: 'stop', at, lastError: tailError, fellBack: false };
+  }
+  if (mapped.applied.length === 0) {
+    if (parsed.endTurn && mapped.illegalIndices.length === 0) {
+      return {
+        kind: 'stop',
+        at: forceEndTurn(ctx, at, moves),
+        lastError: tailError,
+        fellBack: false,
+      };
+    }
+    return {
+      kind: 'stop',
+      at: greedyRemainder(ctx, at, moves),
+      lastError: tailError,
+      fellBack: true,
+    };
+  }
+  if (mapped.illegalIndices.length > 0) {
+    return { kind: 'continue', at, lastError: tailError };
+  }
+  const remaining = movesForLlm(ctx.rules.legalMoves(at));
+  if (remaining.length === 0 || parsed.endTurn) {
+    return {
+      kind: 'stop',
+      at: forceEndTurn(ctx, at, moves),
+      lastError: tailError,
+      fellBack: false,
+    };
+  }
+  return { kind: 'continue', at, lastError: tailError };
+};
 
 export const playLlmBotTurn = async (
   geometry: GeometryPort,
@@ -801,36 +753,59 @@ export const playLlmBotTurn = async (
   }
   if (!isByokReady(config)) {
     const fallback = playBotTurn(geometry, rules, state, me);
-    return {
-      ...fallback,
-      llmHits: 0,
-      llmFallbacks: fallback.moves.length,
-      lastError: 'byok not ready',
-    };
+    return { ...fallback, llmHits: 0, llmFallbacks: 0, lastError: 'byok not ready' };
   }
 
+  const ctx: SeatTurnCtx = { geometry, rules, me };
   const moves: Move[] = [];
   let at = state;
-  let llmHits = 0;
-  let llmFallbacks = 0;
+  let completions = 0;
+  let fellBack = false;
   let lastError: string | undefined;
-  for (let i = 0; i < MAX_MOVES_PER_TURN; i += 1) {
-    if (at.winner !== undefined || at.activePlayer !== me) break;
-    const choice = await chooseLlmMove(geometry, rules, at, me, config, fetchImpl);
-    if (choice.source === 'llm') llmHits += 1;
-    else {
-      llmFallbacks += 1;
-      if (choice.reason !== undefined) lastError = choice.reason;
+
+  while (at.winner === undefined && at.activePlayer === me) {
+    const offer = movesForLlm(rules.legalMoves(at));
+    if (offer.length === 0 || completions >= MAX_COMPLETIONS_PER_TURN) {
+      at = forceEndTurn(ctx, at, moves);
+      break;
     }
-    at = rules.apply(at, choice.move);
-    advanceTargetLock(me, choice.move, geometry);
-    moves.push(choice.move);
-    if (choice.move.kind === 'endTurn') break;
+    if (completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
+    completions += 1;
+    const targets = syncTargetLocks(geometry, rules, at, me);
+    const prompt = buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
+    const fetched = await fetchLlmMoveBatch(config, prompt, me, fetchImpl);
+    if (!fetched.ok) {
+      lastError = fetched.reason;
+      at = greedyRemainder(ctx, at, moves);
+      fellBack = true;
+      break;
+    }
+    const parsed = parseMoveBatch(fetched.text);
+    if (parsed === undefined) {
+      lastError = `unusable model reply: ${JSON.stringify(fetched.text.slice(0, 240))}`;
+      at = greedyRemainder(ctx, at, moves);
+      fellBack = true;
+      break;
+    }
+    const mapped = applyMappedPrefix(rules, at, offer, parsed.indices);
+    at = commitPrefix(ctx, mapped, moves);
+    const decision = afterPrefix(ctx, parsed, mapped, moves);
+    at = decision.at;
+    if (decision.lastError !== undefined) lastError = decision.lastError;
+    if (decision.kind === 'stop') {
+      if (decision.fellBack) fellBack = true;
+      break;
+    }
   }
+
   if (at.winner === undefined && at.activePlayer === me) {
-    const forced = endTurn();
-    at = rules.apply(at, forced);
-    moves.push(forced);
+    at = forceEndTurn(ctx, at, moves);
   }
-  return { state: at, moves, llmHits, llmFallbacks, lastError };
+  return {
+    state: at,
+    moves,
+    llmHits: fellBack ? 0 : 1,
+    llmFallbacks: fellBack ? 1 : 0,
+    lastError,
+  };
 };
