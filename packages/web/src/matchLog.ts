@@ -20,6 +20,16 @@ export interface ByokRunStats {
   readonly llmFallbacks: number;
   /** Last fallback reason, if any (CORS / HTTP / parse). No secrets. */
   readonly lastError: string | undefined;
+  /** Sum of `usage.prompt_tokens` when that field is a number. Missing = 0. */
+  readonly promptTokens?: number;
+  /** Sum of `usage.completion_tokens` when that field is a number. Missing = 0. */
+  readonly completionTokens?: number;
+  /** Completions whose `finish_reason` is `length` or `max_tokens`. Missing = 0. */
+  readonly lengthOuts?: number;
+  /** Nested/last-usable-batch recoveries. Missing = 0. */
+  readonly salvageParses?: number;
+  /** Token budget sent on a seat-turn’s POSTs; fold keeps max. Missing = 0. */
+  readonly maxTokens?: number;
 }
 
 /** Per-seat driver metadata persisted in the match log (no secrets). */
@@ -246,29 +256,36 @@ export const appendMovesWithSummary = (
   return { ...log, moves: [...log.moves, ...moves], summary };
 };
 
+const EMPTY_BYOK_STATS: ByokRunStats = {
+  llmHits: 0,
+  llmFallbacks: 0,
+  lastError: undefined,
+};
+
+const addByokStats = (prev: ByokRunStats, delta: ByokRunStats): ByokRunStats => ({
+  llmHits: prev.llmHits + delta.llmHits,
+  llmFallbacks: prev.llmFallbacks + delta.llmFallbacks,
+  lastError: delta.lastError ?? prev.lastError,
+  promptTokens: (prev.promptTokens ?? 0) + (delta.promptTokens ?? 0),
+  completionTokens: (prev.completionTokens ?? 0) + (delta.completionTokens ?? 0),
+  lengthOuts: (prev.lengthOuts ?? 0) + (delta.lengthOuts ?? 0),
+  salvageParses: (prev.salvageParses ?? 0) + (delta.salvageParses ?? 0),
+  maxTokens: Math.max(prev.maxTokens ?? 0, delta.maxTokens ?? 0),
+});
+
 export const withByokStats = (
   log: MatchLog,
   delta: ByokRunStats,
   seat?: PlayerId,
 ): MatchLog => {
   if (log.byokStats === undefined && log.byokStatsBySeat === undefined) return log;
-  const prev = log.byokStats ?? { llmHits: 0, llmFallbacks: 0, lastError: undefined };
-  const aggregate: ByokRunStats = {
-    llmHits: prev.llmHits + delta.llmHits,
-    llmFallbacks: prev.llmFallbacks + delta.llmFallbacks,
-    lastError: delta.lastError ?? prev.lastError,
-  };
+  const aggregate = addByokStats(log.byokStats ?? EMPTY_BYOK_STATS, delta);
   let bySeat = log.byokStatsBySeat;
   if (seat !== undefined) {
     const key = String(seat);
-    const seatPrev = bySeat?.[key] ?? { llmHits: 0, llmFallbacks: 0, lastError: undefined };
     bySeat = {
       ...(bySeat ?? {}),
-      [key]: {
-        llmHits: seatPrev.llmHits + delta.llmHits,
-        llmFallbacks: seatPrev.llmFallbacks + delta.llmFallbacks,
-        lastError: delta.lastError ?? seatPrev.lastError,
-      },
+      [key]: addByokStats(bySeat?.[key] ?? EMPTY_BYOK_STATS, delta),
     };
   }
   return {

@@ -20,7 +20,7 @@ This is a **delivery decision, not a rules decision**. It removes netcode, persi
 
 Playtest later added local heuristic / BYOK seats and restricted fair seating to **3 or 6**. **Async online multiplayer is not specified in this document.** It is [ADR 0002](docs/adr/0002-cheap-async-online.md): Lambda re-`apply`s the same engine, S3 holds state, ≥2 humans before any AWS write. Do not read HTTP, invites, or WebSockets into the rules chapters below.
 
-A **non-normative** BYOK teaching summary lives at [`docs/byok-teaching.md`](docs/byok-teaching.md); the teaching file must not add a game rule.
+A **non-normative** BYOK teaching summary lives at [the BYOK teaching file](docs/byok-teaching.md); the teaching file must not add a game rule.
 
 ---
 

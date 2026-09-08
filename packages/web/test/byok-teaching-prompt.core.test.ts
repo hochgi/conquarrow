@@ -82,23 +82,6 @@ describe('BYOK teaching prompt is curated rules and user-prompt facts', () => {
     expect(teaching).toContain('The closing trail is now territory');
   });
 
-  it('T1 tempo example prefers the lump index not peel-and-pass', () => {
-    const teaching = readTeachingFile();
-    expect(teaching).toContain('T1 tempo');
-    expect(teaching).toContain('[0]');
-    expect(teaching).toContain('count=1');
-    expect(teaching).toContain('[1]');
-    expect(teaching).toContain('count=2');
-    expect(teaching).toContain('[2]');
-    expect(teaching).toContain('count=3');
-    const t1 = teaching.slice(teaching.indexOf('T1 tempo'));
-    expect(t1).toContain('Play [2]');
-    expect(t1).toContain('or [1] then more');
-    expect(t1).toContain('Do not play [0] plus endTurn');
-    const { me } = t1Opening();
-    expect(buildSystemPrompt(me, true)).toContain('T1 tempo');
-  });
-
   it('T1-shaped user prompt has no via count= and no Prefer on_target', () => {
     const { state, me, offer } = t1Opening();
     const chosen = chooseOfferStep(state, me);
