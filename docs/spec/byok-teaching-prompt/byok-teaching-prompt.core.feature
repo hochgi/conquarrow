@@ -53,6 +53,7 @@ Feature: BYOK teaching prompt is curated rules and user-prompt facts
       And it contains "After cut"
       And buildSystemPrompt includes those four labels
 
+    @superseded-P63
     Scenario: T1 tempo example prefers the lump index not peel-and-pass
       When the teaching file is read
       Then it contains "T1 tempo"

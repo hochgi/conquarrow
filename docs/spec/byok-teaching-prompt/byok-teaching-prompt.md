@@ -15,8 +15,14 @@ stay frozen (called, not retuned).
 **Features:** [core](./byok-teaching-prompt.core.feature) ·
 [edge cases](./byok-teaching-prompt.edge-cases.feature)
 
-**Counts:** 18 scenarios (9 core, 9 edge) · 16 invariants · 0 deferred ·
-0 SPEC §11 items.
+**Counts:** 18 scenarios (8 live core + 1 `@superseded-P63`, 8 live edge +
+1 `@superseded-P63`) · 16 invariants · 0 deferred · 0 SPEC §11 items.
+
+**P63:** lobby thinking flag, `BYOK_REASONING_MAX_TOKENS` 4096, T1
+split-throughput (not Play-`[2]`-only), last-usable-batch parse, `share+N`
+/ `left=`, token totals — see
+[byok-thinking-teach](../byok-thinking-teach/byok-thinking-teach.md). Two
+scenarios tagged `@superseded-P63`. Do not burst this directory further.
 
 Do not burst [byok-batch-turn](../byok-batch-turn/byok-batch-turn.md) or
 [bot-turn-search](../bot-turn-search/bot-turn-search.md). Do not rewrite

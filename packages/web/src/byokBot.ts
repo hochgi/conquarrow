@@ -58,10 +58,18 @@ export const BYOK_THINKING_OFF = {
   force_nonempty_content: true,
 } as const;
 
-/** Completion budget when the model is allowed to reason. */
-export const BYOK_REASONING_MAX_TOKENS = 512;
+/** Completion budget when the lobby Reasoning flag is on. */
+export const BYOK_REASONING_MAX_TOKENS = 4096;
 /** Tiny budget when thinking is disabled. */
 export const BYOK_FAST_MAX_TOKENS = 64;
+
+const liveTurnMaxTokens = (config: ByokConfig): number =>
+  config.reasoning ? BYOK_REASONING_MAX_TOKENS : BYOK_FAST_MAX_TOKENS;
+
+const liveTurnThinking = (
+  config: ByokConfig,
+): typeof BYOK_THINKING_ON | typeof BYOK_THINKING_OFF =>
+  config.reasoning ? BYOK_THINKING_ON : BYOK_THINKING_OFF;
 
 export const buildSystemPrompt = (me: PlayerId, reasoning: boolean): string => {
   const role = reasoning
@@ -258,7 +266,7 @@ export const annotateMove = (
       const ontoHome = state.territory.get(move.exit) === me;
       const tags: string[] = [];
       if (gainedTerr > 0) tags.push(gainedTerr === 1 ? 'land_bridge' : 'closes');
-      if (gainedShare > 0) tags.push('share');
+      if (gainedShare > 0) tags.push(`share+${String(gainedShare)}`);
       if (bordersOpenSpawner(geometry, state, move.exit)) tags.push('borders_spawner');
       if (fromHome && !ontoHome) tags.push('leave_home');
       if (fromHome && ontoHome) tags.push('home_mill');
@@ -283,7 +291,7 @@ export const annotateMove = (
       const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
       return (
         `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}` +
-        `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)}` +
+        `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}` +
         ` tipDist=${String(d0)}→${String(d1)} trailLen=${String(trailAfter)}` +
         (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
       );
@@ -409,17 +417,7 @@ const integerIndices = (moves: unknown): number[] | undefined => {
   return indices;
 };
 
-/**
- * Live turn parse: JSON batch object only. No digit harvest, no last-match-wins,
- * no extract retry. Out-of-range integers stay and become illegal items at apply.
- */
-export const parseMoveBatch = (text: string): ParsedMoveBatch | undefined => {
-  let value: unknown;
-  try {
-    value = JSON.parse(stripMarkdownFence(text));
-  } catch {
-    return undefined;
-  }
+const asUsableBatch = (value: unknown): ParsedMoveBatch | undefined => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   const rec = value as Record<string, unknown>;
   if (typeof rec['endTurn'] !== 'boolean') return undefined;
@@ -428,36 +426,154 @@ export const parseMoveBatch = (text: string): ParsedMoveBatch | undefined => {
   return { indices, endTurn: rec['endTurn'] };
 };
 
+const tryJsonParse = (text: string): unknown => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+};
+
+/** Brace-depth walk; `{` inside strings/escapes is not a start. Nested objects included. */
+const collectJsonObjectSlices = (text: string): string[] => {
+  const slices: string[] = [];
+  const starts: number[] = [];
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === '{') {
+      starts.push(i);
+      continue;
+    }
+    if (ch === '}') {
+      const start = starts.pop();
+      if (start === undefined) continue;
+      slices.push(text.slice(start, i + 1));
+    }
+  }
+  return slices;
+};
+
+interface ParsedBatchResult {
+  readonly batch: ParsedMoveBatch;
+  readonly salvaged: boolean;
+}
+
+const lastUsableFromSlices = (stripped: string): ParsedMoveBatch | undefined => {
+  const slices = collectJsonObjectSlices(stripped);
+  for (let i = slices.length - 1; i >= 0; i -= 1) {
+    const slice = slices[i];
+    if (slice === undefined) continue;
+    const batch = asUsableBatch(tryJsonParse(slice));
+    if (batch !== undefined) return batch;
+  }
+  return undefined;
+};
+
+/**
+ * Live turn parse: usable batch JSON only. Whole-string first; else last usable
+ * object from a brace walk. No digit harvest, no extract retry.
+ */
+const parseMoveBatchResult = (text: string): ParsedBatchResult | undefined => {
+  const stripped = stripMarkdownFence(text);
+  const whole = asUsableBatch(tryJsonParse(stripped));
+  if (whole !== undefined) return { batch: whole, salvaged: false };
+  const salvaged = lastUsableFromSlices(stripped);
+  if (salvaged === undefined) return undefined;
+  return { batch: salvaged, salvaged: true };
+};
+
+export const parseMoveBatch = (text: string): ParsedMoveBatch | undefined =>
+  parseMoveBatchResult(text)?.batch;
+
 /** Request body fields shared by move picks and the lobby probe. */
 export const byokCompletionBody = (
   config: ByokConfig,
   messages: readonly { readonly role: string; readonly content: string }[],
   maxTokens?: number,
+  thinking?: typeof BYOK_THINKING_ON | typeof BYOK_THINKING_OFF,
 ): Record<string, unknown> => {
-  // Structured picks need thinking *off*: forcing enable_thinking dumps CoT into
-  // content and models burn the whole budget mid-essay (finish_reason=length).
-  // Strategy stays in the system prompt; optional `why` carries a short rationale.
-  const tokens =
-    maxTokens ?? (config.reasoning ? BYOK_REASONING_MAX_TOKENS : BYOK_FAST_MAX_TOKENS);
+  const tokens = maxTokens ?? liveTurnMaxTokens(config);
+  const kwargs = thinking ?? liveTurnThinking(config);
   return {
     model: config.model.trim(),
     temperature: 0,
     max_tokens: tokens,
     messages,
     response_format: { type: 'json_object' },
-    chat_template_kwargs: BYOK_THINKING_OFF,
-    extra_body: { chat_template_kwargs: BYOK_THINKING_OFF },
+    chat_template_kwargs: kwargs,
+    extra_body: { chat_template_kwargs: kwargs },
   };
 };
 
 interface ChatCompletionResponse {
   readonly choices?: readonly {
+    readonly finish_reason?: unknown;
     readonly message?: {
       readonly content?: string | null;
       readonly reasoning_content?: string | null;
     };
   }[];
+  readonly finish_reason?: unknown;
+  readonly usage?: {
+    readonly prompt_tokens?: unknown;
+    readonly completion_tokens?: unknown;
+  };
 }
+
+const recordNumber = (rec: Record<string, unknown>, key: string): number => {
+  const value = rec[key];
+  return typeof value === 'number' ? value : 0;
+};
+
+const finishReasonOf = (body: Record<string, unknown>): string | undefined => {
+  const choices = body['choices'];
+  const first: unknown = Array.isArray(choices) ? choices[0] : undefined;
+  if (typeof first === 'object' && first !== null) {
+    const choiceReason = (first as Record<string, unknown>)['finish_reason'];
+    if (typeof choiceReason === 'string') return choiceReason;
+  }
+  const top = body['finish_reason'];
+  return typeof top === 'string' ? top : undefined;
+};
+
+const completionUsage = (
+  body: unknown,
+): {
+  readonly promptTokens: number;
+  readonly completionTokens: number;
+  readonly lengthOut: boolean;
+} => {
+  if (typeof body !== 'object' || body === null) {
+    return { promptTokens: 0, completionTokens: 0, lengthOut: false };
+  }
+  const rec = body as Record<string, unknown>;
+  const usage = rec['usage'];
+  const usageRec = typeof usage === 'object' && usage !== null ? (usage as Record<string, unknown>) : {};
+  const reason = finishReasonOf(rec);
+  return {
+    promptTokens: recordNumber(usageRec, 'prompt_tokens'),
+    completionTokens: recordNumber(usageRec, 'completion_tokens'),
+    lengthOut: reason === 'length' || reason === 'max_tokens',
+  };
+};
 
 const extractReplyText = (body: ChatCompletionResponse): string => {
   const message = body.choices?.[0]?.message;
@@ -472,7 +588,13 @@ const extractReplyText = (body: ChatCompletionResponse): string => {
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export type LlmBatchFetchResult =
-  | { readonly ok: true; readonly text: string }
+  | {
+      readonly ok: true;
+      readonly text: string;
+      readonly promptTokens: number;
+      readonly completionTokens: number;
+      readonly lengthOut: boolean;
+    }
   | { readonly ok: false; readonly reason: string };
 
 /** POST chat/completions via optional same-origin / player-owned CORS relay. */
@@ -538,7 +660,14 @@ export const fetchLlmMoveBatch = async (
   if (text.trim().length === 0) {
     return { ok: false, reason: 'missing choices[0].message.content' };
   }
-  return { ok: true, text };
+  const usage = completionUsage(body);
+  return {
+    ok: true,
+    text,
+    promptTokens: usage.promptTokens,
+    completionTokens: usage.completionTokens,
+    lengthOut: usage.lengthOut,
+  };
 };
 
 /** Tiny probe so the lobby can verify base URL + key + model before a match. */
@@ -567,6 +696,7 @@ export const testByokConnection = async (
           { role: 'user', content: 'Return {"move":0,"why":"probe"}' },
         ],
         64,
+        BYOK_THINKING_OFF,
       ),
       fetchImpl,
     );
@@ -617,7 +747,20 @@ export interface LlmBotTurn extends BotTurn {
   readonly llmHits: number;
   readonly llmFallbacks: number;
   readonly lastError: string | undefined;
+  readonly promptTokens?: number;
+  readonly completionTokens?: number;
+  readonly lengthOuts?: number;
+  readonly salvageParses?: number;
+  readonly maxTokens?: number;
 }
+
+const ZERO_TURN_STATS = {
+  promptTokens: 0,
+  completionTokens: 0,
+  lengthOuts: 0,
+  salvageParses: 0,
+  maxTokens: 0,
+} as const;
 
 interface SeatTurnCtx {
   readonly geometry: GeometryPort;
@@ -753,11 +896,17 @@ export const playLlmBotTurn = async (
   fetchImpl: FetchLike = fetch,
 ): Promise<LlmBotTurn> => {
   if (state.activePlayer !== me || state.winner !== undefined) {
-    return { state, moves: [], llmHits: 0, llmFallbacks: 0, lastError: undefined };
+    return { state, moves: [], llmHits: 0, llmFallbacks: 0, lastError: undefined, ...ZERO_TURN_STATS };
   }
   if (!isByokReady(config)) {
     const fallback = playBotTurn(geometry, rules, state, me);
-    return { ...fallback, llmHits: 0, llmFallbacks: 0, lastError: 'byok not ready' };
+    return {
+      ...fallback,
+      llmHits: 0,
+      llmFallbacks: 0,
+      lastError: 'byok not ready',
+      ...ZERO_TURN_STATS,
+    };
   }
 
   const ctx: SeatTurnCtx = { geometry, rules, me };
@@ -766,6 +915,11 @@ export const playLlmBotTurn = async (
   let completions = 0;
   let fellBack = false;
   let lastError: string | undefined;
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let lengthOuts = 0;
+  let salvageParses = 0;
+  const maxTokens = liveTurnMaxTokens(config);
 
   while (at.winner === undefined && at.activePlayer === me) {
     const offer = movesForLlm(rules.legalMoves(at));
@@ -784,13 +938,18 @@ export const playLlmBotTurn = async (
       fellBack = true;
       break;
     }
-    const parsed = parseMoveBatch(fetched.text);
-    if (parsed === undefined) {
+    promptTokens += fetched.promptTokens;
+    completionTokens += fetched.completionTokens;
+    if (fetched.lengthOut) lengthOuts += 1;
+    const parsedResult = parseMoveBatchResult(fetched.text);
+    if (parsedResult === undefined) {
       lastError = `unusable model reply: ${JSON.stringify(fetched.text.slice(0, 240))}`;
       at = greedyRemainder(ctx, at, moves);
       fellBack = true;
       break;
     }
+    if (parsedResult.salvaged) salvageParses += 1;
+    const parsed = parsedResult.batch;
     const mapped = applyMappedPrefix(rules, at, offer, parsed.indices);
     at = commitPrefix(ctx, mapped, moves);
     const decision = afterPrefix(ctx, parsed, mapped, moves);
@@ -811,5 +970,10 @@ export const playLlmBotTurn = async (
     llmHits: fellBack ? 0 : 1,
     llmFallbacks: fellBack ? 1 : 0,
     lastError,
+    promptTokens,
+    completionTokens,
+    lengthOuts,
+    salvageParses,
+    maxTokens,
   };
 };

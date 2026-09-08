@@ -7,16 +7,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { movesEqual } from '@conquarrow/contracts';
-import {
-  BYOK_FAST_MAX_TOKENS,
-  BYOK_REASONING_MAX_TOKENS,
-  BYOK_THINKING_OFF,
-  buildSystemPrompt,
-  buildUserPrompt,
-  byokCompletionBody,
-} from '../src/byokBot';
+import { buildSystemPrompt, buildUserPrompt } from '../src/byokBot';
 import { clearTargetLocks, formatTargetsForPrompt, syncTargetLocks } from '../src/targets';
-import { readyConfig } from './byok-batch-turn.support';
 import {
   SPEED_FORMULA,
   botTurnSearchDir,
@@ -72,22 +64,6 @@ describe('BYOK teaching prompt — sync, omit, purity, unchanged seams', () => {
     expect(filtered.length).toBeLessThan(offer.length);
     const missing = buildUserPrompt(geometry, state, me, filtered, true, rules);
     expect(missing).not.toContain('weak one-ply baseline');
-  });
-
-  it('Token budgets and thinking-off stay P61', () => {
-    const reasoning = byokCompletionBody(readyConfig(), [{ role: 'user', content: '{}' }]);
-    const fast = byokCompletionBody(readyConfig({ reasoning: false }), [
-      { role: 'user', content: '{}' },
-    ]);
-    expect(reasoning['temperature']).toBe(0);
-    expect(fast['temperature']).toBe(0);
-    expect(reasoning['max_tokens']).toBe(BYOK_REASONING_MAX_TOKENS);
-    expect(reasoning['max_tokens']).toBe(512);
-    expect(fast['max_tokens']).toBe(BYOK_FAST_MAX_TOKENS);
-    expect(fast['max_tokens']).toBe(64);
-    expect(reasoning['chat_template_kwargs']).toEqual(BYOK_THINKING_OFF);
-    expect(fast['chat_template_kwargs']).toEqual(BYOK_THINKING_OFF);
-    expect(BYOK_THINKING_OFF.enable_thinking).toBe(false);
   });
 
   it('SPEC.md §1 points at the teaching file as non-normative', () => {

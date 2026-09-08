@@ -40,6 +40,7 @@ Feature: BYOK teaching prompt — sync, omit, purity, unchanged seams
 
   Rule: HTTP dialect, SPEC pointer, frozen neighbours
 
+    @superseded-P63
     Scenario: Token budgets and thinking-off stay P61
       When byokCompletionBody is built for a ready config
       Then temperature is 0

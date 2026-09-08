@@ -227,11 +227,22 @@ describe('byokBot fetch + fallback', () => {
     expect(headers[BYOK_UPSTREAM_HEADER]).toBe('https://api.openai.com/v1/chat/completions');
   });
 
-  it('builds a completion body with json_object and thinking forced off', () => {
-    const body = byokCompletionBody(readyConfig(), [{ role: 'user', content: '0' }]);
-    expect(body['response_format']).toEqual({ type: 'json_object' });
-    expect(body['max_tokens']).toBe(512);
-    expect(body['chat_template_kwargs']).toEqual(
+  it('builds a completion body with json_object and thinking following the lobby flag', () => {
+    const reasoning = byokCompletionBody(readyConfig(), [{ role: 'user', content: '0' }]);
+    expect(reasoning['response_format']).toEqual({ type: 'json_object' });
+    expect(reasoning['max_tokens']).toBe(4096);
+    expect(reasoning['chat_template_kwargs']).toEqual(
+      expect.objectContaining({ enable_thinking: true }),
+    );
+    expect(
+      (reasoning['extra_body'] as { readonly chat_template_kwargs: { readonly enable_thinking: boolean } })
+        .chat_template_kwargs.enable_thinking,
+    ).toBe(true);
+    const fast = byokCompletionBody(readyConfig({ reasoning: false }), [
+      { role: 'user', content: '0' },
+    ]);
+    expect(fast['max_tokens']).toBe(64);
+    expect(fast['chat_template_kwargs']).toEqual(
       expect.objectContaining({ enable_thinking: false }),
     );
   });
@@ -244,12 +255,22 @@ describe('byokBot fetch + fallback', () => {
   });
 
   it('probes the connection with a tiny completion', async () => {
-    const fetchImpl: FetchLike = () =>
-      Promise.resolve(jsonResponse('{"move":0,"why":"probe"}'));
-    const result = await testByokConnection(readyConfig(), fetchImpl);
+    const spy = vi.fn<FetchLike>(() =>
+      Promise.resolve(jsonResponse('{"move":0,"why":"probe"}')),
+    );
+    const result = await testByokConnection(readyConfig(), spy);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.sample).toContain('move');
+    const raw: unknown = spy.mock.calls[0]?.[1]?.body;
+    expect(typeof raw).toBe('string');
+    if (typeof raw !== 'string') return;
+    const body = JSON.parse(raw) as {
+      readonly max_tokens?: number;
+      readonly chat_template_kwargs?: { readonly enable_thinking?: boolean };
+    };
+    expect(body.max_tokens).toBe(64);
+    expect(body.chat_template_kwargs?.enable_thinking).toBe(false);
   });
 
   it('treats HTTP 200 with reasoning_content and empty content as connected', async () => {

@@ -8,12 +8,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { endTurn, movesEqual } from '@conquarrow/contracts';
 import {
-  BYOK_FAST_MAX_TOKENS,
-  BYOK_REASONING_MAX_TOKENS,
-  BYOK_THINKING_OFF,
   buildSystemPrompt,
   buildUserPrompt,
-  byokCompletionBody,
   parseMoveBatch,
   playLlmBotTurn,
 } from '../src/byokBot';
@@ -164,20 +160,6 @@ describe('byok-teaching-prompt invariants', () => {
     expect(result.moves).toEqual([lump, endTurn()]);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(result.llmHits).toBe(1);
-  });
-
-  it('Token budgets, temperature: 0, and thinking-off shall be unchanged.', () => {
-    const body = byokCompletionBody(readyConfig(), [{ role: 'user', content: '{}' }]);
-    expect(body['temperature']).toBe(0);
-    expect(body['max_tokens']).toBe(BYOK_REASONING_MAX_TOKENS);
-    expect(body['max_tokens']).toBe(512);
-    expect(body['chat_template_kwargs']).toEqual(BYOK_THINKING_OFF);
-    expect(
-      byokCompletionBody(readyConfig({ reasoning: false }), [{ role: 'user', content: '{}' }])[
-        'max_tokens'
-      ],
-    ).toBe(64);
-    expect(BYOK_FAST_MAX_TOKENS).toBe(64);
   });
 
   it('SPEC.md §1 shall point at docs/byok-teaching.md as non-normative and shall say the teaching file must not add a game rule.', () => {

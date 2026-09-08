@@ -20,7 +20,7 @@ speed(N) = 1 + floor(log₂ N). On a split, both parts inherit spent. Arrive as 
 
 ## Close, cut, mill
 
-Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill / onto_home with empty trail and no expansion is wasted tempo. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share, on_target); they are not orders.
+Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill / onto_home with empty trail and no expansion is wasted tempo. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
 
 ## JSON contract
 
@@ -48,4 +48,19 @@ Same (from, exit):
 [1] count=2
 [2] count=3
 
-Play [2] (or [1] then more). Do not play [0] plus endTurn.
+Lump count=3 walks 2 tiles this turn (speed(3)=2). Split 2+1 before walking: the pair walks 2 tiles and the singleton walks 1 tile → 3 tiles. After the lump both parts inherit spent. Do not peel three count=1 as three POSTs — legal, but that is singleton throughput without the pair's extra step.
+
+## Pinwheel 1-share vs 3-share
+
+The girth is 3: one pinwheel is one vertex and three border arrows — three shares.
+
+Before
+You: 1 head on one border of an open spawner pinwheel, trail back to a small home blob. Shares=0.
+[0] homeward close (lands; claims the trail and that one border).
+[1] walk another border of the same pinwheel.
+
+After 1-share
+apply(state, move) → state: the path and one border are territory. Shares=1.
+
+After 3-share
+apply(state, move) → state: walking the other two borders then landing claims all three borders. Shares=3.
