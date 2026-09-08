@@ -925,7 +925,6 @@ export const playLlmBotTurn = async (
   let completionTokens = 0;
   let lengthOuts = 0;
   let salvageParses = 0;
-  const maxTokens = liveTurnMaxTokens(config);
 
   while (at.winner === undefined && at.activePlayer === me) {
     const offer = movesForLlm(rules.legalMoves(at));
@@ -980,6 +979,6 @@ export const playLlmBotTurn = async (
     completionTokens,
     lengthOuts,
     salvageParses,
-    maxTokens,
+    maxTokens: completions > 0 ? liveTurnMaxTokens(config) : 0,
   };
 };
