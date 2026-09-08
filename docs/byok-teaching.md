@@ -63,4 +63,4 @@ After 1-share
 apply(state, move) → state: the path and one border are territory. Shares=1.
 
 After 3-share
-apply(state, move) → state: walking the other two borders then landing claims all three borders. Shares=3.
+Each step is apply(state, move) → state. After walking the other two borders then landing, all three borders are territory. Shares=3.

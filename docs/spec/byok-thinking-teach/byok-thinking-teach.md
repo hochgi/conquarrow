@@ -113,10 +113,14 @@ live parse entry) on `extractReplyText` output:
    keys.
 4. **Scan path.** Otherwise find JSON **object** slices with a brace-depth
    walk that respects JSON string literals and escapes (a `{` inside a
-   string is not a start). Collect complete `{`…`}` slices in appearance
-   order. Walk **last to first**. The first slice that `JSON.parse`s to a
-   **usable batch** wins. If this path succeeds where (3) did not,
-   increment `salvageParses` by 1 for **that completion**.
+   string is not a start). Push a slice when its closing `}` is seen
+   (inner objects before their container). Walk **last-closed to
+   first-closed**. The first slice that `JSON.parse`s to a **usable
+   batch** wins. Sibling objects therefore prefer the later one in the
+   string; a nested decoy is considered before its container. If this
+   path succeeds where (3) did not, increment `salvageParses` by 1 for
+   **that completion**. Whole-string (3) still wins when the outer
+   object itself is a usable batch.
 5. If none → unusable → empty prefix → greedy remainder (P61). Do not
    increment `salvageParses`.
 
@@ -136,9 +140,8 @@ second completion to “find the JSON”.
 - negative / out-of-range integers stay and become illegal items at apply
   (P61).
 
-A CoT example object that is not a batch is skipped. If a later (in
-walk order: earlier in the string when walking last-to-first… **last
-usable in appearance order**) usable batch exists, it wins.
+A CoT example object that is not a batch is skipped. If a later-closed
+usable batch exists, it wins (last-closed in the brace walk).
 
 Worked cases:
 
