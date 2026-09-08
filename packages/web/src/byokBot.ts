@@ -503,6 +503,12 @@ const parseMoveBatchResult = (text: string): ParsedBatchResult | undefined => {
 export const parseMoveBatch = (text: string): ParsedMoveBatch | undefined =>
   parseMoveBatchResult(text)?.batch;
 
+/** Metadata only — never quote model content or reasoning_content. */
+const unusableReplyError = (text: string): string => {
+  const stripped = stripMarkdownFence(text);
+  return `unusable model reply (chars=${String(stripped.length)}, objects=${String(collectJsonObjectSlices(stripped).length)})`;
+};
+
 /** Request body fields shared by move picks and the lobby probe. */
 export const byokCompletionBody = (
   config: ByokConfig,
@@ -943,7 +949,7 @@ export const playLlmBotTurn = async (
     if (fetched.lengthOut) lengthOuts += 1;
     const parsedResult = parseMoveBatchResult(fetched.text);
     if (parsedResult === undefined) {
-      lastError = `unusable model reply: ${JSON.stringify(fetched.text.slice(0, 240))}`;
+      lastError = unusableReplyError(fetched.text);
       at = greedyRemainder(ctx, at, moves);
       fellBack = true;
       break;

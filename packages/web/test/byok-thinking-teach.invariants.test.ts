@@ -399,5 +399,18 @@ describe('byok-thinking-teach invariants', () => {
     expect(JSON.stringify(log.byokStats)).not.toContain('sk-secret-key');
     expect(log.byokStats).not.toHaveProperty('content');
     expect(log.byokStats).not.toHaveProperty('reasoning_content');
+    const leaked = 'SECRET_ESSAY never a batch';
+    const unusable = await playLlmBotTurn(
+      geometry,
+      rules,
+      state,
+      me,
+      readyConfig({ apiKey: 'sk-secret-key' }),
+      mockChat([leaked]),
+    );
+    expect(unusable.lastError ?? '').toMatch(/^unusable model reply \(chars=\d+, objects=\d+\)$/);
+    expect(unusable.lastError ?? '').not.toContain(leaked);
+    expect(JSON.stringify(unusable)).not.toContain(leaked);
+    expect(JSON.stringify(unusable)).not.toContain('sk-secret-key');
   });
 });
