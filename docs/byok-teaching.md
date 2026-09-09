@@ -22,11 +22,29 @@ speed(N) = 1 + floor(log₂ N). On a split, both parts inherit spent. Arrive as 
 
 Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill / onto_home with empty trail and no expansion is wasted tempo. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
 
+Tags name outcomes. They are not orders. `on_target` loses to an available `closes`, an available `cut`, an opponent share or territory lead, and when trailLen is already at least girth and tipDist is not shrinking. Do not invent a tag. Do not treat `borders_spawner` as walking past the close.
+
 ## JSON contract
 
 Return only a JSON object (no markdown fence):
-{"moves":[i,...],"endTurn":true|false,"why":"short"}
-"moves" is an ordered array of LEGAL_MOVES step indices from this offer only. Set endTurn true when this seat is done. Do not invent moves. Do not reprint STATE_JSON.
+{"moves":[i,...],"endTurn":true|false,"why":"short","plan":"short"}
+"moves" is an ordered array of LEGAL_MOVES step indices from this offer only. Set endTurn true when this seat is done. Do not invent moves. Do not reprint STATE_JSON. `plan` may be omitted on a one-batch job or a pass.
+
+## Plan
+
+`plan` is one clause naming the job this seat is still on after this batch (close this trail, walk the tagged cut, spend leftover on the same exit). It is not an offer index. It is not geometry. It is not a second `why`.
+
+Write it when the job needs another POST or another seat-turn. Omit it on a pass (`[]` + `endTurn: true`) or when this batch finishes the job (close lands, trailLen will be 0).
+
+Keep it under ~80 characters, one line, no invented destinations. Do not put indices in plan (`close the 3-stack` not `play [2]`). Indices go stale on the next offer.
+
+Rewrite when the job is done, when this offer no longer contains that walk, or when the threat line shows a `cut` / `closes` that beats the old job.
+
+The echoed `Plan:` line is a reminder, not an order. `LEGAL_MOVES` still binds. A plan cannot create a cut that is not a row.
+
+Hit 12 shape. Offer has count=3 closes [2] and [8].
+Good: {"moves":[2],"endTurn":true,"why":"lump close","plan":"close the open trail"}
+Bad:  {"moves":[4,0],"endTurn":false,"why":"split for spawner"}  // abandoned the close; no plan
 
 ## Close vs cut
 
