@@ -104,6 +104,22 @@ Feature: Mission and staging — search only the job, paint only as a step
       When chooseTurnBeam runs twice on that state
       Then the two move lists are byte-identical
 
+    Scenario: 3-seat quiet-home leftover after the first close still leaves
+      Given the 3-seat generated opening with R=7, homeOffset=5, dominationN=5, spawnerSeed=1
+      And seats A, B, C in players order
+      And A and B are driven with chooseTurnBeam and C with chooseMove
+      And A has completed its first close
+      And B and C have taken their turns so A is to move again
+      And some own stack of A has heads >= 2 and spent less than speed(heads)
+      And A's trail is empty
+      When chooseTurnBeam runs for A
+      Then the plan contains a step
+      And some step lands on an arrow that is not A's territory
+      And the plan is not a 0-share home mill
+      And the plan is a legal turn ending in endTurn
+      When chooseTurnBeam runs twice on that state
+      Then the two move lists are byte-identical
+
     Scenario: P53 stride construction still strides and shuttle rate still holds
       Given Bot has a fresh 2-stack on its own trail
       And a two-arrow run home is legal at count 2 both steps

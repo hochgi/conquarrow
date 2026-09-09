@@ -6,7 +6,7 @@
  * and a return-time home-expedition gate (P56).
  */
 
-import { endTurn } from '@conquarrow/contracts';
+import { endTurn, speed } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -602,6 +602,14 @@ const gateThreatenedKite = (
   return least;
 };
 
+const hasLumpReady = (origin: GameState, me: PlayerId): boolean => {
+  for (const group of origin.groups.values()) {
+    if (group.owner !== me) continue;
+    if (group.heads >= 2 && group.spent < speed(group.heads)) return true;
+  }
+  return false;
+};
+
 const gateSidewaysDirt = (
   search: Search,
   ctx: MissionContext,
@@ -616,9 +624,10 @@ const gateSidewaysDirt = (
   if (alt === undefined) return chosen;
   if (!planHasStep(chosen.moves)) {
     // 6-seat P56 leave: idle evaluate can beat a departing step; still take
-    // contest-advancing. 2–3 seat pass-is-best boards keep idle when the
-    // step is strictly worse (P53 passWithManySteps).
+    // contest-advancing. 2–3 seat lump-ready leftover also leaves (P65).
+    // 1-stack pass-is-best boards keep idle when the step is strictly worse.
     if (search.origin.players.length >= 6) return alt;
+    if (hasLumpReady(search.origin, search.me)) return alt;
     if (
       evaluate(search.geometry, alt.state, search.me, search.inner) <=
       evaluate(search.geometry, chosen.state, search.me, search.inner)

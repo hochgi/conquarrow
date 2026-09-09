@@ -93,3 +93,14 @@ Feature: Mission and staging — edges
       Given the committed P53 baseline heuristic turn-starts
       When chooseTurnGreedy plans them
       Then each plan equals the frozen greedy-v1 plan for that position
+
+    Scenario: 3-seat 1-stack pass-is-best still returns endTurn
+      Given the 3-seat passIsBest position whose stacks are all 1-head
+      And every one-step terminal evaluates no better than passing
+      When chooseTurnBeam runs
+      Then the plan is only endTurn
+      Given the 3-seat passWithManySteps position whose stacks are all 1-head
+      When chooseTurnBeam runs
+      Then the plan is only endTurn
+      And IDLE_SLACK, SORTIE_SLACK, and evaluate are unchanged
+      And packages/web/src/byokBot.ts is not edited by this packet

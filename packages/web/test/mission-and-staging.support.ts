@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { endTurn, movesEqual } from '@conquarrow/contracts';
+import { endTurn, movesEqual, speed } from '@conquarrow/contracts';
 import type {
   ArrowId,
   GameState,
@@ -30,7 +30,8 @@ import {
   type MissionPlan,
   type OriginFinding,
 } from '../src/botMission';
-import { isCutMove } from '../src/opponent';
+import { chooseTurnBeam } from '../src/botSearch';
+import { chooseMove, isCutMove } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
 import {
   afterFirstHomeMillClose,
@@ -43,6 +44,8 @@ import {
   rules,
   sharesOf,
   SMALL_MATCH,
+  THREE_MATCH,
+  territoryOf,
   trailSizeOf,
 } from './bot-turn-search.support';
 import { hypothesiseChair } from './opponent-ply-and-denial.support';
@@ -989,3 +992,99 @@ export const planEndsWithEndTurn = (plan: readonly Move[]): boolean =>
   plan[plan.length - 1]?.kind === 'endTurn';
 
 export { afterFirstHomeMillClose, afterOpeningOpenTrailUnderFire, boxOpenExitPosition };
+
+export const byokBotSource = (): string =>
+  readFileSync(join(here, '../src/byokBot.ts'), 'utf8');
+
+/** P65 BSSN 20: some own stack has heads ≥ 2 and spent < speed(heads). Do not read speedOverride. */
+export const specHasLumpReady = (state: GameState, me: PlayerId): boolean => {
+  for (const group of state.groups.values()) {
+    if (group.owner !== me) continue;
+    if (group.heads >= 2 && group.spent < speed(group.heads)) return true;
+  }
+  return false;
+};
+
+export const specOwnStacksAllSingle = (state: GameState, me: PlayerId): boolean => {
+  for (const group of state.groups.values()) {
+    if (group.owner === me && group.heads >= 2) return false;
+  }
+  return true;
+};
+
+const peelChooseMove = (start: GameState, me: PlayerId): GameState => {
+  let at = start;
+  for (let i = 0; i < 64; i += 1) {
+    if (at.winner !== undefined || at.activePlayer !== me) return at;
+    at = rules.apply(at, chooseMove(geometry, rules, at, me));
+  }
+  if (at.winner === undefined && at.activePlayer === me) {
+    at = rules.apply(at, endTurn());
+  }
+  return at;
+};
+
+const playBeamTurn = (start: GameState, me: PlayerId): GameState => {
+  const plan = chooseTurnBeam(geometry, rules, start, me);
+  if (plan.length === 0) {
+    throw new Error(`setup: chooseTurnBeam returned an empty plan for ${String(me)}`);
+  }
+  return foldPlan(start, plan);
+};
+
+export type QuietHomeLeftoverBoard = {
+  readonly state: GameState;
+  readonly A: PlayerId;
+};
+
+let cachedQuietHome: QuietHomeLeftoverBoard | undefined;
+
+/**
+ * P65 reconstruction (BSSN 20 CI Given). THREE_MATCH, A/B = chooseTurnBeam,
+ * C = chooseMove peel, until after A's first close and B and C have moved so
+ * A is to move again. Does not invent arrows — plays the engine.
+ */
+export const threeSeatQuietHomeAfterFirstClose = (): QuietHomeLeftoverBoard => {
+  if (cachedQuietHome !== undefined) return cachedQuietHome;
+  const opening = makeMatch(THREE_MATCH);
+  const A = opening.players[0];
+  const B = opening.players[1];
+  const C = opening.players[2];
+  if (A === undefined || B === undefined || C === undefined || opening.players.length !== 3) {
+    throw new Error('setup: THREE_MATCH must have seats A, B, C');
+  }
+  const openingTerr = territoryOf(opening, A);
+  let state = opening;
+  let aClosed = false;
+  for (let turns = 0; turns < 24; turns += 1) {
+    if (state.winner !== undefined) {
+      throw new Error('setup: match ended before A r3 quiet-home leftover');
+    }
+    if (aClosed && state.activePlayer === A) break;
+    const me = state.activePlayer;
+    if (me === A || me === B) {
+      state = playBeamTurn(state, me);
+    } else if (me === C) {
+      state = peelChooseMove(state, me);
+    } else {
+      throw new Error(`setup: unexpected seat ${String(me)}`);
+    }
+    if (me === A && !aClosed && trailSizeOf(state, A) === 0 && territoryOf(state, A) > openingTerr) {
+      aClosed = true;
+    }
+  }
+  if (!aClosed) {
+    throw new Error('setup: A did not complete a first close on THREE_MATCH');
+  }
+  if (state.activePlayer !== A) {
+    throw new Error('setup: expected A to move after B and C following the first close');
+  }
+  if (trailSizeOf(state, A) !== 0) {
+    throw new Error("setup: expected A's trail empty after the first close");
+  }
+  if (!specHasLumpReady(state, A)) {
+    throw new Error('setup: expected a lump-ready stack for A after the first close');
+  }
+  cachedQuietHome = { state, A };
+  return cachedQuietHome;
+};

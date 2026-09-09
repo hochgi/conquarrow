@@ -33,15 +33,20 @@ import { MOBILITY_SCALE } from '../src/botEvaluate';
 import { chooseMove, playBotTurn } from '../src/opponent';
 import {
   afterFirstHomeMillClose,
+  foldPlan,
   geometry,
+  isHomeMillCloseTerminal,
   legalSteps,
   opponentSource,
   pagesHeuristicSource,
   passIsBestPosition,
+  passWithManyStepsPosition,
+  planDepartsTerritory,
   planIsLegalSequence,
   planTerminates,
   rules,
   strideTwoStackPosition,
+  trailSizeOf,
 } from './bot-turn-search.support';
 import { allSpawnersMonopolisedPosition } from './close-and-spawner-value.support';
 import {
@@ -53,14 +58,18 @@ import {
   botSearchSource,
   boxOpenExitPosition,
   originFindingsOf,
+  planEndsWithEndTurn,
   shuffleCloseMaps,
   sourceWithoutComments,
+  specHasLumpReady,
   specIsStagingClose,
   specMissionsOf,
   specMissionContext,
+  specOwnStacksAllSingle,
   specRemainingPath,
   specStagingShape,
   stagingVsThreatenedKitePosition,
+  threeSeatQuietHomeAfterFirstClose,
 } from './mission-and-staging.support';
 
 describe('mission-and-staging invariants', () => {
@@ -310,5 +319,36 @@ describe('mission-and-staging invariants', () => {
     const findings = originFindingsOf(state, Bot);
     expect(specMissionsOf(state, Bot, findings).includes('deny')).toBe(true);
     expect(missionsOf(geometry, rules, state, Bot, findings).includes('deny')).toBe(true);
+  });
+
+  it('WHEN chosen is [endTurn], a contest-advancing complete exists, bank is not listed, and some own stack has heads >= 2 with spent < speed(heads), chooseTurnBeam shall return a legal terminating plan that contains a step and departs own territory, even on a 2–3 seat board, and that plan shall not be a 0-share home mill.', () => {
+    const { state, A } = threeSeatQuietHomeAfterFirstClose();
+    expect(state.players.length).toBe(3);
+    expect(trailSizeOf(state, A)).toBe(0);
+    expect(specHasLumpReady(state, A)).toBe(true);
+    const findings = originFindingsOf(state, A);
+    expect(specMissionsOf(state, A, findings).includes('bank')).toBe(false);
+    const plan = chooseTurnBeam(geometry, rules, state, A);
+    expect(plan.some((m) => m.kind === 'step'), `A r3 plan was ${JSON.stringify(plan)}`).toBe(
+      true,
+    );
+    expect(planDepartsTerritory(state, plan, A)).toBe(true);
+    expect(isHomeMillCloseTerminal(state, foldPlan(state, plan), A)).toBe(false);
+    expect(planIsLegalSequence(state, plan)).toBe(true);
+    expect(planEndsWithEndTurn(plan)).toBe(true);
+    expect(planTerminates(state, plan)).toBe(true);
+  }, 240_000);
+
+  it('WHEN every own stack has heads < 2 (or spent >= speed(heads)), a 2–3 seat board whose one-step terminals evaluate no better than passing shall still return [endTurn] (passIsBest / passWithManySteps).', () => {
+    const pass = passIsBestPosition();
+    expect(pass.state.players.length).toBe(3);
+    expect(specOwnStacksAllSingle(pass.state, pass.Bot)).toBe(true);
+    expect(specHasLumpReady(pass.state, pass.Bot)).toBe(false);
+    expect(chooseTurnBeam(geometry, rules, pass.state, pass.Bot)).toEqual([{ kind: 'endTurn' }]);
+    const many = passWithManyStepsPosition();
+    expect(many.state.players.length).toBe(3);
+    expect(specOwnStacksAllSingle(many.state, many.Bot)).toBe(true);
+    expect(specHasLumpReady(many.state, many.Bot)).toBe(false);
+    expect(chooseTurnBeam(geometry, rules, many.state, many.Bot)).toEqual([{ kind: 'endTurn' }]);
   });
 });

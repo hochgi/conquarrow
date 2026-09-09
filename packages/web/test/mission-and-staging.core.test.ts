@@ -16,6 +16,7 @@ import {
   foldPlan,
   geometry,
   heuristicTurnStarts,
+  isHomeMillCloseTerminal,
   loadBaselineLog,
   planDepartsTerritory,
   planIsLegalSequence,
@@ -32,6 +33,8 @@ import {
   enemyTrailSize,
   firstDepartingStep,
   originFindingsOf,
+  planEndsWithEndTurn,
+  specHasLumpReady,
   specIsSidewaysDirt,
   specIsThreatenedKite,
   specStagingShape,
@@ -40,6 +43,7 @@ import {
   specRemainingPath,
   stagingVsThreatenedKitePosition,
   stepTowardVertex,
+  threeSeatQuietHomeAfterFirstClose,
   unthreatenedShareWalkPosition,
   afterOpeningOpenTrailUnderFire,
 } from './mission-and-staging.support';
@@ -155,6 +159,24 @@ describe('Mission and staging — search only the job, paint only as a step', ()
     const b = chooseTurnBeam(geometry, rules, state, Bot);
     expect(a).toEqual(b);
   });
+
+  it('3-seat quiet-home leftover after the first close still leaves', () => {
+    const { state, A } = threeSeatQuietHomeAfterFirstClose();
+    expect(state.activePlayer).toBe(A);
+    expect(trailSizeOf(state, A)).toBe(0);
+    expect(specHasLumpReady(state, A)).toBe(true);
+    const plan = chooseTurnBeam(geometry, rules, state, A);
+    expect(plan.some((m) => m.kind === 'step'), `A r3 plan was ${JSON.stringify(plan)}`).toBe(
+      true,
+    );
+    expect(planDepartsTerritory(state, plan, A)).toBe(true);
+    expect(isHomeMillCloseTerminal(state, foldPlan(state, plan), A)).toBe(false);
+    expect(planIsLegalSequence(state, plan)).toBe(true);
+    expect(planEndsWithEndTurn(plan)).toBe(true);
+    expect(planTerminates(state, plan)).toBe(true);
+    const again = chooseTurnBeam(geometry, rules, state, A);
+    expect(again).toEqual(plan);
+  }, 240_000);
 
   it('P53 stride construction still strides and shuttle rate still holds', () => {
     const { state, Bot, from, first, second } = strideTwoStackPosition();
