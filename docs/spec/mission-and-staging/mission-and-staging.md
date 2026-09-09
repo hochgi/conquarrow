@@ -1,11 +1,13 @@
 # mission-and-staging — search only the job, paint only as a step
 
-**Packet:** [P59 — Mission and staging](../../design/packets/P59-mission-and-staging.md)
+**Packet:** [P59 — Mission and staging](../../design/packets/P59-mission-and-staging.md);
+[P65 — Quiet-home leftover](../../design/packets/P65-quiet-home-pass.md) amends
+BSSN 20 idle-as-dirt (this directory; no new spec dir).
 **Depends on:** [bot-turn-search](../bot-turn-search/bot-turn-search.md) (P53, P56),
 [close-and-spawner-value](../close-and-spawner-value/close-and-spawner-value.md)
 (P54, P57),
 [opponent-ply-and-denial](../opponent-ply-and-denial/opponent-ply-and-denial.md)
-(P55).
+(P55). P65 depends on P59.
 **SPEC:** read [§3](../../../SPEC.md) (speed, split vs merge) and
 [§7](../../../SPEC.md) (closure, shares, spawners). **No game rule is added,
 changed, or implied.** Nothing is owed to SPEC §11. Do not edit SPEC.md.
@@ -441,12 +443,42 @@ re-litigate them. No SPEC §11 item.
     - **Cut versus idle/sideways.** If `cut` is listed, chosen does
       not serve cut, and chosen is idle or sideways dirt: return
       the best cut-serving complete.
-    - **Idle-as-dirt on 6-seat.** If chosen is `[endTurn]`
-      (`isSidewaysDirt` of an empty close) and a contest-advancing
-      complete exists: on a **6-seat** origin always take the walk
-      (P56 leave after paint). On 2–3 seat boards, keep idle when
-      the walk's `evaluate` is not strictly better (P53
-      pass-is-best).
+    - **Idle-as-dirt on 6-seat, and 2–3 seat lump-ready (P65).** If
+      chosen is `[endTurn]` (`isSidewaysDirt` of an empty close) and
+      a contest-advancing complete exists:
+
+      ```
+      if players >= 6:                         return the walk
+      if hasLumpReady(origin, me):             return the walk
+      if evaluate(walk) <= evaluate(idle):     return idle
+      return the walk
+      ```
+
+      `hasLumpReady` is true iff some own **stack** has `heads >= 2`
+      and `spent < speed(heads)` (SPEC §3 `speed(N)`; do not read
+      `speedOverride`). Lives next to `gateSidewaysDirt` in
+      `botSearch.ts`. No third slack. `servesContest` /
+      `onMissionStep` unchanged. 6-seat `afterFirstHomeMillClose`
+      still takes the first arm. 2–3 seat **1-stack** boards
+      (`passIsBest` / `passWithManySteps`) still take the evaluate
+      arm — they should still pass.
+
+      **P65 reconstruction (CI Given).** `THREE_MATCH`:
+      `playerCount: 3`, `R: 7`, `homeOffset: 5`, `dominationN: 5`,
+      `spawnerSeed: 1`. Drive A and B with `chooseTurnBeam`, C with
+      `chooseMove`, until after A's first close and B and C have
+      taken their turns, so `activePlayer` is A again (A r3 of
+      playtest `2026-09-08T18:00:34Z`). Do not invent arrows; play
+      the engine. Then `chooseTurnBeam` for A shall return a legal
+      terminating plan that **contains a step**, **departs own
+      territory**, and is **not** a 0-share home mill (`home_mill`
+      / `onto_home` with empty trail and no expansion). Twice on
+      that state → byte-identical plans.
+
+      Do not retune `evaluate`, `tipTerm`, `closeUrgency`,
+      `MOBILITY_SCALE`, `IDLE_SLACK`, `SORTIE_SLACK`, or beam /
+      reply budgets. Do not touch BYOK files. Do not burst
+      `bot-turn-search` or `close-and-spawner-value` spec dirs.
 
 21. **`originExposure` for P57 `swapCampaign`.** Live search sets
     `originExposure = 1` iff `bank` is listed, else `0`. Avoids a
@@ -473,6 +505,7 @@ re-litigate them. No SPEC §11 item.
 | **KITE_RATIO** | 2. Named export. A 3-out / 9-back return is a kite |
 | **finalist** | at most one best complete per mission slot (≤ 3). Only finalists run P55 `worstReachableReply` |
 | **on-mission** | a step-child that any listed mission accepts. Off-mission children do not enter `next` unless the parent fallback fires |
+| **lump-ready** | P65: some own stack has `heads >= 2` and `spent < speed(heads)`. Structural distinguisher for the quiet-home leftover pass; not a clock |
 
 *arrow*, *stack*, *head*, *share*, *trail*, *point*, *vertex*, *closure*,
 *land bridge* keep their AGENTS.md / SPEC meanings. *dirt close* in
@@ -633,6 +666,16 @@ flowchart TD
 33. WHEN `selectBranch` filter is empty for a parent, the system
     shall still return a legal turn ending in `endTurn`.
 34. The system shall export `KITE_RATIO = 2` from `botMission`.
+35. WHEN chosen is `[endTurn]`, a contest-advancing complete exists,
+    `bank` is not listed, and some own stack has `heads >= 2` with
+    `spent < speed(heads)`, `chooseTurnBeam` shall return a legal
+    terminating plan that contains a step and departs own territory,
+    even on a 2–3 seat board, and that plan shall not be a 0-share
+    home mill.
+36. WHEN every own stack has `heads < 2` (or `spent >= speed(heads)`),
+    a 2–3 seat board whose one-step terminals evaluate no better than
+    passing shall still return `[endTurn]` (`passIsBest` /
+    `passWithManySteps`).
 
 ## What this file deliberately does not decide
 
@@ -648,13 +691,16 @@ flowchart TD
 - Multi-vertex campaigns, waypoints, stored plans across turns.
 - Teaching `closeValue` a second rate for "risk of a future trail"
   beyond the predicates above.
+- Retuning `evaluate` / slacks / budgets to unstick the 3-seat leftover
+  (P65 uses `hasLumpReady` instead).
+- BYOK prompts, temperature, plan-memory (P64).
 - Game-rule edges (cut mid-closure, fork-stem cut, chord coincide vs
   interleave, pincer, stranded head, contested spawn) — already
   decided in SPEC.md / other packets; this file does not reopen them.
 
 ## Spec files
 
-- `mission-and-staging.core.feature` — 9 scenarios
-- `mission-and-staging.edge-cases.feature` — 8 scenarios
-- Invariants above — 34 EARS one-liners
+- `mission-and-staging.core.feature` — 10 scenarios (9 P59 + 1 P65)
+- `mission-and-staging.edge-cases.feature` — 9 scenarios (8 P59 + 1 P65)
+- Invariants above — 36 EARS one-liners (34 P59 + 2 P65)
 - BSSN 1–21 recorded above; no SPEC §11 item; no game rule.
