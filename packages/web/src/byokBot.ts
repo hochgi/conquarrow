@@ -294,19 +294,6 @@ const cutOrNearTrailTags = (
   return near === undefined ? [] : [`near_trail:${String(near)}`];
 };
 
-const offerSharesEnemyPoint = (
-  geometry: GeometryPort,
-  state: GameState,
-  me: PlayerId,
-  offer: readonly Move[],
-): boolean => {
-  for (const move of offer) {
-    if (move.kind !== 'step') continue;
-    if (nearTrailOwner(geometry, state, me, move.exit) !== undefined) return true;
-  }
-  return false;
-};
-
 /** Exit is a border arrow of a spawner that still has an unclaimed share. */
 const bordersOpenSpawner = (
   geometry: GeometryPort,
@@ -472,9 +459,9 @@ const greedyBaselineLines = (
   state: GameState,
   me: PlayerId,
   offer: readonly Move[],
+  rows: readonly OfferTagRow[],
 ): readonly string[] => {
   if (offer.length === 0) return [];
-  const rows = offerTagRows(geometry, rules, state, me, offer);
   const tagged = baselineIndexFromTags(rows);
   if (tagged !== undefined) {
     const step = offer[tagged];
@@ -646,6 +633,15 @@ const collectedOfferTags = (rows: readonly OfferTagRow[]): string[] => {
   return NAMED_OFFER_TAGS.filter((tag) => present.has(tag));
 };
 
+const nearTrailFromRows = (rows: readonly OfferTagRow[]): boolean => {
+  for (const row of rows) {
+    for (const tag of row.tags) {
+      if (tag === 'cut' || tag.startsWith('near_trail:')) return true;
+    }
+  }
+  return false;
+};
+
 export const buildUserPrompt = (
   geometry: GeometryPort,
   state: GameState,
@@ -677,12 +673,12 @@ export const buildUserPrompt = (
     territory: counts.territory,
     trailLen: counts.trailLen,
     offerTags: collectedOfferTags(rows),
-    nearTrail: offerSharesEnemyPoint(geometry, state, me, moves),
+    nearTrail: nearTrailFromRows(rows),
   });
   const storedPlan = byokPlans.get(me);
   const planEcho = storedPlan === undefined ? [] : [`Plan: ${storedPlan}`];
   const baseline =
-    rules === undefined ? [] : greedyBaselineLines(geometry, rules, state, me, moves);
+    rules === undefined ? [] : greedyBaselineLines(geometry, rules, state, me, moves, rows);
   return [
     `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
     `Shares=${String(myShares)}, trailLen=${String(trail)}.`,
