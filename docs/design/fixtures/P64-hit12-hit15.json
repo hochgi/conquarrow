@@ -1,0 +1,73 @@
+{
+  "match": "conquarrow-match-2026-09-08T180034-723Z",
+  "seat": "B",
+  "hit12": {
+    "hit": 12,
+    "header": "Seat B. Return an ordered moves index array from this offer and set endTurn when this seat is done.\nShares=5, trailLen=3.\nExposed tips: tiling:a:-5,7,0 tipDist=1 heads=3",
+    "territoryCounts": {"A": 5, "B": 14, "C": 25},
+    "shareCounts": {"A": 6, "B": 5, "C": 18},
+    "trails": {
+      "C": {"count": 6, "sample": ["tiling:a:1,-5,0", "tiling:a:1,-5,2", "tiling:a:2,-5,0", "tiling:a:3,-5,2", "tiling:a:3,-6,2", "tiling:a:3,-7,1"]},
+      "B": {"count": 3, "sample": ["tiling:a:-5,6,1", "tiling:a:-5,7,0", "tiling:a:-6,7,0"]},
+      "A": {"count": 3, "sample": ["tiling:a:4,2,0", "tiling:a:5,1,1", "tiling:a:5,2,2"]}
+    },
+    "groups": [
+      {"arrow": "tiling:a:-5,7,0", "owner": "B", "heads": 3, "spent": 0, "speed": 2},
+      {"arrow": "tiling:a:1,-5,1", "owner": "C", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:1,-5,2", "owner": "C", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:3,-7,1", "owner": "C", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:5,2,2", "owner": "A", "heads": 2, "spent": 0, "speed": 2},
+      {"arrow": "tiling:a:6,0,1", "owner": "A", "heads": 1, "spent": 0, "speed": 1}
+    ],
+    "legalRows": [
+      "[0] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,0 count=1 leave=2 spd=1 spent=0 left=1 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[1] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,0 count=2 leave=1 spd=2 spent=0 left=2 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[2] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,0 count=3 spd=2 spent=0 left=2 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[3] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,1 count=1 leave=2 spd=1 spent=0 left=1 tipDist=1\u21922 trailLen=4 tags=borders_spawner,outward",
+      "[4] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,1 count=2 leave=1 spd=2 spent=0 left=2 tipDist=1\u21922 trailLen=4 tags=borders_spawner,outward",
+      "[5] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,1 count=3 spd=2 spent=0 left=2 tipDist=1\u21922 trailLen=4 tags=borders_spawner,outward",
+      "[6] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,2 count=1 leave=2 spd=1 spent=0 left=1 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[7] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,2 count=2 leave=1 spd=2 spent=0 left=2 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[8] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,2 count=3 spd=2 spent=0 left=2 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home"
+    ],
+    "baselineRecorded": "A weak one-ply baseline would play `[0]` (`count=1 from=tiling:a:-5,7,0 exit=tiling:a:-4,7,0`).",
+    "recordedReply": {"moves": [4, 0], "endTurn": false, "why": "lump 2 outward for spawner tempo; 1 closes trail; pair has a step left"},
+    "expectedReply": {"moves": [2], "endTurn": true, "why": "full-stack close; do not peel a close", "plan": "close the open trail"},
+    "acceptableReplies": [
+      {"moves": [2], "endTurn": true},
+      {"moves": [8], "endTurn": true},
+      {"moves": [2], "endTurn": false},
+      {"moves": [8], "endTurn": false}
+    ]
+  },
+  "hit15": {
+    "hit": 15,
+    "header": "Seat B. Return an ordered moves index array from this offer and set endTurn when this seat is done.\nShares=7, trailLen=1.\nExposed tips: tiling:a:-3,7,0 tipDist=2 heads=1",
+    "territoryCounts": {"A": 8, "B": 21, "C": 25},
+    "shareCounts": {"A": 9, "B": 7, "C": 18},
+    "trails": {
+      "C": {"count": 8, "sample": ["tiling:a:1,-5,0", "tiling:a:1,-5,2", "tiling:a:1,-6,0", "tiling:a:2,-5,0", "tiling:a:2,-6,1", "tiling:a:3,-5,2", "tiling:a:3,-6,2", "tiling:a:3,-7,1"]},
+      "B": {"count": 1, "sample": ["tiling:a:-3,7,0"]}
+    },
+    "groups": [
+      {"arrow": "tiling:a:-3,7,0", "owner": "B", "heads": 1, "spent": 1, "speed": 1},
+      {"arrow": "tiling:a:-4,8,2", "owner": "B", "heads": 2, "spent": 1, "speed": 2},
+      {"arrow": "tiling:a:0,-4,0", "owner": "C", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:1,-6,0", "owner": "C", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:2,-6,1", "owner": "C", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:5,0,0", "owner": "A", "heads": 2, "spent": 0, "speed": 2},
+      {"arrow": "tiling:a:6,0,1", "owner": "A", "heads": 1, "spent": 0, "speed": 1}
+    ],
+    "legalRows": [
+      "[0] step from=tiling:a:-4,8,2 exit=tiling:a:-4,7,0 count=1 leave=1 spd=1 spent=1 left=0 tipDist=0\u21920 trailLen=1 tags=home_mill,onto_home",
+      "[1] step from=tiling:a:-4,8,2 exit=tiling:a:-4,7,0 count=2 spd=2 spent=1 left=1 tipDist=0\u21920 trailLen=1 tags=home_mill,onto_home",
+      "[2] step from=tiling:a:-4,8,2 exit=tiling:a:-4,7,1 count=1 leave=1 spd=1 spent=1 left=0 tipDist=0\u21920 trailLen=1 tags=home_mill,onto_home",
+      "[3] step from=tiling:a:-4,8,2 exit=tiling:a:-4,7,1 count=2 spd=2 spent=1 left=1 tipDist=0\u21920 trailLen=1 tags=home_mill,onto_home",
+      "[4] step from=tiling:a:-4,8,2 exit=tiling:a:-4,7,2 count=1 leave=1 spd=1 spent=1 left=0 tipDist=0\u21920 trailLen=1 tags=home_mill,onto_home",
+      "[5] step from=tiling:a:-4,8,2 exit=tiling:a:-4,7,2 count=2 spd=2 spent=1 left=1 tipDist=0\u21920 trailLen=1 tags=home_mill,onto_home"
+    ],
+    "baselineRecorded": "A weak one-ply baseline would play `[0]` (`count=1 from=tiling:a:-4,8,2 exit=tiling:a:-4,7,0`).",
+    "recordedReply": {"moves": [], "endTurn": true, "why": "all offers are home_mill/onto_home wasted tempo"},
+    "expectedReply": {"moves": [], "endTurn": true, "why": "all offers are home_mill", "plan": ""}
+  }
+}
