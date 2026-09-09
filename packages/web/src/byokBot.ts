@@ -99,11 +99,86 @@ const truncateIds = (ids: readonly string[]): { ids: string[]; truncated: boolea
 const forceKey = (f: { readonly num: number; readonly den: number }): string =>
   `${String(f.num)}/${String(f.den)}`;
 
+type SpawnerRow = {
+  readonly vertex: string;
+  readonly force: string;
+  readonly held: Record<string, number>;
+  readonly unclaimed: number;
+};
+
+const incidentArrows = (
+  state: GameState,
+  me: PlayerId,
+  offer: readonly Move[] | undefined,
+): ReadonlySet<ArrowId> => {
+  const arrows = new Set<ArrowId>();
+  for (const [arrow, group] of state.groups) {
+    if (group.owner === me) arrows.add(arrow);
+  }
+  if (offer === undefined) return arrows;
+  for (const move of offer) {
+    if (move.kind === 'step') arrows.add(move.exit);
+  }
+  return arrows;
+};
+
+const pickSpawnerRows = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  offer: readonly Move[] | undefined,
+  shareCounts: Record<string, number>,
+): SpawnerRow[] => {
+  const incident = incidentArrows(state, me, offer);
+  const interesting: (SpawnerRow & { readonly tier: 0 | 1 })[] = [];
+  const spawnerEntries = [...state.spawners.entries()].toSorted((a, b) =>
+    String(a[0]) < String(b[0]) ? -1 : String(a[0]) > String(b[0]) ? 1 : 0,
+  );
+  for (const [vertex, spawner] of spawnerEntries) {
+    const borders = [...geometry.borderArrows(vertex)].toSorted(compareArrows);
+    const held: Record<string, number> = {};
+    let unclaimed = 0;
+    let touches = false;
+    for (const arrow of borders) {
+      if (incident.has(arrow)) touches = true;
+      const owner = state.territory.get(arrow);
+      if (owner === undefined) {
+        unclaimed += 1;
+        continue;
+      }
+      const key = String(owner);
+      held[key] = (held[key] ?? 0) + 1;
+      shareCounts[key] = (shareCounts[key] ?? 0) + 1;
+    }
+    const mine = (held[String(me)] ?? 0) > 0;
+    const contested = Object.keys(held).length > 1 || (unclaimed > 0 && Object.keys(held).length > 0);
+    if (!(mine || contested || unclaimed === 3)) continue;
+    interesting.push({
+      vertex: String(vertex),
+      force: forceKey(spawner.force),
+      held,
+      unclaimed,
+      tier: touches ? 0 : 1,
+    });
+  }
+  interesting.sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    return a.vertex < b.vertex ? -1 : a.vertex > b.vertex ? 1 : 0;
+  });
+  return interesting.slice(0, MAX_SPAWNER_ROWS).map(({ vertex, force, held, unclaimed }) => ({
+    vertex,
+    force,
+    held,
+    unclaimed,
+  }));
+};
+
 /** Compact, JSON-serializable view for the prompt — not a rules DTO. */
 export const snapshotForPrompt = (
   geometry: GeometryPort,
   state: GameState,
   me: PlayerId,
+  offer?: readonly Move[],
 ): unknown => {
   const groups = [...state.groups.entries()]
     .map(([arrow, g]) => ({
@@ -134,42 +209,7 @@ export const snapshotForPrompt = (
 
   const shareCounts: Record<string, number> = {};
   for (const p of state.players) shareCounts[String(p)] = 0;
-  const interestingSpawners: {
-    vertex: string;
-    force: string;
-    held: Record<string, number>;
-    unclaimed: number;
-  }[] = [];
-  const spawnerEntries = [...state.spawners.entries()].toSorted((a, b) =>
-    String(a[0]) < String(b[0]) ? -1 : String(a[0]) > String(b[0]) ? 1 : 0,
-  );
-  for (const [vertex, spawner] of spawnerEntries) {
-    const borders = [...geometry.borderArrows(vertex)].toSorted(compareArrows);
-    const held: Record<string, number> = {};
-    let unclaimed = 0;
-    for (const arrow of borders) {
-      const owner = state.territory.get(arrow);
-      if (owner === undefined) {
-        unclaimed += 1;
-        continue;
-      }
-      const key = String(owner);
-      held[key] = (held[key] ?? 0) + 1;
-      shareCounts[key] = (shareCounts[key] ?? 0) + 1;
-    }
-    // Only surface contested / unclaimed / mine — not the whole radial field.
-    const mine = (held[String(me)] ?? 0) > 0;
-    const contested = Object.keys(held).length > 1 || (unclaimed > 0 && Object.keys(held).length > 0);
-    if (!(mine || contested || unclaimed === 3)) continue;
-    if (interestingSpawners.length < MAX_SPAWNER_ROWS) {
-      interestingSpawners.push({
-        vertex: String(vertex),
-        force: forceKey(spawner.force),
-        held,
-        unclaimed,
-      });
-    }
-  }
+  const interestingSpawners = pickSpawnerRows(geometry, state, me, offer, shareCounts);
 
   return {
     me: String(me),
@@ -209,6 +249,62 @@ const shareCount = (
     }
   }
   return n;
+};
+
+/** Exit shares a movement point with an enemy-trail arrow (origin/target only). */
+const nearTrailOwner = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  exit: ArrowId,
+): PlayerId | undefined => {
+  const exitOrigin = geometry.origin(exit);
+  const exitTarget = geometry.target(exit);
+  for (const player of state.players) {
+    if (player === me) continue;
+    const trail = state.trails.get(player);
+    if (trail === undefined) continue;
+    for (const arrow of trail) {
+      const origin = geometry.origin(arrow);
+      const target = geometry.target(arrow);
+      if (
+        origin === exitOrigin ||
+        origin === exitTarget ||
+        target === exitOrigin ||
+        target === exitTarget
+      ) {
+        return player;
+      }
+    }
+  }
+  return undefined;
+};
+
+/** `cut` if the exit is on an enemy trail; else `near_trail:<seat>` on a shared point. */
+const cutOrNearTrailTags = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  exit: ArrowId,
+): readonly string[] => {
+  for (const [player, trail] of state.trails) {
+    if (player !== me && trail.has(exit)) return ['cut'];
+  }
+  const near = nearTrailOwner(geometry, state, me, exit);
+  return near === undefined ? [] : [`near_trail:${String(near)}`];
+};
+
+const offerSharesEnemyPoint = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  offer: readonly Move[],
+): boolean => {
+  for (const move of offer) {
+    if (move.kind !== 'step') continue;
+    if (nearTrailOwner(geometry, state, me, move.exit) !== undefined) return true;
+  }
+  return false;
 };
 
 /** Exit is a border arrow of a spawner that still has an unclaimed share. */
@@ -274,12 +370,7 @@ export const annotateMove = (
       else if (d1 > d0) tags.push('outward');
       if (ontoHome) tags.push('onto_home');
       if (tagOnTarget(move, targets)) tags.push('on_target');
-      for (const [player, set] of state.trails) {
-        if (player !== me && set.has(move.exit)) {
-          tags.push('cut');
-          break;
-        }
-      }
+      tags.push(...cutOrNearTrailTags(geometry, state, me, move.exit));
       const dest = state.groups.get(move.exit);
       if (dest !== undefined && dest.owner !== me) tags.push('combat');
       const fromGroup = state.groups.get(move.from);
@@ -335,6 +426,46 @@ export const formatLegalMoves = (
     })
     .join('\n');
 
+const tagsFromAnnotation = (annotation: string): readonly string[] => {
+  const match = /\btags=(\S+)/.exec(annotation);
+  return match?.[1] === undefined ? [] : match[1].split(',');
+};
+
+const offerTagRows = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  offer: readonly Move[],
+): OfferTagRow[] => {
+  const rows: OfferTagRow[] = [];
+  for (const [index, move] of offer.entries()) {
+    if (move.kind !== 'step') continue;
+    rows.push({
+      index,
+      count: move.count,
+      tags: tagsFromAnnotation(annotateMove(geometry, rules, state, me, move)),
+    });
+  }
+  return rows;
+};
+
+export const millOmit = (rows: readonly OfferTagRow[]): boolean => {
+  if (rows.length === 0) return false;
+  for (const row of rows) {
+    const mill = row.tags.includes('home_mill') || row.tags.includes('onto_home');
+    const expanding =
+      row.tags.includes('closes') || row.tags.includes('cut') || row.tags.includes('leave_home');
+    if (!mill || expanding) return false;
+  }
+  return true;
+};
+
+const baselineSentence = (index: number, step: StepMove): readonly string[] => [
+  `A weak one-ply baseline would play \`[${String(index)}]\` (\`count=${String(step.count)} from=${String(step.from)} exit=${String(step.exit)}\`).`,
+  'Suggestion only — you may return any ordered indices from this offer.',
+];
+
 const greedyBaselineLines = (
   geometry: GeometryPort,
   rules: RulesPort,
@@ -343,14 +474,176 @@ const greedyBaselineLines = (
   offer: readonly Move[],
 ): readonly string[] => {
   if (offer.length === 0) return [];
+  const rows = offerTagRows(geometry, rules, state, me, offer);
+  const tagged = baselineIndexFromTags(rows);
+  if (tagged !== undefined) {
+    const step = offer[tagged];
+    if (step !== undefined && step.kind === 'step') return baselineSentence(tagged, step);
+  }
+  if (millOmit(rows)) return [];
   const chosen = chooseMove(geometry, rules, state, me);
   if (chosen.kind !== 'step') return [];
   const index = offer.findIndex((entry) => movesEqual(entry, chosen));
   if (index < 0) return [];
-  return [
-    `A weak one-ply baseline would play \`[${String(index)}]\` (\`count=${String(chosen.count)} from=${String(chosen.from)} exit=${String(chosen.exit)}\`).`,
-    'Suggestion only — you may return any ordered indices from this offer.',
-  ];
+  return baselineSentence(index, chosen);
+};
+
+/** LEGAL_MOVES row facts for P64 baseline / full-stack helpers. */
+export type OfferTagRow = {
+  readonly index: number;
+  readonly count: number;
+  readonly tags: readonly string[];
+};
+
+/** Inputs for the one-line threat header (BSSN 4). */
+export type ThreatLineInput = {
+  readonly me: string;
+  readonly players: readonly string[];
+  readonly shares: Readonly<Record<string, number>>;
+  readonly territory: Readonly<Record<string, number>>;
+  readonly trailLen: Readonly<Record<string, number>>;
+  readonly offerTags: readonly string[];
+  readonly nearTrail: boolean;
+};
+
+/** Usable batch plus optional `plan` key, read beside `asUsableBatch`. */
+export type ByokPlanBatch = {
+  readonly moves: readonly number[];
+  readonly endTurn: boolean;
+  readonly plan?: unknown;
+};
+
+const NAMED_OFFER_TAGS = ['cut', 'closes', 'borders_spawner'] as const;
+
+const leadClause = (input: ThreatLineInput): string => {
+  const seats = [...input.players].sort((a, b) => {
+    const shareDiff = (input.shares[b] ?? 0) - (input.shares[a] ?? 0);
+    if (shareDiff !== 0) return shareDiff;
+    const terrDiff = (input.territory[b] ?? 0) - (input.territory[a] ?? 0);
+    if (terrDiff !== 0) return terrDiff;
+    return input.players.indexOf(a) - input.players.indexOf(b);
+  });
+  const parts = seats.map((id, i) => {
+    const shares = input.shares[id] ?? 0;
+    const terr = input.territory[id] ?? 0;
+    return i === 0
+      ? `${id} ${String(shares)} shares / ${String(terr)} terr`
+      : `${id} ${String(shares)} / ${String(terr)}`;
+  });
+  return `Lead: ${parts.join('; ')}`;
+};
+
+const longestEnemyTrailClause = (input: ThreatLineInput): string => {
+  let owner: string | undefined;
+  let longest = 0;
+  for (const id of input.players) {
+    if (id === input.me) continue;
+    const len = input.trailLen[id] ?? 0;
+    if (owner === undefined || len > longest) {
+      owner = id;
+      longest = len;
+    }
+  }
+  if (owner === undefined || longest === 0) return 'Longest enemy trail: none';
+  return `Longest enemy trail: ${owner} ${String(longest)}`;
+};
+
+export const threatLineFromCounts = (input: ThreatLineInput): string => {
+  const clauses: string[] = [leadClause(input), longestEnemyTrailClause(input)];
+  const named = NAMED_OFFER_TAGS.filter((tag) => input.offerTags.includes(tag));
+  if (named.length > 0) clauses.push(`Offer tags: ${named.join(', ')}`);
+  if (!input.offerTags.includes('cut') && !input.offerTags.includes('closes')) {
+    clauses.push('No cut/contest/deny row');
+  }
+  if (!input.nearTrail) clauses.push('no enemy trail on a legal vertex');
+  return clauses.join('. ');
+};
+
+export const baselineIndexFromTags = (rows: readonly OfferTagRow[]): number | undefined => {
+  let best: OfferTagRow | undefined;
+  for (const row of rows) {
+    if (!row.tags.includes('cut') && !row.tags.includes('closes')) continue;
+    if (
+      best === undefined ||
+      row.count > best.count ||
+      (row.count === best.count && row.index < best.index)
+    ) {
+      best = row;
+    }
+  }
+  return best?.index;
+};
+
+export const isFullStackClose = (
+  batch: { readonly moves: readonly number[]; readonly endTurn?: boolean },
+  rows: readonly OfferTagRow[] = [],
+): boolean => {
+  const first = batch.moves[0];
+  if (first === undefined) return false;
+  let maxCount = 0;
+  let anyClose = false;
+  for (const row of rows) {
+    if (!row.tags.includes('closes')) continue;
+    anyClose = true;
+    if (row.count > maxCount) maxCount = row.count;
+  }
+  if (!anyClose) return false;
+  const named = rows.find((row) => row.index === first);
+  return named !== undefined && named.tags.includes('closes') && named.count === maxCount;
+};
+
+const PLAN_MAX = 80;
+const byokPlans = new Map<PlayerId, string>();
+
+const sanitizePlan = (plan: string): string => {
+  const cleaned = plan.replace(/[\n\r]/g, '').trim();
+  return cleaned.length <= PLAN_MAX ? cleaned : cleaned.slice(0, PLAN_MAX);
+};
+
+export const clearByokPlans = (): void => {
+  byokPlans.clear();
+};
+
+export const rememberByokPlan = (me: PlayerId, batch: ByokPlanBatch): void => {
+  if (batch.moves.length === 0 && batch.endTurn) {
+    byokPlans.delete(me);
+    return;
+  }
+  if (typeof batch.plan !== 'string') return;
+  const sanitized = sanitizePlan(batch.plan);
+  if (sanitized.length === 0) {
+    byokPlans.delete(me);
+    return;
+  }
+  byokPlans.set(me, sanitized);
+};
+
+const seatCountMaps = (
+  geometry: GeometryPort,
+  state: GameState,
+): {
+  readonly shares: Record<string, number>;
+  readonly territory: Record<string, number>;
+  readonly trailLen: Record<string, number>;
+} => {
+  const shares: Record<string, number> = {};
+  const territory: Record<string, number> = {};
+  const trailLen: Record<string, number> = {};
+  for (const player of state.players) {
+    const id = String(player);
+    shares[id] = shareCount(geometry, state, player);
+    territory[id] = territoryCount(state, player);
+    trailLen[id] = state.trails.get(player)?.size ?? 0;
+  }
+  return { shares, territory, trailLen };
+};
+
+const collectedOfferTags = (rows: readonly OfferTagRow[]): string[] => {
+  const present = new Set<string>();
+  for (const row of rows) {
+    for (const tag of row.tags) present.add(tag);
+  }
+  return NAMED_OFFER_TAGS.filter((tag) => present.has(tag));
 };
 
 export const buildUserPrompt = (
@@ -374,22 +667,38 @@ export const buildUserPrompt = (
       `${String(arrow)} tipDist=${String(distanceToTerritory(geometry, state, me, arrow))} heads=${String(group.heads)}`,
     );
   }
+  const rows =
+    rules === undefined ? [] : offerTagRows(geometry, rules, state, me, moves);
+  const counts = seatCountMaps(geometry, state);
+  const threat = threatLineFromCounts({
+    me: String(me),
+    players: state.players.map(String),
+    shares: counts.shares,
+    territory: counts.territory,
+    trailLen: counts.trailLen,
+    offerTags: collectedOfferTags(rows),
+    nearTrail: offerSharesEnemyPoint(geometry, state, me, moves),
+  });
+  const storedPlan = byokPlans.get(me);
+  const planEcho = storedPlan === undefined ? [] : [`Plan: ${storedPlan}`];
   const baseline =
     rules === undefined ? [] : greedyBaselineLines(geometry, rules, state, me, moves);
   return [
     `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
     `Shares=${String(myShares)}, trailLen=${String(trail)}.`,
     tipLines.length > 0 ? `Exposed tips: ${tipLines.join('; ')}` : 'Exposed tips: none',
+    threat,
+    ...planEcho,
     '',
     'STATE_JSON:',
-    JSON.stringify(snapshotForPrompt(geometry, state, me)),
+    JSON.stringify(snapshotForPrompt(geometry, state, me, moves)),
     '',
     'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     ...baseline,
     ...(baseline.length > 0 ? [''] : []),
-    'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short"}',
+    'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short","plan":"short"}',
   ].join('\n');
 };
 export interface ParsedMoveBatch {
@@ -417,7 +726,7 @@ const integerIndices = (moves: unknown): number[] | undefined => {
   return indices;
 };
 
-const asUsableBatch = (value: unknown): ParsedMoveBatch | undefined => {
+export const asUsableBatch = (value: unknown): ParsedMoveBatch | undefined => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   const rec = value as Record<string, unknown>;
   if (typeof rec['endTurn'] !== 'boolean') return undefined;
@@ -474,15 +783,22 @@ const collectJsonObjectSlices = (text: string): string[] => {
 interface ParsedBatchResult {
   readonly batch: ParsedMoveBatch;
   readonly salvaged: boolean;
+  readonly plan: unknown;
 }
 
-const lastUsableFromSlices = (stripped: string): ParsedMoveBatch | undefined => {
+const planKeyOf = (value: unknown): unknown => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  return (value as Record<string, unknown>)['plan'];
+};
+
+const lastUsableFromSlices = (stripped: string): ParsedBatchResult | undefined => {
   const slices = collectJsonObjectSlices(stripped);
   for (let i = slices.length - 1; i >= 0; i -= 1) {
     const slice = slices[i];
     if (slice === undefined) continue;
-    const batch = asUsableBatch(tryJsonParse(slice));
-    if (batch !== undefined) return batch;
+    const value = tryJsonParse(slice);
+    const batch = asUsableBatch(value);
+    if (batch !== undefined) return { batch, salvaged: true, plan: planKeyOf(value) };
   }
   return undefined;
 };
@@ -493,11 +809,10 @@ const lastUsableFromSlices = (stripped: string): ParsedMoveBatch | undefined => 
  */
 const parseMoveBatchResult = (text: string): ParsedBatchResult | undefined => {
   const stripped = stripMarkdownFence(text);
-  const whole = asUsableBatch(tryJsonParse(stripped));
-  if (whole !== undefined) return { batch: whole, salvaged: false };
-  const salvaged = lastUsableFromSlices(stripped);
-  if (salvaged === undefined) return undefined;
-  return { batch: salvaged, salvaged: true };
+  const wholeValue = tryJsonParse(stripped);
+  const whole = asUsableBatch(wholeValue);
+  if (whole !== undefined) return { batch: whole, salvaged: false, plan: planKeyOf(wholeValue) };
+  return lastUsableFromSlices(stripped);
 };
 
 export const parseMoveBatch = (text: string): ParsedMoveBatch | undefined =>
@@ -955,6 +1270,11 @@ export const playLlmBotTurn = async (
     }
     if (parsedResult.salvaged) salvageParses += 1;
     const parsed = parsedResult.batch;
+    rememberByokPlan(me, {
+      moves: parsed.indices,
+      endTurn: parsed.endTurn,
+      ...(parsedResult.plan !== undefined ? { plan: parsedResult.plan } : {}),
+    });
     const mapped = applyMappedPrefix(rules, at, offer, parsed.indices);
     at = commitPrefix(ctx, mapped, moves);
     const decision = afterPrefix(ctx, parsed, mapped, moves);
