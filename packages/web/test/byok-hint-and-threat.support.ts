@@ -1,5 +1,5 @@
 /**
- * Fixtures for P64 BYOK hint-and-threat tests.
+ * Fixtures for P64/P66 BYOK hint-and-threat tests.
  * Adapter only — recorded rows + helpers. No tiling reconstructed from STATE_JSON.
  */
 
@@ -38,6 +38,15 @@ export const P64_FIXTURE_PATH = join(
   here,
   '../../../docs/design/fixtures/P64-hit12-hit15.json',
 );
+
+export const P66_FIXTURE_PATH = join(
+  here,
+  '../../../docs/design/fixtures/P66-hit5-hit9-hit13.json',
+);
+
+export const DIRT_CLAUSE = 'closes without share+N (dirt)';
+
+export const HIT0_TAG_CHASE_PLAN = 'continue on_target and spend leftover on same exit';
 
 export const JSON_REPLY_WITH_PLAN =
   'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short","plan":"short"}';
@@ -169,6 +178,139 @@ export const parseOfferTagRows = (lines: readonly string[]): OfferTagRow[] =>
 export const hit12Rows = (): OfferTagRow[] => parseOfferTagRows(p64Fixture().hit12.legalRows);
 
 export const hit15Rows = (): OfferTagRow[] => parseOfferTagRows(p64Fixture().hit15.legalRows);
+
+export type P66Hit = {
+  readonly hit: number;
+  readonly legalRows: readonly string[];
+  readonly recordedReply: P64ExpectedReply;
+  readonly expectedReply: P64ExpectedReply;
+  readonly shareCounts: Readonly<Record<string, number>>;
+  readonly territoryCounts: Readonly<Record<string, number>>;
+  readonly trails: Readonly<Record<string, { readonly count: number }>>;
+  readonly headerDirtClause?: string;
+  readonly afterRecordedClose?: {
+    readonly shareCounts: Readonly<Record<string, number>>;
+    readonly territoryCounts: Readonly<Record<string, number>>;
+  };
+};
+
+export type P66Fixture = {
+  readonly seat: string;
+  readonly hit0: P66Hit;
+  readonly hit5: P66Hit;
+  readonly hit9: P66Hit;
+  readonly hit13: P66Hit;
+};
+
+const asNumberMap = (value: unknown, label: string): Record<string, number> => {
+  if (value === undefined) return {};
+  const rec = asRecord(value, label);
+  const out: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(rec)) {
+    if (typeof entry === 'number') out[key] = entry;
+  }
+  return out;
+};
+
+const asTrailCounts = (
+  value: unknown,
+  label: string,
+): Record<string, { readonly count: number }> => {
+  if (value === undefined) return {};
+  const rec = asRecord(value, label);
+  const trails: Record<string, { readonly count: number }> = {};
+  for (const [seat, trail] of Object.entries(rec)) {
+    const row = asRecord(trail, `${label}.${seat}`);
+    const count = row['count'];
+    if (typeof count === 'number') trails[seat] = { count };
+  }
+  return trails;
+};
+
+const asReply = (value: unknown, label: string): P64ExpectedReply => {
+  const rec = asRecord(value, label);
+  const moves = rec['moves'];
+  if (!Array.isArray(moves)) throw new Error(`setup: ${label}.moves is not a number array`);
+  const out: number[] = [];
+  for (const entry of moves) {
+    if (typeof entry !== 'number') throw new Error(`setup: ${label}.moves is not a number array`);
+    out.push(entry);
+  }
+  const why = rec['why'];
+  const plan = rec['plan'];
+  return {
+    moves: out,
+    endTurn: rec['endTurn'] === true,
+    ...(typeof why === 'string' ? { why } : {}),
+    ...(typeof plan === 'string' ? { plan } : {}),
+  };
+};
+
+const asP66Hit = (value: unknown, label: string): P66Hit => {
+  const rec = asRecord(value, label);
+  const expectedRaw = rec['expectedReply'];
+  const headerDirtClause = rec['headerDirtClause'];
+  const afterRaw = rec['afterRecordedClose'];
+  const after =
+    afterRaw === undefined
+      ? undefined
+      : {
+          shareCounts: asNumberMap(
+            asRecord(afterRaw, `${label}.afterRecordedClose`)['shareCounts'],
+            `${label}.afterRecordedClose.shareCounts`,
+          ),
+          territoryCounts: asNumberMap(
+            asRecord(afterRaw, `${label}.afterRecordedClose`)['territoryCounts'],
+            `${label}.afterRecordedClose.territoryCounts`,
+          ),
+        };
+  return {
+    hit: typeof rec['hit'] === 'number' ? rec['hit'] : Number.NaN,
+    legalRows: asStringArray(rec['legalRows'], `${label}.legalRows`),
+    recordedReply: asReply(rec['recordedReply'], `${label}.recordedReply`),
+    expectedReply:
+      expectedRaw === undefined
+        ? { moves: [], endTurn: false }
+        : asReply(expectedRaw, `${label}.expectedReply`),
+    shareCounts: asNumberMap(rec['shareCounts'], `${label}.shareCounts`),
+    territoryCounts: asNumberMap(rec['territoryCounts'], `${label}.territoryCounts`),
+    trails: asTrailCounts(rec['trails'], `${label}.trails`),
+    ...(typeof headerDirtClause === 'string' ? { headerDirtClause } : {}),
+    ...(after === undefined ? {} : { afterRecordedClose: after }),
+  };
+};
+
+export const p66Fixture = (): P66Fixture => {
+  const raw: unknown = JSON.parse(readFileSync(P66_FIXTURE_PATH, 'utf8'));
+  const rec = asRecord(raw, 'P66 fixture');
+  return {
+    seat: typeof rec['seat'] === 'string' ? rec['seat'] : '',
+    hit0: asP66Hit(rec['hit0'], 'hit0'),
+    hit5: asP66Hit(rec['hit5'], 'hit5'),
+    hit9: asP66Hit(rec['hit9'], 'hit9'),
+    hit13: asP66Hit(rec['hit13'], 'hit13'),
+  };
+};
+
+export const hit5Rows = (): OfferTagRow[] => parseOfferTagRows(p66Fixture().hit5.legalRows);
+
+export const hit9Rows = (): OfferTagRow[] => parseOfferTagRows(p66Fixture().hit9.legalRows);
+
+export const hit13Rows = (): OfferTagRow[] => parseOfferTagRows(p66Fixture().hit13.legalRows);
+
+export const hit5ThreatInput = (): ThreatLineInput => {
+  const hit = p66Fixture().hit5;
+  const trailOf = (seat: string): number => hit.trails[seat]?.count ?? 0;
+  return {
+    me: 'B',
+    players: ['A', 'B', 'C'],
+    shares: hit.shareCounts,
+    territory: hit.territoryCounts,
+    trailLen: { A: trailOf('A'), B: trailOf('B'), C: trailOf('C') },
+    offerTags: namedOfferTags(hit5Rows()),
+    nearTrail: false,
+  };
+};
 
 export const namedOfferTags = (rows: readonly OfferTagRow[]): string[] => {
   const present = new Set(rows.flatMap((row) => row.tags));

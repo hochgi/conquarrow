@@ -88,6 +88,9 @@ scheduled early in the first place.
 | P57 | Campaign target | web | §7 (read) | P53–P56 | **[packet](./packets/P57-campaign-target.md).** Quiet-board 0-share dirt closes score zero unless they border or approach the one campaign vertex `V`. Findings aim at `V`, not nearest empty loop. `BotDrive` weights all 1. Personalities parked as P58. |
 | P58 | Heuristic personalities | web | — | P57, P59 | **Parked.** Clone `BotDrive` into lobby presets (`raider` / `holder`, …). Do not ship until P59 is the live policy — three weight vectors over the 09:50 dirt painter are three dirt painters. No packet doc until unparked. |
 | P59 | Mission and staging | web | §3, §7 (read) | P53–P57 | **[packet](./packets/P59-mission-and-staging.md).** Mission-conditioned beam: one of bank / cut / contest / deny per turn; 0-share close only as *staging* (remaining path to `V` drops); forbid a threatened kite (return trail ≥ `KITE_RATIO` × outbound and an enemy can reach it); P55 replies only on finalists. Not a worker. |
+| P64 | BYOK hint, threat, plan | web | — | P63 | **[packet](./packets/P64-byok-hint-and-threat.md).** Tags are hints; one threat line; baseline names lump close/cut; persist + echo `plan`; tip-local spawners. Landed teaching+header; 2026-09-10 playtest showed plan echo of a tag-chase and two 0-share dirt closes. |
+| P65 | Quiet-home leftover pass | web | — | P59 | **[packet](./packets/P65-quiet-home-pass.md).** 3-seat BSSN 20: a ready 2⁺ stack with leftover speed may not pass when a contest-advancing complete exists. Amends mission-and-staging. 2026-09-10: A r3 walked. |
+| P66 | BYOK plan budget + dirt | web | — | P64 | **[packet](./packets/P66-byok-plan-budget-and-dirt.md).** Plan cap 80→512; `closes` without `share+N` is dirt; plan that names a tag is wrong; header dirt clause. Fixture: 2026-09-10 hits 5 / 9 / 13. Amends byok-hint-and-threat. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -156,6 +159,8 @@ flowchart TD
   P55 --> P59
   P57 --> P59
   P59 -.-> P58["P58 personalities — parked"]
+  P59 --> P65["P65 quiet-home pass"]
+  P64["P64 hint and threat"] --> P66["P66 plan budget + dirt"]
 ```
 
 ## Build order and why

@@ -32,19 +32,34 @@ Return only a JSON object (no markdown fence):
 
 ## Plan
 
-`plan` is one clause naming the job this seat is still on after this batch (close this trail, walk the tagged cut, spend leftover on the same exit). It is not an offer index. It is not geometry. It is not a second `why`.
+`plan` is one clause naming the job this seat is still on after this batch (close this trail, contest the open enemy trail, spend leftover on the same exit). It is not an offer index. It is not geometry. It is not a second `why`.
 
 Write it when the job needs another POST or another seat-turn. Omit it on a pass (`[]` + `endTurn: true`) or when this batch finishes the job (close lands, trailLen will be 0).
 
-Keep it under ~80 characters, one line, no invented destinations. Do not put indices in plan (`close the 3-stack` not `play [2]`). Indices go stale on the next offer.
+Keep it under 512 characters, one paragraph, no invented destinations. Do not put indices in plan (`close the 3-stack` not `play [2]`). Indices go stale on the next offer.
 
-Rewrite when the job is done, when this offer no longer contains that walk, or when the threat line shows a `cut` / `closes` that beats the old job.
+A share is a factory. Force on a held vertex is future heads. Territory with no new share is painted dirt. closes without share+N on that row claims painted dirt only. The pinwheel 1-share vs 3-share example already shows the other case. Do not invent `share+N`.
+
+Opening implication of `speed(N) = 1 + floor(log₂ N)` only: a 4-stack is 3 tiles this turn; three singletons are 1+1+1. That is why an early lump has more ground, not because we said "prefer 4."
+
+Other seats have a job you can read from the header: share lead, longest enemy trail, whether any legal row is `cut` / `closes` / `borders_spawner`. Weigh cut-if-present against expand-if-present. A plan cannot create a cut that is not a row.
+
+A plan that names a tag is already wrong (`continue on_target`, `walk on_target`). Tags are hints. Rewrite it.
+
+Rewrite when: the job is done; this offer no longer contains that walk; the threat line shows a `cut` / `share+N` close that beats the old job; the current `closes` row has no `share+N`; the lead has flipped against this seat and the plan is still "close this dirt trail."
 
 The echoed `Plan:` line is a reminder, not an order. `LEGAL_MOVES` still binds. A plan cannot create a cut that is not a row.
 
 Hit 12 shape. Offer has count=3 closes [2] and [8].
 Good: {"moves":[2],"endTurn":true,"why":"lump close","plan":"close the open trail"}
 Bad:  {"moves":[4,0],"endTurn":false,"why":"split for spawner"}  // abandoned the close; no plan
+
+Hit 5 / 9 shape. Offer has closes [3] (no share+N) and borders_spawner [5].
+Plan: close the open trail
+Good: {"moves":[5],"endTurn":false,"why":"border the pinwheel","plan":"walk a border of the open pinwheel; dirt close is not a share"}
+Bad:  {"moves":[3],"endTurn":true,"why":"lump close"}  // dirt; shares stay 4
+
+Hit 12 is how: if this batch closes, send the lump already on the offer; do not peel. Hit 5 / 9 is whether: a `closes` row with no `share+N` is painted dirt — rewrite that job when a `borders_spawner` walk is also on the offer. The baseline may still name the lump close; it is a suggestion, not an order.
 
 ## Close vs cut
 

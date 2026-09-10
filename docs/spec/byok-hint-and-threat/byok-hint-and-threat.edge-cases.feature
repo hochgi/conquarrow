@@ -4,13 +4,14 @@
 
 Feature: BYOK hint-and-threat — plan echo, observation rank, unchanged seams
   As the web adapter
-  I want a deterministic threat line, a capped plan echo, and spawners near my tips
-  So that the next POST remembers the close and the dump is not the lex-first centre belt
+  I want a deterministic threat line, a 512-char plan echo, and spawners near my tips
+  So that the next POST remembers the close, dirt closes are named, and the dump is not the lex-first centre belt
 
   Background:
     Given a GeometryPort and a RulesPort
     And docs/byok-teaching.md is the teaching file
     And docs/design/fixtures/P64-hit12-hit15.json is the recorded-offer fixture
+    And docs/design/fixtures/P66-hit5-hit9-hit13.json is the recorded-offer fixture
 
   Rule: Threat line boundaries
 
@@ -58,13 +59,15 @@ Feature: BYOK hint-and-threat — plan echo, observation rank, unchanged seams
 
   Rule: Plan echo
 
-    Scenario: Echoed plan is truncated to 80 and has no newline
+    Scenario: Echoed plan is truncated to PLAN_CAP 512 and newlines become spaces
       Given a stored plan of 90 characters including a newline
       When buildUserPrompt runs for that seat
       Then the prompt contains a line starting with "Plan: "
       And that line sits under the threat line and before STATE_JSON
-      And the echoed text is at most 80 characters
+      And PLAN_CAP is 512
+      And the echoed text is at most 512 characters
       And the echoed text contains no newline
+      And the newline in the stored plan became a space
       And the line does not contain "prefer"
 
     Scenario: Missing plan keeps the previous echo; empty or pass clears; clearByokPlans drops it
@@ -107,7 +110,7 @@ Feature: BYOK hint-and-threat — plan echo, observation rank, unchanged seams
   Rule: Purity and prompt facts
 
     Scenario: Prompt builders and helpers stay pure except the existing fetch on play
-      Then packages/web/src/byokBot.ts prompt builders, threatLineFromCounts, baselineIndexFromTags, isFullStackClose, annotateMove, and the plan store do not mention Date.now, Math.random, or performance.now
+      Then packages/web/src/byokBot.ts prompt builders, threatLineFromCounts, baselineIndexFromTags, isFullStackClose, annotateMove, the plan store, isDirtClose, isTagChasePlan, and dirtClosesFromRows do not mention Date.now, Math.random, or performance.now
       And lastError and byokStats do not contain an API key, raw content, or reasoning_content
 
     Scenario: Live user prompt reply line includes plan and does not prefer-order
@@ -126,3 +129,25 @@ Feature: BYOK hint-and-threat — plan echo, observation rank, unchanged seams
       And baselineIndexFromTags returns no index
       And the expected live baseline paragraph is omitted
       And P61 empty-prefix and illegal-tail tests stay the live protocol
+
+  Rule: P66 dirt clause and plan budget boundaries
+
+    Scenario: closes plus share+N on the same row omits the dirt clause
+      Given offer rows where one step is tagged closes and share+1
+      When dirtClosesFromRows runs
+      Then it is false
+      When threatLineFromCounts runs with dirtCloses false and offer tags closes
+      Then the line does not contain "closes without share+N (dirt)"
+      And the line may still contain "Offer tags: closes"
+
+    Scenario: Plan of length 81 is stored whole
+      Given a stored plan of 81 characters with no newline
+      When buildUserPrompt runs for that seat
+      Then the echoed text length is 81
+      And the echoed text is the full 81 characters
+
+    Scenario: Plan of length 513 is truncated to 512
+      Given a stored plan of 513 characters with no newline
+      When buildUserPrompt runs for that seat
+      Then the echoed text length is 512
+      And the echoed text is the first 512 characters

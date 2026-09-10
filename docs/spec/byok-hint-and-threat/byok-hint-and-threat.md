@@ -1,30 +1,33 @@
 # byok-hint-and-threat — tags are hints, threat line, lump-close baseline, plan echo
 
-**Packet:** [P64 — BYOK: tags are hints, threat line, lump-close baseline, plan echo](../../design/packets/P64-byok-hint-and-threat.md)
-**Depends on:** P63, P62, P61, P15, P11. P30 playback unchanged.
+**Packets:** [P64 — BYOK: tags are hints, threat line, lump-close baseline, plan echo](../../design/packets/P64-byok-hint-and-threat.md)
+· [P66 — BYOK: plan budget, dirt close, tag-chase rewrite](../../design/packets/P66-byok-plan-budget-and-dirt.md)
+(amends this directory — **do not open a new spec dir**).
+**Depends on:** P64 (which depends on P63, P62, P61, P15, P11). P65 is
+heuristic-only and is not edited here. P30 playback unchanged.
 **SPEC:** read [§1](../../../SPEC.md) (existing non-normative teaching pointer
 only — **do not add a second**), [§2](../../../SPEC.md) (grain, 3-in / 3-out,
 girth 3), [§3](../../../SPEC.md) (`speed(N)`, inherit `spent`). **No game rule
 is added, changed, or implied.** Teaching stays **non-normative**. If it
 disagrees with SPEC.md, SPEC wins. Nothing is owed to SPEC §11.
 **Layer:** `packages/web` adapter (`byokBot.ts`, `App.tsx`) +
-`docs/byok-teaching.md` + one recorded-offer fixture. No `contracts`,
+`docs/byok-teaching.md` + recorded-offer fixtures. No `contracts`,
 `rules-core`, or `online-api` behaviour change. `greedy-v1` / `chooseMove`
-stay frozen as the named *chooser*; this packet only changes **which offer
-row the baseline sentence names**, and only when the offer already carries
-`closes` / `cut`.
+stay frozen as the named *chooser*. P66 does not change which row the
+baseline sentence names.
 **Features:** [core](./byok-hint-and-threat.core.feature) ·
 [edge cases](./byok-hint-and-threat.edge-cases.feature)
 
-**Counts:** 22 scenarios (10 core, 12 edge) · 22 invariants · 0 deferred ·
+**Counts:** 30 scenarios (15 core, 15 edge) · 30 invariants · 0 deferred ·
 0 SPEC §11 items.
 
 Do not burst [byok-batch-turn](../byok-batch-turn/byok-batch-turn.md),
 [byok-teaching-prompt](../byok-teaching-prompt/byok-teaching-prompt.md),
-[byok-thinking-teach](../byok-thinking-teach/byok-thinking-teach.md), or
-[bot-turn-search](../bot-turn-search/bot-turn-search.md). Do not rewrite
-P61’s apply-prefix / empty-prefix / `llmHits` seat-turn loop. Do not touch
-`chooseTurnBeam`.
+[byok-thinking-teach](../byok-thinking-teach/byok-thinking-teach.md),
+[bot-turn-search](../bot-turn-search/bot-turn-search.md), or
+[mission-and-staging](../mission-and-staging/mission-and-staging.md). Do not
+rewrite P61’s apply-prefix / empty-prefix / `llmHits` seat-turn loop. Do not
+touch `chooseTurnBeam`.
 
 ## Purpose
 
@@ -36,28 +39,49 @@ baseline named `[0]` count=1 and the header never said C led shares. Hit 15
 correctly passed a mill-only leftover; the baseline must stop advertising
 that mill.
 
-This packet changes **prompt facts and one store**: tags-are-hints teaching,
+P64 changed **prompt facts and one store**: tags-are-hints teaching,
 one threat line, a lump-close/cut baseline sentence, a `plan` echo, and
 spawner-row rank / near-trail tags so observation is not lex-first-12 of
 the centre belt. Apply-prefix is untouched. Temperature is not this packet.
 
+P66 is a content follow-up from playtest
+`conquarrow-match-2026-09-10T06:57:10.109Z` (R=7, seed 1, 3 seats:
+A heuristic / B grok-4.6 BYOK / C human). P64 plumbing worked; P64 *content*
+did not: hit 0 stored a tag-chase plan (`continue on_target…`); hits 5 and 9
+executed a `closes` row with no `share+N` (dirt; shares stay 4) while
+`borders_spawner` lumps sat on the offer; hit 13 correctly passed a mill-only
+offer. This amend raises the plan budget 80 → 512, teaches dirt close /
+factory-share / tag-chase rewrite as **outcomes not orders**, and adds one
+header clause when every `closes` row on the offer lacks `share+N`. It does
+not invent a `cut` or `deny` tag, does not reopen P64 §4.1 spawner rank,
+and does not call grok in CI.
+
 ## Scope
 
-In: `docs/byok-teaching.md` (one paragraph under “Close, cut, mill”; JSON
-contract `plan` key; new `## Plan`); `buildUserPrompt` threat line + plan
-echo + reply line; `greedyBaselineLines` **sentence** (not `chooseMove`);
-per-seat plan map + `clearByokPlans()` on new match; `snapshotForPrompt`
-interesting-spawner rank; `annotateMove` `near_trail:<seat>` via
-`origin`/`target`; fixture
+In (P64, still live): `docs/byok-teaching.md` (one paragraph under “Close,
+cut, mill”; JSON contract `plan` key; `## Plan`); `buildUserPrompt` threat
+line + plan echo + reply line; `greedyBaselineLines` **sentence** (not
+`chooseMove`); per-seat plan map + `clearByokPlans()` on new match;
+`snapshotForPrompt` interesting-spawner rank; `annotateMove`
+`near_trail:<seat>` via `origin`/`target`; fixture
 `docs/design/fixtures/P64-hit12-hit15.json`; helpers
 `threatLineFromCounts`, `baselineIndexFromTags`, `isFullStackClose`.
 
+In (P66): teaching Plan-section budget + dirt / factory-share / 4-stack
+implication / tag-chase rewrite beats and the Hit 5/9 contrast (Hit 12
+contrast stays); exported `PLAN_CAP` 512 and newline→space sanitize;
+threat-line dirt clause; fixture
+`docs/design/fixtures/P66-hit5-hit9-hit13.json`; helpers `isDirtClose`
+(byokBot, offer tags — **not** P57 `botClose.isDirtClose`),
+`isTagChasePlan`, `dirtClosesFromRows`.
+
 Out: temperature; offer-filter / hiding `count=1`; `beam-v1` as hint or
 offer; runner; P58/P60; Pages `chooseTurnBeam`; `evaluate` as an IQ score;
-MCP; live grok in CI; path-to-enemy search; inventing a `cut` or `deny` tag
-that `annotateMove` would not already emit; unfreezing `greedy-v1`;
-SPEC.md game-rule edits; a second SPEC.md teaching pointer; bursting
-P61/P62/P63/P53 feature files; P65.
+MCP (that is P67); live grok in CI; path-to-enemy search; inventing a
+`cut` or `deny` tag that `annotateMove` would not already emit; unfreezing
+`greedy-v1`; SPEC.md game-rule edits; a second SPEC.md teaching pointer;
+bursting P61/P62/P63/P53/P65 feature files; reopening P64 §4.1 spawner
+rank; prefer-orders (`prefer spawners`, `prefer 4-stacks`, `never close`).
 
 ## BSSN (recorded)
 
@@ -134,15 +158,19 @@ New section **after** JSON contract, before Close vs cut. Locked beats; no
 prefer-orders:
 
 - `plan` is one clause naming the job this seat is still on after this
-  batch (close this trail, walk the tagged cut, spend leftover on the same
-  exit). Not an offer index. Not geometry. Not a second `why`.
+  batch (close this trail, contest the open enemy trail, spend leftover on
+  the same exit). Not an offer index. Not geometry. Not a second `why`.
+  Do not name offer tags (`on_target` / `closes` / `cut`) as the job.
 - Write it when the job needs another POST or another seat-turn. Omit it
   on a pass (`[]` + `endTurn: true`) or when this batch finishes the job
   (close lands, trailLen will be 0).
-- Keep it under ~80 characters, one line, no invented destinations.
+- Keep it under 512 characters, one paragraph, no invented destinations.
+  (P64 locked ~80 / one line. P66 raises the budget so a job clause can
+  name a trail and a reason to rewrite. Not 1K — 1K becomes a second
+  `why`.)
 - Rewrite when the job is done, when this offer no longer contains that
   walk, or when the threat line shows a `cut` / `closes` that beats the
-  old job.
+  old job. **P66 extends this list** — see BSSN 13.
 - The echoed `Plan:` line is a reminder, not an order. `LEGAL_MOVES` still
   binds. A plan cannot create a cut that is not a row.
 - Do not put indices in `plan` (`close the 3-stack` not `play [2]`).
@@ -186,6 +214,15 @@ first in `state.players`. If that max is 0 or there is no enemy:
 **no** `cut` and **no** `closes`: also `No cut/contest/deny row` (even
 when `borders_spawner` is present). Do **not** invent a `deny` tag —
 `annotateMove` does not emit `deny`.
+
+**Dirt-close clause (P66).** At most **one** extra clause, exact text
+`closes without share+N (dirt)`, iff `dirtClosesFromRows` is true for
+this offer (some row is tagged `closes` **and** none of those closing
+rows carry a `share+N` tag). Omit when there is no `closes` row, when
+every `closes` row has `share+N`, or when the offer mixes dirt closes
+with `share+N` closes (the add-condition is “none of those closing rows
+carry `share+N`”). Join with `. ` after the offer-tag clause and before
+the near-trail clause. Same offer → same clause. Do not invent `deny`.
 
 **Near-trail clause.** If no legal offer exit shares a point with any
 enemy-trail arrow: `no enemy trail on a legal vertex`. If some do, omit
@@ -248,8 +285,9 @@ never as an offer index:
 | key absent or non-string | **keep** the previous plan |
 | pass: `moves: []` and `endTurn: true` | **clear** (even if `plan` is nonempty) |
 
-Sanitize: strip `\n` and `\r`, trim, cap at 80 characters. Echo the
-sanitized value.
+Sanitize (P66): replace each run of `\n` / `\r` with one space, trim,
+cap at exported `PLAN_CAP` **512**. Echo the sanitized value. (P64
+stripped newlines to nothing and capped at 80.)
 
 Exported `clearByokPlans()` empties the map. `App.tsx` `startMatch`
 calls it once (the existing new-match path). One call.
@@ -338,15 +376,123 @@ line includes `no enemy trail on a legal vertex` (BSSN 4).
 
 `threatLineFromCounts`, `baselineIndexFromTags`, `isFullStackClose`,
 `snapshotForPrompt`, `annotateMove`, `buildUserPrompt`,
-`buildSystemPrompt`, `rememberByokPlan`, and the plan map shall not use
-`Date.now`, `Math.random`, or `performance.now`. Existing `fetch` on
-play is unchanged.
+`buildSystemPrompt`, `rememberByokPlan`, the plan map, `PLAN_CAP`
+sanitize, `isDirtClose`, `isTagChasePlan`, and `dirtClosesFromRows`
+shall not use `Date.now`, `Math.random`, or `performance.now`. Existing
+`fetch` on play is unchanged.
 
 ### 12. Temperature / offer-filter / beam
 
 Not this packet. After a later playtest where the mission is chosen and
 the model still picks the wrong of two equal tagged exits, then jitter.
 Not on the raw untagged row list.
+
+### 13. Teaching facts — outcomes, not orders (P66)
+
+Add **one short section** after `## Plan` **or** extend `## Plan` and
+“Close, cut, mill”. Keep every P62/P63/P64 lock (`speed(N)`, inherit
+`spent`, majority `speed 0`, grain, `3-in / 3-out`, `girth is 3`,
+`one seat remains`, `starvation`, tags-are-hints, `on_target` loses to
+close/cut/lead/mature trail, JSON contract, T1 numbers, close-vs-cut two
+afters, pinwheel 1-share vs 3-share, Hit 12 good/bad). Hit 12 contrast
+stays. Do not delete it. No fourth *full* canned example — the Hit 5/9
+shape below is a compact contrast, not a fourth T1/close-vs-cut/pinwheel.
+Hit 12 and Hit 5/9 can share `closes` without `share+N` plus
+`borders_spawner`. They answer different questions: Hit 12 is **how**
+(if this batch closes, send the lump; do not peel). Hit 5/9 is
+**whether** (a 0-share close is painted dirt — rewrite that job when a
+`borders_spawner` walk is also on the offer). The baseline may still
+name the lump close; tags and the baseline are hints.
+
+JSON contract **key** is unchanged:
+`{"moves":[i,...],"endTurn":true|false,"why":"short","plan":"short"}`.
+Live reply line stays P64’s exact line (cap lives in teaching + adapter,
+not in the reply-line token). Teaching Plan prose: “Keep it under 512
+characters, one paragraph, no invented destinations.”
+
+Required beats. Do **not** turn them into “prefer X”:
+
+- A **share** is a factory. Force on a held vertex is future heads.
+  Territory with no new share is painted dirt.
+- `closes` without `share+N` on that row claims painted dirt only. The
+  pinwheel 1-share vs 3-share example already shows the other case. Do
+  not invent `share+N`.
+- `speed(N) = 1 + floor(log₂ N)` already ships. Opening implication
+  only: a 4-stack is 3 tiles this turn; three singletons are 1+1+1. That
+  is why an early lump has more ground, not because we said “prefer 4.”
+- Other seats have a job you can read from the header: share lead,
+  longest enemy trail, whether any legal row is `cut` / `closes` /
+  `borders_spawner`. Weigh cut-if-present against expand-if-present. A
+  plan cannot create a cut that is not a row.
+- A plan that **names a tag** (`continue on_target`, `walk on_target`)
+  is already wrong. Tags are hints. Rewrite it.
+- Rewrite when: the job is done; this offer no longer contains that
+  walk; the threat line shows a `cut` / `share+N` close that beats the
+  old job; the current `closes` row has no `share+N`; the lead has
+  flipped against this seat and the plan is still “close this dirt
+  trail.”
+
+Worked contrast, compact — required substrings:
+
+```
+Hit 5 / 9 shape. Offer has closes [3] (no share+N) and borders_spawner [5].
+Plan: close the open trail
+Good: {"moves":[5],"endTurn":false,"why":"border the pinwheel","plan":"walk a border of the open pinwheel; dirt close is not a share"}
+Bad:  {"moves":[3],"endTurn":true,"why":"lump close"}  // dirt; shares stay 4
+```
+
+Forbidden (any case for domination): `domination`; `§11`; `even-odd`;
+`evaporation front`; P43 ids `L0`–`L7`; prefer-orders including
+`prefer split`, `prefer closes`, `prefer 4`, `prefer spawners`,
+`never close`.
+
+### 14. BYOK dirt-close helper (P66 — not P57)
+
+Exported `isDirtClose(batch, rows)` lives in `byokBot.ts`. It is **not**
+`botClose.isDirtClose` (P57 campaign flags). Different arity. Do not
+import or call the P57 helper. Do not add an `annotateMove` tag.
+
+Exported `dirtClosesFromRows(rows)` is true iff at least one row is
+tagged `closes` **and** none of those closing rows carry `share+N`.
+`buildUserPrompt` passes that boolean into `threatLineFromCounts` as
+`dirtCloses`. Existing `threatLineFromCounts` callers that omit
+`dirtCloses` omit the clause (P64 tests stay green).
+
+`rows` are `OfferTagRow` (`{ index, count, tags }`) parsed from
+LEGAL_MOVES. A tag is `share+N` iff it matches `/^share\+\d+$/`.
+
+True iff `batch.moves[0]` is a row tagged `closes` that does **not**
+carry `share+N`. Empty `moves` is false. Unknown first index is false.
+`endTurn` is ignored. Only the first index is inspected.
+
+Hit 5: `{moves:[3]}` true; `{moves:[5]}` false; `{moves:[2]}` true.
+Hit 9: `{moves:[8]}` true; `{moves:[6]}` false.
+
+The fixture does **not** call grok. Acceptable recorded shapes are
+documentary (`[5]`/`[4]` on hit 5, `[6]`/`[5]` on hit 9); CI asserts
+the helper, not a live model pick.
+
+### 15. Tag-chase plan helper (P66)
+
+Exported `isTagChasePlan(plan)` is true iff the plan string,
+case-insensitive, contains any of the exact tag tokens `on_target`,
+`closes`, or `cut` as whole words (`cut` does not match inside another
+word; `closes` does not match `close the open trail`).
+
+Hit 0 recorded plan
+`continue on_target and spend leftover on same exit` → true.
+`walk a border of the open pinwheel` → false.
+`close the open trail` → false.
+Empty / non-string treated as empty → false.
+
+Do not scan `home_mill`, `leave_home`, `borders_spawner`, `homeward`,
+`outward`, or `onto_home` unless a later packet says so.
+
+### 16. `PLAN_CAP` 512 (P66)
+
+Exported `PLAN_CAP` is `512`. Tests that locked `80` lock `512`. A plan
+of length 81 is stored whole. A plan of length 513 stores the first 512
+characters. Newlines become spaces before store and before echo.
 
 ## Terms
 
@@ -364,6 +510,10 @@ Not on the raw untagged row list.
 | **near_trail:\<seat\>** | LEGAL_MOVES tag: exit shares a **point** with that enemy’s trail and is not `cut` |
 | **greedy-v1** | frozen `chooseMove` (P11). Still the chooser. Not retuned here |
 | **full-stack close** | first batch index is a max-`count` `closes` row on this offer |
+| **PLAN_CAP** | exported 512; sanitize and echo truncate |
+| **dirt close** | a `closes` row with no `share+N` on that row — painted territory, no new factory |
+| **dirt clause** | threat-line text `closes without share+N (dirt)` |
+| **tag-chase plan** | a `plan` string that names an offer tag (`on_target` / `closes` / `cut`) as the job |
 
 Use AGENTS.md vocabulary for game words (*arrow*, *grain*, *point*,
 *vertex*, *head*, *stack*, *trail*, *cut*, *closure*, *spawner*,
@@ -379,8 +529,11 @@ flowchart TD
   Seat --> Phase["Shares=n, trailLen=n."]
   Phase --> Tips["exposed tips"]
   Tips --> Threat["threat line facts"]
-  Threat --> Stored{"stored plan?"}
-  Stored -->|yes| PlanLine["Plan: text"]
+  Threat --> Dirt{"closes and none have share+N?"}
+  Dirt -->|yes| DirtClause["closes without share+N (dirt)"]
+  Dirt -->|no| Stored
+  DirtClause --> Stored{"stored plan?"}
+  Stored -->|yes| PlanLine["Plan: text cap 512"]
   Stored -->|no| Json
   PlanLine --> Json["STATE_JSON"]
   Json --> Legal["LEGAL_MOVES grouped by from"]
@@ -402,7 +555,7 @@ flowchart TD
   Parse --> PlanKey{"plan key?"}
   PlanKey -->|pass [] + endTurn true| Clear["clear seat plan"]
   PlanKey -->|empty string| Clear
-  PlanKey -->|nonempty string| Store["sanitize #59; store per seat"]
+  PlanKey -->|nonempty string| Store["newlines to spaces #59; cap PLAN_CAP 512 #59; store per seat"]
   PlanKey -->|absent or non-string| Keep["keep previous"]
   Store --> Next["next buildUserPrompt may echo Plan:"]
   Keep --> Next
@@ -421,8 +574,9 @@ flowchart TD
 2. The teaching file shall contain a `## Plan` section after the JSON
    contract, and the JSON contract shall include a `plan` key. It shall
    contain the Hit 12 Good/Bad contrast including
-   `"plan":"close the open trail"`. It shall not contain a fourth canned
-   example and shall not match `/prefer (split|closes|don’t close|don't close)/i`.
+   `"plan":"close the open trail"`. It shall not contain a fourth *full*
+   canned example (T1 / Close vs cut / Pinwheel). Hit 12 and Hit 5/9 are
+   compact contrasts. It shall not match `/prefer (split|closes|don’t close|don't close)/i`.
 3. WHEN `buildUserPrompt` runs, it shall print exactly one threat line
    after the Shares/tips block and before `STATE_JSON`, naming who leads
    shares then territory (including `me`), the longest enemy trail owner
@@ -456,16 +610,18 @@ flowchart TD
 12. WHEN no enemy has a trail, the threat line shall contain
     `Longest enemy trail: none`.
 13. WHEN a seat has a stored plan, `buildUserPrompt` shall print `Plan:`
-    plus at most 80 characters with no newline, under the threat line and
-    before `STATE_JSON`. A missing `plan` key shall keep the previous
-    echo. `""` or a pass (`[]` + `endTurn: true`) shall clear it.
-    `clearByokPlans()` shall drop the line on the next prompt. `plan`
-    shall never be used as an offer index.
+    plus at most `PLAN_CAP` (512) characters with no newline, under the
+    threat line and before `STATE_JSON`. Newlines in the stored value
+    shall already have become spaces. A missing `plan` key shall keep
+    the previous echo. `""` or a pass (`[]` + `endTurn: true`) shall
+    clear it. `clearByokPlans()` shall drop the line on the next prompt.
+    `plan` shall never be used as an offer index.
 14. WHEN interesting spawners are listed, vertices incident to `me` group
     arrows or legal exits shall rank before other interesting vertices,
     and `spawnersShown` shall be ≤ 12.
-15. Prompt builders, fixture helpers, `annotateMove`, and the plan store
-    shall not use `Date.now`, `Math.random`, or `performance.now`.
+15. Prompt builders, fixture helpers, `annotateMove`, the plan store,
+    `isDirtClose`, `isTagChasePlan`, and `dirtClosesFromRows` shall not
+    use `Date.now`, `Math.random`, or `performance.now`.
 16. WHEN a legal exit shares a point (`origin`/`target`) with an
     enemy-trail arrow and is not already `cut`, `annotateMove` shall tag
     `near_trail:<seat>`. WHEN no legal exit shares such a point, the
@@ -485,6 +641,44 @@ flowchart TD
     expected batch shall omit `plan` or send `""`.
 22. SPEC.md §1 shall still contain one `docs/byok-teaching.md` pointer
     labelled non-normative. This packet shall not add a second.
+23. WHEN the teaching file is read, it shall contain a dirt-close
+    sentence (`closes` without `share+N` claims painted dirt), a
+    factory/share sentence (a share is a factory), the opening implication
+    that a 4-stack is 3 tiles this turn and three singletons are 1+1+1,
+    and that a plan that names a tag is already wrong. It shall contain
+    the Hit 5/9 Good/Bad contrast. It shall distinguish Hit 12 as how
+    (lump, do not peel) from Hit 5/9 as whether (dirt vs
+    `borders_spawner`). It shall still contain every P62/P63/P64
+    lock and shall not match prefer-orders (`prefer 4-stacks`,
+    `prefer spawners`, `never close` included). Teaching may mention
+    “prefer 4” only as the thing it is *not* saying.
+24. WHEN any offer row is tagged `closes` and none of those closing rows
+    carry `share+N`, the threat line shall contain
+    `closes without share+N (dirt)`. WHEN every `closes` row has
+    `share+N`, or there is no `closes` row, or the offer mixes dirt
+    closes with `share+N` closes, that clause shall be omitted.
+25. WHEN Hit 5 recorded rows are the offer, `isDirtClose({moves:[3]},
+    rows)` shall be true and `isDirtClose({moves:[5]}, rows)` shall be
+    false. WHEN Hit 9 recorded rows are the offer, `{moves:[8]}` shall
+    be true and `{moves:[6]}` shall be false. The helper shall not call
+    grok, shall not import `botClose.isDirtClose`, and shall not invent
+    an `annotateMove` tag.
+26. WHEN Hit 13 recorded rows are the offer, the expected batch shall be
+    `moves: []` and `endTurn: true`, and `plan` shall be omitted or `""`.
+27. WHEN `isTagChasePlan` is given the Hit 0 recorded plan
+    `continue on_target and spend leftover on same exit`, it shall be
+    true. WHEN given `walk a border of the open pinwheel` or
+    `close the open trail`, it shall be false.
+28. `PLAN_CAP` shall be 512. WHEN a usable batch stores a plan of length
+    81, the next echo shall contain all 81 characters. WHEN a plan of
+    length 513 is stored, the echo shall contain exactly 512 characters.
+    Newlines shall become spaces before store and echo.
+29. `asUsableBatch` shall still strip extra keys. P61 empty-prefix /
+    illegal-tail tests shall stay green. `chooseTurnBeam` / P53 / P65
+    tests shall be untouched. Pages shall still import `chooseMove`.
+30. Prompt builders, fixture helpers, `annotateMove`, the plan store,
+    `isDirtClose`, `isTagChasePlan`, and `dirtClosesFromRows` shall not
+    use `Date.now`, `Math.random`, or `performance.now`.
 
 ## P62 BSSN this packet supersedes (prompt only)
 
@@ -498,6 +692,16 @@ flowchart TD
 - P63 “P62 baseline hint unchanged”: **this packet changes which row the
   sentence names**, not the chooser.
 
+## P64 BSSN this packet supersedes (P66)
+
+- P64 BSSN 3 “Keep it under ~80 characters, one line”: **512 characters,
+  one paragraph**. JSON `plan` key and live reply-line `"plan":"short"`
+  stay. Do not burst P64 scenarios that still hold; update the cap.
+- P64 BSSN 6 sanitize strip-newlines-away / cap 80: **newlines → spaces,
+  cap `PLAN_CAP` 512**. Pass / empty / absent-key table is unchanged.
+- P64 BSSN 3 rewrite list: **extended** by BSSN 13 (dirt close, tag-chase
+  name, lead flip). Hit 12 contrast stays.
+
 ## What this file deliberately does not decide
 
 - Game rules. Do not add a §11 item.
@@ -508,6 +712,8 @@ flowchart TD
 - Unfreezing `greedy-v1`.
 - Path-to-enemy / MCP / worker / personalities.
 - P65 quiet-home leftover.
+- Reopening P64 §4.1 spawner rank.
+- A new `annotateMove` tag for dirt.
 
 ## Game-rule edges (out of scope)
 
@@ -527,3 +733,7 @@ rule.
   rows + helpers.
 - Near-trail needs `flankVertices` / a search: **no** — `origin`/`target`
   only, so 4.2 ships with 4.1.
+- Dirt detection needs a new `annotateMove` tag: **no** — read existing
+  `closes` / `share+N` on the offer.
+- Helper may call grok: **no**.
+- Teaching prose adds a game rule: **no** — non-normative; SPEC wins.

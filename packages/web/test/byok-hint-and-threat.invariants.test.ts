@@ -14,9 +14,13 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   clearByokPlans,
+  dirtClosesFromRows,
+  isDirtClose,
   isFullStackClose,
+  isTagChasePlan,
   millOmit,
   parseMoveBatch,
+  PLAN_CAP,
   playLlmBotTurn,
   rememberByokPlan,
   snapshotForPrompt,
@@ -33,6 +37,8 @@ import {
 } from './byok-batch-turn.support';
 import { SPEED_FORMULA, TEACHING_LOCKS, t1Opening } from './byok-teaching-prompt.support';
 import {
+  DIRT_CLAUSE,
+  HIT0_TAG_CHASE_PLAN,
   JSON_REPLY_WITH_PLAN,
   PREFER_ORDER_RE,
   annotateMoveSource,
@@ -44,7 +50,11 @@ import {
   geometry,
   hit12Rows,
   hit12ThreatInput,
+  hit13Rows,
   hit15Rows,
+  hit5Rows,
+  hit5ThreatInput,
+  hit9Rows,
   incidentVertices,
   interestingSpawnerCount,
   isNonExpandingMillRow,
@@ -56,6 +66,7 @@ import {
   nearTrailState,
   opponentSource,
   p64Fixture,
+  p66Fixture,
   pagesHeuristicSource,
   planLine,
   readTeachingFile,
@@ -235,7 +246,7 @@ describe('byok-hint-and-threat invariants', () => {
     ).toContain('Longest enemy trail: none');
   });
 
-  it('WHEN a seat has a stored plan, buildUserPrompt shall print Plan: plus at most 80 characters with no newline. Missing plan key keeps the previous echo. Empty or pass clears. clearByokPlans drops the line. plan is never an offer index.', () => {
+  it('WHEN a seat has a stored plan, buildUserPrompt shall print Plan: plus at most PLAN_CAP (512) characters with no newline. Newlines shall already have become spaces. Missing plan key keeps the previous echo. Empty or pass clears. clearByokPlans drops the line. plan is never an offer index.', () => {
     const { state, me, offer } = requireSeatB();
     const promptOf = (): string => buildUserPrompt(geometry, state, me, offer, true, rules);
     rememberByokPlan(me, { moves: [0], endTurn: true, plan: 'close the open trail' });
@@ -244,14 +255,18 @@ describe('byok-hint-and-threat invariants', () => {
     const planIdx = lineIndex(promptOf(), 'Plan: ');
     expect(planIdx).toBeGreaterThan(leadIdx);
     expect(planIdx).toBeLessThan(lineIndex(promptOf(), 'STATE_JSON:'));
+    expect(PLAN_CAP).toBe(512);
     rememberByokPlan(me, {
       moves: [0],
       endTurn: true,
-      plan: `${'x'.repeat(40)}\n${'y'.repeat(50)}`,
+      plan: `${'x'.repeat(40)}\n${'y'.repeat(49)}`,
     });
     const echoed = echoedPlanText(promptOf()) ?? '';
-    expect(echoed.length).toBeLessThanOrEqual(80);
+    expect(echoed.length).toBeLessThanOrEqual(PLAN_CAP);
     expect(echoed).not.toContain('\n');
+    expect(echoed, 'newline was stripped instead of becoming a space').toBe(
+      `${'x'.repeat(40)} ${'y'.repeat(49)}`,
+    );
     rememberByokPlan(me, { moves: [0], endTurn: true, plan: 'close the open trail' });
     rememberByokPlan(me, { moves: [1], endTurn: false });
     expect(promptOf()).toContain('Plan: close the open trail');
@@ -287,8 +302,11 @@ describe('byok-hint-and-threat invariants', () => {
     }
   });
 
-  it('Prompt builders, fixture helpers, annotateMove, and the plan store shall not use Date.now, Math.random, or performance.now.', () => {
+  it('Prompt builders, fixture helpers, annotateMove, the plan store, isDirtClose, isTagChasePlan, and dirtClosesFromRows shall not use Date.now, Math.random, or performance.now.', () => {
     const bot = byokBotSource();
+    expect(bot).toContain('isDirtClose');
+    expect(bot).toContain('isTagChasePlan');
+    expect(bot).toContain('dirtClosesFromRows');
     expect(bot).not.toContain('Date.now');
     expect(bot).not.toContain('Math.random');
     expect(bot).not.toContain('performance.now');
@@ -390,5 +408,140 @@ describe('byok-hint-and-threat invariants', () => {
     expect(section1).toContain('docs/byok-teaching.md');
     expect(section1).toMatch(/non-normative/i);
     expect(section1.match(/docs\/byok-teaching\.md/g)).toHaveLength(1);
+  });
+
+  it('WHEN the teaching file is read, it shall contain a dirt-close sentence, a factory/share sentence, the 4-stack opening implication, and that a plan that names a tag is already wrong. It shall contain the Hit 5/9 Good/Bad contrast, keep every P62/P63/P64 lock, and shall not match prefer-orders.', () => {
+    const teaching = readTeachingFile();
+    expect(teaching).toMatch(/closes without share\+N/);
+    expect(teaching).toMatch(/painted dirt/i);
+    expect(teaching).toMatch(/share is a factory/i);
+    expect(teaching).toMatch(/4-stack is 3 tiles this turn/i);
+    expect(teaching).toContain('1+1+1');
+    expect(teaching).toMatch(/plan that names a tag is already wrong/i);
+    expect(teaching).toContain('Hit 5 / 9 shape');
+    expect(teaching).toContain('"moves":[5]');
+    expect(teaching).toContain('"moves":[3]');
+    expect(teaching).toContain('dirt close is not a share');
+    expect(teaching).toContain('Hit 12 is how');
+    expect(teaching).toContain('Hit 5 / 9 is whether');
+    expect(teaching).toContain('Hit 12 shape');
+    expect(teaching).toContain('"plan":"close the open trail"');
+    expect(teaching).toContain(SPEED_FORMULA);
+    for (const phrase of TEACHING_LOCKS) {
+      expect(teaching, phrase).toContain(phrase);
+    }
+    expect(teaching).not.toMatch(PREFER_ORDER_RE);
+    expect(teaching).not.toContain('prefer 4-stacks');
+    expect(teaching).not.toContain('prefer spawners');
+    expect(teaching).not.toMatch(/never close/i);
+    expect(teaching).not.toMatch(/domination/i);
+    expect(teaching).not.toContain('§11');
+    expect(teaching).not.toContain('even-odd');
+    expect(teaching).not.toContain('evaporation front');
+  });
+
+  it('WHEN any offer row is tagged closes and none of those closing rows carry share+N, the threat line shall contain closes without share+N (dirt). WHEN every closes row has share+N, or there is no closes row, or the offer mixes dirt closes with share+N closes, that clause shall be omitted.', () => {
+    expect(dirtClosesFromRows(hit5Rows())).toBe(true);
+    const dirtLine = threatLineFromCounts({ ...hit5ThreatInput(), dirtCloses: true });
+    expect(dirtLine).toContain(DIRT_CLAUSE);
+    expect(dirtClosesFromRows(hit12Rows())).toBe(true);
+    expect(
+      threatLineFromCounts({ ...hit12ThreatInput(), dirtCloses: true }),
+    ).toContain(DIRT_CLAUSE);
+    expect(dirtClosesFromRows([{ index: 0, count: 2, tags: ['closes', 'share+1'] }])).toBe(false);
+    expect(dirtClosesFromRows(hit13Rows())).toBe(false);
+    expect(
+      dirtClosesFromRows([
+        { index: 0, count: 2, tags: ['closes', 'homeward'] },
+        { index: 1, count: 1, tags: ['closes', 'share+1'] },
+      ]),
+    ).toBe(false);
+    expect(
+      threatLineFromCounts({
+        me: 'B',
+        players: ['A', 'B', 'C'],
+        shares: { A: 1, B: 1, C: 1 },
+        territory: { A: 1, B: 1, C: 1 },
+        trailLen: { A: 0, B: 0, C: 0 },
+        offerTags: ['closes'],
+        nearTrail: false,
+        dirtCloses: false,
+      }),
+    ).not.toContain(DIRT_CLAUSE);
+    expect(threatLineFromCounts(hit12ThreatInput())).not.toContain(DIRT_CLAUSE);
+  });
+
+  it('WHEN Hit 5 recorded rows are the offer, isDirtClose({moves:[3]}, rows) shall be true and isDirtClose({moves:[5]}, rows) shall be false. WHEN Hit 9 recorded rows are the offer, {moves:[8]} shall be true and {moves:[6]} shall be false. The helper shall not call grok, shall not import botClose.isDirtClose, and shall not invent an annotateMove tag.', () => {
+    const hit5 = hit5Rows();
+    expect(isDirtClose({ moves: [3] }, hit5)).toBe(true);
+    expect(isDirtClose({ moves: [5] }, hit5)).toBe(false);
+    expect(isDirtClose({ moves: [2] }, hit5)).toBe(true);
+    expect(isDirtClose({ moves: [] }, hit5)).toBe(false);
+    expect(isDirtClose({ moves: [99] }, hit5)).toBe(false);
+    const hit9 = hit9Rows();
+    expect(isDirtClose({ moves: [8] }, hit9)).toBe(true);
+    expect(isDirtClose({ moves: [6] }, hit9)).toBe(false);
+    expect(byokBotSource()).not.toMatch(/from ['"]\.\/botClose['"]/);
+    expect(byokBotSource()).not.toContain('botClose.isDirtClose');
+    expect(byokBotSource()).not.toMatch(/grok/i);
+    expect(annotateMoveSource()).not.toMatch(/dirt_close|dirtClose/);
+  });
+
+  it('WHEN Hit 13 recorded rows are the offer, the expected batch shall be moves [] and endTurn true, and plan shall be omitted or "".', () => {
+    const hit = p66Fixture().hit13;
+    expect(hit.expectedReply.moves).toEqual([]);
+    expect(hit.expectedReply.endTurn).toBe(true);
+    const plan = hit.expectedReply.plan;
+    expect(plan === undefined || plan === '').toBe(true);
+    expect(isDirtClose(hit.expectedReply, hit13Rows())).toBe(false);
+  });
+
+  it('WHEN isTagChasePlan is given the Hit 0 recorded plan continue on_target and spend leftover on same exit, it shall be true. WHEN given walk a border of the open pinwheel or close the open trail, it shall be false.', () => {
+    expect(isTagChasePlan(HIT0_TAG_CHASE_PLAN)).toBe(true);
+    expect(isTagChasePlan('walk the tagged cut')).toBe(true);
+    expect(isTagChasePlan('walk a border of the open pinwheel')).toBe(false);
+    expect(isTagChasePlan('close the open trail')).toBe(false);
+    expect(isTagChasePlan('ON_TARGET')).toBe(true);
+    expect(isTagChasePlan('shortcut')).toBe(false);
+    expect(isTagChasePlan('')).toBe(false);
+    expect(isTagChasePlan(undefined)).toBe(false);
+  });
+
+  it('PLAN_CAP shall be 512. WHEN a usable batch stores a plan of length 81, the next echo shall contain all 81 characters. WHEN a plan of length 513 is stored, the echo shall contain exactly 512 characters. Newlines shall become spaces before store and echo.', () => {
+    expect(PLAN_CAP).toBe(512);
+    const { state, me, offer } = requireSeatB();
+    const promptOf = (): string => buildUserPrompt(geometry, state, me, offer, true, rules);
+    const plan81 = 'a'.repeat(81);
+    rememberByokPlan(me, { moves: [0], endTurn: true, plan: plan81 });
+    expect(echoedPlanText(promptOf())).toBe(plan81);
+    const plan513 = 'b'.repeat(513);
+    rememberByokPlan(me, { moves: [0], endTurn: true, plan: plan513 });
+    expect(echoedPlanText(promptOf())).toBe(plan513.slice(0, 512));
+    expect(echoedPlanText(promptOf())?.length).toBe(512);
+    rememberByokPlan(me, { moves: [0], endTurn: true, plan: 'keep\nit\r\nshort' });
+    expect(echoedPlanText(promptOf()), 'newline runs should become one space').toBe('keep it short');
+  });
+
+  it('asUsableBatch shall still strip extra keys. P61 empty-prefix / illegal-tail tests shall stay green. chooseTurnBeam / P53 / P65 tests shall be untouched. Pages shall still import chooseMove.', () => {
+    const extra = {
+      moves: [0],
+      endTurn: true,
+      why: 'x',
+      plan: 'close the open trail',
+      mission: 'nope',
+    };
+    expect(asUsableBatch(extra)).toEqual({ indices: [0], endTurn: true });
+    expect(asUsableBatch(extra)).not.toHaveProperty('plan');
+    expect(pagesHeuristicSource()).toMatch(/import \{[^}]*chooseMove/);
+    expect(pagesHeuristicSource()).not.toContain('chooseTurnBeam');
+    expect(byokBotSource()).not.toMatch(/chooseTurnBeam/);
+    expect(opponentSource()).toContain('export const chooseMove');
+  });
+
+  it('Prompt builders, fixture helpers, annotateMove, the plan store, isDirtClose, isTagChasePlan, and dirtClosesFromRows shall not use Date.now, Math.random, or performance.now. (invariant 30)', () => {
+    const bot = byokBotSource();
+    expect(bot).not.toContain('Date.now');
+    expect(bot).not.toContain('Math.random');
+    expect(bot).not.toContain('performance.now');
   });
 });
