@@ -11,7 +11,10 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   clearByokPlans,
+  dirtClosesFromRows,
+  isDirtClose,
   isFullStackClose,
+  isTagChasePlan,
   millOmit,
   parseMoveBatch,
   playLlmBotTurn,
@@ -21,6 +24,8 @@ import { chooseTurnGreedy } from '../src/botSearch';
 import { mockChat, offerSteps, readyConfig } from './byok-batch-turn.support';
 import { SPEED_FORMULA, TEACHING_LOCKS, t1Opening } from './byok-teaching-prompt.support';
 import {
+  DIRT_CLAUSE,
+  HIT0_TAG_CHASE_PLAN,
   JSON_REPLY_WITH_PLAN,
   PREFER_ORDER_RE,
   annotateMoveSource,
@@ -31,12 +36,17 @@ import {
   hit12Rows,
   hit12ThreatInput,
   hit15Rows,
+  hit5Rows,
+  hit5ThreatInput,
+  hit9Rows,
+  hit13Rows,
   isNonExpandingMillRow,
   jsonContractSection,
   leadLine,
   lineIndex,
   opponentSource,
   p64Fixture,
+  p66Fixture,
   pagesHeuristicSource,
   readTeachingFile,
   requireSeatB,
@@ -85,6 +95,15 @@ describe('BYOK tags are hints, threat line names the lead, baseline names the lu
     expect(teaching).not.toContain('§11');
     expect(teaching).not.toContain('even-odd');
     expect(teaching).not.toContain('evaporation front');
+    expect(teaching).toMatch(/closes without share\+N/);
+    expect(teaching).toMatch(/painted dirt/i);
+    expect(teaching).toMatch(/share is a factory/i);
+    expect(teaching).toMatch(/4-stack is 3 tiles this turn/i);
+    expect(teaching).toContain('1+1+1');
+    expect(teaching).toMatch(/plan that names a tag is already wrong/i);
+    expect(teaching).not.toContain('prefer 4-stacks');
+    expect(teaching).not.toContain('prefer spawners');
+    expect(teaching).not.toMatch(/never close/i);
     const { me } = t1Opening();
     expect(buildSystemPrompt(me, true)).toContain('## Close, cut, mill');
     expect(buildSystemPrompt(me, true)).toContain(mill);
@@ -108,6 +127,13 @@ describe('BYOK tags are hints, threat line names the lead, baseline names the lu
     expect(teaching).toContain('After 1-share');
     expect(teaching).toContain('After 3-share');
     expect(teaching).not.toContain('Play [2]');
+    expect(teaching).toContain('Keep it under 512 characters');
+    expect(teaching).toContain('Hit 5 / 9 shape');
+    expect(teaching).toContain('"moves":[5]');
+    expect(teaching).toContain('"moves":[3]');
+    expect(teaching).toContain('dirt close is not a share');
+    expect(teaching).toContain('Hit 12 is how');
+    expect(teaching).toContain('Hit 5 / 9 is whether');
     expect(system).toContain('## Plan');
   });
 
@@ -246,5 +272,52 @@ describe('BYOK tags are hints, threat line names the lead, baseline names the lu
     expect(annotateMoveSource()).not.toContain('chooseTurnBeam');
     expect(pages).not.toContain('playLlmBotTurn');
     expect(JSON_REPLY_WITH_PLAN).toContain('"plan":"short"');
+  });
+
+  it('Header clause names dirt iff every closes row lacks share+N', () => {
+    const rows = hit5Rows();
+    expect(dirtClosesFromRows(rows), 'dirtClosesFromRows false on Hit 5').toBe(true);
+    const threat = threatLineFromCounts({ ...hit5ThreatInput(), dirtCloses: true });
+    expect(threat).toContain(DIRT_CLAUSE);
+    const offerIdx = threat.indexOf('Offer tags:');
+    const dirtIdx = threat.indexOf(DIRT_CLAUSE);
+    const nearIdx = threat.indexOf('no enemy trail on a legal vertex');
+    expect(dirtIdx).toBeGreaterThan(offerIdx);
+    expect(nearIdx).toBeGreaterThan(dirtIdx);
+    expect(dirtClosesFromRows(hit13Rows())).toBe(false);
+  });
+
+  it('Hit 5 fixture rejects the dirt close and accepts a borders_spawner lump', () => {
+    const rows = hit5Rows();
+    expect(isDirtClose({ moves: [3] }, rows), 'isDirtClose false for Hit 5 [3]').toBe(true);
+    expect(isDirtClose({ moves: [5] }, rows)).toBe(false);
+    expect(isDirtClose({ moves: [2] }, rows)).toBe(true);
+    expect(p66Fixture().hit5.headerDirtClause).toBe(DIRT_CLAUSE);
+    expect(byokBotSource()).not.toMatch(/from ['"]\.\/botClose['"]/);
+    expect(byokBotSource()).not.toContain('botClose.isDirtClose');
+  });
+
+  it('Hit 9 fixture rejects the dirt close and accepts a borders_spawner lump', () => {
+    const rows = hit9Rows();
+    expect(isDirtClose({ moves: [8] }, rows), 'isDirtClose false for Hit 9 [8]').toBe(true);
+    expect(isDirtClose({ moves: [6] }, rows)).toBe(false);
+    expect(p66Fixture().hit9.afterRecordedClose?.shareCounts['B']).toBe(4);
+  });
+
+  it('Hit 13 fixture expected batch is an empty pass', () => {
+    const rows = hit13Rows();
+    const fixture = p66Fixture().hit13;
+    expect(fixture.expectedReply.moves).toEqual([]);
+    expect(fixture.expectedReply.endTurn).toBe(true);
+    const plan = fixture.expectedReply.plan;
+    expect(plan === undefined || plan === '').toBe(true);
+    expect(isDirtClose(fixture.expectedReply, rows)).toBe(false);
+    expect(fixture.expectedReply.moves).not.toEqual([0]);
+  });
+
+  it('isTagChasePlan is true for the hit-0 recorded plan and false for a job that does not name a tag', () => {
+    expect(isTagChasePlan(HIT0_TAG_CHASE_PLAN), 'tag-chase plan not detected').toBe(true);
+    expect(isTagChasePlan('walk a border of the open pinwheel')).toBe(false);
+    expect(isTagChasePlan('close the open trail')).toBe(false);
   });
 });

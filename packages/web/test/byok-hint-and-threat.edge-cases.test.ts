@@ -10,7 +10,9 @@ import {
   baselineIndexFromTags,
   buildUserPrompt,
   clearByokPlans,
+  dirtClosesFromRows,
   millOmit,
+  PLAN_CAP,
   playLlmBotTurn,
   rememberByokPlan,
   snapshotForPrompt,
@@ -30,6 +32,7 @@ import {
 import { oldByokMatchLog } from './byok-thinking-teach.support';
 import { t1Opening } from './byok-teaching-prompt.support';
 import {
+  DIRT_CLAUSE,
   JSON_REPLY_WITH_PLAN,
   annotateMoveSource,
   asPromptSnap,
@@ -158,9 +161,9 @@ describe('BYOK hint-and-threat — plan echo, observation rank, unchanged seams'
     expect(annotateMoveSource()).not.toContain('flankVertices');
   });
 
-  it('Echoed plan is truncated to 80 and has no newline', () => {
+  it('Echoed plan is truncated to PLAN_CAP 512 and newlines become spaces', () => {
     const { state, me, offer } = requireSeatB();
-    const raw = `${'x'.repeat(40)}\n${'y'.repeat(50)}`;
+    const raw = `${'x'.repeat(40)}\n${'y'.repeat(49)}`;
     rememberByokPlan(me, { moves: [0], endTurn: true, plan: raw });
     const prompt = buildUserPrompt(geometry, state, me, offer, true, rules);
     const line = planLine(prompt);
@@ -171,9 +174,13 @@ describe('BYOK hint-and-threat — plan echo, observation rank, unchanged seams'
     expect(leadIdx).toBeGreaterThanOrEqual(0);
     expect(planIdx).toBeGreaterThan(leadIdx);
     expect(planIdx).toBeLessThan(jsonIdx);
+    expect(PLAN_CAP).toBe(512);
     const echoed = echoedPlanText(prompt) ?? '';
-    expect(echoed.length).toBeLessThanOrEqual(80);
+    expect(echoed.length).toBeLessThanOrEqual(PLAN_CAP);
     expect(echoed).not.toContain('\n');
+    expect(echoed, 'newline was stripped instead of becoming a space').toBe(
+      `${'x'.repeat(40)} ${'y'.repeat(49)}`,
+    );
     expect(line ?? '').not.toMatch(/prefer/i);
   });
 
@@ -233,6 +240,9 @@ describe('BYOK hint-and-threat — plan echo, observation rank, unchanged seams'
 
   it('Prompt builders and helpers stay pure except the existing fetch on play', async () => {
     const bot = byokBotSource();
+    expect(bot).toContain('isDirtClose');
+    expect(bot).toContain('isTagChasePlan');
+    expect(bot).toContain('dirtClosesFromRows');
     expect(bot).not.toContain('Date.now');
     expect(bot).not.toContain('Math.random');
     expect(bot).not.toContain('performance.now');
@@ -302,5 +312,40 @@ describe('BYOK hint-and-threat — plan echo, observation rank, unchanged seams'
     expect(empty.llmFallbacks).toBe(1);
     expect(pagesHeuristicSource()).toMatch(/import \{[^}]*chooseMove/);
     expect(buildUserPrompt(geometry, open, openMe, offer, true, rules)).toBeDefined();
+  });
+
+  it('closes plus share+N on the same row omits the dirt clause', () => {
+    const rows = [{ index: 0, count: 2, tags: ['closes', 'share+1'] }];
+    expect(dirtClosesFromRows(rows)).toBe(false);
+    const line = threatLineFromCounts({
+      me: 'B',
+      players: ['A', 'B', 'C'],
+      shares: { A: 1, B: 1, C: 1 },
+      territory: { A: 1, B: 1, C: 1 },
+      trailLen: { A: 0, B: 0, C: 0 },
+      offerTags: ['closes'],
+      nearTrail: false,
+      dirtCloses: false,
+    });
+    expect(line).not.toContain(DIRT_CLAUSE);
+    expect(line).toContain('Offer tags: closes');
+  });
+
+  it('Plan of length 81 is stored whole', () => {
+    const { state, me, offer } = requireSeatB();
+    const plan81 = 'a'.repeat(81);
+    rememberByokPlan(me, { moves: [0], endTurn: true, plan: plan81 });
+    const echoed = echoedPlanText(buildUserPrompt(geometry, state, me, offer, true, rules)) ?? '';
+    expect(echoed.length, 'plan of length 81 was truncated').toBe(81);
+    expect(echoed).toBe(plan81);
+  });
+
+  it('Plan of length 513 is truncated to 512', () => {
+    const { state, me, offer } = requireSeatB();
+    const plan513 = 'b'.repeat(513);
+    rememberByokPlan(me, { moves: [0], endTurn: true, plan: plan513 });
+    const echoed = echoedPlanText(buildUserPrompt(geometry, state, me, offer, true, rules)) ?? '';
+    expect(echoed.length, 'plan of length 513 was not capped at PLAN_CAP 512').toBe(512);
+    expect(echoed).toBe(plan513.slice(0, 512));
   });
 });

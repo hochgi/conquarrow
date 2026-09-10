@@ -491,6 +491,8 @@ export type ThreatLineInput = {
   readonly trailLen: Readonly<Record<string, number>>;
   readonly offerTags: readonly string[];
   readonly nearTrail: boolean;
+  /** P66: omit the dirt clause when absent or false. */
+  readonly dirtCloses?: boolean;
 };
 
 /** Usable batch plus optional `plan` key, read beside `asUsableBatch`. */
@@ -542,6 +544,7 @@ export const threatLineFromCounts = (input: ThreatLineInput): string => {
   if (!input.offerTags.includes('cut') && !input.offerTags.includes('closes')) {
     clauses.push('No cut/contest/deny row');
   }
+  if (input.dirtCloses === true) clauses.push('closes without share+N (dirt)');
   if (!input.nearTrail) clauses.push('no enemy trail on a legal vertex');
   return clauses.join('. ');
 };
@@ -579,12 +582,45 @@ export const isFullStackClose = (
   return named !== undefined && named.tags.includes('closes') && named.count === maxCount;
 };
 
-const PLAN_MAX = 80;
+const SHARE_PLUS_N = /^share\+\d+$/;
+
+const hasSharePlusN = (tags: readonly string[]): boolean =>
+  tags.some((tag) => SHARE_PLUS_N.test(tag));
+
+/** P66 BYOK dirt-close: first index is a `closes` row with no `share+N`. Not P57. */
+export const isDirtClose = (
+  batch: { readonly moves: readonly number[]; readonly endTurn?: boolean },
+  rows: readonly OfferTagRow[] = [],
+): boolean => {
+  const first = batch.moves[0];
+  if (first === undefined) return false;
+  const named = rows.find((row) => row.index === first);
+  if (named === undefined) return false;
+  return named.tags.includes('closes') && !hasSharePlusN(named.tags);
+};
+
+/** True iff some row is `closes` and none of those closing rows carry `share+N`. */
+export const dirtClosesFromRows = (rows: readonly OfferTagRow[]): boolean => {
+  let anyClose = false;
+  for (const row of rows) {
+    if (!row.tags.includes('closes')) continue;
+    anyClose = true;
+    if (hasSharePlusN(row.tags)) return false;
+  }
+  return anyClose;
+};
+
+/** True iff the plan names `on_target` / `closes` / `cut` as whole words. */
+export const isTagChasePlan = (plan: unknown): boolean =>
+  typeof plan === 'string' && /\b(?:on_target|closes|cut)\b/i.test(plan);
+
+/** P66 plan budget — sanitize and echo truncate. */
+export const PLAN_CAP = 512;
 const byokPlans = new Map<PlayerId, string>();
 
 const sanitizePlan = (plan: string): string => {
-  const cleaned = plan.replace(/[\n\r]/g, '').trim();
-  return cleaned.length <= PLAN_MAX ? cleaned : cleaned.slice(0, PLAN_MAX);
+  const cleaned = plan.replace(/[\n\r]+/g, ' ').trim();
+  return cleaned.length <= PLAN_CAP ? cleaned : cleaned.slice(0, PLAN_CAP);
 };
 
 export const clearByokPlans = (): void => {
@@ -674,6 +710,7 @@ export const buildUserPrompt = (
     trailLen: counts.trailLen,
     offerTags: collectedOfferTags(rows),
     nearTrail: nearTrailFromRows(rows),
+    dirtCloses: dirtClosesFromRows(rows),
   });
   const storedPlan = byokPlans.get(me);
   const planEcho = storedPlan === undefined ? [] : [`Plan: ${storedPlan}`];

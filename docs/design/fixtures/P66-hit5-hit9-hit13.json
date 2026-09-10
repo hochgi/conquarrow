@@ -1,0 +1,146 @@
+{
+  "match": "conquarrow-match-2026-09-10T065710-109Z",
+  "seat": "B",
+  "notes": "Recorded from requests/responses of the 2026-09-10 mixed playtest. Helpers reject dirt closes and tag-chase plans. No live grok.",
+  "hit0": {
+    "hit": 0,
+    "role": "tag-chase plan shape",
+    "header": "Seat B. Return an ordered moves index array from this offer and set endTurn when this seat is done.\nShares=4, trailLen=0.\nExposed tips: none\nLead: A 4 shares / 3 terr; B 4 / 3; C 3 / 3. Longest enemy trail: A 2. No cut/contest/deny row. no enemy trail on a legal vertex",
+    "territoryCounts": {"A": 3, "B": 3, "C": 3},
+    "shareCounts": {"A": 4, "B": 4, "C": 3},
+    "groups": [
+      {"arrow": "tiling:a:-4,5,1", "owner": "B", "heads": 3, "spent": 0, "speed": 2}
+    ],
+    "legalRows": [
+      "[0] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,0 count=1 leave=2 spd=1 spent=0 left=1 tipDist=0\u21922 trailLen=1 tags=leave_home,outward,on_target",
+      "[1] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,0 count=2 leave=1 spd=2 spent=0 left=2 tipDist=0\u21922 trailLen=1 tags=leave_home,outward,on_target",
+      "[2] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,0 count=3 spd=2 spent=0 left=2 tipDist=0\u21922 trailLen=1 tags=leave_home,outward,on_target",
+      "[3] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,1 count=1 leave=2 spd=1 spent=0 left=1 tipDist=0\u21923 trailLen=1 tags=leave_home,outward",
+      "[4] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,1 count=2 leave=1 spd=2 spent=0 left=2 tipDist=0\u21923 trailLen=1 tags=leave_home,outward",
+      "[5] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,1 count=3 spd=2 spent=0 left=2 tipDist=0\u21923 trailLen=1 tags=leave_home,outward",
+      "[6] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,2 count=1 leave=2 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[7] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,2 count=2 leave=1 spd=2 spent=0 left=2 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[8] step from=tiling:a:-4,5,1 exit=tiling:a:-5,6,2 count=3 spd=2 spent=0 left=2 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home"
+    ],
+    "recordedReply": {
+      "moves": [1],
+      "endTurn": false,
+      "why": "speed-2 pair on_target, skip mill",
+      "plan": "continue on_target and spend leftover on same exit"
+    },
+    "tagChasePlan": true,
+    "expectedPlanShape": "must not name a tag (on_target / closes / cut) as the job"
+  },
+  "hit5": {
+    "hit": 5,
+    "header": "Shares=4, trailLen=5.\nExposed tips: tiling:a:-4,6,2 tipDist=1 heads=2; tiling:a:-5,6,0 tipDist=2 heads=1\nLead: A 6 shares / 5 terr; B 4 / 3; C 3 / 3. Longest enemy trail: C 4. Offer tags: closes, borders_spawner. no enemy trail on a legal vertex\nPlan: close the open trail",
+    "territoryCounts": {"A": 5, "B": 3, "C": 3},
+    "shareCounts": {"A": 6, "B": 4, "C": 3},
+    "trails": {"B": {"count": 5}, "C": {"count": 4}, "A": {"count": 1}},
+    "groups": [
+      {"arrow": "tiling:a:-4,6,2", "owner": "B", "heads": 2, "spent": 1, "speed": 2},
+      {"arrow": "tiling:a:-5,6,0", "owner": "B", "heads": 1, "spent": 0, "speed": 1}
+    ],
+    "legalRows": [
+      "[0] step from=tiling:a:-4,6,2 exit=tiling:a:-4,5,0 count=1 leave=1 spd=1 spent=1 left=0 tipDist=1\u21923 trailLen=6 tags=outward",
+      "[1] step from=tiling:a:-4,6,2 exit=tiling:a:-4,5,0 count=2 spd=2 spent=1 left=1 tipDist=1\u21923 trailLen=6 tags=outward",
+      "[2] step from=tiling:a:-4,6,2 exit=tiling:a:-4,5,1 count=1 leave=1 spd=1 spent=1 left=0 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[3] step from=tiling:a:-4,6,2 exit=tiling:a:-4,5,1 count=2 spd=2 spent=1 left=1 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[4] step from=tiling:a:-4,6,2 exit=tiling:a:-4,5,2 count=1 leave=1 spd=1 spent=1 left=0 tipDist=1\u21922 trailLen=6 tags=borders_spawner,outward",
+      "[5] step from=tiling:a:-4,6,2 exit=tiling:a:-4,5,2 count=2 spd=2 spent=1 left=1 tipDist=1\u21922 trailLen=6 tags=borders_spawner,outward",
+      "[6] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,0 count=1 spd=1 spent=0 left=1 tipDist=2\u21924 trailLen=5 tags=outward,on_target",
+      "[7] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,1 count=1 spd=1 spent=0 left=1 tipDist=2\u21922 trailLen=6",
+      "[8] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,2 count=1 spd=1 spent=0 left=1 tipDist=2\u21921 trailLen=5 tags=homeward"
+    ],
+    "dirtCloseIndices": [2, 3],
+    "bordersSpawnerIndices": [4, 5],
+    "headerDirtClause": "closes without share+N (dirt)",
+    "recordedReply": {"moves": [3], "endTurn": true, "why": "lump close"},
+    "expectedReply": {
+      "moves": [5],
+      "endTurn": false,
+      "why": "border the pinwheel",
+      "plan": "walk a border of the open pinwheel; dirt close is not a share"
+    },
+    "acceptableReplies": [
+      {"moves": [5]},
+      {"moves": [4]},
+      {"moves": [5, 8]},
+      {"moves": [4, 8]}
+    ],
+    "rejectedReplies": [
+      {"moves": [3]},
+      {"moves": [2]},
+      {"moves": [2, 3]}
+    ]
+  },
+  "hit9": {
+    "hit": 9,
+    "header": "Shares=4, trailLen=3.\nExposed tips: tiling:a:-5,7,0 tipDist=1 heads=2\nLead: C 9 shares / 11 terr; A 9 / 8; B 4 / 8. Longest enemy trail: C 3. Offer tags: closes, borders_spawner. no enemy trail on a legal vertex\nPlan: close the open trail",
+    "territoryCounts": {"A": 8, "B": 8, "C": 11},
+    "shareCounts": {"A": 9, "B": 4, "C": 9},
+    "trails": {"B": {"count": 3}, "C": {"count": 3}},
+    "groups": [
+      {"arrow": "tiling:a:-5,6,0", "owner": "B", "heads": 1, "spent": 0, "speed": 1},
+      {"arrow": "tiling:a:-5,7,0", "owner": "B", "heads": 2, "spent": 1, "speed": 2}
+    ],
+    "legalRows": [
+      "[0] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,0 count=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=3 tags=home_mill,onto_home,on_target",
+      "[1] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,1 count=1 spd=1 spent=0 left=1 tipDist=0\u21922 trailLen=4 tags=leave_home,outward",
+      "[2] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,2 count=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=3 tags=home_mill,onto_home",
+      "[3] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,0 count=1 leave=1 spd=1 spent=1 left=0 tipDist=1\u21922 trailLen=4 tags=outward",
+      "[4] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,0 count=2 spd=2 spent=1 left=1 tipDist=1\u21922 trailLen=4 tags=outward",
+      "[5] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,1 count=1 leave=1 spd=1 spent=1 left=0 tipDist=1\u21923 trailLen=4 tags=borders_spawner,outward",
+      "[6] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,1 count=2 spd=2 spent=1 left=1 tipDist=1\u21923 trailLen=4 tags=borders_spawner,outward",
+      "[7] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,2 count=1 leave=1 spd=1 spent=1 left=0 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home",
+      "[8] step from=tiling:a:-5,7,0 exit=tiling:a:-4,7,2 count=2 spd=2 spent=1 left=1 tipDist=1\u21920 trailLen=0 tags=closes,homeward,onto_home"
+    ],
+    "dirtCloseIndices": [7, 8],
+    "bordersSpawnerIndices": [5, 6],
+    "headerDirtClause": "closes without share+N (dirt)",
+    "afterRecordedClose": {"territoryCounts": {"B": 13}, "shareCounts": {"B": 4}},
+    "recordedReply": {"moves": [8], "endTurn": true, "why": "lump close"},
+    "expectedReply": {
+      "moves": [6],
+      "endTurn": false,
+      "why": "border the pinwheel",
+      "plan": "walk a border of the open pinwheel; dirt close is not a share"
+    },
+    "acceptableReplies": [
+      {"moves": [6]},
+      {"moves": [5]}
+    ],
+    "rejectedReplies": [
+      {"moves": [8]},
+      {"moves": [7]}
+    ]
+  },
+  "hit13": {
+    "hit": 13,
+    "header": "Shares=4, trailLen=0.\nExposed tips: none\nLead: C 24 shares / 35 terr; A 12 / 11; B 4 / 13. Longest enemy trail: A 1. No cut/contest/deny row. no enemy trail on a legal vertex",
+    "territoryCounts": {"A": 11, "B": 13, "C": 35},
+    "shareCounts": {"A": 12, "B": 4, "C": 24},
+    "groups": [
+      {"arrow": "tiling:a:-4,7,2", "owner": "B", "heads": 2, "spent": 0, "speed": 2},
+      {"arrow": "tiling:a:-5,6,0", "owner": "B", "heads": 1, "spent": 0, "speed": 1}
+    ],
+    "legalRows": [
+      "[0] step from=tiling:a:-4,7,2 exit=tiling:a:-4,6,0 count=1 leave=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[1] step from=tiling:a:-4,7,2 exit=tiling:a:-4,6,0 count=2 spd=2 spent=0 left=2 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[2] step from=tiling:a:-4,7,2 exit=tiling:a:-4,6,1 count=1 leave=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[3] step from=tiling:a:-4,7,2 exit=tiling:a:-4,6,1 count=2 spd=2 spent=0 left=2 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[4] step from=tiling:a:-4,7,2 exit=tiling:a:-4,6,2 count=1 leave=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[5] step from=tiling:a:-4,7,2 exit=tiling:a:-4,6,2 count=2 spd=2 spent=0 left=2 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[6] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,0 count=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home,on_target",
+      "[7] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,1 count=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home",
+      "[8] step from=tiling:a:-5,6,0 exit=tiling:a:-4,6,2 count=1 spd=1 spent=0 left=1 tipDist=0\u21920 trailLen=0 tags=home_mill,onto_home"
+    ],
+    "baselineExpected": "omitted",
+    "recordedReply": {
+      "moves": [],
+      "endTurn": true,
+      "why": "home mill empty trail wasted tempo"
+    },
+    "expectedReply": {"moves": [], "endTurn": true, "why": "home mill empty trail wasted tempo", "plan": ""}
+  }
+}
