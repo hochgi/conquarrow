@@ -14,7 +14,7 @@
  * committed; this only runs when the artwork changes.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -31,9 +31,8 @@ try {
     '/packages/geometry-tiling/src/cells.ts',
   );
 
-  // Player A gold, player B blue, player C orange — packages/web/src/colors.ts.
-  const TILE_COLOURS = ['#e0b050', '#50a0e0', '#e8734a'];
-  const BOARD_BG = '#0e141b';
+  const { BOARD_BG, styleFor } = await vite.ssrLoadModule('/packages/web/src/colors.ts');
+  const TILE_COLOURS = ['A', 'B', 'C'].map((p) => styleFor(p).fill);
 
   const SIZE = 64;
   const PAD = 4;
@@ -87,6 +86,8 @@ try {
   } catch (err) {
     const missing = err !== null && typeof err === 'object' && 'code' in err && err.code === 'ENOENT';
     throw new Error(missing ? 'rsvg-convert not found (brew install librsvg)' : String(err), { cause: err });
+  } finally {
+    rmSync(opaque, { force: true });
   }
 } finally {
   await vite.close();
