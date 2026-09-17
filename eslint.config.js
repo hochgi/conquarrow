@@ -41,6 +41,9 @@ export default tseslint.config(
       'packages/web/dist/**',
       'tools/byok-turn-runner/**',
       'scripts/**',
+      // Build-time asset generation, same as `scripts/**`: Node tooling that runs
+      // by hand, is not in a tsconfig, and ships nothing.
+      'packages/web/scripts/**',
       'reports/**',
       'coverage/**',
       '.stryker-tmp/**',
