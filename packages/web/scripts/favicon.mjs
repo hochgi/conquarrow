@@ -33,7 +33,7 @@ const { cellArrow, cellVertex, vertexBorders, vertexCell } = await vite.ssrLoadM
 
 // Player A gold, player B blue, player C orange — packages/web/src/colors.ts.
 const TILE_COLOURS = ['#e0b050', '#50a0e0', '#e8734a'];
-const BOARD_BG = '#141a21';
+const BOARD_BG = '#0e141b';
 
 const SIZE = 64;
 const PAD = 4;
@@ -77,13 +77,18 @@ writeFileSync(resolve(OUT, 'favicon.svg'), svg(''));
 const opaque = resolve(tmpdir(), 'conquarrow-icon.svg');
 writeFileSync(opaque, svg(`<rect width="${String(SIZE)}" height="${String(SIZE)}" fill="${BOARD_BG}"/>`));
 
-for (const [name, px] of [
-  ['favicon-32.png', 32],
-  ['apple-touch-icon.png', 180],
-]) {
-  execFileSync('rsvg-convert', ['-w', String(px), '-h', String(px), '-o', resolve(OUT, name), opaque]);
+try {
+  for (const [name, px] of [
+    ['favicon-32.png', 32],
+    ['apple-touch-icon.png', 180],
+  ]) {
+    execFileSync('rsvg-convert', ['-w', String(px), '-h', String(px), '-o', resolve(OUT, name), opaque]);
+  }
+} catch (err) {
+  const missing = err !== null && typeof err === 'object' && 'code' in err && err.code === 'ENOENT';
+  throw new Error(missing ? 'rsvg-convert not found (brew install librsvg)' : String(err), { cause: err });
+} finally {
+  await vite.close();
 }
-
-await vite.close();
 
 console.log(`wrote icons to ${OUT}`);
