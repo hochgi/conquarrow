@@ -11,13 +11,14 @@
   },
   "scripts": {
     "typecheck": "tsc --build --force",
-    "start": "node --experimental-strip-types src/stdio.ts"
+    "start": "tsx src/stdio.ts"
   },
   "dependencies": {
     "@conquarrow/contracts": "workspace:*",
     "@conquarrow/geometry-tiling": "workspace:*",
     "@conquarrow/rules-core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "tsx": "^4.23.15",
     "zod": "^4.6.5"
   },
   "devDependencies": {
