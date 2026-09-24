@@ -95,6 +95,13 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       Then the tool refuses SeatKindMismatch
       And observation.activePlayer is A
 
+    Scenario: a legal-then-illegal apply_steps batch commits none
+      Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
+      When the caller invokes apply_steps for seat A with one legal opening step followed by a step whose exit is not legal
+      Then the tool refuses wrapping ContractViolation
+      And observation.exposedTips matches the pre-call view
+      And observation.activePlayer is A
+
     Scenario: apply_steps with both indices and steps, or neither, refuses
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       And legal_moves for seat A has been called

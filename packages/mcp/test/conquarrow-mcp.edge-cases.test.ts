@@ -26,6 +26,7 @@ import {
   hasLeadLineKey,
   isNamedError,
   openingLeaveHomeIndex,
+  openingStepMoves,
   openThree,
   parseLegalMoveRows,
   stampLiveWinner,
@@ -162,6 +163,29 @@ describe('MCP edges — roster, kind, stale index, won match, handshake', () => 
         true,
       );
       expect(tools.observe({ seat: 'A' }).activePlayer).toBe('A');
+    });
+
+    it('a legal-then-illegal apply_steps batch commits none', () => {
+      const tools = createTools();
+      openThree(tools);
+      const before = tools.observe({ seat: 'A' });
+      const first = openingStepMoves()[0];
+      if (first === undefined) throw new Error('setup: no opening step');
+      const error = catchError(() =>
+        tools.apply_steps({
+          seat: 'A',
+          steps: [
+            { from: String(first.from), exit: String(first.exit), count: first.count },
+            { from: String(first.from), exit: 'tiling:a:99,99,0', count: 1 },
+          ],
+        }),
+      );
+      expect(wrapsContractViolation(error), 'the tool refuses wrapping ContractViolation').toBe(
+        true,
+      );
+      const after = tools.observe({ seat: 'A' });
+      expect(after.exposedTips).toEqual(before.exposedTips);
+      expect(after.activePlayer).toBe('A');
     });
 
     it('play_heuristic_turn on a human seat refuses', () => {

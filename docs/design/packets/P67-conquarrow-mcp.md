@@ -10,7 +10,7 @@ edit `docs/byok-teaching.md` in this packet — P66 owns that file
 this round.
 
 **Layer:** new adapter package (suggested `packages/mcp`) over
-`rules-core` + `contracts`. Optional thin reuse of web helpers
+`rules-core` + `contracts` + `geometry-tiling`. Optional thin reuse of web helpers
 (`annotateMove`, P21 `findings`) **imported as libraries**, not a
 UI scrape and not a Playwright drive of Pages. The board picture
 is a simple SVG from state
@@ -18,7 +18,8 @@ is a simple SVG from state
 `Board.tsx`. No `contracts` / `rules-core` behaviour change.
 **No game rule is added, changed, or implied.**
 
-**Depends on P01, P04, P11-read, P15-read, P21-read, P64-read.**
+**Depends on P01, P03-read, P04, P09-read, P11-read, P15-read, P21-read,
+P38-read, P53-read, P64-read.**
 Ship **after** P66 so the self-improve loop does not start from
 the dirt-close / tag-chase teaching. BYOK on Pages stays the
 browser seat (ADR 0003). This packet is a **stdio MCP server**.
@@ -137,8 +138,11 @@ not return the full spawner array.
   heuristic seat, the server SHALL refuse and leave state
   unchanged.
 - WHEN `apply_steps` names an illegal step, the server SHALL
-  refuse and leave state unchanged. Same `ContractViolation`
-  family the engine already throws — wrap, do not swallow.
+  refuse and leave state unchanged — including when an earlier
+  step in the same batch was legal. The batch is staged on a
+  local state and committed only if every step applies. Same
+  `ContractViolation` family the engine already throws — wrap,
+  do not swallow.
 - WHEN `observe` runs, the payload SHALL NOT include a legal
   step that `legalMoves` would not emit for `me`.
 - WHEN `see_board` runs, the SVG SHALL NOT be treated as an

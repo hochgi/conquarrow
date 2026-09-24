@@ -16,6 +16,7 @@ import {
   mcpSrc,
   openingLeaveHomeIndex,
   openingMatch,
+  openingStepMoves,
   openThree,
   parseLegalMoveRows,
   stampLiveWinner,
@@ -103,6 +104,26 @@ describe('conquarrow-mcp invariants', () => {
     const stale = catchError(() => tools.apply_steps({ seat: 'A', indices: [index] }));
     expect(stale instanceof StaleOfferIndex || isNamedError(stale, 'StaleOfferIndex')).toBe(true);
     expect(tools.observe({ seat: 'A' }).exposedTips).toEqual(afterFirst.exposedTips);
+  });
+
+  it('WHEN a later step in an apply_steps batch is illegal, the system shall commit none of the batch.', () => {
+    const tools = createTools();
+    openThree(tools);
+    const before = tools.observe({ seat: 'A' });
+    const first = openingStepMoves()[0];
+    if (first === undefined) throw new Error('setup: no opening step');
+    const error = catchError(() =>
+      tools.apply_steps({
+        seat: 'A',
+        steps: [
+          { from: String(first.from), exit: String(first.exit), count: first.count },
+          { from: String(first.from), exit: 'tiling:a:99,99,0', count: 1 },
+        ],
+      }),
+    );
+    expect(wrapsContractViolation(error)).toBe(true);
+    expect(tools.observe({ seat: 'A' }).exposedTips).toEqual(before.exposedTips);
+    expect(tools.observe({ seat: 'A' }).activePlayer).toBe('A');
   });
 
     it('WHEN state.winner is set, apply_steps, end_turn, and play_heuristic_turn shall refuse and leave state unchanged.', () => {

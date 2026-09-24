@@ -12,7 +12,7 @@ Pages drive. Not raw `GameState`.
 **Features:** [core](./conquarrow-mcp.core.feature) ·
 [edge cases](./conquarrow-mcp.edge-cases.feature)
 
-**Counts:** 23 scenarios (9 core, 14 edge) · 22 invariants · 0 deferred ·
+**Counts:** 24 scenarios (9 core, 15 edge) · 23 invariants · 0 deferred ·
 0 SPEC §11 items.
 
 Do not burst [byok-hint-and-threat](../byok-hint-and-threat/byok-hint-and-threat.md),
@@ -138,7 +138,8 @@ Exactly one of:
 - `indices`: numbers that appear as `[i]` on **this seat’s** last `legal_moves`
 
 Empty, both, or neither: refuse, state unchanged. Each accepted step is
-`rules.apply`. Return `observation` (for that seat) and `landed`: per step
+`rules.apply` on a **local** copy of state. A later illegal step throws
+and the live match is not updated. Return `observation` (for that seat) and `landed`: per step
 `{ from, exit, count, tags }` whose tags are the `annotateMove` tags of that
 step (including `closes`, `cut`, `share+N`). A stale index, an illegal step,
 a won match, or a kind/active mismatch: refuse, state unchanged. Wrap
@@ -251,6 +252,8 @@ flowchart TD
   seat, the system shall refuse and leave state unchanged.
 - WHEN `apply_steps` names an illegal step or a stale index, the system shall
   refuse and leave state unchanged.
+- WHEN a later step in an `apply_steps` batch is illegal, the system shall
+  commit none of the batch.
 - WHEN `state.winner` is set, `apply_steps`, `end_turn`, and
   `play_heuristic_turn` shall refuse and leave state unchanged.
 - WHEN `observe` runs, every `findings[].move` shall be a `kind === 'step'`
