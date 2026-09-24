@@ -5,6 +5,7 @@
     { "path": "./packages/geometry-tiling" },
     { "path": "./packages/geometry-fixtures" },
     { "path": "./packages/rules-core" },
-    { "path": "./packages/online-api" }
+    { "path": "./packages/online-api" },
+    { "path": "./packages/mcp" }
   ]
 }

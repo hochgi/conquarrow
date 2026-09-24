@@ -1,0 +1,26 @@
+{
+  "name": "@conquarrow/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "conquarrow": "./src/stdio.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --build --force",
+    "start": "node --experimental-strip-types src/stdio.ts"
+  },
+  "dependencies": {
+    "@conquarrow/contracts": "workspace:*",
+    "@conquarrow/geometry-tiling": "workspace:*",
+    "@conquarrow/rules-core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

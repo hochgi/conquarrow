@@ -4,9 +4,25 @@ Adapter and seating language that is not a game rule. Core rules vocabulary stay
 
 ## Language
 
+**seat**:
+One participant in a match, labeled in play order. The rules engine sees that participant's player. The seat is who submits their moves.
+_Avoid_: chair, OpenCode seat, the tool caller
+
+**seat plan**:
+The count and the kind of each seat, named before the match starts. Not which human is a living person.
+_Avoid_: lobby, OpenCode seat
+
+**human**:
+A seat whose moves are submitted from outside the server. The server does not choose them. A second submitter on another seat is still human. A seat the tool caller plays is still human.
+_Avoid_: the tool caller, BYOK, heuristic, OpenCode seat, controlled-by-you
+
+**board picture**:
+A rendering of the match window from state, for looking. Not a screenshot, and not a legal-move offer. A shape in it does not make a step legal.
+_Avoid_: bitmap, scrape, screenshot
+
 **heuristic**:
 A seat whose moves are chosen by the deterministic adapter. Online library rows label this seat "AI".
-_Avoid_: LLM, BYOK, bot
+_Avoid_: LLM, BYOK, bot, human
 
 **BYOK**:
 A seat whose moves are chosen by a model using credentials pasted in that browser: base URL, API key, and model id. Each browser profile is configured separately. The key is not a server secret.
