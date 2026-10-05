@@ -12,7 +12,8 @@ thin enough that nobody mistakes them for an implementation.
 ## What you produce
 
 1. **One component test per Gherkin scenario**, written against the ports in
-   `packages/contracts` — never against a concrete geometry, renderer, or store.
+   `packages/contracts` — never against a concrete geometry, renderer, or store, except at an
+   I/O edge where the adapter *is* the component under test (`component-testing`).
    A second implementation of the port must be able to satisfy the same test.
    **Runner is Vitest.** At an I/O edge (`packages/online-api`) a component test
    may probe the seam with `@hochgi/test-kit*` — follow `component-testing` for

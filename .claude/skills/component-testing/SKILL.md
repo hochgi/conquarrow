@@ -73,8 +73,8 @@ So:
   interface of Promise-returning methods: wrap it (`ConnectionNotifier` below).
   `createAwsPostToConnection` (`src/http.ts`) is too thin and reads `env` at
   import — out of scope.
-- **Synchronous deps** (`clock`, `randomBytes`, `fakeGoogle`, the heuristic)
-  are not I/O. Pass the real or a scripted function; `createProbedMock`
+- **Synchronous deps** (`clock`, `randomBytes`, the heuristic) are not I/O, and
+  `google`'s deterministic `fakeGoogle` already answers every scenario. Pass the real or a scripted function; `createProbedMock`
   rejects sync methods at compile time anyway.
 
 Checklist: exposes status codes, raw bytes or SDK errors → too thin. Owns the
@@ -133,8 +133,10 @@ afterEach(async () => {
   `always().forward()` sends every command to the in-memory backing — ETag is
   the quoted MD5, `IfMatch` / `IfNoneMatch` fail with 412, a missing key is
   `NoSuchKey`, `ListObjectsV2` pages cap at 1000. A probed mock has no backing:
-  a call no rule matches **parks** until something settles it or the 30 s
-  safety timeout fires. Program `post` before the When.
+  a call no rule matches **parks** with no timer of its own. The 30 s safety
+  timeout bounds waiters (`intercept`, `observe`, `atLeast`), not parked calls,
+  and `rig.close()` does not settle them — an unprogrammed post hangs the When
+  until Vitest's 5 s test timeout. Program `post` before the When.
 
 ## Porcelain and plumbing
 
@@ -210,6 +212,9 @@ pending.forward();
 expect(await outcome).toBeInstanceOf(PreconditionFailed);
 ```
 
+- Pass `{ within: seconds(2) }` to `intercept` when it might not match: the
+  kit's default wait and Vitest's test timeout are both 5 s, and only the kit's
+  error names the filter that failed.
 - Register the intercept **before** the When. A call the default forward has
   already settled cannot be intercepted retroactively; only a call that parked
   because no rule matched can.
@@ -222,7 +227,8 @@ expect(await outcome).toBeInstanceOf(PreconditionFailed);
 **Park.** `always().park()`, or an intercept you never settle, lets a
 component's own timeout fire. Nothing in online-api owns a timer today:
 `notifyOthers` awaits each post with no timeout, so a parked post holds the
-move response open until the safety timeout. That is a P68 open item, not a
+move response open indefinitely (in a test, Vitest's timeout is the only
+bound). That is a P68 open item, not a
 test to write.
 
 ## Assertions

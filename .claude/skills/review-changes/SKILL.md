@@ -45,7 +45,8 @@ being papered over — treat it as a blocker and ask what drifted.
 - Every Gherkin scenario has exactly one component test.
 - Every EARS invariant has an assertion, preferably a property test.
 - No test asserts on internal shape where behaviour was available.
-- Tests run against ports, not concretions.
+- Tests run against ports, not concretions — except an I/O-edge suite whose
+  subject is the adapter itself (`component-testing`).
 
 ### 4. Hexagonal boundaries
 

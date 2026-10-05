@@ -98,6 +98,6 @@ I/O edge (`packages/online-api`) those tests may use `@hochgi/test-kit*` — see
 
 - Command: `.claude/commands/spec-to-ship.md`
 - Phase skills: `write-spec`, `write-failing-tests`, `code-to-green`, `review-changes`
-- Support skills: `rules-invariants`, `engineering-principles`, `mutation-testing`
+- Support skills: `rules-invariants`, `engineering-principles`, `mutation-testing`, `component-testing`
 - Design source of truth: `SPEC.md` (game); `docs/adr/0002-cheap-async-online.md` (online)
 - Packet index: `docs/design/02-work-packets.md`
