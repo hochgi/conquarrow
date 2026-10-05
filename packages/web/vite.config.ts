@@ -5,7 +5,8 @@ import { defineConfig } from 'vite';
 import { byokDevProxy } from './vite.byok-proxy';
 
 const webRoot = dirname(fileURLToPath(import.meta.url));
-const docsDir = resolve(webRoot, '../../docs');
+const repoRoot = resolve(webRoot, '../..');
+const docsDir = resolve(repoRoot, 'docs');
 
 /**
  * GitHub Pages serves this package at `/conquarrow/` under
@@ -21,7 +22,7 @@ export default defineConfig(({ mode }) => ({
   root: '.',
   server: {
     port: 5173,
-    fs: { allow: [docsDir] },
+    fs: { allow: [repoRoot, docsDir] },
   },
   resolve: {
     // Workspace packages export .ts sources; Vite handles them directly.
