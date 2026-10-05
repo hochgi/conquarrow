@@ -10,4 +10,4 @@ variant: xhigh
 
 Read and follow `.claude/skills/review-changes/SKILL.md`.
 Prepare PR title/body starting with `🤖: `. Do not push.
-Never push shalevhoch or local-main.
+Never push shalevhoch.

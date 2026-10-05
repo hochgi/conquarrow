@@ -45,7 +45,7 @@ scheduled early in the first place.
 | P21 | Findings planner | adapter | — | P11, P15 | **[packet](./packets/P21-findings-planner.md).** Deterministic findings list; heuristic + BYOK target locks. Web only |
 | P22 | Simple trails | rules | §5–7 | P05–P07, P13 | **[packet](./packets/P22-beta-simple-trails.md).** **Landed.** No branch toll; dormant legal; no size-1 freeze. Firebreak-capped paint (D5) **superseded by P42**. |
 | P23 | Intercept findings | adapter | — | P21 | **[packet](./packets/P23-intercept-findings.md).** **Ready to ship.** Timed `intercept` vs projected tip-frontier triangles; in-time gate; layout wired into heuristic + BYOK |
-| P24 | Delivery harness | tooling | — | — | **[packet](./packets/P24-delivery-harness.md).** Grok 4.6 xhigh, Stryker, CRAP hint, complexity warn, `local-main` test-kit overlay, verify CI. Lands before the online track. Skips Gherkin. |
+| P24 | Delivery harness | tooling | — | — | **[packet](./packets/P24-delivery-harness.md).** Grok 4.6 xhigh, Stryker, CRAP hint, complexity warn, `local-main` test-kit overlay (**retired by P68**), verify CI. Lands before the online track. Skips Gherkin. |
 | ~~P12~~ | ~~AI opponent~~ | — | — | — | **out of MVP** (hot-seat). Kept in the graph because P10 exists partly to make it cheap later |
 | P14 | Online ADR | architecture | — | ADR 0001, P10, P24 | **[packet](./packets/P14-online-adr.md).** **Landed** as [ADR 0002](../adr/0002-cheap-async-online.md). 3/6 seats, ≥2 humans for AWS, groupHash = sorted Google subs, rematch = next game number. |
 | P15 | Local BYOK LLM bot | adapter | — | P11 | **[packet](./packets/P15-byok-llm-bot.md).** **Landed.** Browser-only OpenAI-compatible seat; legalMoves filter; keys never leave session. Pages-direct CORS: [ADR 0003](../adr/0003-pages-direct-byok.md). Local Pause + all-bot idle-pause: [bot-pause](../spec/bot-pause/bot-pause.md) |
@@ -92,6 +92,7 @@ scheduled early in the first place.
 | P65 | Quiet-home leftover pass | web | — | P59 | **[packet](./packets/P65-quiet-home-pass.md).** 3-seat BSSN 20: a ready 2⁺ stack with leftover speed may not pass when a contest-advancing complete exists. Amends mission-and-staging. 2026-09-10: A r3 walked. |
 | P66 | BYOK plan budget + dirt | web | — | P64 | **[packet](./packets/P66-byok-plan-budget-and-dirt.md).** Plan cap 80→512; `closes` without `share+N` is dirt; plan that names a tag is wrong; header dirt clause. Fixture: 2026-09-10 hits 5 / 9 / 13. Amends byok-hint-and-threat. |
 | P67 | Conquarrow MCP | adapter | — | P01, P03, P09, P21, P38, P53, P64, P66 | **[packet](./packets/P67-conquarrow-mcp.md).** Stdio MCP over `legalMoves` / `apply` / observation+findings. Not a UI scrape, not raw `GameState`, not a Pages BYOK replacement. After P66 teaching lock. |
+| P68 | test-kit at the I/O edges | tooling + online | — | P17, P18, P24 | **[packet](./packets/P68-test-kit-at-the-edges.md).** `@hochgi/test-kit*` is public, so P24's `local-main` overlay and `local-hygiene` hook retire. Committed kit tests at `online-api` edges only: real `S3Client` store via `createProbedS3Adapter`, `PostToConnection` via `createProbedMock`. Never in contracts / rules-core / geometry-*. Ports the `component-testing` skill. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -164,6 +165,8 @@ flowchart TD
   P64["P64 hint and threat"] --> P66["P66 plan budget + dirt"]
   P66 --> P67["P67 MCP"]
   P21 --> P67
+  P18 --> P68["P68 test-kit at the edges"]
+  P24 --> P68
 ```
 
 ## Build order and why

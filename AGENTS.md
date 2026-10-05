@@ -134,26 +134,20 @@ Three layers, each catching a different class of defect:
 Those three layers are **committed Vitest**, written against ports. They are the
 spec-to-ship contract.
 
-A fourth layer is **local-only**: `@vnatures/test-kit` component tests on a
-never-pushed `local-main` branch, rebased onto `main`. They must not appear in
-`package.json`, `pnpm-lock.yaml`, or tracked `*.kit.test.ts` on any branch that
-is pushed. The pre-push hook enforces that. Do not implement a packet against
-kit tests — implement against the committed suite.
+A fourth layer, also committed, probes the **I/O edges**: `@hochgi/test-kit` (core `createRig`),
+`@hochgi/test-kit-s3` (`createProbedS3Adapter` — a real `S3Client` over an
+in-memory backing) and `@hochgi/test-kit-mock` (`createProbedMock<T>`). Public
+npm, MIT. Use them **only at I/O edges** — `packages/online-api` today, as
+devDependencies only; `packages/mcp` / `packages/web` only if they grow an
+injected I/O boundary. **Never** in `packages/contracts`, `packages/rules-core`
+or `packages/geometry-*`: the core has no I/O to probe, and ESLint plus the P68
+invariants test enforce it. Kit tests are ordinary committed Vitest with the
+usual suffixes (`*.core|edge-cases|invariants|replay.test.ts`, rig factory in
+`*.support.ts`); the `*.kit.test.ts` suffix is retired. See the
+`component-testing` skill.
 
 Stryker (`pnpm test:mutation`) is the mutation layer on `rules-core`. Advisory
 (`break: null`); triage new survivors. See the `mutation-testing` skill.
-
-### `local-main` overlay
-
-```bash
-git branch local-main main          # once
-git checkout local-main && git rebase main   # after main moves
-```
-
-On `local-main` only: add `@vnatures/test-kit` as a file: or private registry
-dep, write `*.kit.test.ts`. Never merge that branch. Never push it. Product
-packets always branch from `main`. After a packet lands on `main`, rebase
-`local-main` and re-add any kit tests that still apply.
 
 ## The spec→ship workflow
 
@@ -178,7 +172,7 @@ Do not put an `XAI_API_KEY` in the repo.
    triage (fix / defer / reject), squash-merge to `hochgi/conquarrow`.
 
 Do not collapse phases. Do not invent a game rule. Online/infra BSSN is in-bounds
-when documented. Never push `shalevhoch` or `local-main`.
+when documented. Never push `shalevhoch`.
 
 **How this differs from cycle-processing:** there, phase 1's input was a
 high-level spec living outside the repo. Here **SPEC.md is already that document**

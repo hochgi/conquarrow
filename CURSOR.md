@@ -24,7 +24,8 @@ may run the parent on another family, and these phases must stay on Grok.
 
 Unchanged location: [`.claude/skills/`](./.claude/skills/) (`spec-to-ship`,
 `write-spec`, `write-failing-tests`, `code-to-green`, `review-changes`,
-`rules-invariants`, `engineering-principles`, `mutation-testing`). Agents
+`rules-invariants`, `engineering-principles`, `mutation-testing`,
+`component-testing`). Agents
 reference those paths.
 
 ## Model selection when launching Task
@@ -41,8 +42,3 @@ big behavioral shift. Then continue to tests without a gate.
 ## Local-only branches
 
 When the human says the branch is local-only, **never push or open a PR**.
-
-`local-main` is always local-only. It may carry `@vnatures/test-kit` and
-`*.kit.test.ts`. **Never push it.** Product packets always branch from `main`.
-The pre-push hook refuses `local-main` and refuses a lockfile/`package.json`
-that names test-kit.

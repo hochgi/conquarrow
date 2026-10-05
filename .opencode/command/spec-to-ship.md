@@ -20,4 +20,4 @@ Phase 2 — @test-author / write-failing-tests.
 Phase 3 — @coder / code-to-green.
 Phase 4 — @reviewer / review-changes.
 
-Orchestrator ships the PR. Never push shalevhoch or local-main.
+Orchestrator ships the PR. Never push shalevhoch.

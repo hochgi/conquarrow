@@ -14,8 +14,9 @@ Read and follow `.claude/skills/write-failing-tests/SKILL.md`. Also
 `.claude/skills/rules-invariants/SKILL.md`, which covers the property and replay
 layers this repo leans on heavily.
 
-Committed tests are Vitest against ports. **Never add `@vnatures/test-kit` or
-`*.kit.test.ts` on a product branch.**
+Committed tests are Vitest against ports. At an I/O edge (`packages/online-api`)
+they may use `@hochgi/test-kit*` — see `.claude/skills/component-testing/SKILL.md`.
+**Never** in `contracts`, `rules-core` or `geometry-*`.
 
 ## Inputs
 

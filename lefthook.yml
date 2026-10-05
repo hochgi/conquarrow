@@ -3,11 +3,6 @@
 
 pre-push:
   commands:
-    local-hygiene:
-      run: bash scripts/check-local-hygiene.sh
-      fail_text: >-
-        Push blocked: local-main is never pushed, and @vnatures/test-kit must
-        not appear in package manifests, the lockfile, or tracked *.kit.test.ts.
     verify:
       run: pnpm verify
       fail_text: 'pnpm verify failed. Fix typecheck/lint/test before pushing.'

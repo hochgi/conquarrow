@@ -16,7 +16,8 @@ Skip for typo fixes, doc-only changes, mechanical refactors with no behaviour
 delta.
 
 This skill is one step inside `code-to-green` / `review-changes`. Committed
-tests are plain Vitest. Do not add `@vnatures/test-kit` to kill a mutant.
+tests are plain Vitest. Do not add test-kit to kill a rules-core mutant —
+rules-core may never use it (see `component-testing`).
 
 ## Running Stryker
 
