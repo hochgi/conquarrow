@@ -77,7 +77,7 @@ ask the human those.
 
 ## Ship loop
 
-1. Push to `hochgi/conquarrow` only (never `shalevhoch`, never `local-main`).
+1. Push to `hochgi/conquarrow` only (never `shalevhoch`).
 2. Open the PR; body starts with `🤖: `.
 3. Request Copilot review. Wait for comments.
 4. Fix / defer / reject each comment; reply `🤖: `.
@@ -90,9 +90,9 @@ dependency bumps, and **tooling/harness packets** skip the four-phase Gherkin
 loop — ship with a one-line scope note. Everything that touches the rules
 engine, or an online adapter's observable behaviour, runs the pipeline.
 
-**Committed tests are the pipeline.** Phase 2 writes Vitest against ports.
-`@vnatures/test-kit` and `*.kit.test.ts` live only on the never-pushed
-`local-main` overlay — they are not the red suite the coder implements against.
+**Committed tests are the pipeline.** Phase 2 writes Vitest against ports. At an
+I/O edge (`packages/online-api`) those tests may use `@hochgi/test-kit*` — see
+`component-testing`. Never in `contracts`, `rules-core` or `geometry-*`.
 
 ## References
 

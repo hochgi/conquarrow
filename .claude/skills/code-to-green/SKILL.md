@@ -87,5 +87,7 @@ reporting green state, lint/typecheck status, Stryker triage (new survivors
 killed vs ignored), and — importantly — every question you had to kick back
 rather than answer.
 
-Never add `@vnatures/test-kit` or `*.kit.test.ts` on a product branch. Those
-exist only on never-pushed `local-main`.
+At an online I/O edge the red suite may drive `@hochgi/test-kit*` probes; read
+`component-testing` before making one green — failure injection goes through
+probe rules, not a new hand-written fake. Never add test-kit to `contracts`,
+`rules-core` or `geometry-*`, not even to kill a mutant.

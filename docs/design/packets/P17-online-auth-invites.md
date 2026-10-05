@@ -32,6 +32,9 @@
 Committed tests: Vitest against an `OnlinePort` (or HTTP handler ports) with
 fake S3 / fake Google verify. Kit/S3 probes stay on `local-main`.
 
+> **Superseded by P68:** the `local-main` overlay is retired; S3 probes are
+> committed in `packages/online-api/test/online-edge-probes.*`.
+
 ## Out of scope
 
 Move submit / WebSocket notify / heuristic burst (P18), FE wiring (P19),

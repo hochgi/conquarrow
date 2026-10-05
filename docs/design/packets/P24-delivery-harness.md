@@ -20,6 +20,10 @@ where it pays, without publishing org-private test-kit.
 - Never-pushed `local-main` may carry `@vnatures/test-kit` and `*.kit.test.ts`.
   Committed spec-to-ship tests stay plain Vitest against ports.
 
+> **Superseded by P68:** test-kit is public (`@hochgi/test-kit*`), so the
+> `local-main` overlay, the `local-hygiene` pre-push command and
+> `scripts/check-local-hygiene.sh` are retired; pre-push runs `pnpm verify` only.
+
 ## Out of scope
 
 - Flipping complexity to `error` (later, when hotspots shrink).

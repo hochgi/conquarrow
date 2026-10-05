@@ -9,5 +9,6 @@ variant: xhigh
 # test-author
 
 Read and follow `.claude/skills/write-failing-tests/SKILL.md`.
-Committed tests are Vitest against ports. Never add test-kit on a product branch.
+Committed tests are Vitest against ports. test-kit only at I/O edges (`packages/online-api`;
+see `.claude/skills/component-testing/SKILL.md`), never in contracts / rules-core / geometry-*.
 STOP when the suite is red for the right reason.

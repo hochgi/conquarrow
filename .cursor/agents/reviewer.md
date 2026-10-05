@@ -60,4 +60,4 @@ A review verdict with actionable findings, and — when clean — a prepared PR
 ## Ship
 
 The **orchestrator** pushes, opens the PR, requests Copilot, triages, and
-squash-merges. You do not push. Never push `shalevhoch` or `local-main`.
+squash-merges. You do not push. Never push `shalevhoch`.

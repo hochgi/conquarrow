@@ -62,4 +62,4 @@ Coherence, purity, boundaries. Reviewer prepares title/body; does not push.
 
 Orchestrator: commit, push `hochgi`, open PR (`🤖: `), request Copilot review,
 wait, triage comments (fix / defer / reject, reply `🤖: `), squash-merge when
-CI is green. Never push `shalevhoch` or `local-main`.
+CI is green. Never push `shalevhoch`.

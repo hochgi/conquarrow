@@ -14,9 +14,11 @@ thin enough that nobody mistakes them for an implementation.
 1. **One component test per Gherkin scenario**, written against the ports in
    `packages/contracts` — never against a concrete geometry, renderer, or store.
    A second implementation of the port must be able to satisfy the same test.
-   **Runner is Vitest. Do not add `@vnatures/test-kit` to this repo's committed
-   suite.** Kit tests belong on never-pushed `local-main` after the committed
-   red tests exist; they are not the contract the coder implements against.
+   **Runner is Vitest.** At an I/O edge (`packages/online-api`) a component test
+   may probe the seam with `@hochgi/test-kit*` — follow `component-testing` for
+   the boundary choice, rig lifecycle and failure injection. **Never** in
+   `contracts`, `rules-core` or `geometry-*`; a core test that "needs a probe"
+   means the design leaked I/O into the core.
 2. **A property test per EARS invariant**, where it is expressible as one. Most
    of this spec's invariants are. See `rules-invariants` for the catalogue.
 3. **A replay fixture** whenever the packet touches turn flow — initial state

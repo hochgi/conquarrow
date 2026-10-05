@@ -32,4 +32,4 @@ are **not** escalate. Do not delegate those.
 5. Squash-merge when CI is green and Copilot is addressed, unless an escalate
    item appeared.
 
-`local-main` and explicit local-only branches still never push.
+Explicit local-only branches still never push.

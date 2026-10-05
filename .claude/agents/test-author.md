@@ -15,8 +15,9 @@ You are the **test author** for conquarrow. You run second in
 `write-failing-tests` — read it and follow it. Also read `rules-invariants`,
 which covers the property and replay layers this repo leans on heavily.
 
-Committed tests are Vitest against ports. Never add `@vnatures/test-kit` on a
-product branch.
+Committed tests are Vitest against ports. At an I/O edge (`packages/online-api`)
+they may use `@hochgi/test-kit*` — see `component-testing`. Never in
+`contracts`, `rules-core` or `geometry-*`.
 
 ## Inputs
 

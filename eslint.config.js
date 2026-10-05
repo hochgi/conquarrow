@@ -32,6 +32,25 @@ const impureProperties = [
   },
 ];
 
+/** `src` of the core, its contracts, and every geometry implementation. */
+const pureSources = [
+  'packages/contracts/src/**/*.ts',
+  'packages/rules-core/src/**/*.ts',
+  'packages/geometry-*/src/**/*.ts',
+];
+
+/**
+ * test-kit probes I/O edges (P68): `packages/online-api` today. The core has
+ * no I/O to probe, so a pure package that reaches for a probe has leaked a
+ * boundary into the core — in `src` or in `test`. The P68 invariants test
+ * guards the manifests; this guards the imports.
+ */
+const testKitBan = {
+  group: ['@hochgi/test-kit', '@hochgi/test-kit-*', '@vnatures/test-kit', '@vnatures/test-kit-*'],
+  message:
+    'test-kit is an I/O-edge tool (P68); the core is pure (ADR 0001) and has no I/O to probe.',
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -128,11 +147,11 @@ export default tseslint.config(
     // `src` only, deliberately: the purity guard's own tests read source files off
     // disk and load replay fixtures, which is what `node:fs` is for. Tests are
     // adapters to the filesystem, not core.
-    files: [
-      'packages/contracts/src/**/*.ts',
-      'packages/rules-core/src/**/*.ts',
-      'packages/geometry-*/src/**/*.ts',
-    ],
+    //
+    // Flat config *replaces* a rule's options for overlapping files rather than
+    // merging them, so this block carries the test-kit ban as well, and the
+    // block below carries it alone for everything outside `src`.
+    files: pureSources,
     rules: {
       'no-restricted-imports': [
         'error',
@@ -142,9 +161,23 @@ export default tseslint.config(
               group: ['node:*'],
               message: 'The core is pure (ADR 0001). No Node builtins, imported or global.',
             },
+            testKitBan,
           ],
         },
       ],
+    },
+  },
+  {
+    // The rest of the pure packages — tests, fixtures, configs. `node:fs` is
+    // fine here (see above); test-kit is not (P68).
+    files: [
+      'packages/contracts/**/*.ts',
+      'packages/rules-core/**/*.ts',
+      'packages/geometry-*/**/*.ts',
+    ],
+    ignores: pureSources,
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [testKitBan] }],
     },
   },
   {

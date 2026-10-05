@@ -21,7 +21,7 @@ conventions above.
   `reviewer`.
 - **Skills** (`.claude/skills/`): `spec-to-ship`, `write-spec`,
   `write-failing-tests`, `code-to-green`, `review-changes`, `rules-invariants`,
-  `engineering-principles`, `mutation-testing`.
+  `engineering-principles`, `mutation-testing`, `component-testing`.
 
 ## Model selection
 

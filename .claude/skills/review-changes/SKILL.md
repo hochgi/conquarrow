@@ -64,9 +64,10 @@ extract, not a repo-wide cleanup ticket. Pre-existing warnings on untouched
 lines are the ratchet, not a blocker.
 
 If the packet touched `mutate[]` files, expect a Stryker note. New survivors
-without a noise classification are a blocker. A `@vnatures/test-kit` dependency
-or a tracked `*.kit.test.ts` in the diff is a **blocker** — that overlay is
-`local-main` only.
+without a noise classification are a blocker. A test-kit import or manifest
+entry in `contracts` / `rules-core` / `geometry-*`, or a test-kit package in
+`dependencies` rather than `devDependencies`, is a **blocker** — test-kit is an
+I/O-edge tool (see `component-testing`).
 
 ## Spec hygiene — you are one of two phases that may edit SPEC.md
 
@@ -87,5 +88,4 @@ title, body (starts with `🤖: `) linking the packet and the spec files.
 ## Ship
 
 The **orchestrator** pushes, opens the PR, requests Copilot, triages, and
-squash-merges. The reviewer does **not** push. Never push `shalevhoch` or
-`local-main`.
+squash-merges. The reviewer does **not** push. Never push `shalevhoch`.
