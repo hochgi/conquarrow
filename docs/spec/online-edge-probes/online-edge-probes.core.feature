@@ -61,7 +61,7 @@ Feature: Online edge probes — the production store and notifier at their real 
     Scenario: A successful move notifies every connection of the other bound humans only
       Given the probed notifier answers 200 to every post
       And an api over the real store and the probed notifier
-      And A and B have started a 3-seat game with seats human, human, heuristic
+      And A and B have started and opened a 3-seat game with seats human, human, heuristic
       And A has stored connection "conn-alice-1"
       And B has stored connections "conn-bob-1" and "conn-bob-2"
       When A posts endTurn with If-Match "0"

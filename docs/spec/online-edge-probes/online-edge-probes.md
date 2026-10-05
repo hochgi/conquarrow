@@ -32,6 +32,7 @@ now-committed test library.
 | **map store** | `mapStore(map)` in `test/support.ts` — the hand-rolled `ObjectStore` the other suites use |
 | **probed notifier** | `createProbedMock<ConnectionNotifier>({ harness: rig, methods: ['post'] })`, where `ConnectionNotifier.post` has `PostToConnection`'s signature narrowed to `Promise<200 \| 410>`; the deps get `(id, payload) => notifier.adapter.post(id, payload)` |
 | **failure injection** | a probe rule — `probe.command(X).once().reject(err)`, or `expect.intercept()` then a racing write then `forward()` — never a new hand-written fake |
+| **started and opened game** | invite created, every human seat bound, Start called, and A's first GET materialised `state.json` at version 0 — all **before** any connection is stored, so the opening's own notify reaches nobody and the scenario's posts are the move's alone |
 | **S3 error** | an `S3ServiceException` from `@aws-sdk/client-s3` built with a `name` and `$metadata.httpStatusCode` — the shape the real SDK throws |
 
 ## Seams (Goldilocks)
@@ -137,7 +138,7 @@ vacuously green until the dependencies land in phase 2.
 
 ## Counts
 
-Core: 8 scenarios. Edge cases: 15 scenarios (one outline, 4 rows).
+Core: 8 scenarios. Edge cases: 15 scenarios (one outline, 6 rows — four by status, two by name alone).
 Invariants: 7 (6 Vitest, 1 lint).
 
 ## Open — not this packet

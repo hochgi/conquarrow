@@ -21,6 +21,9 @@
     "@conquarrow/rules-core": "workspace:*"
   },
   "devDependencies": {
+    "@hochgi/test-kit": "^2.0.5",
+    "@hochgi/test-kit-mock": "^2.0.2",
+    "@hochgi/test-kit-s3": "^2.0.3",
     "vitest": "^2.1.8"
   }
 }

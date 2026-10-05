@@ -72,6 +72,12 @@ ranges on the versions `npm view` reports at implementation time (2026-10-05:
 add it. No install scripts, so `onlyBuiltDependencies` is unchanged. Lockfile
 churn is limited to these three packages.
 
+pnpm 11 refuses a version younger than its default `minimumReleaseAge`
+(24 h), and these were published on 2026-10-05. `pnpm-workspace.yaml` therefore
+carries a `minimumReleaseAgeExclude` entry for the three exact versions
+(BSSN). It is harmless once they age past the window and may be dropped in any
+later dependency bump; `--frozen-lockfile` installs in CI do not re-resolve.
+
 ### c. Component tests in `online-api`, at the Goldilocks boundary
 
 - `createS3Store(bucket, s3.adapter)` against `createProbedS3Adapter`:

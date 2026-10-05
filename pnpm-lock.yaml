@@ -105,6 +105,15 @@ importers:
         specifier: workspace:*
         version: link:../rules-core
     devDependencies:
+      '@hochgi/test-kit':
+        specifier: ^2.0.5
+        version: 2.0.5
+      '@hochgi/test-kit-mock':
+        specifier: ^2.0.2
+        version: 2.0.2(@hochgi/test-kit@2.0.5)
+      '@hochgi/test-kit-s3':
+        specifier: ^2.0.3
+        version: 2.0.3(@aws-sdk/client-s3@3.1109.0)(@hochgi/test-kit@2.0.5)
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
@@ -913,6 +922,27 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@hochgi/test-kit-mock@2.0.2':
+    resolution: {integrity: sha512-9xXDcbf/azQAUqVIGTPnuyT81aARqH6ayaj6Pauz+8arGvTEOOqiWqBN8XvkjgzMlLl8gwQUEvMGY3fjJI6GzA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@hochgi/test-kit': ^2.0.0
+
+  '@hochgi/test-kit-s3@2.0.3':
+    resolution: {integrity: sha512-Zhaw+VMYmb1UmSk/DppJy/pVG71E7iJQzVKQjrzlELKIUKTGhTL5NyRMWVFQy/GCsVhc2Tq2uWjltVsfAWJaxw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@aws-sdk/client-s3': '>=3.600.0'
+      '@aws-sdk/s3-request-presigner': '>=3.600.0'
+      '@hochgi/test-kit': ^2.0.0
+    peerDependenciesMeta:
+      '@aws-sdk/s3-request-presigner':
+        optional: true
+
+  '@hochgi/test-kit@2.0.5':
+    resolution: {integrity: sha512-gIYYDo/xxRVYv4zsqXeOoe1MRznkgpq5pvYwcAKIcJ/Kkh64O1uRvmLTzN6VuMN2/Azj3wFcHaRkwvV39QQN2Q==}
+    engines: {node: '>=22'}
 
   '@hono/node-server@2.1.1':
     resolution: {integrity: sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg==}
@@ -3402,6 +3432,17 @@ snapshots:
     dependencies:
       '@eslint/core': 0.17.0
       levn: 0.4.1
+
+  '@hochgi/test-kit-mock@2.0.2(@hochgi/test-kit@2.0.5)':
+    dependencies:
+      '@hochgi/test-kit': 2.0.5
+
+  '@hochgi/test-kit-s3@2.0.3(@aws-sdk/client-s3@3.1109.0)(@hochgi/test-kit@2.0.5)':
+    dependencies:
+      '@aws-sdk/client-s3': 3.1109.0
+      '@hochgi/test-kit': 2.0.5
+
+  '@hochgi/test-kit@2.0.5': {}
 
   '@hono/node-server@2.1.1(hono@4.13.8)':
     dependencies:
