@@ -1,7 +1,7 @@
 ---
 name: mutation-testing
 description: >-
-  Workflow for mutation-testing rules-core (and later online-api) with Stryker's
+  Workflow for mutation-testing rules-core and online-api with Stryker's
   vitest-runner and triaging survivors. Baseline → implement → compare → triage.
   Use in code-to-green and review-changes, or when a test gap is suspected.
 ---
@@ -25,7 +25,13 @@ rules-core may never use it (see `component-testing`).
 pnpm test:mutation
 pnpm test:mutation:incremental
 pnpm test:mutation:report
+pnpm test:mutation:online-api              # stryker.online-api.config.json
+pnpm test:mutation:online-api:incremental
 ```
+
+Target a few files while iterating with **one comma-separated** `--mutate`
+(Stryker keeps only the last of repeated flags):
+`npx stryker run stryker.online-api.config.json --mutate 'packages/online-api/src/a.ts,packages/online-api/src/b.ts'`.
 
 Use `:incremental` while iterating; full run when capturing a baseline or
 before calling a packet done.
@@ -36,8 +42,12 @@ Stryker is **not** in CI. Run it in a normal terminal (agent tool-call
 timeouts will kill a full `rules-core` pass). Format survivors with
 `pnpm test:mutation:report`.
 
-First cut mutates `packages/rules-core/src/**/*.ts` (except the barrel).
-Online-api joins `mutate[]` when that package exists.
+`stryker.config.json` mutates `packages/rules-core/src/**/*.ts` (except the
+barrel). `stryker.online-api.config.json` mutates `packages/online-api/src/**`
+and runs only online-api's tests (`vitest.online-api.config.mjs`); its edge
+seams are tested with test-kit (`component-testing`). Survivors there are
+triaged the same way — equivalent, not sensible (message text, unreachable
+SDK shapes, composition-root wiring), or a missing test.
 
 ### Baseline capture
 
