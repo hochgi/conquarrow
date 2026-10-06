@@ -1,13 +1,26 @@
 /**
- * Lambda entries — the fallbacks: missing, empty and wrongly-typed event fields.
+ * Lambda entries — the fallbacks: missing, empty and wrongly-typed event fields,
+ * sparse env, and the post leaf's error mapping.
  *
- * Characterisation: these encode shipped behaviour of the entry mapping, so they
- * pass on arrival.
+ * Characterisation: these encode shipped behaviour of the entry files (see
+ * `online-entry.core.test.ts`), so they pass on arrival.
  */
 
-import { describe, expect, it } from 'vitest';
-import { toOnlineRequest } from '../src/http';
-import { handler as wsHandler } from '../src/ws';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createOnlineWs } from '../src/create-online-ws';
+import { readEntryEnv } from '../src/entry-env';
+import { toOnlineRequest } from '../src/http-event';
+import { createWsHandler, toWsAction } from '../src/ws-event';
+import { ALICE, ALICE_CONN, fakeGoogle, mapStore, sequentialBytes } from './support';
+import {
+  PAYLOAD,
+  type PostLeafRig,
+  awsError,
+  createPostLeafRig,
+  rejectionOf,
+  sentCommands,
+  wsEvent,
+} from './online-entry.support';
 
 describe('online-entry — edge cases', () => {
   describe('Rule: an unreadable HTTP event degrades to GET /', () => {
@@ -18,7 +31,7 @@ describe('online-entry — edge cases', () => {
       ['an array', [{ rawPath: '/me' }]],
       ['an empty object', {}],
     ])('An event that is %s maps to a bare GET /', (_label, event) => {
-      expect(toOnlineRequest(event)).toEqual({ method: 'GET', path: '/' });
+      expect(toOnlineRequest(event)).toStrictEqual({ method: 'GET', path: '/' });
     });
   });
 
@@ -82,13 +95,13 @@ describe('online-entry — edge cases', () => {
     });
 
     it('Authorization alone is carried without ifMatch', () => {
-      expect(toOnlineRequest({ headers: { authorization: 'Bearer a' } }).headers).toEqual({
+      expect(toOnlineRequest({ headers: { authorization: 'Bearer a' } }).headers).toStrictEqual({
         authorization: 'Bearer a',
       });
     });
 
     it('If-match alone is carried without authorization', () => {
-      expect(toOnlineRequest({ headers: { 'if-match': '"0"' } }).headers).toEqual({
+      expect(toOnlineRequest({ headers: { 'if-match': '"0"' } }).headers).toStrictEqual({
         ifMatch: '"0"',
       });
     });
@@ -116,7 +129,7 @@ describe('online-entry — edge cases', () => {
     });
 
     it('rawQueryString alone is decoded', () => {
-      expect(toOnlineRequest({ rawQueryString: 'since=2&who=a%20b' }).query).toEqual({
+      expect(toOnlineRequest({ rawQueryString: 'since=2&who=a%20b' }).query).toStrictEqual({
         since: '2',
         who: 'a b',
       });
@@ -128,13 +141,13 @@ describe('online-entry — edge cases', () => {
           queryStringParameters: { since: '1' },
           rawQueryString: 'since=2&extra=x',
         }).query,
-      ).toEqual({ since: '1', extra: 'x' });
+      ).toStrictEqual({ since: '1', extra: 'x' });
     });
 
     it('Non-string parameter values are dropped', () => {
       expect(
         toOnlineRequest({ queryStringParameters: { since: null, n: 3, ok: 'y' } }).query,
-      ).toEqual({ ok: 'y' });
+      ).toStrictEqual({ ok: 'y' });
     });
 
     it('A non-string rawQueryString is ignored', () => {
@@ -164,22 +177,138 @@ describe('online-entry — edge cases', () => {
     it.each([
       ['no event', undefined],
       ['a non-object event', 'connect'],
-      ['no requestContext', { queryStringParameters: { access_token: 'alice-token' } }],
+      ['no requestContext', { queryStringParameters: { access_token: ALICE.bearer } }],
+      ['a non-object requestContext', { requestContext: 'c1' }],
+      ['no connectionId', { requestContext: { routeKey: '$connect' } }],
       ['an empty connectionId', { requestContext: { connectionId: '', routeKey: '$connect' } }],
       ['a non-string connectionId', { requestContext: { connectionId: 7, routeKey: '$connect' } }],
       ['an unknown route', { requestContext: { connectionId: 'c1', routeKey: '$default' } }],
       ['an unknown eventType', { requestContext: { connectionId: 'c1', eventType: 'MESSAGE' } }],
       ['no route at all', { requestContext: { connectionId: 'c1' } }],
-      ['$connect without access_token', { requestContext: { connectionId: 'c1', routeKey: '$connect' } }],
-      [
-        '$connect with an empty access_token',
-        {
-          requestContext: { connectionId: 'c1', routeKey: '$connect' },
-          queryStringParameters: { access_token: '' },
-        },
-      ],
-    ])('%s is 401', async (_label, event) => {
-      expect(await wsHandler(event)).toEqual({ statusCode: 401 });
+    ])('%s is 401 and touches no store', async (_label, event) => {
+      const s3 = new Map<string, string>();
+      const handler = createWsHandler(
+        createOnlineWs({
+          google: fakeGoogle(),
+          s3: mapStore(s3),
+          clock: () => 0,
+          randomBytes: sequentialBytes(),
+        }),
+      );
+
+      expect(toWsAction(event)).toStrictEqual({ route: 'unauthorized' });
+      expect(await handler(event)).toStrictEqual({ statusCode: 401 });
+      expect(s3.size).toBe(0);
+    });
+
+    it('$connect without a usable access_token reaches the port without one, and is 401', async () => {
+      const s3 = new Map<string, string>();
+      const handler = createWsHandler(
+        createOnlineWs({
+          google: fakeGoogle(),
+          s3: mapStore(s3),
+          clock: () => 0,
+          randomBytes: sequentialBytes(),
+        }),
+      );
+      const noToken = wsEvent(ALICE_CONN, '$connect');
+
+      expect(toWsAction(noToken)).toStrictEqual({
+        route: '$connect',
+        request: { connectionId: ALICE_CONN },
+      });
+      expect(await handler(noToken)).toStrictEqual({ statusCode: 401 });
+      expect(s3.size).toBe(0);
+    });
+  });
+
+  describe('Rule: only a non-empty string access_token is carried', () => {
+    it.each([
+      ['an empty access_token', { access_token: '' }],
+      ['a non-string access_token', { access_token: ['t'] }],
+      ['query without access_token', { other: 't' }],
+      ['a non-object query', 'access_token=t'],
+    ])('%s means no accessToken', (_label, queryStringParameters) => {
+      expect(
+        toWsAction({
+          requestContext: { connectionId: ALICE_CONN, routeKey: '$connect' },
+          queryStringParameters,
+        }),
+      ).toStrictEqual({ route: '$connect', request: { connectionId: ALICE_CONN } });
+    });
+  });
+
+  describe('Rule: routeKey decides before eventType', () => {
+    it('routeKey $disconnect wins over eventType CONNECT', () => {
+      expect(
+        toWsAction({
+          requestContext: { connectionId: ALICE_CONN, routeKey: '$disconnect', eventType: 'CONNECT' },
+        }),
+      ).toStrictEqual({ route: '$disconnect', request: { connectionId: ALICE_CONN } });
+    });
+
+    it('An unknown routeKey falls back to eventType', () => {
+      expect(
+        toWsAction({
+          requestContext: { connectionId: ALICE_CONN, routeKey: '$default', eventType: 'CONNECT' },
+        }),
+      ).toStrictEqual({ route: '$connect', request: { connectionId: ALICE_CONN } });
+    });
+  });
+
+  describe('Rule: sparse env degrades to no client IDs, an empty bucket and no notifier', () => {
+    it('An empty env', () => {
+      expect(readEntryEnv({})).toStrictEqual({ googleClientIds: [], matchBucket: '' });
+    });
+
+    it('Client IDs are trimmed and blanks dropped', () => {
+      expect(readEntryEnv({ GOOGLE_CLIENT_IDS: ' a , ,b,, ' }).googleClientIds).toStrictEqual(['a', 'b']);
+    });
+
+    it('An empty WS endpoint means no notifier', () => {
+      expect(readEntryEnv({ WS_MANAGEMENT_ENDPOINT: '' })).toStrictEqual({
+        googleClientIds: [],
+        matchBucket: '',
+      });
+    });
+  });
+
+  describe('Rule: the post leaf maps a gone socket to 410 and rethrows everything else', () => {
+    let leaf: PostLeafRig;
+
+    beforeEach(() => {
+      leaf = createPostLeafRig();
+    });
+
+    afterEach(async () => {
+      await leaf.close();
+    });
+
+    it('GoneException by name is 410', async () => {
+      leaf.client.probe.on('send').always().reject(awsError('GoneException'));
+
+      expect(await leaf.post(ALICE_CONN, PAYLOAD)).toBe(410);
+      expect(sentCommands(leaf)).toHaveLength(1);
+    });
+
+    it('Any error carrying HTTP 410 is 410', async () => {
+      leaf.client.probe
+        .on('send')
+        .always()
+        .reject(awsError('UnknownError', { httpStatusCode: 410 }));
+
+      expect(await leaf.post(ALICE_CONN, PAYLOAD)).toBe(410);
+    });
+
+    it.each([
+      ['a 403 ForbiddenException', awsError('ForbiddenException', { httpStatusCode: 403 })],
+      ['an error without $metadata', awsError('TimeoutError')],
+      ['an error with null $metadata', awsError('TimeoutError', null)],
+      ['an error with a non-numeric status', awsError('Weird', { httpStatusCode: '410' })],
+    ])('%s is rethrown unchanged', async (_label, failure) => {
+      leaf.client.probe.on('send').always().reject(failure);
+
+      expect(await rejectionOf(Promise.resolve(leaf.post(ALICE_CONN, PAYLOAD)))).toBe(failure);
     });
   });
 });
