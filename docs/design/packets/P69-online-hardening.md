@@ -57,7 +57,7 @@ a record that breaks a range `packages/contracts/src/game-state.ts` states:
 Legacy shapes keep loading exactly as today: pre-P36 `dominationHolder` /
 `dominationStreak`, pre-P46 meta, absent optional fields. A legacy streak seeded
 from the retired pair goes through the same streak and membership checks;
-a retired streak ≤ 0 still seeds nothing, as P36 documents.
+a pair that seeds nothing under P36 still seeds nothing (BSSN 5).
 
 Callers already treat `undefined` as "unreadable" (500 on the game routes,
 `waiting` in `/my-games`, version 0 on the log route) — no caller changes.
@@ -77,9 +77,12 @@ behaviour change: nothing routes to it.
 4. **JSON `null` is present.** No version of `snapshotState` writes `null` for
    `speedOverride` or `winner` (it omits them), so a `null` there is outside the
    contract and refused, like any other wrong type.
-5. **A retired pair that seeds a clock** (streak > 0) must name a seated holder
+5. **A retired pair that seeds a clock** — P36's condition, unchanged: the
+   holder is a string and the streak a number > 0 — must name a seated holder
    and an integer streak; a ghost holder makes the position unreadable rather
-   than seeding a clock for an unseated id.
+   than seeding a clock for an unseated id. A pair that seeds nothing under P36
+   (no holder, a non-string holder, a non-number or ≤ 0 streak) still seeds
+   nothing and still loads.
 
 ## Out of scope
 - Any `rules-core` / `contracts` change, or validating that arrows / vertices

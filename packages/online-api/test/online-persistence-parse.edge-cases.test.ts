@@ -35,6 +35,7 @@ import {
   decoratedMatch,
   envelopeOf,
   hardeningBackground,
+  listOf,
   seatAt,
   seatsOf,
   storedStateOf,
@@ -188,6 +189,50 @@ describe('Online hardening — Rule: Ranges', () => {
 
   it('Scenario: A retired streak pair that seeds a clock is held to the same checks', () => {
     refused(withRetiredStreakPair(background, seatAt(background, 1), 2.5));
+  });
+
+  // Boundaries the outline rows cannot isolate on their own.
+  describe('boundaries', () => {
+    /**
+     * The background narrowed to what `seats` own: every group, territory
+     * arrow, trail and streak naming another seat is removed, and seat 0 is
+     * on turn and the winner. Membership then holds for any `seats` that
+     * includes seat 0, so only the seat count can refuse it.
+     */
+    const ownedOnlyBySeatZero = (seats: readonly string[]): Record<string, unknown> => {
+      const seat = seatAt(background, 0);
+      const keep = (section: string, key: string): readonly unknown[] =>
+        listOf(background, section).filter(
+          (entry) => (entry as Record<string, unknown>)[key] === seat,
+        );
+      return {
+        ...background,
+        players: seats,
+        activePlayer: seat,
+        winner: seat,
+        groups: keep('groups', 'owner'),
+        territory: keep('territory', 'owner'),
+        trails: keep('trails', 'player'),
+        starvationStreaks: keep('starvationStreaks', 'player'),
+      };
+    };
+
+    it('refuses a one-seat position even when every id in it is that seat', () => {
+      const seats = [seatAt(background, 0), seatAt(background, 1)];
+      expect(parsePersistedEnvelope(envelopeOf(ownedOnlyBySeatZero(seats)))).toBeDefined();
+
+      refused(ownedOnlyBySeatZero([seatAt(background, 0)]));
+    });
+
+    it('reads a spawner phase of 2, the top of 0..2', () => {
+      const parsed = parsePersistedEnvelope(
+        envelopeOf(withFirstItemField(background, 'spawners', 'phase', 2)),
+      );
+
+      expect([...(parsed?.game.spawners.values() ?? [])].map((spawner) => spawner.phase)).toContain(
+        2,
+      );
+    });
   });
 });
 

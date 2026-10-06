@@ -12,7 +12,8 @@ const bearerToken = (authorizationHeader: string | undefined): GoogleVerifyResul
   if (authorizationHeader === undefined || authorizationHeader === '') {
     return { ok: false, reason: 'missing' };
   }
-  const match = /^Bearer\s+(\S+)$/.exec(authorizationHeader);
+  // RFC 9110 §11.1: the auth-scheme token is case-insensitive; the token after it is not.
+  const match = /^Bearer\s+(\S+)$/i.exec(authorizationHeader);
   const token = match?.[1];
   if (token === undefined) return { ok: false, reason: 'invalid' };
   return token;
