@@ -19,6 +19,8 @@ import {
   createOpenInvite,
   expectNoSubLeak,
   expectStatus,
+  gameMetaKey,
+  gameStateKey,
   getMyGames,
   libraryGamesOf,
   makeHarness,
@@ -34,6 +36,7 @@ import {
   cloneS3,
   expectS3Unchanged,
   libraryRowOf,
+  plantGroupPointer,
   plantStampedGame,
   stampLibrarySummary,
   withoutTerritoryOf,
@@ -117,6 +120,41 @@ describe('Legacy meta and listing cost', () => {
     expectS3Unchanged(before, s3);
   });
 
+  it('Unreadable game objects do not fail the listing', async () => {
+    const { api, s3 } = makeHarness();
+    plantGroupPointer(s3, aliceHash(), GAAA);
+    plantGroupPointer(s3, aliceHash(), GBBB);
+    s3.set(gameMetaKey(GAAA, GAME_ONE), 'not game meta');
+    s3.set(gameMetaKey(GBBB, GAME_ONE), JSON.stringify({ seats: aliceBobHeuristicSeats() }));
+    s3.set(gameStateKey(GBBB, GAME_ONE), 'not a persisted position');
+
+    const lib = libraryGamesOf(parseBody(expectStatus(await getMyGames(api, ALICE.bearer), 200)));
+
+    const unreadableMeta = libraryRowOf(lib.games, GAAA);
+    expect(unreadableMeta).toMatchObject({ status: 'waiting', seats: [], seatIndex: 0 });
+    expect(unreadableMeta.startedAt).toBeUndefined();
+    expect(libraryRowOf(lib.games, GBBB).status).toBe('waiting');
+  });
+
+  it('A stored position whose fraction is not a rational does not fail the listing', async () => {
+    const { api, s3 } = makeHarness();
+    await startAliceBob(api);
+    const groupHash = aliceBobGroupHash();
+    seedOpeningState(s3, groupHash, GAME_ONE, 3);
+    const key = gameStateKey(groupHash, GAME_ONE);
+    const envelope = JSON.parse(s3.get(key) ?? '') as {
+      state: { spawners: { den: number }[] };
+    };
+    const first = envelope.state.spawners[0];
+    if (first === undefined) throw new Error('setup: expected a stored spawner');
+    first.den = 0;
+    s3.set(key, JSON.stringify(envelope));
+
+    const lib = libraryGamesOf(parseBody(expectStatus(await getMyGames(api, ALICE.bearer), 200)));
+
+    expect(libraryRowOf(lib.games, groupHash).status).toBe('waiting');
+  });
+
   it('GET /my-games does not write S3', async () => {
     const { api, s3 } = makeHarness();
     await startAliceBob(api);
@@ -178,6 +216,34 @@ describe('Sort and membership', () => {
       `${GBBB}/${GAME_TWO}`,
       `${GAAA}/${GAME_ONE}`,
       `${GAAA}/${GAME_TWO}`,
+    ]);
+  });
+
+  it('Rows of one status sort by group then newest game number', async () => {
+    const { api, s3 } = makeHarness();
+    for (const [groupHash, gameNumber] of [
+      [GBBB, GAME_ONE],
+      [GAAA, GAME_ONE],
+      [GAAA, GAME_TWO],
+      [GBBB, GAME_TWO],
+    ] as const) {
+      plantStampedGame(s3, {
+        userHash: aliceHash(),
+        groupHash,
+        gameNumber,
+        seats: aliceBobHeuristicSeats(),
+        summary: { players: ['A', 'B', 'C'], activePlayer: 'B', lostPlayers: [] },
+      });
+    }
+
+    const lib = libraryGamesOf(parseBody(expectStatus(await getMyGames(api, ALICE.bearer), 200)));
+
+    expect(lib.games.map((row) => row.status)).toEqual(['waiting', 'waiting', 'waiting', 'waiting']);
+    expect(lib.games.map((row) => `${row.groupHash}/${row.gameNumber}`)).toEqual([
+      `${GAAA}/${GAME_TWO}`,
+      `${GAAA}/${GAME_ONE}`,
+      `${GBBB}/${GAME_TWO}`,
+      `${GBBB}/${GAME_ONE}`,
     ]);
   });
 

@@ -8,30 +8,32 @@ import {
 import { PreconditionFailed, type ObjectPutOptions, type ObjectStore } from './api-types';
 import { compareStrings } from './hashing';
 
-const httpStatusOf = (error: unknown): number | undefined => {
-  if (typeof error !== 'object' || error === null) return undefined;
-  const rec = error as Record<string, unknown>;
-  const meta = rec['$metadata'];
-  if (typeof meta !== 'object' || meta === null) return undefined;
-  const code = (meta as Record<string, unknown>)['httpStatusCode'];
-  return typeof code === 'number' ? code : undefined;
+/** The shape of an SDK service exception that the mapping below reads. */
+interface S3ErrorShape {
+  readonly name?: unknown;
+  readonly $metadata?: { readonly httpStatusCode?: unknown };
+}
+
+/** `name` and `$metadata.httpStatusCode` of a rejection; a non-object carries neither. */
+const s3ErrorFields = (error: unknown): { readonly name: unknown; readonly status: unknown } => {
+  if (typeof error !== 'object' || error === null) return { name: undefined, status: undefined };
+  const rec = error as S3ErrorShape;
+  return { name: rec.name, status: rec.$metadata?.httpStatusCode };
 };
 
 const isNoSuchKey = (error: unknown): boolean => {
-  if (typeof error !== 'object' || error === null) return false;
-  const rec = error as Record<string, unknown>;
-  if (rec['name'] === 'NoSuchKey') return true;
-  return httpStatusOf(error) === 404;
+  const { name, status } = s3ErrorFields(error);
+  return name === 'NoSuchKey' || status === 404;
 };
 
 const isS3Precondition = (error: unknown): boolean => {
-  if (typeof error !== 'object' || error === null) return false;
-  const rec = error as Record<string, unknown>;
-  if (rec['name'] === 'PreconditionFailed' || rec['name'] === 'ConditionalRequestConflict') {
-    return true;
-  }
-  const status = httpStatusOf(error);
-  return status === 412 || status === 409;
+  const { name, status } = s3ErrorFields(error);
+  return (
+    name === 'PreconditionFailed' ||
+    name === 'ConditionalRequestConflict' ||
+    status === 412 ||
+    status === 409
+  );
 };
 
 const listPage = async (
@@ -44,7 +46,7 @@ const listPage = async (
     new ListObjectsV2Command({
       Bucket: bucket,
       Prefix: prefix,
-      ...(continuation === undefined ? {} : { ContinuationToken: continuation }),
+      ContinuationToken: continuation,
     }),
   );
   const keys: string[] = [];
@@ -73,7 +75,7 @@ export const createS3Store = (bucket: string, client: S3Client = new S3Client({}
       Key: string;
       Body: string;
       ContentType: string;
-      IfMatch?: string;
+      IfMatch?: string | undefined;
       IfNoneMatch?: string;
     } = { Bucket: bucket, Key: key, Body: body, ContentType: 'application/json' };
     if (options?.ifNoneMatch === '*') {
@@ -89,8 +91,7 @@ export const createS3Store = (bucket: string, client: S3Client = new S3Client({}
       if (current === undefined) throw new PreconditionFailed();
       const currentBody = current.Body === undefined ? '' : await current.Body.transformToString();
       if (currentBody !== options.ifMatch) throw new PreconditionFailed();
-      const etag = current.ETag;
-      if (etag !== undefined) command.IfMatch = etag;
+      command.IfMatch = current.ETag;
     }
     try {
       await client.send(new PutObjectCommand(command));

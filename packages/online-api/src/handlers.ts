@@ -327,16 +327,11 @@ const materialiseGame = async (
   const groupHash = groupHashFromUserHashes(hashes);
   let current = invite;
   let currentRaw = raw;
-  let n =
-    current.gameNumber !== undefined
-      ? Number.parseInt(current.gameNumber, 10)
-      : await readNextGameNumber(s3, groupHash);
-  if (!Number.isInteger(n) || n < 1) n = 1;
 
   for (;;) {
     let gameNumber = current.gameNumber;
     if (gameNumber === undefined) {
-      gameNumber = padGameNumber(n);
+      gameNumber = padGameNumber(await readNextGameNumber(s3, groupHash));
       await writeInvite(s3, token, { ...current, gameNumber }, currentRaw);
       current = { ...current, gameNumber };
       currentRaw = serializeInvite(current);
@@ -347,8 +342,7 @@ const materialiseGame = async (
       startedAt: new Date(clock()).toISOString(),
     });
     if (owned === 'taken') {
-      n = Number.parseInt(gameNumber, 10) + 1;
-      const next = padGameNumber(n);
+      const next = padGameNumber(Number.parseInt(gameNumber, 10) + 1);
       await writeInvite(s3, token, { ...current, gameNumber: next }, currentRaw);
       current = { ...current, gameNumber: next };
       currentRaw = serializeInvite(current);

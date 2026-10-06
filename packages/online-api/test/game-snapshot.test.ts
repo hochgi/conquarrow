@@ -85,6 +85,12 @@ describe('pre-P36 starvation clock', () => {
     expect(clockOf(state)).toEqual([]);
   });
 
+  it('seeds nothing from a holder whose streak is not a number', () => {
+    const state = hydrated(preP36({ dominationHolder: seatName(1), dominationStreak: '4' }));
+
+    expect(clockOf(state)).toEqual([]);
+  });
+
   it('prefers an explicit starvationStreaks to the retired pair', () => {
     const kept = seatName(2);
 

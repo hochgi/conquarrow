@@ -106,6 +106,6 @@ flowchart TD
 ## Counts
 
 - Core scenarios: 8
-- Edge-case scenarios: 17
+- Edge-case scenarios: 20
 - Invariants: 15
 - BSSN recorded in the packet and ADR 0002 (2026-08-27). No SPEC.md §11 item opened or closed.

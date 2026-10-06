@@ -136,9 +136,17 @@ watching the test go red, and reverting — and records the pairing in its
 report. Invariants 4 and 6 are new and are red until phase 3. Invariant 5 is
 vacuously green until the dependencies land in phase 2.
 
+Eight edge scenarios were added later by the online-api mutation drive, each
+pinned to a surviving mutant: NoSuchKey without a status, a read failure with
+no `$metadata`, a GetObject with no Body (plain read and compare-and-swap
+pre-read), a non-404 pre-read failure, a listing entry with no `Key`
+(`answer` rules on the probed S3), and two notify scenarios that call
+`notifyOthers` directly over the real store — the only way to choose seat order
+freely and to seed non-id keys under a connections prefix.
+
 ## Counts
 
-Core: 8 scenarios. Edge cases: 15 scenarios (one outline, 6 rows — four by status, two by name alone).
+Core: 8 scenarios. Edge cases: 23 scenarios (one outline, 6 rows — four by status, two by name alone).
 Invariants: 7 (6 Vitest, 1 lint).
 
 ## Open — not this packet

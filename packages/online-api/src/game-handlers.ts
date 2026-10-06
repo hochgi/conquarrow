@@ -81,6 +81,7 @@ const isHeuristicSeat = (seats: readonly InviteSeat[], game: GameState): boolean
 
 const applyMove = (game: GameState, move: Move): GameState => rules.apply(game, move);
 
+/** Play heuristic seats until a human seat or a winner; no moves when neither holds at the start. */
 const runBurst = (
   game: GameState,
   seats: readonly InviteSeat[],
@@ -170,10 +171,7 @@ const ensurePosition = async (
   if (existing !== undefined) return existing;
   let game = openingMatch(seats.length);
   const heuristic = deps.heuristic;
-  const burst =
-    heuristic !== undefined && isHeuristicSeat(seats, game)
-      ? runBurst(game, seats, heuristic)
-      : { game, moves: [] };
+  const burst = heuristic === undefined ? { game, moves: [] } : runBurst(game, seats, heuristic);
   game = burst.game;
   try {
     const raw = await persistPosition(
@@ -293,7 +291,7 @@ export const handlePostMove = async (
   }
   const applied: Move[] = [move];
   const heuristic = deps.heuristic;
-  if (heuristic !== undefined && game.winner === undefined && isHeuristicSeat(member.seats, game)) {
+  if (heuristic !== undefined) {
     const burst = runBurst(game, member.seats, heuristic);
     game = burst.game;
     applied.push(...burst.moves);

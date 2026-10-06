@@ -71,8 +71,10 @@ So:
   must prove the real store composes with the handlers.
 - **`PostToConnection`** is a function type, and `createProbedMock<T>` needs an
   interface of Promise-returning methods: wrap it (`ConnectionNotifier` below).
-  `createAwsPostToConnection` (`src/http.ts`) is too thin and reads `env` at
-  import — out of scope.
+  Below the port, the leaf itself — `createApiGatewayPostToConnection(client)`
+  (`src/apigw-post-to-connection.ts`) — has its one SDK call as its seam: probe
+  `PostToConnectionClient` (`send`) to test the bytes it sends and its 410
+  mapping (`online-entry.support.ts`), never to test a handler.
 - **Synchronous deps** (`clock`, `randomBytes`, the heuristic) are not I/O, and
   `google`'s deterministic `fakeGoogle` already answers every scenario. Pass the real or a scripted function; `createProbedMock`
   rejects sync methods at compile time anyway.

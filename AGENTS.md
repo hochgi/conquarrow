@@ -124,6 +124,7 @@ pnpm verify                      # typecheck && lint && test — before saying y
 pnpm crap                        # coverage + CRAP report (advisory, not a gate)
 pnpm test:mutation               # Stryker on rules-core (local; advisory)
 pnpm test:mutation:incremental   # Stryker, changed mutants only
+pnpm test:mutation:online-api    # Stryker on online-api/src (its own suite only; ~4 min)
 ```
 
 Also `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:watch`.
@@ -186,7 +187,9 @@ usual suffixes (`*.core|edge-cases|invariants|replay.test.ts`, rig factory in
 `*.support.ts`); the `*.kit.test.ts` suffix is retired. See the
 `component-testing` skill.
 
-Stryker (`pnpm test:mutation`) is the mutation layer on `rules-core`. Advisory
+Stryker (`pnpm test:mutation`) is the mutation layer on `rules-core`;
+`pnpm test:mutation:online-api` runs the same on `online-api` against its own
+suite (`stryker.online-api.config.json`). Advisory
 (`break: null`); triage new survivors. See the `mutation-testing` skill.
 
 ## The spec→ship workflow

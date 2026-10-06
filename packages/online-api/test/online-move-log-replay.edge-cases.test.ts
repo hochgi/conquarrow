@@ -12,6 +12,7 @@ import type { Move } from '@conquarrow/contracts';
 import {
   ALICE,
   GAME_ONE,
+  gameStateKey,
   GROUP_ABSENT,
   aliceBobGroupHash,
   carriesNoMoves,
@@ -54,7 +55,7 @@ const startedAtVersionThree = async (): Promise<{
 };
 
 describe('Route argument boundaries', () => {
-  const malformed: readonly (string | undefined)[] = [undefined, 'abc', '1.5', '-1'];
+  const malformed: readonly (string | undefined)[] = [undefined, 'abc', '1.5', '-1', '1a', '01'];
 
   for (const since of malformed) {
     it(`A malformed since is unprocessable: ${since ?? '(absent)'}`, async () => {
@@ -77,6 +78,40 @@ describe('Route argument boundaries', () => {
     expect(body.to).toBe(3);
     expect(body.moves).toEqual([]);
     expect(body.gap).toBe(false);
+  });
+
+  it('A multi-digit since serves only the versions after it', async () => {
+    const { api, s3, groupHash } = await startedAtVersionThree();
+    seedStateAtVersion(s3, groupHash, GAME_ONE, 3, 12);
+    const stamps = Array.from({ length: 12 }, (_, index) => index + 1);
+    seedLog(
+      s3,
+      groupHash,
+      GAME_ONE,
+      stamps.map((version) => stampedLine(version, mark(`v${String(version)}`))),
+    );
+
+    const res = await getLog(api, groupHash, GAME_ONE, ALICE.bearer, '10');
+
+    expectStatus(res, 200);
+    const body = logBody(res);
+    expect(body.from).toBe(10);
+    expect(body.to).toBe(12);
+    expect(body.gap).toBe(false);
+    expect(body.moves).toEqual([mark('v11'), mark('v12')]);
+  });
+
+  it('A game with no stored position is at version zero', async () => {
+    const { api, s3, groupHash } = await startedAtVersionThree();
+    s3.delete(gameStateKey(groupHash, GAME_ONE));
+
+    const res = await getLog(api, groupHash, GAME_ONE, ALICE.bearer, '0');
+
+    expectStatus(res, 200);
+    const body = logBody(res);
+    expect(body.to).toBe(0);
+    expect(body.gap).toBe(false);
+    expect(body.moves).toEqual([]);
   });
 
   it('An unknown game is not found', async () => {
@@ -164,5 +199,72 @@ describe('Gaps are reported, never guessed', () => {
     const body = logBody(res);
     expect(body.gap).toBe(true);
     expect(body.moves).toEqual([]);
+  });
+
+  it('A stamp beyond the stored version is not served', async () => {
+    const { api, s3, groupHash } = await startedAtVersionThree();
+    seedLog(s3, groupHash, GAME_ONE, [
+      stampedLine(1, mark('v1')),
+      stampedLine(2, mark('v2')),
+      stampedLine(3, mark('v3')),
+      stampedLine(4, mark('v4')),
+    ]);
+
+    const res = await getLog(api, groupHash, GAME_ONE, ALICE.bearer, '2');
+
+    expectStatus(res, 200);
+    const body = logBody(res);
+    expect(body.to).toBe(3);
+    expect(body.gap).toBe(false);
+    expect(body.moves).toEqual([mark('v3')]);
+  });
+
+  it('Out-of-order stamps report a gap', async () => {
+    const { api, s3, groupHash } = await startedAtVersionThree();
+    seedLog(s3, groupHash, GAME_ONE, [
+      stampedLine(2, mark('v2')),
+      stampedLine(1, mark('v1')),
+      stampedLine(3, mark('v3')),
+    ]);
+
+    const res = await getLog(api, groupHash, GAME_ONE, ALICE.bearer, '0');
+
+    expectStatus(res, 200);
+    const body = logBody(res);
+    expect(body.gap).toBe(true);
+    expect(body.moves).toEqual([]);
+  });
+
+  it('A stamped line whose move is not an object is a hole', async () => {
+    const { api, s3, groupHash } = await startedAtVersionThree();
+    seedLog(s3, groupHash, GAME_ONE, [
+      stampedLine(1, mark('v1')),
+      stampedLine(2, mark('v2')),
+      JSON.stringify({ v: 3, move: 7 }),
+    ]);
+
+    const res = await getLog(api, groupHash, GAME_ONE, ALICE.bearer, '2');
+
+    expectStatus(res, 200);
+    const body = logBody(res);
+    expect(body.gap).toBe(true);
+    expect(body.moves).toEqual([]);
+  });
+
+  it('An unreadable line does not hide the stamped lines around it', async () => {
+    const { api, s3, groupHash } = await startedAtVersionThree();
+    seedLog(s3, groupHash, GAME_ONE, [
+      stampedLine(1, mark('v1')),
+      '{"v":2,',
+      stampedLine(2, mark('v2')),
+      stampedLine(3, mark('v3')),
+    ]);
+
+    const res = await getLog(api, groupHash, GAME_ONE, ALICE.bearer, '0');
+
+    expectStatus(res, 200);
+    const body = logBody(res);
+    expect(body.gap).toBe(false);
+    expect(body.moves).toEqual([mark('v1'), mark('v2'), mark('v3')]);
   });
 });

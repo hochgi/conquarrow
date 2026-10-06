@@ -17,6 +17,8 @@
     "bots": "node scripts/bots-report.mjs",
     "test:mutation": "stryker run",
     "test:mutation:incremental": "stryker run --incremental",
+    "test:mutation:online-api": "stryker run stryker.online-api.config.json",
+    "test:mutation:online-api:incremental": "stryker run stryker.online-api.config.json --incremental",
     "test:mutation:report": "node scripts/format-stryker-report.cjs",
     "dev:web": "pnpm --filter @conquarrow/web dev",
     "byok-turn": "node tools/byok-turn-runner/src/server.mjs",

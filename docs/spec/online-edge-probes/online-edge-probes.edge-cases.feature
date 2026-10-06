@@ -25,6 +25,21 @@ Feature: Online edge probes — error mapping, races and notify hygiene
       When the real store gets key "conquarrow/k1"
       Then the call rejects with that same error
 
+    Scenario: A NoSuchKey error with no status still reads as undefined
+      Given the next GetObjectCommand is rejected with an S3 error named "NoSuchKey" with no httpStatusCode in its $metadata
+      When the real store gets key "conquarrow/k1"
+      Then the result is undefined
+
+    Scenario: A read failure carrying no S3 metadata propagates unchanged
+      Given the next GetObjectCommand is rejected with a plain Error "socket hang up" that has no $metadata
+      When the real store gets key "conquarrow/k1"
+      Then the call rejects with that same error
+
+    Scenario: A GetObject answer with no body reads as undefined
+      Given the next GetObjectCommand is answered with an output that has no Body
+      When the real store gets key "conquarrow/k1"
+      Then the result is undefined
+
   Rule: Preconditions map to PreconditionFailed
 
     Scenario: Compare-and-swap on an absent key fails without a write
@@ -39,6 +54,20 @@ Feature: Online edge probes — error mapping, races and notify hygiene
       Then the call rejects with PreconditionFailed
       And no PutObjectCommand was recorded
       And the backing holds "v0" at "conquarrow/k1"
+
+    Scenario: Compare-and-swap whose read fails with a non-404 propagates that error without a write
+      Given the backing holds "v0" at "conquarrow/k1"
+      And the next GetObjectCommand is rejected with an S3 error named "InternalError" with status 500
+      When the real store puts key "conquarrow/k1" with body "v1" and ifMatch "v0"
+      Then the call rejects with that same error
+      And no PutObjectCommand was recorded
+      And the backing holds "v0" at "conquarrow/k1"
+
+    Scenario: Compare-and-swap against a read with no body compares it as empty
+      Given the next GetObjectCommand is answered with an output that has an ETag and no Body
+      When the real store puts key "conquarrow/k1" with body "v1" and ifMatch "v0"
+      Then the call rejects with PreconditionFailed
+      And no PutObjectCommand was recorded
 
     Scenario: A write racing between the read and the conditional put loses with PreconditionFailed
       Given the backing holds "v0" at "conquarrow/k1"
@@ -89,7 +118,25 @@ Feature: Online edge probes — error mapping, races and notify hygiene
       When the real store lists prefix "conquarrow/p/"
       Then the call rejects with that same error
 
+    Scenario: A listed entry with no Key is skipped
+      Given the next ListObjectsV2Command is answered with one entry that has no Key and one with Key "conquarrow/p/a", not truncated
+      When the real store lists prefix "conquarrow/p/"
+      Then the result is exactly "conquarrow/p/a"
+
   Rule: Notify hygiene through the probed notifier
+
+    Scenario: Other humans are posted in userHash order, each user's connections in id order
+      Given the probed notifier answers 200 to every post
+      And the backing holds B's connections "conn-b-2" and "conn-b-1" and C's connections "conn-c-2" and "conn-c-1"
+      When notifyOthers runs with the real store and the probed notifier for seats C (human), a heuristic, B (human), A (human) and caller A
+      Then the probed notifier received posts to "conn-b-1", "conn-b-2", "conn-c-1", "conn-c-2" in that order (B's userHash sorts before C's)
+      And the only connection prefixes listed were B's then C's
+
+    Scenario: Keys under a connections prefix that are not a bare connection id are not posted
+      Given the probed notifier answers 200 to every post
+      And the backing holds, under B's connections prefix, the prefix itself (a folder marker), "a/b", and "conn-bob-1"
+      When notifyOthers runs with the real store and the probed notifier for seats A (human), B (human) and caller A
+      Then the probed notifier received exactly one post, to "conn-bob-1"
 
     Scenario: A gone connection is forgotten and a live one is kept
       Given an api over the real store and the probed notifier

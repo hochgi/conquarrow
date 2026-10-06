@@ -58,7 +58,27 @@ const validClaims = {
 describe('createGoogleTokenInfoVerifier', () => {
   it('accepts a tokeninfo payload with matching aud and unexpired exp', async () => {
     const result = await verify(fakeFetch(200, validClaims), BEARER);
-    expect(result).toEqual({ ok: true, sub: 'alice-sub' });
+    // Strict: with no name claim the result has no displayName key at all.
+    expect(result).toStrictEqual({ ok: true, sub: 'alice-sub' });
+  });
+
+  it('accepts a Bearer token separated by more than one space', async () => {
+    const urls: string[] = [];
+    const fetchImpl = stubFetch(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve(validClaims) }),
+    );
+    const recording = ((url: string) => {
+      urls.push(url);
+      return fetchImpl(url);
+    }) as unknown as TokenInfoDeps['fetch'];
+
+    expect(await verify(recording, 'Bearer   id-token')).toEqual({ ok: true, sub: 'alice-sub' });
+    expect(urls).toEqual(['https://oauth2.googleapis.com/tokeninfo?id_token=id-token']);
+  });
+
+  it('ignores a non-string name claim when given_name is absent', async () => {
+    const result = await verify(fakeFetch(200, { ...validClaims, name: 42 }), BEARER);
+    expect(result).toStrictEqual({ ok: true, sub: 'alice-sub' });
   });
 
   it('prefers given_name over name as displayName', async () => {
@@ -91,11 +111,32 @@ describe('createGoogleTokenInfoVerifier', () => {
     expect(flag.called).toBe(false);
   });
 
+  it('rejects an empty Authorization header as missing without calling fetch', async () => {
+    const flag = { called: false };
+    expect(await verify(trackingFetch(flag, validClaims), '')).toEqual({
+      ok: false,
+      reason: 'missing',
+    });
+    expect(flag.called).toBe(false);
+  });
+
   it('rejects a non-Bearer header', async () => {
     expect(await verify(fakeFetch(200, validClaims), 'Basic x')).toEqual({
       ok: false,
       reason: 'invalid',
     });
+  });
+
+  it.each([
+    ['text before the scheme', 'xBearer id-token'],
+    ['a second token after the first', 'Bearer id-token extra'],
+  ])('rejects a Bearer header with %s without calling fetch', async (_label, header) => {
+    const flag = { called: false };
+    expect(await verify(trackingFetch(flag, validClaims), header)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    expect(flag.called).toBe(false);
   });
 
   it('rejects an empty client-id allowlist without calling fetch', async () => {
@@ -109,6 +150,13 @@ describe('createGoogleTokenInfoVerifier', () => {
 
   it('rejects a wrong audience', async () => {
     expect(await verify(fakeFetch(200, { ...validClaims, aud: OTHER }), BEARER)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+  });
+
+  it('rejects a non-string sub', async () => {
+    expect(await verify(fakeFetch(200, { ...validClaims, sub: 42 }), BEARER)).toEqual({
       ok: false,
       reason: 'invalid',
     });
@@ -136,6 +184,16 @@ describe('createGoogleTokenInfoVerifier', () => {
     });
   });
 
+  it.each([
+    ['null', null],
+    ['an infinite number (JSON 1e999)', JSON.parse('1e999') as unknown],
+  ])('rejects an exp that is %s as invalid', async (_label, exp) => {
+    expect(await verify(fakeFetch(200, { ...validClaims, exp }), BEARER)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+  });
+
   it('rejects at the exact expiration instant', async () => {
     expect(await verify(fakeFetch(200, { ...validClaims, exp: NOW_S }), BEARER)).toEqual({
       ok: false,
@@ -145,6 +203,13 @@ describe('createGoogleTokenInfoVerifier', () => {
 
   it('rejects a non-2xx tokeninfo response', async () => {
     expect(await verify(fakeFetch(400, { error: 'invalid_token' }), BEARER)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+  });
+
+  it('rejects a non-2xx response even when its body carries valid claims', async () => {
+    expect(await verify(fakeFetch(500, validClaims), BEARER)).toEqual({
       ok: false,
       reason: 'invalid',
     });

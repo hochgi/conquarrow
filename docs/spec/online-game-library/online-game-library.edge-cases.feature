@@ -41,6 +41,22 @@ Feature: Online game library — boundaries
       And fake S3 gained no new keys
       And fake S3 keys were not overwritten
 
+    Scenario: Unreadable game objects do not fail the listing
+      Given A's group pointers list Gaaa and Gbbb
+      And Gaaa's games/000001/meta.json holds bytes that are not game meta
+      And Gbbb's games/000001/meta.json has seats and no library summary
+      And Gbbb's games/000001/state.json holds bytes that are not a persisted position
+      When GET /my-games with A's bearer
+      Then the response is 200
+      And Gaaa/000001 is listed as waiting with no seats, seatIndex 0 and no startedAt
+      And Gbbb/000001 is listed as waiting
+
+    Scenario: A stored position whose fraction is not a rational does not fail the listing
+      Given A and B have started a game whose games/000001/meta.json has no library summary
+      And its state.json holds a spawner force with a zero denominator
+      When GET /my-games with A's bearer
+      Then the response is 200
+      And that game is listed as waiting
     Scenario: GET /my-games does not write S3
       Given a started game with a stamped library summary
       And the caller has no GIS display name
@@ -60,6 +76,16 @@ Feature: Online game library — boundaries
         | Gbbb      | 000002     | waiting   |
       When GET /my-games with A's bearer
       Then the started rows are in order Gbbb/000001, Gbbb/000002, Gaaa/000001, Gaaa/000002
+
+    Scenario: Rows of one status sort by group then newest game number
+      Given A's /my-games would include, all waiting
+        | groupHash | gameNumber |
+        | Gbbb      | 000001     |
+        | Gaaa      | 000001     |
+        | Gaaa      | 000002     |
+        | Gbbb      | 000002     |
+      When GET /my-games with A's bearer
+      Then the started rows are in order Gaaa/000002, Gaaa/000001, Gbbb/000002, Gbbb/000001
 
     Scenario: Open lobby tokens stay on lobbies not as game statuses
       Given A has an open lobby token T and a started game 000001

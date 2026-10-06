@@ -44,6 +44,24 @@ Feature: Online auth and invites — boundaries
       Then the response is 422
       And fake S3 has no new keys
 
+    Scenario Outline: A create body that is not a seat plan is 422
+      Given a valid Google ID token for user A
+      When POST /invites with the raw body <body>
+      Then the response is 422
+      And fake S3 has no new keys
+
+      Examples:
+        | body                                                    |
+        | (none)                                                  |
+        | {                                                       |
+        | null                                                    |
+        | []                                                      |
+        | {}                                                      |
+        | {"seats":5}                                             |
+        | {"seats":["human","human","wizard"]}                    |
+        | {"seats":["human","human","heuristic"],"hostSeatIndex":"1"} |
+        | {"seats":["human","human","heuristic"],"hostSeatIndex":0.5} |
+
   Rule: Creator chair
 
     Scenario: hostSeatIndex binds the creator to a later human seat
@@ -54,6 +72,13 @@ Feature: Online auth and invites — boundaries
       And seat 0 is human unbound
 
   Rule: Accept
+
+    Scenario: Creator accepting their own invite keeps one chair
+      Given an open invite by A with seats human, human, heuristic
+      When POST /invites/:token/accept with A's bearer
+      Then the response is 200
+      And A occupies only seat 0
+      And seat 1 is still unbound
 
     Scenario: Same user accepting twice stays on one seat
       Given an open invite by A with seats human, human, heuristic
@@ -103,6 +128,13 @@ Feature: Online auth and invites — boundaries
       Then the response is 410
       And the body reason is revoked
 
+    Scenario: Revoking a started invite is 410 and leaves it started
+      Given A and B have started an invite created by A
+      When POST /invites/:token/revoke with A's bearer
+      Then the response is 410
+      And the body reason is started
+      And the stored invite is unchanged
+
     Scenario: Non-creator cannot revoke
       Given an open invite created by A and accepted by B
       When POST /invites/:token/revoke with B's bearer
@@ -148,3 +180,60 @@ Feature: Online auth and invites — boundaries
       When GET /my-games with B's bearer
       Then the body does not list A's token
       And the body does not list A's userHash as a peer row B did not join
+
+    Scenario: A lobby pointer whose invite is gone is not listed
+      Given A has an open invite T
+      And A's lobby pointer names a token whose invite object does not exist
+      When GET /my-games with A's bearer
+      Then the response is 200
+      And lobbies lists only T
+
+  Rule: Unknown tokens and route matching
+
+    Scenario: Every invite route is 404 for an unknown token
+      Given a valid Google ID token for user A
+      And no invite exists for token T
+      When GET /invites/T
+      Then the response is 404
+      When POST /invites/T/accept, /invites/T/revoke and /invites/T/start with A's bearer
+      Then each response is 404
+      And fake S3 holds no invite, group or game objects
+
+    Scenario: Every invite route is 404 for an unreadable invite record
+      Given a valid Google ID token for user A
+      And the invite object for token T holds bytes that are not an invite
+      When GET /invites/T
+      Then the response is 404
+      When POST /invites/T/accept, /invites/T/revoke and /invites/T/start with A's bearer
+      Then each response is 404
+      And the invite object for T still holds the same bytes
+
+    Scenario Outline: Invite routes match whole paths only
+      Given an open invite T created by A
+      When <method> <path> with A's bearer
+      Then the response is 404
+      And the invite T is unchanged
+
+      Examples:
+        | method | path                    |
+        | GET    | /api/invites/T          |
+        | GET    | /invites/T/extra        |
+        | GET    | /invites/T/accept       |
+        | GET    | /invites                |
+        | POST   | /invites/T              |
+        | POST   | /api/invites/T/accept   |
+        | POST   | /invites/T/accept/extra |
+        | POST   | /invites/T/join         |
+        | POST   | /me                     |
+        | POST   | /my-games               |
+
+  Rule: Store failures
+
+    Scenario: A store failure writing an accept surfaces and binds no one
+      Given an open invite T by A with seats human, human, heuristic
+      And the real store over a probed S3
+      And the probed S3 rejects the next conditional put of T's invite with a 500
+      When POST /invites/T/accept with B's bearer
+      Then the call fails with that error
+      And seat 1 of T is still unbound
+      And B has no lobby pointer to T
