@@ -138,7 +138,7 @@ vacuously green until the dependencies land in phase 2.
 
 ## Counts
 
-Core: 8 scenarios. Edge cases: 15 scenarios (one outline, 6 rows — four by status, two by name alone).
+Core: 8 scenarios. Edge cases: 23 scenarios (one outline, 6 rows — four by status, two by name alone).
 Invariants: 7 (6 Vitest, 1 lint).
 
 ## Open — not this packet

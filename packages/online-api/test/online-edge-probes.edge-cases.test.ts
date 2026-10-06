@@ -14,7 +14,9 @@ import {
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { InviteSeat, StateChangedPayload } from '@conquarrow/contracts';
 import { PreconditionFailed } from '../src/create-online-api';
+import { notifyOthers } from '../src/notify';
 import {
   ALICE,
   BOB,
@@ -55,6 +57,18 @@ import {
 
 const K1 = 'conquarrow/k1';
 
+const STATE_CHANGED: StateChangedPayload = {
+  type: 'stateChanged',
+  version: 1,
+  groupHash: 'g',
+  gameNumber: '000001',
+};
+
+const human = (userHash: string): InviteSeat => ({ kind: 'human', userHash });
+
+/** A user's connections prefix, spelled out so the test does not import the key builder under test. */
+const connectionsPrefixOf = (userHash: string): string => `conquarrow/connections/${userHash}/`;
+
 let edge: EdgeRig;
 
 beforeEach(() => {
@@ -84,6 +98,31 @@ describe('online-edge-probes — edge cases', () => {
 
       expect(reason).toBe(failure);
     });
+
+    it('A NoSuchKey error with no status still reads as undefined', async () => {
+      edge.s3.probe.command(GetObjectCommand).once().reject(s3Error('NoSuchKey'));
+
+      const result = await edge.store.get(K1);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('A read failure carrying no S3 metadata propagates unchanged', async () => {
+      const failure = new Error('socket hang up');
+      edge.s3.probe.command(GetObjectCommand).once().reject(failure);
+
+      const reason = await rejectionOf(Promise.resolve(edge.store.get(K1)));
+
+      expect(reason).toBe(failure);
+    });
+
+    it('A GetObject answer with no body reads as undefined', async () => {
+      edge.s3.probe.command(GetObjectCommand).once().answer({ $metadata: {} });
+
+      const result = await edge.store.get(K1);
+
+      expect(result).toBeUndefined();
+    });
   });
 
   describe('Rule: Preconditions map to PreconditionFailed', () => {
@@ -107,6 +146,31 @@ describe('online-edge-probes — edge cases', () => {
       expect(reason).toBeInstanceOf(PreconditionFailed);
       edge.s3.probe.command(PutObjectCommand).expect.neverCalled();
       expect(await backingBody(edge, K1)).toBe('v0');
+    });
+
+    it('Compare-and-swap whose read fails with a non-404 propagates that error without a write', async () => {
+      await seedBacking(edge, [[K1, 'v0']]);
+      const failure = s3Error('InternalError', 500);
+      edge.s3.probe.command(GetObjectCommand).once().reject(failure);
+
+      const reason = await rejectionOf(
+        Promise.resolve(edge.store.put(K1, 'v1', { ifMatch: 'v0' })),
+      );
+
+      expect(reason).toBe(failure);
+      edge.s3.probe.command(PutObjectCommand).expect.neverCalled();
+      expect(await backingBody(edge, K1)).toBe('v0');
+    });
+
+    it('Compare-and-swap against a read with no body compares it as empty', async () => {
+      edge.s3.probe.command(GetObjectCommand).once().answer({ ETag: '"e0"', $metadata: {} });
+
+      const reason = await rejectionOf(
+        Promise.resolve(edge.store.put(K1, 'v1', { ifMatch: 'v0' })),
+      );
+
+      expect(reason).toBeInstanceOf(PreconditionFailed);
+      edge.s3.probe.command(PutObjectCommand).expect.neverCalled();
     });
 
     it('A write racing between the read and the conditional put loses with PreconditionFailed', async () => {
@@ -194,9 +258,74 @@ describe('online-edge-probes — edge cases', () => {
       expect(reason).toBe(failure);
       edge.s3.probe.command(ListObjectsV2Command).expect.calledTimes(2);
     });
+
+    it('A listed entry with no Key is skipped', async () => {
+      edge.s3.probe
+        .command(ListObjectsV2Command)
+        .once()
+        .answer({ Contents: [{}, { Key: 'conquarrow/p/a' }], IsTruncated: false, $metadata: {} });
+
+      const result = await edge.store.listPrefix('conquarrow/p/');
+
+      expect(result).toEqual(['conquarrow/p/a']);
+    });
   });
 
   describe('Rule: Notify hygiene through the probed notifier', () => {
+    it("Other humans are posted in userHash order, each user's connections in id order", async () => {
+      expect(utf16Order(bobHash(), carolHash())).toBeLessThan(0);
+      const notifier = attachNotifier(edge);
+      answer200ToEveryPost(notifier);
+      await seedBacking(
+        edge,
+        [
+          connectionKey(bobHash(), 'conn-b-2'),
+          connectionKey(bobHash(), 'conn-b-1'),
+          connectionKey(carolHash(), 'conn-c-2'),
+          connectionKey(carolHash(), 'conn-c-1'),
+        ].map((key) => [key, '{}'] as const),
+      );
+
+      await notifyOthers(
+        edge.store,
+        notifierPort(notifier),
+        [human(carolHash()), { kind: 'heuristic' }, human(bobHash()), human(aliceHash())],
+        aliceHash(),
+        STATE_CHANGED,
+      );
+
+      expect(notifier.probe.on('post').calls.map((call) => call.args[0])).toEqual([
+        'conn-b-1',
+        'conn-b-2',
+        'conn-c-1',
+        'conn-c-2',
+      ]);
+      const listed = edge.s3.probe
+        .command(ListObjectsV2Command)
+        .calls.map((call) => call.command.input.Prefix);
+      expect(listed).toEqual([connectionsPrefixOf(bobHash()), connectionsPrefixOf(carolHash())]);
+    });
+
+    it('Keys under a connections prefix that are not a bare connection id are not posted', async () => {
+      const notifier = attachNotifier(edge);
+      answer200ToEveryPost(notifier);
+      const prefix = connectionsPrefixOf(bobHash());
+      await seedBacking(
+        edge,
+        [prefix, `${prefix}a/b`, `${prefix}${BOB_CONN}`].map((key) => [key, '{}'] as const),
+      );
+
+      await notifyOthers(
+        edge.store,
+        notifierPort(notifier),
+        [human(aliceHash()), human(bobHash())],
+        aliceHash(),
+        STATE_CHANGED,
+      );
+
+      expect(notifier.probe.on('post').calls.map((call) => call.args[0])).toEqual([BOB_CONN]);
+    });
+
     it('A gone connection is forgotten and a live one is kept', async () => {
       const notifier = attachNotifier(edge);
       const { api, ws } = apiOver(edge.store, notifierPort(notifier));
