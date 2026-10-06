@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { InviteSeat, PlannedSeatKind } from '@conquarrow/contracts';
+import { mintArrowId } from '@conquarrow/contracts';
 import { parseLogLine } from '../src/game-log';
 import { parsePersistedEnvelope } from '../src/game-snapshot';
 import {
@@ -109,6 +110,16 @@ describe('state.json: a malformed position is refused', () => {
       expect(parsePersistedEnvelope(envelopeOf(state))).toBeUndefined();
     });
   }
+
+  it('reads an accumulator of zero as zero', () => {
+    const zeroed = withFirstItemField(valid, 'accumulators', 'num', 0) as {
+      accumulators: { arrow: string }[];
+    };
+    const arrow = zeroed.accumulators[0]?.arrow;
+    if (arrow === undefined) throw new Error('setup: expected a stored accumulator');
+    const parsed = parsePersistedEnvelope(envelopeOf(zeroed));
+    expect(parsed?.game.accumulators.get(mintArrowId(arrow))).toStrictEqual({ num: 0, den: 1 });
+  });
 });
 
 describe('invite.json: a malformed invite is refused', () => {
