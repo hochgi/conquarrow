@@ -10,7 +10,9 @@ right reason. Your job is to make them pass without changing what they mean.
 
 ## The loop
 
-1. **Green.** Implement the minimum that turns the suite green.
+1. **Green.** Implement the minimum that turns the suite green. Extending a
+   function or file already near the budget? Run `hotspot-expansion-review`
+   first — extract, then extend.
 2. **Refactor.** Fit the complexity budget by extracting, never by disabling a
    rule or splitting a function arbitrarily to duck a line count.
 3. **Replay.** Re-run the replay fixtures. Green unit tests plus a drifted
