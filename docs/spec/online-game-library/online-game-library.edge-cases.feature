@@ -51,6 +51,12 @@ Feature: Online game library — boundaries
       And Gaaa/000001 is listed as waiting with no seats, seatIndex 0 and no startedAt
       And Gbbb/000001 is listed as waiting
 
+    Scenario: A stored position whose fraction is not a rational does not fail the listing
+      Given A and B have started a game whose games/000001/meta.json has no library summary
+      And its state.json holds a spawner force with a zero denominator
+      When GET /my-games with A's bearer
+      Then the response is 200
+      And that game is listed as waiting
     Scenario: GET /my-games does not write S3
       Given a started game with a stamped library summary
       And the caller has no GIS display name

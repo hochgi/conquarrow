@@ -171,6 +171,19 @@ const hydrateTerritory = (raw: unknown): Map<ArrowId, PlayerId> | undefined => {
   return territory;
 };
 
+/**
+ * A stored `num`/`den` pair as a rational, or `undefined` when it is not one.
+ * Mirrors `rational`'s contract — integers, `den > 0`, never negative — so a
+ * corrupt record is refused like every other malformed field instead of
+ * throwing `ContractViolation` out of the parser.
+ */
+const rationalOf = (num: unknown, den: unknown): Rational | undefined => {
+  if (typeof num !== 'number' || typeof den !== 'number') return undefined;
+  if (!Number.isInteger(num) || !Number.isInteger(den)) return undefined;
+  if (num < 0 || den <= 0) return undefined;
+  return rational(num, den);
+};
+
 const hydrateAccumulators = (raw: unknown): Map<ArrowId, Rational> | undefined => {
   if (!Array.isArray(raw)) return undefined;
   const accumulators = new Map<ArrowId, Rational>();
@@ -178,12 +191,9 @@ const hydrateAccumulators = (raw: unknown): Map<ArrowId, Rational> | undefined =
     const rec = asRecord(item);
     if (rec === undefined) return undefined;
     const arrow = rec['arrow'];
-    const num = rec['num'];
-    const den = rec['den'];
-    if (typeof arrow !== 'string' || typeof num !== 'number' || typeof den !== 'number') {
-      return undefined;
-    }
-    accumulators.set(mintArrowId(arrow), rational(num, den));
+    const value = rationalOf(rec['num'], rec['den']);
+    if (typeof arrow !== 'string' || value === undefined) return undefined;
+    accumulators.set(mintArrowId(arrow), value);
   }
   return accumulators;
 };
@@ -195,12 +205,11 @@ const hydrateSpawners = (raw: unknown): Map<VertexId, Spawner> | undefined => {
     const rec = asRecord(item);
     if (rec === undefined) return undefined;
     const vertex = rec['vertex'];
-    const num = rec['num'];
-    const den = rec['den'];
+    const force = rationalOf(rec['num'], rec['den']);
     const phase = rec['phase'];
-    if (typeof vertex !== 'string' || typeof num !== 'number') return undefined;
-    if (typeof den !== 'number' || typeof phase !== 'number') return undefined;
-    spawners.set(mintVertexId(vertex), { force: rational(num, den), phase });
+    if (typeof vertex !== 'string' || force === undefined) return undefined;
+    if (typeof phase !== 'number') return undefined;
+    spawners.set(mintVertexId(vertex), { force, phase });
   }
   return spawners;
 };

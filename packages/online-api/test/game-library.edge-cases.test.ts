@@ -136,6 +136,25 @@ describe('Legacy meta and listing cost', () => {
     expect(libraryRowOf(lib.games, GBBB).status).toBe('waiting');
   });
 
+  it('A stored position whose fraction is not a rational does not fail the listing', async () => {
+    const { api, s3 } = makeHarness();
+    await startAliceBob(api);
+    const groupHash = aliceBobGroupHash();
+    seedOpeningState(s3, groupHash, GAME_ONE, 3);
+    const key = gameStateKey(groupHash, GAME_ONE);
+    const envelope = JSON.parse(s3.get(key) ?? '') as {
+      state: { spawners: { den: number }[] };
+    };
+    const first = envelope.state.spawners[0];
+    if (first === undefined) throw new Error('setup: expected a stored spawner');
+    first.den = 0;
+    s3.set(key, JSON.stringify(envelope));
+
+    const lib = libraryGamesOf(parseBody(expectStatus(await getMyGames(api, ALICE.bearer), 200)));
+
+    expect(libraryRowOf(lib.games, groupHash).status).toBe('waiting');
+  });
+
   it('GET /my-games does not write S3', async () => {
     const { api, s3 } = makeHarness();
     await startAliceBob(api);

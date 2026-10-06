@@ -87,6 +87,16 @@ describe('state.json: a malformed position is refused', () => {
     ['a spawner num that is not a number', withFirstItemField(valid, 'spawners', 'num', '1')],
     ['a spawner den that is not a number', withFirstItemField(valid, 'spawners', 'den', '3')],
     ['a spawner phase that is not a number', withFirstItemField(valid, 'spawners', 'phase', '0')],
+    // Numbers that are not a rational: refused, never thrown out of the parser.
+    ['an accumulator with a zero den', withFirstItemField(valid, 'accumulators', 'den', 0)],
+    ['an accumulator with a negative den', withFirstItemField(valid, 'accumulators', 'den', -3)],
+    ['an accumulator with a negative num', withFirstItemField(valid, 'accumulators', 'num', -1)],
+    ['an accumulator with a fractional num', withFirstItemField(valid, 'accumulators', 'num', 0.5)],
+    ['an accumulator with a fractional den', withFirstItemField(valid, 'accumulators', 'den', 1.5)],
+    ['a spawner with a zero den', withFirstItemField(valid, 'spawners', 'den', 0)],
+    ['a spawner with a negative den', withFirstItemField(valid, 'spawners', 'den', -3)],
+    ['a spawner with a negative num', withFirstItemField(valid, 'spawners', 'num', -1)],
+    ['a spawner with a fractional num', withFirstItemField(valid, 'spawners', 'num', 0.5)],
   ];
   for (const section of listSections) {
     rows.push([`no ${section}`, without(valid, section)]);
