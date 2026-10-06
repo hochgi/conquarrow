@@ -62,8 +62,11 @@ A blurred name becomes a blurred test becomes a blurred rule.
 
 ## 5. Model the spec's shapes, not convenient ones
 
-A trail is a **tree rooted at territory**, because forks are a real mechanic —
-not a list that happens to work until someone splits a stack. An accumulator
+A trail is a **set of arrows** (SPEC §6.1a) — not a walk, not a tree. Forks are
+ordinary trail; a point the trail uses twice joins every in to every out, with
+no pairing to recover. A list or tree would record an order or a pairing the
+spec deliberately does not have, and fill must read the set, never the move
+list. An accumulator
 belongs to an **arrow**, not to a player, because that is what makes capture
 reset it. Fighting the spec's data shapes for short-term convenience is how the
 rules quietly diverge.

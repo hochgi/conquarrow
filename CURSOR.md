@@ -25,8 +25,15 @@ may run the parent on another family, and these phases must stay on Grok.
 Unchanged location: [`.claude/skills/`](./.claude/skills/) (`spec-to-ship`,
 `write-spec`, `write-failing-tests`, `code-to-green`, `review-changes`,
 `rules-invariants`, `engineering-principles`, `mutation-testing`,
-`component-testing`). Agents
-reference those paths.
+`component-testing`, `refactor-to-hexagonal`, `hotspot-expansion-review`,
+`regression-dog`). Agents reference those paths.
+
+## Rules
+
+Path-scoped rules shared with Claude Code are symlinks:
+`.cursor/rules/<name>.mdc` → `.claude/rules/<name>.md`. Edit the target. Its
+frontmatter carries both `globs` (Cursor) and `paths` (Claude) — keep the two
+lists in step.
 
 ## Model selection when launching Task
 

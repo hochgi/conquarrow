@@ -35,4 +35,6 @@ Needs OpenCode ≥ 1.18.18 for xhigh on xAI (`opencode upgrade`).
 
 `/spec-to-ship P56` — `.opencode/command/spec-to-ship.md`
 Agents: `.opencode/agent/{spec-author,test-author,coder,reviewer}.md`
-Skills: `.claude/skills/`
+Skills: `.claude/skills/` (OpenCode discovers them natively)
+Rules: `.claude/rules/*.md` via `instructions` in `opencode.json`. OpenCode has
+no path scoping, so these load every session; each rule names its own scope.

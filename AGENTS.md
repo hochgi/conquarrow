@@ -65,8 +65,8 @@ reason to ask, not a licence to decide.
 - **`packages/rules-core`** — the pure engine behind those ports.
 - **`packages/geometry-*`** — pluggable tiling implementations.
 - **Adapters at the edges** — renderer, input, AI, persistence, netcode. Never
-  referenced from the core. Online handlers will live in `packages/online-api/`
-  (P16+) and still depend inward on contracts + rules-core.
+  referenced from the core. Online handlers live in `packages/online-api/` and
+  depend inward on contracts + rules-core.
 
 **Why geometry is pluggable and not just a constant table:** every rule
 downstream must be testable against small hand-authored fixture boards with known
@@ -80,6 +80,41 @@ girth 3, one spawner vertex per minimal cycle) and P03 *generates* a board rathe
 than extracting one. The port stays regardless — readable fixtures earn it on
 their own.
 
+## BSSN and the ratchet
+
+**BSSN — Best Simple System for Now**
+([Dan North](https://dannorth.net/blog/best-simple-system-for-now/)). *Best*:
+no cut corners — the solution you would defend in review. *Simple*: as simple as
+possible, and no simpler. *For now*: build what today's packet needs (YAGNI).
+BSSN governs every engineering call. Game rules are never BSSN — they come from
+SPEC.md or go to §11.
+
+**The ratchet: existing code is context, not precedent.** Every slice you touch
+leaves better than you found it.
+
+- Write new code to the layering above, whatever its neighbours do. Fix an
+  obvious boundary leak in the slice you are touching when its right home is
+  clear.
+- Keep cleanup proportional: same slice, no repo-wide redesign. When the right
+  home is unclear, make the smallest safe improvement and name what still
+  looks wrong.
+- Reuse an existing port, adapter, handler or leaf before creating a file. Add
+  code only when it lowers net complexity.
+- Keep interfaces narrow and deep — few public methods, real behaviour behind
+  each. A port is the expensive case: every method on `GeometryPort`,
+  `RulesPort` or `EconomyPort` costs every implementation plus a conformance
+  case. Grow one with a new named contract; pass-through, renamed, pre-filled
+  and boolean-mode-flag variants of an existing method stay out.
+- One-caller in-process logic is a private function or pure helper. A real
+  external boundary is a thin injected leaf — working in `online-api`, `mcp`
+  or `web`, read `.claude/rules/adapter-leaf-dependencies.md`.
+- Add an abstraction when it pays today: it removes logic from an entry point,
+  isolates I/O, has a second caller now, or makes a test possible now.
+
+Skills that run this: `hotspot-expansion-review` before extending a large
+function, `refactor-to-hexagonal` for deliberate layer cleanup, `regression-dog`
+to list the behavioural delta afterwards.
+
 ## Commands
 
 TypeScript (strict) + Vitest + pnpm workspaces. Landed in P01.
@@ -92,6 +127,11 @@ pnpm test:mutation:incremental   # Stryker, changed mutants only
 ```
 
 Also `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:watch`.
+
+**Reproduce known state with commands, not hand-edits.** When a file's target
+state exists at a git ref, `git restore --source=<ref> -- <path>`. Reach for
+`git mv`, `git revert`, codemods and `pnpm add` over retyping their output.
+Hand-edit only what has no canonical source.
 
 Complexity budget is **warn** on `contracts` / `rules-core` / `geometry-*`
 (cyclomatic ≤ 12, depth ≤ 4, 80 lines, 5 params). `pnpm verify` still passes.

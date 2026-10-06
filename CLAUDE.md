@@ -21,7 +21,12 @@ conventions above.
   `reviewer`.
 - **Skills** (`.claude/skills/`): `spec-to-ship`, `write-spec`,
   `write-failing-tests`, `code-to-green`, `review-changes`, `rules-invariants`,
-  `engineering-principles`, `mutation-testing`, `component-testing`.
+  `engineering-principles`, `mutation-testing`, `component-testing`,
+  `refactor-to-hexagonal`, `hotspot-expansion-review`, `regression-dog`.
+- **Rules** (`.claude/rules/`): path-scoped, loaded when a matching file is
+  read or edited. Each is also Cursor's rule via a symlink in `.cursor/rules/`,
+  so its frontmatter carries both `paths` (Claude) and `globs` (Cursor) — keep
+  the two lists in step.
 
 ## Model selection
 
