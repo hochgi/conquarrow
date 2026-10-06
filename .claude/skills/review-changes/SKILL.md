@@ -88,5 +88,5 @@ title, body (starts with `🤖: `) linking the packet and the spec files.
 
 ## Ship
 
-The **orchestrator** pushes, opens the PR, requests Copilot, triages, and
-squash-merges. The reviewer does **not** push. Never push `shalevhoch`.
+The **orchestrator** pushes, opens the PR, and squash-merges once CI is
+green. The reviewer does **not** push. Never push `shalevhoch`.

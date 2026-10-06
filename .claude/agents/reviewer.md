@@ -59,5 +59,5 @@ A review verdict with actionable findings, and — when clean — a prepared PR
 
 ## Ship
 
-The **orchestrator** pushes, opens the PR, requests Copilot, triages, and
-squash-merges. You do not push.
+The **orchestrator** pushes, opens the PR, and squash-merges once CI is
+green. You do not push.

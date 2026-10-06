@@ -2,8 +2,8 @@
 name: spec-to-ship
 description: >-
   Orchestrator overview of the 4-phase delivery pipeline for conquarrow:
-  spec-author → test-author → coder → reviewer → PR + Copilot + merge. No
-  human gate between phases. Escalate only for unexpected cost, a big
+  spec-author → test-author → coder → reviewer → PR → merge. No human
+  gate between phases. Escalate only for unexpected cost, a big
   behavioral shift, or a SPEC.md game-rule gap.
 ---
 
@@ -49,7 +49,7 @@ Online packets live in ADR 0002; reason those yourself.
   PHASE 4 — REVIEW           reviewer
     spec↔tests↔code, purity, boundaries
   SHIP — orchestrator
-    PR on hochgi/conquarrow → Copilot review → triage → squash-merge
+    PR on hochgi/conquarrow → CI green → squash-merge
 ```
 
 Do not collapse phases. Do not wait for a thumbs-up between them.
@@ -79,9 +79,7 @@ ask the human those.
 
 1. Push to `hochgi/conquarrow` only (never `shalevhoch`).
 2. Open the PR; body starts with `🤖: `.
-3. Request Copilot review. Wait for comments.
-4. Fix / defer / reject each comment; reply `🤖: `.
-5. Squash-merge when CI is green, unless an escalate item appeared.
+3. Squash-merge when CI is green, unless an escalate item appeared.
 
 ## When NOT to run the full pipeline
 

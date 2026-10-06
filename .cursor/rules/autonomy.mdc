@@ -1,5 +1,5 @@
 ---
-description: No phase gates; escalate only for cost or real behavior shifts; Copilot on every packet PR
+description: No phase gates; escalate only for cost or real behavior shifts
 alwaysApply: true
 ---
 
@@ -27,9 +27,7 @@ are **not** escalate. Do not delegate those.
 
 1. Push to `hochgi/conquarrow` only. Never `shalevhoch`.
 2. Open the PR (`🤖: ` body prefix).
-3. Request a Copilot review (`request_copilot_review`).
-4. Wait for the comments. Triage each: fix / defer / reject. Reply `🤖: `.
-5. Squash-merge when CI is green and Copilot is addressed, unless an escalate
-   item appeared.
+3. Squash-merge when CI is green, unless an escalate item appeared. The
+   reviewer phase is the review gate.
 
 Explicit local-only branches still never push.
