@@ -45,8 +45,9 @@ const accessTokenOf = (event: Record<string, unknown>): string | undefined => {
 /** `$connect` takes its Google ID token from the `access_token` query parameter. */
 export const toWsAction = (event: unknown): WsAction => {
   const rec = asRecord(event);
-  const ctx = rec === undefined ? undefined : asRecord(rec['requestContext']);
-  if (rec === undefined || ctx === undefined) return UNAUTHORIZED;
+  if (rec === undefined) return UNAUTHORIZED;
+  const ctx = asRecord(rec['requestContext']);
+  if (ctx === undefined) return UNAUTHORIZED;
   const connectionId = connectionIdOf(ctx);
   if (connectionId === undefined) return UNAUTHORIZED;
   const route = routeOf(ctx);
