@@ -74,6 +74,12 @@ behaviour change: nothing routes to it.
    the contract is prose (`dominationN`, `streak`), the BSSN reading is recorded
    above.
 3. **`dominationN ≥ 1`** — see the table.
+4. **JSON `null` is present.** No version of `snapshotState` writes `null` for
+   `speedOverride` or `winner` (it omits them), so a `null` there is outside the
+   contract and refused, like any other wrong type.
+5. **A retired pair that seeds a clock** (streak > 0) must name a seated holder
+   and an integer streak; a ghost holder makes the position unreadable rather
+   than seeding a clock for an unseated id.
 
 ## Out of scope
 - Any `rules-core` / `contracts` change, or validating that arrows / vertices

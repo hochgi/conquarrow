@@ -6,18 +6,29 @@
  * - `invite.json` — `serializeInvite` → `parseInvite`.
  * - `meta.json` — written by the start handler, read by `parseGameMeta`.
  * - `log.jsonl` — `stampLogLine` → `parseLogLine`, plus the pre-P49 bare line.
+ *
+ * The P69 scenarios (docs/spec/online-hardening/online-hardening.core.feature,
+ * Rule: A valid stored position still loads) live here too: the stricter
+ * loader must keep reading every position the engine writes, and the pre-P36
+ * retired streak pair.
  */
 
 import { describe, expect, it } from 'vitest';
 import type { InviteSeat } from '@conquarrow/contracts';
-import { endTurn, mintArrowId, step } from '@conquarrow/contracts';
+import { endTurn, mintArrowId, mintPlayerId, step } from '@conquarrow/contracts';
 import { parseLogLine, stampLogLine } from '../src/game-log';
 import { parsePersistedEnvelope, persistEnvelope } from '../src/game-snapshot';
 import type { InviteRecord, InviteStatus } from '../src/invite-record';
 import { parseGameMeta, parseInvite, serializeInvite } from '../src/invite-record';
-import { realStates } from './online-persistence-parse.support';
+import {
+  envelopeOf,
+  hardeningBackground,
+  realStates,
+  seatAt,
+  withRetiredStreakPair,
+} from './online-persistence-parse.support';
 
-describe('state.json round-trips', () => {
+describe('state.json round-trips — Scenario: Every valid stored position loads unchanged', () => {
   for (const [name, state] of realStates()) {
     it(`restores every field of ${name}`, () => {
       const parsed = parsePersistedEnvelope(persistEnvelope(7, state));
@@ -32,6 +43,17 @@ describe('state.json round-trips', () => {
     if (state === undefined) throw new Error('setup: no state');
 
     expect(parsePersistedEnvelope(persistEnvelope(0, state))?.version).toBe(0);
+  });
+});
+
+describe('Online hardening — Rule: A valid stored position still loads', () => {
+  it('Scenario: A pre-P36 position with a retired streak pair still loads', () => {
+    const background = hardeningBackground();
+    const holder = seatAt(background, 1);
+
+    const parsed = parsePersistedEnvelope(envelopeOf(withRetiredStreakPair(background, holder, 3)));
+
+    expect(parsed?.game.starvationStreaks.get(mintPlayerId(holder))).toBe(3);
   });
 });
 

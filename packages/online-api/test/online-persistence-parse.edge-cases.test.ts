@@ -5,6 +5,13 @@
  * a row that hydrates names the guard that let it through. A reader that
  * refuses returns `undefined` — it does not throw, and it does not hand back a
  * half-built value the engine or a handler would then trip over.
+ *
+ * The `Online hardening` blocks are docs/spec/online-hardening/
+ * online-hardening.edge-cases.feature (P69), one test per scenario or outline
+ * row: a position outside the ranges `packages/contracts` states is refused,
+ * never clamped, dropped or defaulted.
+ *
+ * @see docs/spec/online-hardening/online-hardening.md
  */
 
 import { describe, expect, it } from 'vitest';
@@ -23,15 +30,20 @@ import {
   seatsEqual,
 } from '../src/invite-record';
 import {
+  KEYED_SECTIONS,
+  UNSEATED,
   decoratedMatch,
+  envelopeOf,
+  hardeningBackground,
+  seatAt,
+  seatsOf,
   storedStateOf,
+  withFirstEntryRepeated,
   withFirstItem,
   withFirstItemField,
+  withRetiredStreakPair,
   without,
 } from './online-persistence-parse.support';
-
-const envelopeOf = (state: unknown, version: unknown = 1): string =>
-  JSON.stringify({ version, state });
 
 describe('state.json: a malformed envelope is refused', () => {
   const valid = storedStateOf(decoratedMatch());
@@ -119,6 +131,107 @@ describe('state.json: a malformed position is refused', () => {
     if (arrow === undefined) throw new Error('setup: expected a stored accumulator');
     const parsed = parsePersistedEnvelope(envelopeOf(zeroed));
     expect(parsed?.game.accumulators.get(mintArrowId(arrow))).toStrictEqual({ num: 0, den: 1 });
+  });
+});
+
+describe('Online hardening — Rule: Ranges', () => {
+  const background = hardeningBackground();
+  const refused = (state: unknown): void => {
+    expect(parsePersistedEnvelope(envelopeOf(state))).toBeUndefined();
+  };
+
+  describe('Scenario Outline: A field outside its contract range is refused', () => {
+    const seats = seatsOf(background);
+    const rows: readonly (readonly [string, string, () => Record<string, unknown>])[] = [
+      ['players', 'a list of one id', () => ({ ...background, players: [seatAt(background, 0)] })],
+      [
+        'players',
+        'the same id twice',
+        () => ({ ...background, players: [...seats, seatAt(background, 0)] }),
+      ],
+      ["the first group's heads", '0', () => withFirstItemField(background, 'groups', 'heads', 0)],
+      ["the first group's heads", '-1', () => withFirstItemField(background, 'groups', 'heads', -1)],
+      ["the first group's heads", '1.5', () => withFirstItemField(background, 'groups', 'heads', 1.5)],
+      ["the first group's spent", '-1', () => withFirstItemField(background, 'groups', 'spent', -1)],
+      ["the first group's spent", '0.5', () => withFirstItemField(background, 'groups', 'spent', 0.5)],
+      [
+        "the first group's speedOverride",
+        '2',
+        () => withFirstItemField(background, 'groups', 'speedOverride', 2),
+      ],
+      [
+        "the first group's speedOverride",
+        '"1"',
+        () => withFirstItemField(background, 'groups', 'speedOverride', '1'),
+      ],
+      ["the first spawner's phase", '-1', () => withFirstItemField(background, 'spawners', 'phase', -1)],
+      ["the first spawner's phase", '3', () => withFirstItemField(background, 'spawners', 'phase', 3)],
+      ["the first spawner's phase", '1.5', () => withFirstItemField(background, 'spawners', 'phase', 1.5)],
+      [
+        'the first streak',
+        '-1',
+        () => withFirstItemField(background, 'starvationStreaks', 'streak', -1),
+      ],
+      [
+        'the first streak',
+        '0.5',
+        () => withFirstItemField(background, 'starvationStreaks', 'streak', 0.5),
+      ],
+      ['dominationN', '0', () => ({ ...background, dominationN: 0 })],
+      ['dominationN', '2.5', () => ({ ...background, dominationN: 2.5 })],
+    ];
+
+    it.each(rows)('refuses %s set to %s', (_field, _value, corrupt) => {
+      refused(corrupt());
+    });
+  });
+
+  it('Scenario: A retired streak pair that seeds a clock is held to the same checks', () => {
+    refused(withRetiredStreakPair(background, seatAt(background, 1), 2.5));
+  });
+});
+
+describe('Online hardening — Rule: Membership', () => {
+  const background = hardeningBackground();
+  const refused = (state: unknown): void => {
+    expect(parsePersistedEnvelope(envelopeOf(state))).toBeUndefined();
+  };
+
+  describe('Scenario Outline: A player id that is not seated is refused', () => {
+    const rows: readonly (readonly [string, () => Record<string, unknown>])[] = [
+      ['activePlayer', () => ({ ...background, activePlayer: UNSEATED })],
+      ['winner', () => ({ ...background, winner: UNSEATED })],
+      ["the first group's owner", () => withFirstItemField(background, 'groups', 'owner', UNSEATED)],
+      [
+        'the first territory owner',
+        () => withFirstItemField(background, 'territory', 'owner', UNSEATED),
+      ],
+      ["the first trail's player", () => withFirstItemField(background, 'trails', 'player', UNSEATED)],
+      [
+        "the first streak's player",
+        () => withFirstItemField(background, 'starvationStreaks', 'player', UNSEATED),
+      ],
+    ];
+
+    it.each(rows)(`refuses %s naming the unseated id "${UNSEATED}"`, (_field, corrupt) => {
+      refused(corrupt());
+    });
+  });
+
+  it('Scenario: A winner that is not a string is refused, not dropped', () => {
+    refused({ ...background, winner: 7 });
+  });
+});
+
+describe('Online hardening — Rule: One entry per key', () => {
+  const background = hardeningBackground();
+
+  describe('Scenario Outline: A keyed list naming the same key twice is refused', () => {
+    it.each(KEYED_SECTIONS)('refuses %s repeating its first entry', (section) => {
+      expect(
+        parsePersistedEnvelope(envelopeOf(withFirstEntryRepeated(background, section))),
+      ).toBeUndefined();
+    });
   });
 });
 
