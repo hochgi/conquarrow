@@ -42,7 +42,7 @@ a record that breaks a range `packages/contracts/src/game-state.ts` states:
 
 | Field | Contract | Refused when |
 |---|---|---|
-| `players` | "Length ≥ 2", ids | fewer than 2, or a duplicate |
+| `players` | "Length ≥ 2", ids; a seat's online slot is its index and `players[0]` is the round marker | fewer than 2, or a duplicate (BSSN: a seat listed twice has no single index) |
 | `activePlayer` | "Whose turn it is" | not in `players` |
 | `groups[].owner`, `territory[].owner`, `trails[].player`, `starvationStreaks[].player` | a `PlayerId` of this match | not in `players` |
 | `groups[].heads` | "At least 1" | not an integer ≥ 1 |
@@ -89,6 +89,13 @@ behaviour change: nothing routes to it.
   exist on the board (that needs geometry at load).
 - Cross-field consistency beyond membership (e.g. `spent ≤ speed(heads)`).
 - Changing `fakeGoogle`.
+- Repeated arrows inside one stored trail entry: still read into one `Set`
+  (de-duplicated silently), as before. A known exception to BSSN 1 —
+  `snapshotState` never writes one; refusing it is a later call.
+- Spawner `force ≤ 1/3`: a SPEC bound that `contracts` does not state
+  (`Spawner.force` is any `Rational`), so unchecked under BSSN 2.
+- `packages/web/src/online-hydrate.ts`, the browser's copy of the loader: the
+  server refuses first, so the browser only sees positions this loader accepted.
 
 ## Done when
 - `pnpm verify` green; every scenario in `docs/spec/online-hardening/` has one

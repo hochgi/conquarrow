@@ -64,32 +64,6 @@ describe('canonical bytes', () => {
   }
 });
 
-describe('hydration yields only admissible values', () => {
-  const valid = storedStateOf(decoratedMatch());
-  const strays: readonly unknown[] = [2, -1, '1', true, null];
-
-  for (const stray of strays) {
-    it(`never hydrates a speed override of ${JSON.stringify(stray)}`, () => {
-      const game = parsedGame(
-        JSON.stringify({ version: 1, state: withFirstItemField(valid, 'groups', 'speedOverride', stray) }),
-      );
-
-      const overrides = [...(game?.groups.values() ?? [])].map((group) => group.speedOverride);
-      for (const override of overrides) {
-        expect([undefined, 0, 1]).toContain(override);
-      }
-    });
-
-    it(`never hydrates a winner of ${JSON.stringify(stray)}`, () => {
-      const game = parsedGame(JSON.stringify({ version: 1, state: { ...valid, winner: stray } }));
-
-      expect(game === undefined || game.winner === undefined || typeof game.winner === 'string').toBe(
-        true,
-      );
-    });
-  }
-});
-
 type Corruption = (stored: Record<string, unknown>) => Record<string, unknown>;
 
 /** A corruption of one stored field, by name, that applies only when its section has an entry. */
@@ -210,11 +184,11 @@ describe('[RANGES] a field outside its contract range is refused, never clamped,
     },
     ...inSection('groups', 'heads', [0, -1, 1.5, 0.5]),
     ...inSection('groups', 'spent', [-1, 0.5, -0.5]),
-    ...inSection('groups', 'speedOverride', [2, -1, 0.5, '0', '1', true, false]),
+    ...inSection('groups', 'speedOverride', [2, -1, 0.5, '0', '1', true, false, null]),
     ...inSection('spawners', 'phase', [-1, 3, 0.5, 1.5, 2.5]),
     ...inSection('starvationStreaks', 'streak', [-1, 0.5, 2.5]),
     ...atTop('dominationN', [0, -1, 0.5, 2.5]),
-    ...atTop('winner', [7, true, {}, []]),
+    ...atTop('winner', [7, true, {}, [], null]),
     ...[0.5, 2.5].map(
       (streak): Case => ({
         name: `a retired streak of ${show(streak)}`,

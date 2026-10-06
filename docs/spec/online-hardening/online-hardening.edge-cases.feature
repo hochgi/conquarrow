@@ -8,7 +8,7 @@ Feature: Online hardening — stored positions outside the contract are refused
   So that the engine never runs on a position it could not have produced
 
   Background:
-    Given a valid stored position with at least two groups, a trail, territory, a spawner and a starvation streak
+    Given a valid stored position with at least two groups, a trail, territory, an accumulator, a spawner and a starvation streak
 
   Rule: Ranges
 
