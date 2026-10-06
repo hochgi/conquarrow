@@ -16,15 +16,22 @@ import type { OnlineApiDeps } from './api-types';
 import { createOnlineApi } from './create-online-api';
 import { asRecord } from './invite-record';
 
+/**
+ * A header by name, case-insensitively (RFC 9110 §5.1). The v2 payload already
+ * lowercases names; v1 (REST) keeps the client's case, e.g. `Authorization`.
+ * The lowercase spelling wins when an event carries both.
+ */
 const headerValue = (
   headers: Record<string, unknown> | undefined,
   name: string,
 ): string | undefined => {
   if (headers === undefined) return undefined;
-  const direct = headers[name];
-  if (typeof direct === 'string') return direct;
-  const lower = headers[name.toLowerCase()];
-  if (typeof lower === 'string') return lower;
+  const wanted = name.toLowerCase();
+  const exact = headers[wanted];
+  if (typeof exact === 'string') return exact;
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === wanted && typeof value === 'string') return value;
+  }
   return undefined;
 };
 

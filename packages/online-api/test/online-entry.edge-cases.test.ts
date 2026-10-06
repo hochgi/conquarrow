@@ -106,6 +106,19 @@ describe('online-entry — edge cases', () => {
       });
     });
 
+    it('Header names match case-insensitively', () => {
+      expect(
+        toOnlineRequest({ headers: { Authorization: 'Bearer a', 'If-Match': '"3"' } }).headers,
+      ).toStrictEqual({ authorization: 'Bearer a', ifMatch: '"3"' });
+    });
+
+    it('The lowercase spelling wins when both are present', () => {
+      expect(
+        toOnlineRequest({ headers: { AUTHORIZATION: 'Bearer upper', authorization: 'Bearer lower' } })
+          .headers,
+      ).toStrictEqual({ authorization: 'Bearer lower' });
+    });
+
     it('Non-string header values are dropped', () => {
       expect(
         toOnlineRequest({ headers: { authorization: 42, 'if-match': ['"0"'] } }),
