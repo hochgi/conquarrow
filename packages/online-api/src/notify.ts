@@ -35,8 +35,7 @@ export const notifyOthers = async (
   if (postToConnection === undefined) return;
   for (const userHash of otherHumanHashes(seats, callerUserHash)) {
     const prefix = connectionsPrefix(userHash);
-    const keys = [...(await listObjects(s3, prefix))].sort(compareStrings);
-    const ids = keys
+    const ids = (await listObjects(s3, prefix))
       .map((key) => connectionIdOf(key, prefix))
       .filter((id): id is string => id !== undefined)
       .sort(compareStrings);
