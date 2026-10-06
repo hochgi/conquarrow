@@ -365,6 +365,32 @@ describe('Concurrency and legality', () => {
     expect(s3.get(gameStateKey(groupHash, GAME_ONE))).toBe(unreadable);
   });
 
+  // P69 — docs/spec/online-hardening/online-hardening.edge-cases.feature,
+  // Rule: Callers see an unreadable game, not a crash.
+  it('A move against an out-of-contract stored position is a 500 and changes nothing', async () => {
+    const { api, s3 } = makeHarness();
+    await startAliceBob(api);
+    const groupHash = aliceBobGroupHash();
+    expectStatus(await getGame(api, groupHash, GAME_ONE, ALICE.bearer), 200);
+    const key = gameStateKey(groupHash, GAME_ONE);
+    const stored = parsePersisted(s3.get(key));
+    if (stored.version !== 0) throw new Error('setup: expected the opened game at version 0');
+    const state = asRecord(stored.state);
+    const groups = state['groups'];
+    if (!Array.isArray(groups) || groups.length === 0) throw new Error('setup: expected groups');
+    const [first, ...rest] = groups as readonly unknown[];
+    const corrupt = JSON.stringify({
+      version: stored.version,
+      state: { ...state, groups: [{ ...asRecord(first), heads: 0 }, ...rest] },
+    });
+    s3.set(key, corrupt);
+
+    const res = await postMove(api, groupHash, GAME_ONE, ALICE.bearer, endTurn(), 0);
+
+    expectStatus(res, 500);
+    expect(s3.get(key)).toBe(corrupt);
+  });
+
   it('log.jsonl holds exactly one line per applied move', async () => {
     const { api, s3 } = makeHarness();
     await startAliceBob(api);

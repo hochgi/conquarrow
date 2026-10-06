@@ -93,6 +93,7 @@ scheduled early in the first place.
 | P66 | BYOK plan budget + dirt | web | — | P64 | **[packet](./packets/P66-byok-plan-budget-and-dirt.md).** Plan cap 80→512; `closes` without `share+N` is dirt; plan that names a tag is wrong; header dirt clause. Fixture: 2026-09-10 hits 5 / 9 / 13. Amends byok-hint-and-threat. |
 | P67 | Conquarrow MCP | adapter | — | P01, P03, P09, P21, P38, P53, P64, P66 | **[packet](./packets/P67-conquarrow-mcp.md).** Stdio MCP over `legalMoves` / `apply` / observation+findings. Not a UI scrape, not raw `GameState`, not a Pages BYOK replacement. After P66 teaching lock. |
 | P68 | test-kit at the I/O edges | tooling + online | — | P17, P18, P24 | **[packet](./packets/P68-test-kit-at-the-edges.md).** `@hochgi/test-kit*` is public, so P24's `local-main` overlay and `local-hygiene` hook retire. Committed kit tests at `online-api` edges only: real `S3Client` store via `createProbedS3Adapter`, `PostToConnection` via `createProbedMock`. Never in contracts / rules-core / geometry-*. Ports the `component-testing` skill. |
+| P69 | Online hardening | online | — | P17, P18, P68 | **[packet](./packets/P69-online-hardening.md).** #63 follow-ups: `Bearer` scheme case-insensitive; `hydrateState` refuses a stored position outside `contracts` ranges (heads ≥ 1, phase 0..2, seated ids, one entry per key — never clamp or drop); retire the dead `moves.ts` stub. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -167,6 +168,7 @@ flowchart TD
   P21 --> P67
   P18 --> P68["P68 test-kit at the edges"]
   P24 --> P68
+  P68 --> P69["P69 online hardening"]
 ```
 
 ## Build order and why

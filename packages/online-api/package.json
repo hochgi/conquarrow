@@ -5,7 +5,6 @@
   "type": "module",
   "exports": {
     "./health": "./src/health.ts",
-    "./moves": "./src/moves.ts",
     "./ws": "./src/ws.ts",
     "./api": "./src/create-online-api.ts",
     "./http": "./src/http.ts"

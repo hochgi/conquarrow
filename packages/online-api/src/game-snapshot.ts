@@ -110,66 +110,91 @@ export const snapshotState = (state: GameState): StateSnapshot => {
 export const persistEnvelope = (version: number, state: GameState): string =>
   JSON.stringify({ version, state: snapshotState(state) });
 
+/**
+ * Hydration reads a stored position back into a `GameState` and **refuses**
+ * (returns `undefined`) anything the engine could not have written: a wrong
+ * type, a value outside a range `packages/contracts/src/game-state.ts` states,
+ * a player id that is not seated, or a keyed list naming the same key twice.
+ * It never clamps, drops or defaults a field (P69).
+ */
+
+/** A seated-player test, built once per position from its `players`. */
+type Seated = (id: unknown) => id is string;
+
+const seatedIn = (players: readonly string[]): Seated => {
+  const seats = new Set(players);
+  return (id: unknown): id is string => typeof id === 'string' && seats.has(id);
+};
+
+/** A whole number no smaller than `min` — every count the contracts state. */
+const isCount = (value: unknown, min: number): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= min;
+
 const stringList = (value: unknown): string[] | undefined => {
   if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) return undefined;
   return value as string[];
 };
 
-const mergeOverrideOf = (value: unknown): MergeOverride | undefined => {
-  if (value === 0 || value === 1) return value;
-  return undefined;
+/** Turn order: "Length ≥ 2", each seat once. */
+const hydratePlayers = (raw: unknown): PlayerId[] | undefined => {
+  const ids = stringList(raw);
+  if (ids === undefined || ids.length < 2 || new Set(ids).size !== ids.length) return undefined;
+  return ids.map(mintPlayerId);
 };
 
-const hydrateGroups = (raw: unknown): Map<ArrowId, Group> | undefined => {
+/**
+ * A stored keyed list as the `Map` it was written from: one entry per key, so
+ * a key seen twice — or any entry `entryOf` refuses — refuses the whole list.
+ */
+const hydrateKeyed = <K, V>(
+  raw: unknown,
+  entryOf: (rec: Record<string, unknown>) => readonly [K, V] | undefined,
+): Map<K, V> | undefined => {
   if (!Array.isArray(raw)) return undefined;
-  const groups = new Map<ArrowId, Group>();
+  const entries = new Map<K, V>();
   for (const item of raw) {
     const rec = asRecord(item);
-    if (rec === undefined) return undefined;
+    const entry = rec === undefined ? undefined : entryOf(rec);
+    if (entry === undefined || entries.has(entry[0])) return undefined;
+    entries.set(entry[0], entry[1]);
+  }
+  return entries;
+};
+
+/** `heads` at least 1, `spent` whole and ≥ 0, `speedOverride` absent or a `MergeOverride`. */
+const groupEntry =
+  (seated: Seated) =>
+  (rec: Record<string, unknown>): readonly [ArrowId, Group] | undefined => {
     const arrow = rec['arrow'];
     const owner = rec['owner'];
     const heads = rec['heads'];
     const spent = rec['spent'];
-    if (typeof arrow !== 'string' || typeof owner !== 'string') return undefined;
-    if (typeof heads !== 'number' || typeof spent !== 'number') return undefined;
-    const speedOverride = mergeOverrideOf(rec['speedOverride']);
-    groups.set(
-      mintArrowId(arrow),
-      speedOverride === undefined
-        ? { owner: mintPlayerId(owner), heads, spent }
-        : { owner: mintPlayerId(owner), heads, spent, speedOverride },
-    );
-  }
-  return groups;
-};
+    const speedOverride = rec['speedOverride'];
+    if (typeof arrow !== 'string' || !seated(owner)) return undefined;
+    if (!isCount(heads, 1) || !isCount(spent, 0)) return undefined;
+    const group = { owner: mintPlayerId(owner), heads, spent };
+    if (speedOverride === undefined) return [mintArrowId(arrow), group];
+    if (speedOverride !== 0 && speedOverride !== 1) return undefined;
+    return [mintArrowId(arrow), { ...group, speedOverride }];
+  };
 
-const hydrateTrails = (raw: unknown): Map<PlayerId, Set<ArrowId>> | undefined => {
-  if (!Array.isArray(raw)) return undefined;
-  const trails = new Map<PlayerId, Set<ArrowId>>();
-  for (const item of raw) {
-    const rec = asRecord(item);
-    if (rec === undefined) return undefined;
+const trailEntry =
+  (seated: Seated) =>
+  (rec: Record<string, unknown>): readonly [PlayerId, Set<ArrowId>] | undefined => {
     const player = rec['player'];
     const arrows = stringList(rec['arrows']);
-    if (typeof player !== 'string' || arrows === undefined) return undefined;
-    trails.set(mintPlayerId(player), new Set(arrows.map(mintArrowId)));
-  }
-  return trails;
-};
+    if (!seated(player) || arrows === undefined) return undefined;
+    return [mintPlayerId(player), new Set(arrows.map(mintArrowId))];
+  };
 
-const hydrateTerritory = (raw: unknown): Map<ArrowId, PlayerId> | undefined => {
-  if (!Array.isArray(raw)) return undefined;
-  const territory = new Map<ArrowId, PlayerId>();
-  for (const item of raw) {
-    const rec = asRecord(item);
-    if (rec === undefined) return undefined;
+const territoryEntry =
+  (seated: Seated) =>
+  (rec: Record<string, unknown>): readonly [ArrowId, PlayerId] | undefined => {
     const arrow = rec['arrow'];
     const owner = rec['owner'];
-    if (typeof arrow !== 'string' || typeof owner !== 'string') return undefined;
-    territory.set(mintArrowId(arrow), mintPlayerId(owner));
-  }
-  return territory;
-};
+    if (typeof arrow !== 'string' || !seated(owner)) return undefined;
+    return [mintArrowId(arrow), mintPlayerId(owner)];
+  };
 
 /**
  * A stored `num`/`den` pair as a rational, or `undefined` when it is not one.
@@ -178,41 +203,36 @@ const hydrateTerritory = (raw: unknown): Map<ArrowId, PlayerId> | undefined => {
  * throwing `ContractViolation` out of the parser.
  */
 const rationalOf = (num: unknown, den: unknown): Rational | undefined => {
-  if (typeof num !== 'number' || typeof den !== 'number') return undefined;
-  if (!Number.isInteger(num) || !Number.isInteger(den)) return undefined;
-  if (num < 0 || den <= 0) return undefined;
+  if (!isCount(num, 0) || !isCount(den, 1)) return undefined;
   return rational(num, den);
 };
 
-const hydrateAccumulators = (raw: unknown): Map<ArrowId, Rational> | undefined => {
-  if (!Array.isArray(raw)) return undefined;
-  const accumulators = new Map<ArrowId, Rational>();
-  for (const item of raw) {
-    const rec = asRecord(item);
-    if (rec === undefined) return undefined;
-    const arrow = rec['arrow'];
-    const value = rationalOf(rec['num'], rec['den']);
-    if (typeof arrow !== 'string' || value === undefined) return undefined;
-    accumulators.set(mintArrowId(arrow), value);
-  }
-  return accumulators;
+const accumulatorEntry = (rec: Record<string, unknown>): readonly [ArrowId, Rational] | undefined => {
+  const arrow = rec['arrow'];
+  const value = rationalOf(rec['num'], rec['den']);
+  if (typeof arrow !== 'string' || value === undefined) return undefined;
+  return [mintArrowId(arrow), value];
 };
 
-const hydrateSpawners = (raw: unknown): Map<VertexId, Spawner> | undefined => {
-  if (!Array.isArray(raw)) return undefined;
-  const spawners = new Map<VertexId, Spawner>();
-  for (const item of raw) {
-    const rec = asRecord(item);
-    if (rec === undefined) return undefined;
-    const vertex = rec['vertex'];
-    const force = rationalOf(rec['num'], rec['den']);
-    const phase = rec['phase'];
-    if (typeof vertex !== 'string' || force === undefined) return undefined;
-    if (typeof phase !== 'number') return undefined;
-    spawners.set(mintVertexId(vertex), { force, phase });
-  }
-  return spawners;
+/** `phase` is "0..2". */
+const spawnerEntry = (rec: Record<string, unknown>): readonly [VertexId, Spawner] | undefined => {
+  const vertex = rec['vertex'];
+  const force = rationalOf(rec['num'], rec['den']);
+  const phase = rec['phase'];
+  if (typeof vertex !== 'string' || force === undefined) return undefined;
+  if (!isCount(phase, 0) || phase > 2) return undefined;
+  return [mintVertexId(vertex), { force, phase }];
 };
+
+/** A streak counts full rounds: whole and ≥ 0. */
+const streakEntry =
+  (seated: Seated) =>
+  (rec: Record<string, unknown>): readonly [PlayerId, number] | undefined => {
+    const player = rec['player'];
+    const streak = rec['streak'];
+    if (!seated(player) || !isCount(streak, 0)) return undefined;
+    return [mintPlayerId(player), streak];
+  };
 
 /**
  * The clock a **pre-P36** snapshot carries, read off the retired
@@ -221,14 +241,23 @@ const hydrateSpawners = (raw: unknown): Map<VertexId, Spawner> | undefined => {
  * Dropping it would be a match outcome changed by omission: a seat persisted at
  * 4 of 5 would reload at 0 of 5 and get a free reprieve of up to `dominationN`
  * rounds. A streak of zero seeds nothing, because that is what absence already
- * means.
+ * means, and so does a pair with no holder id or no numeric streak (P36).
+ *
+ * A pair that *does* seed — a holder id and a streak > 0 — is held to the same
+ * checks as a stored streak, a whole count for a seated holder, and refuses
+ * the position otherwise (P69 BSSN 5): a ghost holder is unreadable, never a
+ * clock for an unseated id.
  */
-const seedStreaksFromRetiredPair = (rec: Record<string, unknown>): Map<PlayerId, number> => {
+const seedStreaksFromRetiredPair = (
+  rec: Record<string, unknown>,
+  seated: Seated,
+): Map<PlayerId, number> | undefined => {
   const holder = rec['dominationHolder'];
   const streak = rec['dominationStreak'];
   if (typeof holder !== 'string' || typeof streak !== 'number' || streak <= 0) {
     return new Map();
   }
+  if (!seated(holder) || !Number.isInteger(streak)) return undefined;
   return new Map([[mintPlayerId(holder), streak]]);
 };
 
@@ -243,36 +272,27 @@ const seedStreaksFromRetiredPair = (rec: Record<string, unknown>): Map<PlayerId,
  * `version` is the optimistic-concurrency revision (`game-handlers.ts`), not a
  * schema version, so it cannot gate a migration.
  */
-const hydrateStreaks = (rec: Record<string, unknown>): Map<PlayerId, number> | undefined => {
+const hydrateStreaks = (
+  rec: Record<string, unknown>,
+  seated: Seated,
+): Map<PlayerId, number> | undefined => {
   const raw = rec['starvationStreaks'];
-  if (raw === undefined) return seedStreaksFromRetiredPair(rec);
-  if (!Array.isArray(raw)) return undefined;
-  const streaks = new Map<PlayerId, number>();
-  for (const item of raw) {
-    const entry = asRecord(item);
-    if (entry === undefined) return undefined;
-    const player = entry['player'];
-    const streak = entry['streak'];
-    if (typeof player !== 'string' || typeof streak !== 'number') return undefined;
-    streaks.set(mintPlayerId(player), streak);
-  }
-  return streaks;
+  if (raw === undefined) return seedStreaksFromRetiredPair(rec, seated);
+  return hydrateKeyed(raw, streakEntry(seated));
 };
 
-export const hydrateState = (value: unknown): GameState | undefined => {
-  const rec = asRecord(value);
-  if (rec === undefined) return undefined;
-  const playersRaw = stringList(rec['players']);
-  const activePlayer = rec['activePlayer'];
-  const dominationN = rec['dominationN'];
-  if (playersRaw === undefined || typeof activePlayer !== 'string') return undefined;
-  if (typeof dominationN !== 'number') return undefined;
-  const starvationStreaks = hydrateStreaks(rec);
-  const groups = hydrateGroups(rec['groups']);
-  const trails = hydrateTrails(rec['trails']);
-  const territory = hydrateTerritory(rec['territory']);
-  const accumulators = hydrateAccumulators(rec['accumulators']);
-  const spawners = hydrateSpawners(rec['spawners']);
+type PositionMaps = Pick<
+  GameState,
+  'groups' | 'trails' | 'territory' | 'accumulators' | 'spawners' | 'starvationStreaks'
+>;
+
+const hydrateMaps = (rec: Record<string, unknown>, seated: Seated): PositionMaps | undefined => {
+  const groups = hydrateKeyed(rec['groups'], groupEntry(seated));
+  const trails = hydrateKeyed(rec['trails'], trailEntry(seated));
+  const territory = hydrateKeyed(rec['territory'], territoryEntry(seated));
+  const accumulators = hydrateKeyed(rec['accumulators'], accumulatorEntry);
+  const spawners = hydrateKeyed(rec['spawners'], spawnerEntry);
+  const starvationStreaks = hydrateStreaks(rec, seated);
   if (
     groups === undefined ||
     trails === undefined ||
@@ -283,18 +303,40 @@ export const hydrateState = (value: unknown): GameState | undefined => {
   ) {
     return undefined;
   }
-  const winnerRaw = rec['winner'];
+  return { groups, trails, territory, accumulators, spawners, starvationStreaks };
+};
+
+/** `winner` is absent or a seated id; `{ winner }` when it reads, `undefined` when refused. */
+const winnerOf = (
+  raw: unknown,
+  seated: Seated,
+): { readonly winner: PlayerId | undefined } | undefined => {
+  if (raw === undefined) return { winner: undefined };
+  return seated(raw) ? { winner: mintPlayerId(raw) } : undefined;
+};
+
+/**
+ * `players` is read first: every other player id in the position is checked
+ * against it. `dominationN` is a threshold of full rounds — at least 1 (P69).
+ */
+export const hydrateState = (value: unknown): GameState | undefined => {
+  const rec = asRecord(value);
+  if (rec === undefined) return undefined;
+  const players = hydratePlayers(rec['players']);
+  if (players === undefined) return undefined;
+  const seated = seatedIn(players);
+  const activePlayer = rec['activePlayer'];
+  const dominationN = rec['dominationN'];
+  const winner = winnerOf(rec['winner'], seated);
+  if (!seated(activePlayer) || !isCount(dominationN, 1) || winner === undefined) return undefined;
+  const maps = hydrateMaps(rec, seated);
+  if (maps === undefined) return undefined;
   return {
-    players: playersRaw.map(mintPlayerId),
+    players,
     activePlayer: mintPlayerId(activePlayer),
-    groups,
-    trails,
-    territory,
-    accumulators,
-    spawners,
-    starvationStreaks,
+    ...maps,
     dominationN,
-    winner: typeof winnerRaw === 'string' ? mintPlayerId(winnerRaw) : undefined,
+    winner: winner.winner,
   };
 };
 

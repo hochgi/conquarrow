@@ -14,7 +14,7 @@ import type { ArrowId, GameState, Group, Move } from '@conquarrow/contracts';
 import { endTurn } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
-import { persistEnvelope } from '../src/game-snapshot';
+import { parsePersistedEnvelope, persistEnvelope } from '../src/game-snapshot';
 import { openingMatch } from './support';
 
 /**
@@ -133,3 +133,88 @@ export const withFirstItemField = (
 /** `rec` without `field`. */
 export const without = (rec: Record<string, unknown>, field: string): Record<string, unknown> =>
   Object.fromEntries(Object.entries(rec).filter(([key]) => key !== field));
+
+/** A `state.json` envelope around `state`, as the bytes S3 would hold. */
+export const envelopeOf = (state: unknown, version: unknown = 1): string =>
+  JSON.stringify({ version, state });
+
+/** An id no fixture seats: the "unseated player" of the P69 membership checks. */
+export const UNSEATED = 'p-ghost';
+
+/** The keyed list sections of a stored position — one entry per key in the `GameState` map. */
+export const KEYED_SECTIONS = [
+  'groups',
+  'territory',
+  'accumulators',
+  'spawners',
+  'trails',
+  'starvationStreaks',
+] as const;
+
+export type KeyedSection = (typeof KEYED_SECTIONS)[number];
+
+/** The stored list `section`, failing loudly as a setup error when it is not a list. */
+export const listOf = (rec: Record<string, unknown>, section: string): readonly unknown[] => {
+  const list = rec[section];
+  if (!Array.isArray(list)) throw new Error(`setup: stored section ${section} is not a list`);
+  return list;
+};
+
+/** `rec` with the first entry of `section` appended again, so its key appears twice. */
+export const withFirstEntryRepeated = (
+  rec: Record<string, unknown>,
+  section: string,
+): Record<string, unknown> => {
+  const list = listOf(rec, section);
+  return { ...rec, [section]: [...list, firstItemOf(rec, section)] };
+};
+
+/** The seated ids of a stored position. */
+export const seatsOf = (rec: Record<string, unknown>): readonly string[] => {
+  const players = listOf(rec, 'players');
+  if (players.some((player) => typeof player !== 'string')) {
+    throw new Error('setup: stored players are not ids');
+  }
+  return players as readonly string[];
+};
+
+/** The seat at `index` of a stored position, failing loudly when there is none. */
+export const seatAt = (rec: Record<string, unknown>, index: number): string => {
+  const seat = seatsOf(rec)[index];
+  if (seat === undefined) throw new Error(`setup: stored position has no seat ${String(index)}`);
+  return seat;
+};
+
+/**
+ * The same position as a **pre-P36** writer stored it: no `starvationStreaks`,
+ * and the retired `dominationHolder` / `dominationStreak` pair instead.
+ */
+export const withRetiredStreakPair = (
+  rec: Record<string, unknown>,
+  holder: unknown,
+  streak: unknown,
+): Record<string, unknown> => ({
+  ...without(rec, 'starvationStreaks'),
+  dominationHolder: holder,
+  dominationStreak: streak,
+});
+
+/**
+ * The P69 Background: a valid stored position with at least two groups, a
+ * trail, territory, an accumulator, a spawner and a starvation streak — every
+ * section a P69 corruption touches. Throws a setup error if the fixture ever
+ * stops carrying one — or stops loading uncorrupted — so a setup fault cannot
+ * pass as a refusal.
+ */
+export const hardeningBackground = (): Record<string, unknown> => {
+  const stored = storedStateOf(decoratedMatch());
+  if (listOf(stored, 'groups').length < 2) throw new Error('setup: expected at least two groups');
+  for (const section of KEYED_SECTIONS) firstItemOf(stored, section);
+  if (seatsOf(stored).length < 2) throw new Error('setup: expected at least two seats');
+  if (seatsOf(stored).includes(UNSEATED)) throw new Error(`setup: ${UNSEATED} is seated`);
+  if (typeof stored['winner'] !== 'string') throw new Error('setup: expected a winner');
+  if (parsePersistedEnvelope(envelopeOf(stored)) === undefined) {
+    throw new Error('setup: the uncorrupted background position does not load');
+  }
+  return stored;
+};
