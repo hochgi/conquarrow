@@ -311,6 +311,19 @@ describe('Unknown tokens and route matching', () => {
     expect(groupAndGameKeys(s3)).toEqual([]);
   });
 
+  it('Every invite route is 404 for an unreadable invite record', async () => {
+    const { api, s3 } = makeHarness();
+    const token = 'unreadable-token';
+    const unreadable = 'not an invite';
+    s3.set(inviteKey(token), unreadable);
+
+    expectStatus(await getInvite(api, token), 404);
+    expectStatus(await postAccept(api, token, ALICE.bearer), 404);
+    expectStatus(await postRevoke(api, token, ALICE.bearer), 404);
+    expectStatus(await postStart(api, token, ALICE.bearer), 404);
+    expect(s3.get(inviteKey(token))).toBe(unreadable);
+  });
+
   it.each([
     { method: 'GET', path: '/api/invites/T' },
     { method: 'GET', path: '/invites/T/extra' },

@@ -729,6 +729,30 @@ describe('Store failures', () => {
     }
   });
 
+  it('Start does not claim a game number it lost and cannot read back', async () => {
+    const edge = createEdgeRig();
+    try {
+      const { api } = apiOver(edge.store);
+      const token = await bindAliceAndBob(api);
+      const groupHash = aliceBobGroupHash();
+      edge.s3.probe
+        .command(PutObjectCommand)
+        .filter(
+          (call) => call.command.input.Key === gameMetaKey(groupHash, GAME_ONE),
+          'Key === games/000001/meta.json',
+        )
+        .once()
+        .reject(s3Error('PreconditionFailed', 412));
+
+      const res = await postStart(api, token, ALICE.bearer);
+
+      expect(parseBody(expectStatus(res, 200))).toEqual({ groupHash, gameNumber: GAME_TWO });
+      expect(await backingBody(edge, gameMetaKey(groupHash, GAME_ONE))).toBeUndefined();
+    } finally {
+      await edge.close();
+    }
+  });
+
   it('A store failure writing the opening position surfaces', async () => {
     const edge = createEdgeRig();
     try {

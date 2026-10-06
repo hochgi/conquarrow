@@ -347,6 +347,14 @@ Feature: Online moves and notify — boundaries
       When POST /invites/:token/start with A's bearer again
       Then the body gameNumber is 000001
 
+    Scenario: Start does not claim a game number it lost and cannot read back
+      Given an open bound invite of G over the real store and a probed S3
+      And the probed S3 answers the next put of games/000001/meta.json with PreconditionFailed
+      And G has no games/000001/meta.json to read back
+      When POST /invites/:token/start with A's bearer
+      Then the body gameNumber is 000002
+      And G has no game meta at 000001
+
     Scenario: A store failure writing the opening position surfaces
       Given A and B have started a game over the real store and a probed S3
       And the probed S3 rejects the next put of state.json with a 500

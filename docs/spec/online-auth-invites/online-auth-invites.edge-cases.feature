@@ -199,6 +199,15 @@ Feature: Online auth and invites — boundaries
       Then each response is 404
       And fake S3 holds no invite, group or game objects
 
+    Scenario: Every invite route is 404 for an unreadable invite record
+      Given a valid Google ID token for user A
+      And the invite object for token T holds bytes that are not an invite
+      When GET /invites/T
+      Then the response is 404
+      When POST /invites/T/accept, /invites/T/revoke and /invites/T/start with A's bearer
+      Then each response is 404
+      And the invite object for T still holds the same bytes
+
     Scenario Outline: Invite routes match whole paths only
       Given an open invite T created by A
       When <method> <path> with A's bearer
