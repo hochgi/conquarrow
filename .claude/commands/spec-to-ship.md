@@ -1,5 +1,5 @@
 ---
-description: Orchestrate spec→tests→code→review→PR+Copilot+merge for one work packet. No human gates.
+description: Orchestrate spec→tests→code→review→PR→merge for one work packet. No human gates.
 argument-hint: <path-to-work-packet>
 ---
 
@@ -60,6 +60,5 @@ Coherence, purity, boundaries. Reviewer prepares title/body; does not push.
 
 ## Ship
 
-Orchestrator: commit, push `hochgi`, open PR (`🤖: `), request Copilot review,
-wait, triage comments (fix / defer / reject, reply `🤖: `), squash-merge when
-CI is green. Never push `shalevhoch`.
+Orchestrator: commit, push `hochgi`, open PR (`🤖: `), squash-merge when CI is green.
+The reviewer phase is the review gate. Never push `shalevhoch`.

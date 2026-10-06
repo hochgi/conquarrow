@@ -1,5 +1,5 @@
 ---
-description: Orchestrate spec→tests→code→review→PR+Copilot+merge for one work packet. No human gates.
+description: Orchestrate spec→tests→code→review→PR→merge for one work packet. No human gates.
 agent: spec-author
 model: xai/grok-4.6
 variant: xhigh

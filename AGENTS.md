@@ -208,8 +208,8 @@ Do not put an `XAI_API_KEY` in the repo.
 3. **coder** drives `code-to-green` → red → green → refactor within budget,
    incremental Stryker, CRAP glance on touched files.
 4. **reviewer** drives `review-changes` → spec ↔ tests ↔ code coherence,
-   boundaries, purity. Then **open the PR**, request a **Copilot** review, wait,
-   triage (fix / defer / reject), squash-merge to `hochgi/conquarrow`.
+   boundaries, purity. Then **open the PR** and squash-merge to `hochgi/conquarrow` once CI
+   is green — the reviewer phase is the review gate.
 
 Do not collapse phases. Do not invent a game rule. Online/infra BSSN is in-bounds
 when documented. Never push `shalevhoch`.

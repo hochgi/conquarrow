@@ -13,7 +13,7 @@ conventions above.
 ## Command, subagents & skills available here
 
 - **Command**: `/spec-to-ship <path-to-packet>` orchestrates the four-phase
-  pipeline, then opens a PR, waits for Copilot, and squash-merges. **No human
+  pipeline, then opens a PR and squash-merges once CI is green. **No human
   gate between phases.** Escalate only for unexpected cost, a big behavioral
   shift, or a SPEC.md game-rule gap. Phase 1 runs in the main thread; phases
   2–4 are delegated via the Agent tool.
