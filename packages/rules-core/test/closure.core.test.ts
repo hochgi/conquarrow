@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { step } from '@conquarrow/contracts';
+import { speed, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -332,7 +332,7 @@ describe('a closure moves ground, whoever held it', () => {
     expect(territoryOf(after, occupied)).toBe(A);
     expect(after.groups.get(occupied)?.owner).toBe(A);
     expect(after.groups.get(occupied)?.heads).toBe(2);
-    expect(after.groups.get(occupied)?.spent).toBe(0);
+    expect(after.groups.get(occupied)?.spent).toBe(speed(2));
   });
 });
 

@@ -20,7 +20,7 @@ Feature: Encirclement — convert heads inside enemy territory
       When player A completes the closure
       Then that arrow is player A's territory
       And the group on it is owned by A with 1 head
-      And its spent is 0
+      And its spent equals the speed of 1 head
 
     Scenario Outline: Stacks convert intact
       Given player B has <N> heads on an arrow that player A's closure will claim
@@ -37,7 +37,7 @@ Feature: Encirclement — convert heads inside enemy territory
     Scenario: Converted stack drops spent and merge override
       Given player B's encircled stack had spent > 0 or a merge override
       When it converts
-      Then spent is 0
+      Then spent equals the speed of that stack's heads
       And no merge override remains
       # §11 item 40.
 

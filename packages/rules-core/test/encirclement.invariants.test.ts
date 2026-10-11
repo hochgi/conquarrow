@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { step } from '@conquarrow/contracts';
+import { speed, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -127,7 +127,7 @@ describe('encirclement converts only unprotected enemy groups on foreign territo
 
     expect(snapshot(s0)).toEqual(before);
     expect(ownerOf(s1, occupied)).toBe(A);
-    expect(s1.groups.get(occupied)?.spent).toBe(0);
+    expect(s1.groups.get(occupied)?.spent).toBe(speed(2));
     expect(snapshot(table.rules.apply(s0, move))).toEqual(snapshot(s1));
   });
 });

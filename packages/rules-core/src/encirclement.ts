@@ -10,6 +10,7 @@
  * @see docs/spec/encircled-path/encircled-path.md
  */
 
+import { speed } from '@conquarrow/contracts';
 import type { AnchorGrade, ArrowId, GameState, PlayerId } from '@conquarrow/contracts';
 import { compareArrows } from './order';
 
@@ -25,10 +26,11 @@ const hasTerritoryGrade = (
 };
 
 /**
- * Flip every encircled group to the territory owner. Head count intact; spent 0;
- * merge override dropped. Then evaporate the victim's trail from each converted
- * arrow in arrow-id order (P33). Converted stacks are already the claimer's, so
- * they are not victim firebreaks.
+ * Flip every encircled group to the territory owner. Head count intact;
+ * `spent = speed(heads)`; merge override dropped (P70 / ADR 0005). Then
+ * evaporate the victim's trail from each converted arrow in arrow-id order
+ * (P33). Converted stacks are already the claimer's, so they are not victim
+ * firebreaks.
  */
 export const convertEncircled = (
   state: GameState,
@@ -48,7 +50,7 @@ export const convertEncircled = (
     if (hasTerritoryGrade(state, arrow, group.owner, gradeOf)) continue;
 
     converted.push({ victim: group.owner, arrow });
-    groups.set(arrow, { owner: landOwner, heads: group.heads, spent: 0 });
+    groups.set(arrow, { owner: landOwner, heads: group.heads, spent: speed(group.heads) });
   }
 
   if (converted.length === 0) return state;

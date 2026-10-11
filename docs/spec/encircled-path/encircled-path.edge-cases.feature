@@ -45,11 +45,11 @@ Feature: Encircled path — halt, other components, and cut tails
       When player A completes the closure
       Then B's trail is absent from every claimed arrow
 
-    Scenario: Converted stacks stay intact with spent 0
+    Scenario: Converted stacks stay intact and spent at their speed
       Given player B's converting stack has heads N greater than 1 and spent greater than 0
       When it converts
       Then the group is owned by A with N heads
-      And spent is 0
+      And spent equals the speed of N heads
 
     Scenario: Not stepping does not convert and does not wipe
       Given an authored state where player B is already encircled on A's territory

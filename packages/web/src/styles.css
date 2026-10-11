@@ -954,7 +954,10 @@ body,
    an effect's causal delay the `from` frame holds, so nothing flashes early; and
    under `prefers-reduced-motion` the animation is switched off and the base state
    is what shows — a static emphasis for the effect's lifetime rather than nothing
-   at all. That is why none of these start life at `opacity: 0`.
+   at all. That is why none of these start life at `opacity: 0`. The conversion
+   outgoing plate is the exception (P70): its un-animated fill is transparent, and
+   its fill mode is `forwards`, so the 300 ms offset holds that plate instead of
+   the first beat. The committed new colour shows until the hand-off starts.
 
    Transforms need an explicit box on SVG shapes, hence the shared block below. */
 
@@ -963,7 +966,6 @@ body,
 .fx-combat-ring,
 .fx-combat-tick,
 .fx-emerge-ring,
-.fx-convert-in,
 .fx-sentry-set,
 .fx-converge-settle,
 .fx-diverge-hold,
@@ -1471,40 +1473,33 @@ body,
 
 @keyframes fx-convert-out {
   0% {
-    fill-opacity: 0.55;
+    fill-opacity: 1;
+    stroke-opacity: 1;
+  }
+  25% {
+    fill-opacity: 0;
+    stroke-opacity: 0;
+  }
+  50% {
+    fill-opacity: 1;
+    stroke-opacity: 1;
+  }
+  75% {
+    fill-opacity: 0;
+    stroke-opacity: 0;
   }
   100% {
     fill-opacity: 0;
+    stroke-opacity: 0;
   }
 }
 
 .fx-convert-out {
-  fill-opacity: 0.3;
+  fill-opacity: 0;
+  stroke-opacity: 0;
   animation-name: fx-convert-out;
-  animation-timing-function: ease-in;
-  animation-fill-mode: both;
-}
-
-@keyframes fx-convert-in {
-  0% {
-    stroke-opacity: 0;
-    transform: scale(1.35);
-  }
-  50% {
-    stroke-opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    stroke-opacity: 0;
-    transform: scale(1);
-  }
-}
-
-.fx-convert-in {
-  stroke-opacity: 0.6;
-  animation-name: fx-convert-in;
-  animation-timing-function: cubic-bezier(0.16, 0.84, 0.3, 1);
-  animation-fill-mode: both;
+  animation-timing-function: step-end;
+  animation-fill-mode: forwards;
 }
 
 /* ── the transient numerals: what a change cost, or paid ───────────────────── */

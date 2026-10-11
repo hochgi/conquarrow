@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { endTurn, step } from '@conquarrow/contracts';
+import { endTurn, speed, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -171,8 +171,8 @@ describe('closure strip and convert bookkeeping still hold', () => {
     expect(isTrail(after, B, claimed)).toBe(false);
   });
 
-  it('keeps converted stacks intact with spent 0', () => {
-    // encircled-path.edge: "Converted stacks stay intact with spent 0"
+  it('keeps converted stacks intact and spent at their speed', () => {
+    // encircled-path.edge: "Converted stacks stay intact and spent at their speed"
     const table = onBoard();
     const tip = anArrow(table.geometry);
     const distal = anExitFrom(table.geometry, tip);
@@ -197,7 +197,7 @@ describe('closure strip and convert bookkeeping still hold', () => {
 
     expect(ownerOf(after, tip)).toBe(A);
     expect(headsOn(after, tip)).toBe(3);
-    expect(spentOn(after, tip)).toBe(0);
+    expect(spentOn(after, tip)).toBe(speed(3));
   });
 
   it('does not convert or wipe when nobody steps', () => {

@@ -198,7 +198,7 @@ Take one work packet all the way to a merged PR through **four phases**. Do not
 stop for a human thumbs-up between them. In Claude Code / Cursor / OpenCode:
 `/spec-to-ship <path-to-packet>`.
 
-OpenCode pins every phase to `xai/grok-4.6` and bills the **SuperGrok**
+OpenCode pins every phase to `xai/grok-4.7` and bills the **SuperGrok**
 subscription via `/connect` → xAI → SuperGrok Subscription. See `OPENCODE.md`.
 Do not put an `XAI_API_KEY` in the repo.
 

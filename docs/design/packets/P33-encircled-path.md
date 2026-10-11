@@ -1,6 +1,7 @@
 # P33 — Clear encircled enemy path on convert
 
 > **Status:** in flight. **Depends on:** P07, P13, P22.
+> **Amended by P70:** `spent` on convert is `speed(heads)`, not 0. Wipe is unchanged.
 > Playtest: after a winning enclosure, a brown trail chord still connected two
 > converted stacks across the claimer's land. P22 D7 left orphan dormant marks
 > after convert. That paint is the encircled path and must go.
@@ -18,8 +19,8 @@ on the claimer's land — including **both arms of a fork**.
 ## BSSN (locked here)
 
 - **Predicate unchanged.** Territory-grade still protects; stack-grade and
-  dormant still do not. Skip still does not convert. Intact stacks, `spent` 0,
-  drop override — unchanged.
+  dormant still do not. Skip still does not convert. Intact stacks. **`spent` is
+  `speed(heads)` (P70), not 0.** Drop override — unchanged.
 - **On convert, wipe.** After ownership flips, evaporate the victim's trail from
   each converted arrow under the existing halt-at-first rule (`evaporateFromArrow`).
   Converted stacks are no longer the victim's, so they are **not** firebreaks.

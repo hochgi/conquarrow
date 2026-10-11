@@ -530,7 +530,7 @@ A player may not step onto another player's territory unless that step would lea
 
 A group that still has a territory-grade trail (a path of its trail reaching its own territory) is **not** encircled. You cannot capture a trail-connected raider by claim alone: a cut must first evaporate up to their anchor and drop the grade (§6.1).
 
-On convert, the stack flips owner at the same head count, with **`spent` reset to 0 and any merge override dropped**, and **the victim's trail evaporates from each converted arrow** under the halt-at-first rule already used for combat wipe (§6.1). Converted stacks are no longer the victim's, so they are not firebreaks: the path that connected them — including **both arms of a fork** — is gone. A remaining victim stack that did not convert (stack-grade on **neutral** ground) still halts the front. Cut-created dormant that no convert wipe reached still stands (P22). Converted groups sit on the claimer's territory — co-location with a pre-existing friendly group on the same arrow does not arise from claim encirclement (contact combat already forbids shared occupancy with enemies).
+On convert, the stack flips owner at the same head count, with **`spent` set to `speed(heads)` and any merge override dropped**, so the capturing turn has no step from that arrow. End of turn still clears `spent`, and a merge onto the stack in that turn is an ordinary merge: the destination's `spent` is kept (P70 / ADR 0005). **The victim's trail evaporates from each converted arrow** under the halt-at-first rule already used for combat wipe (§6.1). Converted stacks are no longer the victim's, so they are not firebreaks: the path that connected them — including **both arms of a fork** — is gone. A remaining victim stack that did not convert (stack-grade on **neutral** ground) still halts the front. Cut-created dormant that no convert wipe reached still stands (P22). Converted groups sit on the claimer's territory — co-location with a pre-existing friendly group on the same arrow does not arise from claim encirclement (contact combat already forbids shared occupancy with enemies).
 
 Two consequences that are easy to miss:
 
@@ -896,7 +896,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 >
 > **Item 38 was opened by P06's review and closed by the human:** stay-behind on attack (lone head cannot attack); fight to wipe in one `apply` (no interrupt); mark destination only if the attacker lands; bounce leaves the stay-behind as tip. → §6.2, → P06.
 >
-> **Item 40 was opened and closed by P07, then moved twice.** P07: reset `spent` and drop merge override; trail cleanup is not conversion's job. P22: strip converted arrows, leave orphan dormant. **P33 (playtest):** orphan paint on the claimer's land *is* the encircled path — convert wipes from converted arrows under halt-at-first. Same-arrow merge with a friendly group remains unreachable under claim encirclement. → §6.3, → P07, → P22, → P33.
+> **Item 40 was opened and closed by P07, then moved three times.** P07: reset `spent` to 0 and drop merge override; trail cleanup is not conversion's job. P22: strip converted arrows, leave orphan dormant. **P33 (playtest):** orphan paint on the claimer's land *is* the encircled path — convert wipes from converted arrows under halt-at-first. **P70 (playtest):** `spent` is `speed(heads)`, not 0, so the capturing turn cannot walk the stack. Same-arrow merge with a friendly group remains unreachable under claim encirclement. → §6.3, → P07, → P22, → P33, → P70, → ADR 0005.
 >
 > **Item 41 was opened and closed by P08:** accrual ticks once per **full round** (not every `endTurn`); friendly occupation accrues and merges with **no** §3 merge override (birth is not a spent move); enemy occupation still halts. → §7, → P08.
 >
@@ -1084,11 +1084,11 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
 
 40. ~~What happens to `spent` / trail / co-location on convert?~~ — **resolved.** Three precision calls, one item:
 
-    1. **Reset.** Converted stacks keep head count, set `spent` to 0, and drop any merge override.
+    1. **Spent.** ~~set `spent` to 0~~ → **P70: set `spent` to `speed(heads)`** and drop any merge override. The stack has no step left on the capturing turn. End of turn clears `spent` as for every group. Joining the stack uses ordinary merge and does not restore a step. Playtest 2026-10-08: a same-turn walk hid the flip. → ADR 0005.
     2. **Trail.** ~~Conversion does not strip trail~~ (P07) → ~~strip converted arrows, leave orphan dormant~~ (P22) → **P33: evaporate from each converted arrow** under halt-at-first (combat wipe). Converted stacks are not victim firebreaks, so the encircled path — both arms of a fork included — clears. A remaining victim stack on **neutral** still halts. Cut-created dormant that no convert wipe reached still stands. Territory-grade trail still prevents conversion until a cut demotes it (§6.1).
     3. **Co-location.** Claim encirclement puts converted units on the claimer's territory; sharing an arrow with a pre-existing friendly group does not arise (and contact forbids enemy co-occupancy beforehand). Out of scope.
 
-    → **§6.3**, → **P07**, → **P22**, → **P33**.
+    → **§6.3**, → **P07**, → **P22**, → **P33**, → **P70**, → **ADR 0005**.
 
 **P22 beta — firebreak-capped paint — re-resolved by P42**
 

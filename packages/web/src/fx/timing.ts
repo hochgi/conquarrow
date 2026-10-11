@@ -39,7 +39,8 @@ export const FX_MS = {
   merge: 300,
   sentry: 280,
   produced: 320,
-  converted: 360,
+  /** P70: four-beat hand-off. Offset stays 300; do not retune the other entries. */
+  converted: 700,
   /** Major: the loop closed, ground changed hands, a trail was severed. */
   closed: 300,
   captured: 400,
