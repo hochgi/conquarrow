@@ -11,7 +11,7 @@
 Make this repo safe to grow past playtest: same pipeline as cycle-processing
 where it pays, without publishing org-private test-kit.
 
-- Cursor subagents pin `cursor-grok-4.6-xhigh` (Claude Code agents stay `opus`).
+- Cursor subagents pin `grok-4.7-xhigh` (Claude Code agents stay `opus`).
 - Stryker on `packages/rules-core/src` (`break: null`, local, not CI).
 - CRAP report (`pnpm crap`) advisory; boy-scout files you touch.
 - Complexity ESLint **warn** on core/geometry (≤12 / depth 4 / 80 lines / 5 params).

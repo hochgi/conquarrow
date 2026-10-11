@@ -96,6 +96,7 @@ import {
   type OwnSeat,
 } from './spectate';
 import { cameraCues, type CameraCue } from './cameraCues';
+import { spectatedConversion, type ConversionFrame } from './conversionPlayback';
 import { presentRefusal, presentSteps, REFUSAL_TEXT, type FxOverlay } from './fx/present';
 import {
   emptyQueue,
@@ -166,6 +167,15 @@ export const arrowCentroid = (arrow: ArrowId): { x: number; y: number } => {
   }
   const n = poly.length === 0 ? 1 : poly.length;
   return { x: sx / n, y: sy / n };
+};
+
+/** P70: ease to converted stacks that sit outside the shot, then start the hand-off. */
+const runConversionFrame = async (
+  frame: ConversionFrame,
+  run: (target: CameraTarget, ms: number) => Promise<void>,
+): Promise<void> => {
+  if (!frame.ease) return;
+  await run(frame.target, frame.hardCut ? 0 : frame.handoffWaitMs);
 };
 
 /**
@@ -757,13 +767,18 @@ export const App = (): ReactElement => {
       if (start === undefined) return;
       const moves = commitSequence([batch]);
       const cues = cameraCues(moves, arrowCentroid, viewportRef.current);
-      const timing = groupTiming({
-        speed: prefsRef.current.playbackSpeed,
-        boundary: false,
-        reducedMotion: reducedMotionRef.current,
-      });
       await applyMovesSequentially(rules, start, moves, {
-        gapMs: timing.gapMs,
+        gapMs: ({ move, before, after }) =>
+          spectatedConversion({
+            before,
+            after,
+            move,
+            spectated: spectatedIn(before),
+            reducedMotion: reducedMotionRef.current,
+            speed: prefsRef.current.playbackSpeed,
+            viewport: viewportRef.current,
+            centroid: arrowCentroid,
+          }).gapMs,
         sleep: adapterSleep,
         cancelled,
         beforeApply: async (move, index) => {
@@ -773,6 +788,20 @@ export const App = (): ReactElement => {
           if (!prefsRef.current.autoFocus || !spectatedIn(at)) return;
           await playGroup(cue);
         },
+        afterApply: async ({ move, before, after }) => {
+          if (!prefsRef.current.autoFocus || !spectatedIn(before)) return;
+          const { frame } = spectatedConversion({
+            before,
+            after,
+            move,
+            spectated: true,
+            reducedMotion: reducedMotionRef.current,
+            speed: prefsRef.current.playbackSpeed,
+            viewport: viewportRef.current,
+            centroid: arrowCentroid,
+          });
+          await runConversionFrame(frame, (target, ms) => tween.run(target, ms));
+        },
         onApplied: (move, after) => {
           commitApplied([move], after);
         },
@@ -781,7 +810,7 @@ export const App = (): ReactElement => {
       h.adapter().noteDisplayed(batch.to);
       reportDivergence(h, batch.to, stateRef.current);
     },
-    [commitApplied, playGroup, spectatedIn],
+    [commitApplied, playGroup, spectatedIn, tween],
   );
 
   // P49. Drain the queue in arrival order, skipping nothing. Local input is
@@ -1057,15 +1086,23 @@ export const App = (): ReactElement => {
         const speed = prefsRef.current.playbackSpeed;
         // Invariant 28: local playback and online replay consume one plan.
         const cues = cameraCues(plan.moves, arrowCentroid, viewportRef.current);
-        const gap = groupTiming({
-          speed,
-          boundary: false,
-          reducedMotion: reducedMotionRef.current,
-        }).gapMs;
         await applyMovesSequentially(rules, start, plan.moves, {
           // Speed is an *opponent playback* preference, so it scales the gap
-          // whether or not the camera is following.
-          gapMs: spectated ? gap : BOT_PLAYBACK_GAP_MS,
+          // whether or not the camera is following. A converting spectated
+          // step takes the unscaled hand-off hold instead (P70).
+          gapMs: spectated
+            ? ({ move, before, after }) =>
+                spectatedConversion({
+                  before,
+                  after,
+                  move,
+                  spectated: true,
+                  reducedMotion: reducedMotionRef.current,
+                  speed,
+                  viewport: viewportRef.current,
+                  centroid: arrowCentroid,
+                }).gapMs
+            : BOT_PLAYBACK_GAP_MS,
           sleep: adapterSleep,
           cancelled,
           beforeApply: async (_move, index) => {
@@ -1073,6 +1110,20 @@ export const App = (): ReactElement => {
             if (cue === undefined) return;
             if (!spectated || !prefsRef.current.autoFocus) return;
             await playGroup(cue);
+          },
+          afterApply: async ({ move, before, after }) => {
+            if (!spectated || !prefsRef.current.autoFocus) return;
+            const { frame } = spectatedConversion({
+              before,
+              after,
+              move,
+              spectated: true,
+              reducedMotion: reducedMotionRef.current,
+              speed,
+              viewport: viewportRef.current,
+              centroid: arrowCentroid,
+            });
+            await runConversionFrame(frame, (target, ms) => tween.run(target, ms));
           },
           onApplied: (move, after, index) => {
             if (plan.byok !== undefined && index === plan.moves.length - 1) {

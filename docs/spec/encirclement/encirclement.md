@@ -16,7 +16,7 @@ the §6.3 predicate holds:
 
 ## Scope
 
-In: the state predicate, intact stack conversion, reset of `spent` / override,
+In: the state predicate, intact stack conversion, `spent` set to `speed(heads)` (P70),
 order after combat → cut → closure, head conservation, grade shields, neutral
 vs enemy stranded.
 
@@ -32,7 +32,7 @@ use fixtures when territory is authored.
 | Term | Means |
 |---|---|
 | **encircled** | standing on another player's territory without territory-grade trail |
-| **convert** | ownership flips to the territory owner; heads unchanged; spent 0; no override |
+| **convert** | ownership flips to the territory owner; heads unchanged; `spent` is `speed(heads)`; no override |
 | **territory grade** | trail connected to the owner's own territory (§6.1) |
 | **stack grade** | trail anchored only on a stack — does **not** protect |
 
@@ -46,7 +46,7 @@ flowchart TD
   P -- no --> Next["next group"]
   P -- yes --> G{"owner has territory-grade<br/>trail covering this arrow?"}
   G -- yes --> Next
-  G -- no --> Flip["flip owner to territory owner<br/>heads intact #59; spent 0 #59; no override"]
+  G -- no --> Flip["flip owner to territory owner<br/>heads intact #59; spent = speed of heads #59; no override"]
   Flip --> Next
   Next --> More{"more groups?"}
   More -- yes --> Scan
@@ -58,7 +58,7 @@ flowchart TD
 - When a group stands on another player's territory and lacks territory-grade
   trail for its owner, the system shall convert it to the territory owner with
   the same head count.
-- The system shall reset `spent` to 0 and drop any merge override on convert.
+- The system shall set `spent` to `speed` of the group's heads and drop any merge override on convert (P70).
 - The system shall not convert a group whose trail is territory-grade for its owner.
 - The system shall not convert a group on neutral ground or on its own territory.
 - The system shall not let stack-grade or dormant trail protect inside enemy territory.

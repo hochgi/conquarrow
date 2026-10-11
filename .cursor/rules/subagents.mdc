@@ -6,7 +6,7 @@ alwaysApply: true
 # Cursor subagents
 
 Project subagents live in `.cursor/agents/` (`coder`, `reviewer`, `spec-author`,
-`test-author`). Each pins **`model: cursor-grok-4.6-xhigh`**. When Cursor ships
+`test-author`). Each pins **`model: grok-4.7-xhigh`**. When Cursor ships
 a newer Grok slug, bump those four frontmatters together.
 
 `.claude/agents/` remains for Claude Code (`model: opus`). Cursor prefers

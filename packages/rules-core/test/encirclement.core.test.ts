@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { step } from '@conquarrow/contracts';
+import { speed, step } from '@conquarrow/contracts';
 import {
   A,
   B,
@@ -53,7 +53,7 @@ describe('closure converts enclosed enemy stacks intact', () => {
     expect(territoryOf(after, occupied)).toBe(A);
     expect(ownerOf(after, occupied)).toBe(A);
     expect(headsOn(after, occupied)).toBe(1);
-    expect(spentOn(after, occupied)).toBe(0);
+    expect(spentOn(after, occupied)).toBe(speed(1));
   });
 
   it.each([1, 2, 3] as const)('converts a %i-stack intact', (n) => {
@@ -77,7 +77,7 @@ describe('closure converts enclosed enemy stacks intact', () => {
     expect(headsOn(after, occupied)).toBe(n);
   });
 
-  it('resets spent and drops merge override on convert', () => {
+  it('sets spent to speed and drops merge override on convert', () => {
     const table = onTiling();
     const { home, run } = aRunFromHome(table.geometry, 3);
     const occupied = arrowAt(run, 0);
@@ -96,7 +96,7 @@ describe('closure converts enclosed enemy stacks intact', () => {
 
     expect(ownerOf(after, occupied)).toBe(A);
     expect(headsOn(after, occupied)).toBe(3);
-    expect(spentOn(after, occupied)).toBe(0);
+    expect(spentOn(after, occupied)).toBe(speed(3));
     expect(after.groups.get(occupied)?.speedOverride).toBeUndefined();
   });
 });

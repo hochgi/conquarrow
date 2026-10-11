@@ -44,7 +44,7 @@ runs on the **tiling**.
 ```mermaid
 flowchart TD
   Apply["apply step"] --> C["combat → cut → closure"]
-  C --> Flip["flip converting groups<br/>heads intact #59; spent 0 #59; no override"]
+  C --> Flip["flip converting groups<br/>heads intact #59; spent = speed of heads #59; no override"]
   Flip --> Seed["for each converted arrow<br/>in arrow-id order"]
   Seed --> Wipe["evaporate victim trail from that arrow"]
   Wipe --> Halt{"would enter remaining<br/>victim stack or victim territory?"}

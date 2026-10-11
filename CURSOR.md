@@ -13,7 +13,7 @@ Claude Code’s parallel file is [`CLAUDE.md`](./CLAUDE.md).
 Project agents: [`.cursor/agents/`](./.cursor/agents/) — `spec-author`,
 `test-author`, `coder`, `reviewer`.
 
-Each frontmatter pins **`model: cursor-grok-4.6-xhigh`**. When Cursor publishes a
+Each frontmatter pins **`model: grok-4.7-xhigh`**. When Cursor publishes a
 newer Grok id, update all four in one pass. Do not use `inherit` here: the human
 may run the parent on another family, and these phases must stay on Grok.
 

@@ -1,7 +1,7 @@
 ---
 description: Orchestrate spec→tests→code→review→PR→merge for one work packet. No human gates.
 agent: spec-author
-model: xai/grok-4.6
+model: xai/grok-4.7
 variant: xhigh
 ---
 
@@ -12,7 +12,7 @@ Packet: `$ARGUMENTS` under `docs/design/packets/` (bare `P56` is fine).
 
 Read `.claude/skills/spec-to-ship/SKILL.md`, `AGENTS.md`, `OPENCODE.md`.
 
-Model is `xai/grok-4.6` with variant `xhigh`. Do not write `xai/grok-4.6#xhigh`
+Model is `xai/grok-4.7` with variant `xhigh`. Do not write `xai/grok-4.7#xhigh`
 — OpenCode treats that whole string as a catalog id.
 
 Phase 1 — spec-author / write-spec (main thread).

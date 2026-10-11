@@ -23,7 +23,7 @@ import type { TilingLayout } from '@conquarrow/geometry-tiling';
 import type { CSSProperties, ReactElement } from 'react';
 import { FX_COUNT_HALO, FX_NOW, styleFor } from '../colors';
 import { arrowChord, centroidScreen, inkWidth, polyPoints } from '../boardGeom';
-import type { Viewport } from '../viewport';
+import { toScreen, type Viewport } from '../viewport';
 import type { FxItem } from './queue';
 import { REFUSAL_TEXT, type FxCell, type FxOverlay } from './present';
 
@@ -56,6 +56,22 @@ const pointsOf = (ctx: Ctx, arrow: ArrowId): string =>
 
 const centreOf = (ctx: Ctx, arrow: ArrowId): { readonly x: number; readonly y: number } =>
   centroidScreen(ctx.viewport, ctx.layout.polygon(arrow));
+
+/** Same bias the board uses, so the hand-off numeral sits on the stack count. */
+const COUNT_BIAS = 0.42;
+
+const countAnchor = (
+  ctx: Ctx,
+  arrow: ArrowId,
+): { readonly x: number; readonly y: number } => {
+  const c = centreOf(ctx, arrow);
+  const tipWorld = ctx.layout.pointPosition(ctx.geometry.target(arrow));
+  const tip = toScreen(ctx.viewport, tipWorld.x, tipWorld.y);
+  return {
+    x: c.x + (tip.x - c.x) * COUNT_BIAS,
+    y: c.y + (tip.y - c.y) * COUNT_BIAS,
+  };
+};
 
 const glyphSize = (ctx: Ctx, factor = 0.24): number =>
   Math.max(9, ctx.viewport.scale * factor);
@@ -701,7 +717,7 @@ const Emergence = ({
   );
 };
 
-/** Conversion: the old owner's rim wipes to the new one's, in place. */
+/** Conversion: four-beat hand-off on the tile; the head count stays in the beat's ink. */
 const Conversion = ({
   ctx,
   overlay,
@@ -710,24 +726,36 @@ const Conversion = ({
   readonly overlay: Extract<FxOverlay, { kind: 'conversion' }>;
 }): ReactElement => {
   const points = pointsOf(ctx, overlay.arrow);
-  const width = inkWidth(ctx.viewport, 0.06, 1.8);
+  const count = countAnchor(ctx, overlay.arrow);
+  const from = styleFor(overlay.from);
+  const timed = anim(overlay.offsetMs, overlay.durationMs);
+  const glyph = Math.max(8, ctx.viewport.scale * 0.26);
   return (
     <g style={{ pointerEvents: 'none' }}>
       <polygon
         className="fx-convert-out"
         points={points}
-        fill={styleFor(overlay.from).fill}
+        fill={from.fill}
         stroke="none"
-        style={anim(overlay.offsetMs, overlay.durationMs)}
+        style={timed}
       />
-      <polygon
-        className="fx-convert-in"
-        points={points}
-        fill="none"
-        stroke={styleFor(overlay.to).accent}
-        strokeWidth={width}
-        style={anim(overlay.offsetMs, overlay.durationMs)}
-      />
+      <text
+        className="fx-convert-out"
+        x={count.x}
+        y={count.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={glyph}
+        fontFamily="IBM Plex Sans, Segoe UI, sans-serif"
+        fontWeight={650}
+        fill={from.ink}
+        stroke={FX_COUNT_HALO}
+        strokeWidth={Math.max(0.8, glyph * 0.1)}
+        paintOrder="stroke fill"
+        style={timed}
+      >
+        {overlay.heads}
+      </text>
     </g>
   );
 };
