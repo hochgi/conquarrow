@@ -14,6 +14,7 @@ TypeSafe announced **jev** in [Introducing System One models and Jev][blog]. Sho
 - **It does not fit the current BYOK path without code, and it cannot be called from Pages today.** The request is not OpenAI `chat/completions`. It has no free-text reply, so `why` and `plan` are lost, and no ordered batch. On 2026-10-27 the API's CORS rejected `https://hochgi.github.io` (and localhost). The only origin it allowed was `https://console.typesafe.ai`. That is the same failure ADR 0003 already records for `api.openai.com` (§3 below).
 - **The evidence supports (b) optional complementary, not (a) alternative.** jev could be a second **API shape** that picks *one* offer index per call, or it could sit beside the heuristic bot as a fast, cheap policy prior. Either way it runs alongside chat-LLM BYOK and does not supersede it. It also conflicts with CONTEXT.md's current definition of **API shape**, which is "a JSON batch … _Avoid_: a single move index" (CONTEXT.md:59-61).
 - **Cost is negligible and speed is plausible, but neither is verified here.** The vendor lists $0.042 per million input tokens and free output tokens ([models][models]). That works out to about $0.0002 per call at today's 3–4k-token prompts (estimate). Vendor latency claims are 70–500 ms. I could not measure either without a key.
+- **Measured 2026-10-28: advice does not help.** jev's top pick matches grok's move 59–70% of the time. But at 39 replayed human steps, grok matched the human 16/39 both plain and with jev's probabilities in the prompt, and the advised seat followed jev's top pick 37/39 times. jev alone matched the human about as often as the heuristic bot did (16/39). See [Human-move A/B](#human-move-ab-2026-10-28).
 - **The model's own documented weak spots overlap conquarrow's prompt**: numbers and ids, multi-hop indirection, a large distracting state, and a bias toward the first Choice option ([jaggedness][jag]). Whether it plays well is an empirical question only a keyed playtest answers.
 
 ## Findings
@@ -276,7 +277,7 @@ Throwaway script on branch `prototype/jev-advisor` (`tools/prototype-jev-advisor
 - **Position bias.** jev never picked index 0 in engine order, and picked the first-shown option only 5% of the time when shuffled. The documented first-option lean did not show up. A **last-option** lean did: in engine order jev picked the last option 18/37 times, against 9/37 for grok. Only 57% of picks were the same in both orders.
 - **Cost.** 74 calls, 219,564 input tokens, about $0.009.
 
-**Verdict (analysis).** jev clears P72's gate comfortably: it does far better than chance and better than the one-ply baseline, at about 200 ms per call. Caveats:
+**Verdict (analysis).** jev clears P72's original gate (better than chance) comfortably. The stricter human-move test below does not pass: it does far better than chance and better than the one-ply baseline, at about 200 ms per call. Caveats:
 - The sample is small, opening-only (N ≤ 9, one stack), and on an older prompt.
 - grok's move is a proxy for good play, not the truth.
 - The teaching prompt's own heuristics make whole-stack moves predictable.
@@ -284,6 +285,41 @@ Throwaway script on branch `prototype/jev-advisor` (`tools/prototype-jev-advisor
 Whether advice actually makes the seat play better can only be shown by advised versus unadvised playtests (the ADR 0006 toggle).
 
 **Implementation hint for P72.** Probabilities depend on option order. A System One request can carry several questions, so the advisor can ask the same choice in two fixed orders in one call and average the two. That cancels the order bias for no extra round trip. The prompt the seat's model sees stays in engine order.
+
+## Human-move A/B (2026-10-28)
+
+Agreement with grok shows jev can rank an offer. It does not show that advice improves play. This second test uses the human's moves as the standard. In both 2026-09-10 matches the human (seat C) beat the heuristic and grok seats comfortably.
+
+**Method.** `tools/prototype-jev-advisor/human-ab.proto.test.ts` on the same branch.
+- Each match log is replayed into the exact state at every human step: 39 steps, plus 13 end-turns skipped because the offer has no end-turn row. Every human step was in the offer.
+- At each step the offer and user prompt are rebuilt with the production `buildUserPrompt`.
+- jev gets one call with two questions, the offer in engine order and reversed. The two probability sets are averaged, as the P72 hint proposes.
+- grok-4.6 (reasoning on, the archived settings) is asked twice: once with the plain prompt, and once with `advisor=p` appended to every offer row, plus one line explaining the field.
+- Each arm is scored on whether its first pick equals the human's step.
+
+| Picker | Matches the human's step |
+|---|---|
+| chance (mean 1/N) | 16% |
+| greedy-v1 (BYOK fallback) | 11/39, 28% |
+| beam (the heuristic seat) | 16/39, 41% |
+| jev, two orders averaged | 16/39, 41% |
+| jev, engine order only | 19/39, 49% |
+| **grok, plain** | **16/39, 41%** |
+| **grok, advised** | **16/39, 41%** |
+
+- **Advice changed nothing.** Advised grok picked a different move from plain grok 12 times. In 3 of those it moved onto the human's move, in 3 it moved off it, and in 6 it went from one wrong move to another.
+- **Advice replaces grok's judgement.** Advised grok's pick matched jev's top pick in 37 of 39 steps, against 26 of 39 for plain grok. With these annotations an advised seat is effectively jev with a chat model's latency.
+- **jev is as human-like as the heuristic bot, not more.** Where the beam bot missed the human's move (23 steps), jev hit it 5 times.
+- **The last-row lean survives averaging.** jev picked the last row 16 of 39 times, against 8 of 39 for the human. Averaging both orders did not cancel it, so the last rows themselves probably attract it, not their position.
+- **jev reruns differ slightly.** The averaged arm scored 15/39 in the jev-only run and 16/39 in this one.
+- **Speed and cost.** jev: p50 212 ms, p90 260 ms, about 151k input tokens per pass (under a cent). grok: about 71 s per completion, which is why the run needed a resume after vitest's 60-minute limit.
+
+**Verdict (analysis).** The advisor as ADR 0006 designs it does not improve play on this evidence, so P72 does not start. Caveats:
+- 39 steps from one player in two openings-to-midgame matches is small. It rules out a large effect, not a small one.
+- One annotation format was tried. A softer format, such as showing only the top two, might be weighed rather than obeyed.
+- One human's moves are a strong standard here, not ground truth.
+
+What would reopen it: more human match logs (each match adds about 20 steps), or a decision model that beats the beam bot on this test by itself. The script reruns on new logs unchanged.
 
 ## Open questions for a human
 

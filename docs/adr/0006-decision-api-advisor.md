@@ -1,6 +1,6 @@
 # ADR 0006 — A decision API advises a BYOK seat; it never plays one
 
-**Status:** Accepted
+**Status:** Accepted as the shape; the build (P72) is parked, because its gate failed on 2026-10-28
 **Date:** 2026-10-28
 **Context:** [ADR 0003](./0003-pages-direct-byok.md), [ADR 0007](./0007-invite-only-byok-relay.md), [research note](../research/jev-byok.md), [`CONTEXT.md`](../../CONTEXT.md)
 
@@ -24,6 +24,8 @@ A decision API is an **advisor** on a BYOK seat. It is not a seat and not an API
 Reaching TypeSafe: its CORS policy allows only its own console, so the advisor uses a **relay**. That is Vite `/__byok` under `pnpm dev` (with `api.typesafe.ai` added to the dev allowlist), and the Lambda relay on Pages ([ADR 0007](./0007-invite-only-byok-relay.md)).
 
 A throwaway prototype comes first. It replays archived BYOK prompts through jev and measures how often jev's top pick matches the move the model played, and how long each call takes. The advisor packet starts only if that looks better than chance.
+
+**Gate outcome (2026-10-28).** The agreement check passed: jev's top pick matched grok's move 59–70% of the time, against 11% for chance. A stricter test followed. The human's moves were the standard, and grok was asked plain and advised at 39 replayed human steps. Both matched the human 16/39 times. The advised seat followed jev's top pick 37/39 times, so it deferred to jev rather than weighing it. P72 is parked. More human match logs, or a decision model that alone beats the heuristic seat on that test, would reopen it ([research note](../research/jev-byok.md#human-move-ab-2026-10-28)).
 
 ## Considered options
 

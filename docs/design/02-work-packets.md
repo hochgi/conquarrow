@@ -96,7 +96,7 @@ scheduled early in the first place.
 | P69 | Online hardening | online | — | P17, P18, P68 | **[packet](./packets/P69-online-hardening.md).** #63 follow-ups: `Bearer` scheme case-insensitive; `hydrateState` refuses a stored position outside `contracts` ranges (heads ≥ 1, phase 0..2, seated ids, one entry per key — never clamp or drop); retire the dead `moves.ts` stub. |
 | P70 | Converted stack is spent | rules + web | §6.3, §11 40 | P07, P28, P33, P39, P48, P49 | **[packet](./packets/P70-convert-spent.md).** Playtest 2026-10-08: a same-turn walk hid a conversion. `spent` becomes `speed(heads)`. Hand-off on the tile. Spectated playback holds 1500 ms, unscaled, and frames an off-shot stack first. [ADR 0005](../adr/0005-converted-stack-is-spent.md). |
 | P71 | Invite-only BYOK relay | online + web | — | P15, P68, P69 | **No packet doc yet.** A stateless Lambda route on the existing HTTP API forwards one BYOK or advisor request to a host that refuses the browser (`api.openai.com`, `api.typesafe.ai`). Google sign-in plus an invite list held in a GitHub secret; any `https:` host except loopback/private; key in `X-Upstream-Authorization`, never logged; reserved concurrency, route throttle, budget alert. One-click preset in the Proxy URL field. [ADR 0007](../adr/0007-invite-only-byok-relay.md). |
-| P72 | Decision-API advisor | web | — | P15, P32 | **Gate passed 2026-10-28:** jev top-1 matched the played move 59–70% (chance 11%), ~200 ms/call; it leans toward the last option, so ask two fixed orders per call and average ([research note](../research/jev-byok.md#prototype-result-2026-10-28)). No packet doc yet. Optional advisor on a BYOK seat (own base URL, key, model): one choice question over the offer, probabilities annotated in engine order, advisor records in the match log, agreement on the summary line, on/off toggle. System One format against TypeSafe; dev via `/__byok` (add `api.typesafe.ai`), Pages via P71. [ADR 0006](../adr/0006-decision-api-advisor.md). |
+| P72 | Decision-API advisor | web | — | P15, P32 | **Parked: gate failed 2026-10-28.** jev top-1 matched grok 59–70% (chance 11%). But at 39 replayed human steps, grok matched the human 16/39 both plain and advised, and the advised seat followed jev 37/39 ([research note](../research/jev-byok.md#human-move-ab-2026-10-28)). Reopen on more human logs, or a decision model that alone beats the heuristic seat there. No packet doc yet. Optional advisor on a BYOK seat (own base URL, key, model): one choice question over the offer, probabilities annotated in engine order, advisor records in the match log, agreement on the summary line, on/off toggle. System One format against TypeSafe; dev via `/__byok` (add `api.typesafe.ai`), Pages via P71. [ADR 0006](../adr/0006-decision-api-advisor.md). |
 | P73 | Open the relay | online | — | P71 | **Parked.** Opening P71 beyond the invite list: host restriction, per-user quotas, rejecting callers at API Gateway's JWT authorizer before the Lambda bills. No packet doc until unparked. [ADR 0007](../adr/0007-invite-only-byok-relay.md). |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
@@ -174,7 +174,7 @@ flowchart TD
   P24 --> P68
   P68 --> P69["P69 online hardening"]
   P69 --> P71["P71 BYOK relay"]
-  P15 --> P72["P72 advisor — gated"]
+  P15 --> P72["P72 advisor — parked"]
   P71 -.-> P72
   P71 -.-> P73["P73 open relay — parked"]
 ```
