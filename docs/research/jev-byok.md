@@ -261,6 +261,30 @@ The minimal shape conquarrow needs is `decide({state, instructions, options: [{i
 - Microsoft and the other models listed only by OpenRouter.
 - Upstage's full URL, which joins a documented base URL to a documented path.
 
+## Prototype result (2026-10-28)
+
+Throwaway script on branch `prototype/jev-advisor` (`tools/prototype-jev-advisor/run.mjs`). It replays 37 archived BYOK requests (3 matches from September 2026, `archive/`, untracked) through `jev-1.14.0`. Each request is sent twice: once with the options in engine order, once shuffled. The state is the teaching prompt plus the board; the options are the offer lines, with the one-ply baseline hint removed. The comparison target is the first index grok-4.6 played.
+
+| Metric | Engine order | Shuffled order |
+|---|---|---|
+| jev's top pick matches grok's move | 59% | 70% |
+| grok's move is in jev's top 3 | 95% | 97% |
+| mean probability on grok's move | 0.43 | 0.44 |
+| latency p50 / p90 | 197 / 226 ms | 205 / 232 ms |
+
+- **Baselines.** Picking at random matches 11% of the time (mean 1/N). The one-ply baseline suggestion matches grok's move 30% of the time.
+- **Position bias.** jev never picked index 0 in engine order, and picked the first-shown option only 5% of the time when shuffled. The documented first-option lean did not show up. A **last-option** lean did: in engine order jev picked the last option 18/37 times, against 9/37 for grok. Only 57% of picks were the same in both orders.
+- **Cost.** 74 calls, 219,564 input tokens, about $0.009.
+
+**Verdict (analysis).** jev clears P72's gate comfortably: it does far better than chance and better than the one-ply baseline, at about 200 ms per call. Caveats:
+- The sample is small, opening-only (N ≤ 9, one stack), and on an older prompt.
+- grok's move is a proxy for good play, not the truth.
+- The teaching prompt's own heuristics make whole-stack moves predictable.
+
+Whether advice actually makes the seat play better can only be shown by advised versus unadvised playtests (the ADR 0006 toggle).
+
+**Implementation hint for P72.** Probabilities depend on option order. A System One request can carry several questions, so the advisor can ask the same choice in two fixed orders in one call and average the two. That cancels the order bias for no extra round trip. The prompt the seat's model sees stays in engine order.
+
 ## Open questions for a human
 
 1. **Role.** Should jev be a BYOK **API shape** (a seat the player configures), an optional prior inside the heuristic bot, or neither until it leaves early access?
