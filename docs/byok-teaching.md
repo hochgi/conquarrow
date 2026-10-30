@@ -20,7 +20,7 @@ speed(N) = 1 + floor(log₂ N). On a split, both parts inherit spent. Arrive as 
 
 ## Close, cut, mill
 
-Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill / onto_home with empty trail and no expansion is wasted tempo. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
+Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill with empty trail and no expansion is wasted tempo. Crossing your own territory toward its edge (`to_edge`) is how an interior stack gets back to work; it is not a mill. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
 
 Tags name outcomes. They are not orders. `on_target` loses to an available `closes`, an available `cut`, an opponent share or territory lead, and when trailLen is already at least girth and tipDist is not shrinking. Do not invent a tag. Do not treat `borders_spawner` as walking past the close.
 

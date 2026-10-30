@@ -124,7 +124,7 @@ describe('byokBot parsing', () => {
     const me = state.activePlayer;
     const moves = movesForLlm(rules.legalMoves(state));
     const listed = formatLegalMoves(moves, geometry, rules, state, me);
-    expect(listed).toMatch(/tipDist=\d+→\d+/);
+    expect(listed).toMatch(/edgeDist=\d+→\d+/);
     expect(listed).toContain('trailLen=');
     expect(listed).toMatch(/leave_home|home_mill|onto_home/);
     expect(listed).toMatch(/count=1 leave=2 spd=1 spent=0/);
@@ -191,7 +191,7 @@ describe('byokBot parsing', () => {
     expect(prompt).toContain('"moves"');
     expect(prompt).not.toContain('Pick one LEGAL_MOVES index');
     expect(prompt).not.toContain('{"move":N');
-    expect(prompt).toContain('tipDist=');
+    expect(prompt).toContain('edgeDist=');
     expect(prompt).toMatch(/shares|spawner shares/i);
     expect(buildSystemPrompt(seat, true)).toContain(`seat ${String(seat)}`);
     expect(buildSystemPrompt(seat, true)).toContain('"moves"');
