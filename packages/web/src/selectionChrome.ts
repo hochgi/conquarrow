@@ -21,6 +21,28 @@ export const REACH_WASH_FLOOR = 0.08;
 export const SELECTED_HALO_STROKE = '#f4efe4';
 export const SELECTED_WASH = 'rgba(255, 236, 180, 0.30)';
 export const SELECTED_STROKE_WIDTH = 4.8;
+/**
+ * P77 skeleton — the selected marker's dark under-stroke (drawn at
+ * `SELECTED_STROKE_WIDTH + 4` beneath the cream over-stroke). Not chosen yet.
+ */
+export const SELECTED_UNDER_STROKE = '';
+/** P77 skeleton — the multi-run mark's dashed neutral outline. Not chosen yet. */
+export const MULTI_RUN_STROKE = '';
+
+/** The route paint tiers (P77). */
+export type RouteTier = 'drafted' | 'one-run' | 'multi-run' | 'merge';
+
+export interface TierStyle {
+  readonly stroke: string;
+  readonly width: number;
+  /** An SVG `strokeDasharray`; absent for a solid stroke. */
+  readonly dash?: string;
+}
+
+/** How each route tier is stroked (P77). Board reads it. */
+export const tierStyle = (tier: RouteTier): TierStyle => {
+  throw new Error(`not implemented: tierStyle(${tier}) (P77)`);
+};
 
 export interface SelectionPaint {
   readonly selected?: ArrowId;

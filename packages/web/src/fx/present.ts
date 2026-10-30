@@ -43,7 +43,12 @@ export type RefusalReason =
   | 'not-yours'
   | 'out-of-reach'
   | 'no-exit'
-  | 'would-convert';
+  | 'would-convert'
+  // P77: idle click on an arrow that is not a stack; a multi-run mark; a click
+  // on an arrow while input is locked.
+  | 'nothing-selected'
+  | 'not-one-run'
+  | 'board-busy';
 // P34's `needs-stay-behind` is **retired by P35**. It told the player to lower the
 // carry before clicking, and that gesture is gone: the offer now arms the attack
 // itself, walking the run at the tip's heads and again at one fewer, so an
@@ -57,6 +62,21 @@ export const REFUSAL_TEXT: Readonly<Record<RefusalReason, string>> = {
   'out-of-reach': 'Too far this turn',
   'no-exit': 'Nowhere to go from here',
   'would-convert': 'No trail home — those heads would flip',
+  // P77 skeleton — copy not written yet.
+  'nothing-selected': '',
+  'not-one-run': '',
+  'board-busy': '',
+};
+
+/**
+ * The message-line sentence for a refusal (P77), naming the selected stack
+ * where the strip copy table says so. `REFUSAL_TEXT` keeps the selection-free
+ * text for every reason.
+ */
+export const refusalText = (reason: RefusalReason, selected?: ArrowId): string => {
+  throw new Error(
+    `not implemented: refusalText(${reason}, ${selected === undefined ? '-' : String(selected)}) (P77)`,
+  );
 };
 
 /** One arrow inside an overlay, with its own delay from the overlay's origin. */

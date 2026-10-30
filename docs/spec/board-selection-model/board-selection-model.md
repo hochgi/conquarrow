@@ -124,8 +124,9 @@ now also select through `InputMode.select`.
 
 ## Strip copy (normative — tests lock these strings)
 
-Arrows are named by `String(arrow)` — on the generated tiling that is the
-`q,r,k` form the playtest used (`-4,6,2`). `m` is the movable count, `n` the
+Arrows are named by `String(arrow)` — on the generated tiling that is
+`tiling:a:q,r,k` (the playtest quoted the `q,r,k` tail, `-4,6,2`). Shortening
+the display form is out of scope; tests lock `String(arrow)`. `m` is the movable count, `n` the
 1-based lap position of the selected stack, `h` its head count on the live board.
 
 **Selection line** — `selectionLine({ selected, heads, movable })`:
@@ -198,8 +199,8 @@ stays" being read as "stays home".
   fill, and `ROUTE_HINT_EMPTY` names it. A pure `tierStyle(tier)` in
   `selectionChrome.ts` returns `{ stroke, width, dash? }` for
   `'drafted' | 'one-run' | 'multi-run' | 'merge'` and Board reads it.
-- **Merge targets** are painted with the `merge` tier (dashed, the active
-  player's colour, never `PREVIEW_STROKE`) — legal, but a click on the tile
+- **Merge targets** are painted with the `merge` tier (dashed, never
+  `PREVIEW_STROKE`; Board may tint it with the active player's colour) — legal, but a click on the tile
   selects; the strip's **Merge into `${arrow}`** button drafts it.
 - **Refused** grain neighbours keep P28's refused treatment and `not-allowed`
   cursor — measured at the **tip** on the scratch state, not at the source.
@@ -266,8 +267,10 @@ seeds of own/enemy stacks and territory).
    multi-run marks and the draft.
 7. **Ubiquitous** — `merges` shall hold only own stacks, and `targets` shall hold
    none.
-8. **Event-driven** — When an arrow click leaves phase, draft and selection
-   unchanged, the snapshot shall carry a `refusal` for that arrow.
+8. **Event-driven** — When a click on an arrow that is neither an own stack nor
+   a walked arrow of the draft leaves phase, draft and selection unchanged, the
+   snapshot shall carry a `refusal` for that arrow. (Re-selecting the selected
+   stack and popping to the current tip are a select and a pop, not refusals.)
 9. **Ubiquitous** — `nextStack` shall visit every movable arrow exactly once and
    *none* exactly once per lap, in `compareArrows` order, independent of the
    order the movable list is given in.

@@ -13,22 +13,19 @@
  * than from a literal, because `spent` travels with the movers: a second run of
  * two steps off a tip that has spent two needs 8, not 2.
  *
- * No test here asserts a one-run draft with a forced count and a *live* tip.
- * That state is unreachable — one legal count for a `k` step run means the
- * ceiling is `2^(k-1)`, so the allowance is exactly spent — and the spec says in
- * so many words not to assert it. *An unreachable auto-apply state is not
- * asserted* pins the implication instead.
+ * P77 (board-selection-model) supersedes the auto-apply scenarios and the
+ * merge-by-click ones: no click applies a move, and a merge is drafted through
+ * `mergeInto`. Those tests are inverted or removed in place, with a note.
  */
 
 import { describe, expect, it } from 'vitest';
 import { endTurn } from '@conquarrow/contracts';
 import type { GameState } from '@conquarrow/contracts';
 import { refusedConvertExits } from '../src/refusedConvert';
-import { autoApplies, buildRouteOffer, clickableSet, routePaint } from '../src/route';
+import { buildRouteOffer, clickableSet, routePaint } from '../src/route';
 import {
   A,
   B,
-  acceptedRunLength,
   alongSlots,
   applyOnce,
   arrowAlong,
@@ -64,7 +61,6 @@ import {
   sortedIds,
   sourceArrow,
   stateWith,
-  walkSteps,
 } from './count-after-route.support';
 
 const board = { geometry, rules };
@@ -144,18 +140,20 @@ describe('P35 edge — a terminal run still gets its count, and nothing more', (
       trails: new Map([[A, new Set([from])]]),
     });
 
+  // @superseded-P77: a click on an own stack selects it; the merge is drafted
+  // through the strip's Merge button (`mergeInto`) and is otherwise unchanged.
   it('A run ending in a merge offers a count and no extension', () => {
     const selected = selectRoute(board, mergeState(), from);
-    const snap = clickArrow(selected, second);
+    const snap = selected.mode.mergeInto(second);
     expect(controlShown(snap)).toBe(true);
     expect(clickableOf(snap).size).toBe(0);
   });
 
-  it('A merge does not auto-apply even though the tip is finished', () => {
+  it('A merge drafted through the strip waits for Send even though the tip is finished', () => {
     const state = mergeState();
     const untouched = mergeState();
     const selected = selectRoute(board, state, from);
-    const snap = clickArrow(selected, second);
+    const snap = selected.mode.mergeInto(second);
     // Not forced: seven counts walk a two step run out of eight heads.
     expect(carriesOf(snap).length).toBeGreaterThan(1);
     expect(pendingOf(snap)).toHaveLength(0);
@@ -281,7 +279,8 @@ describe('P35 edge — rewriting the last run re-measures everything downstream 
       [first, { owner: A, heads: 3 }],
     ]);
     const selected = selectRoute(board, state, from);
-    const snap = clickArrow(selected, first);
+    // P77: the merge is drafted through `mergeInto`; a click on `first` selects it.
+    const snap = selected.mode.mergeInto(first);
     expect(routePhaseOf(snap).tipHeads).toBe(11);
     expect(carriesOf(snap).filter((count) => count > 8)).toEqual([]);
     expect(carriesOf(snap)).toEqual(countsThatWalk(rules, state, from, [first]));
@@ -361,11 +360,18 @@ describe('P35 edge — popping composes with the count without leaking state', (
   });
 });
 
-describe('P35 edge — the auto-apply test is exact at its boundaries', () => {
+/**
+ * P35's *The auto-apply test is exact at its boundaries* is superseded by P77:
+ * `autoApplies` is retired and no click applies a move. The boundary cases that
+ * still say something true — a control is drawn and nothing is applied — are
+ * kept; the two that asserted an applied move, and the one that pinned the
+ * auto-apply implication, are gone with the rule they described.
+ */
+describe('P35 edge — no click applies at the old auto-apply boundaries (P77)', () => {
   it('Two legal counts defeat auto-apply even with a finished tip', () => {
     // Three heads: `speed(2) = speed(3) = 2`, so both counts walk two steps while
-    // the allowance is spent either way. Two heads would be *one* legal count and
-    // would auto-apply — which is the core suite's two-heads scenario.
+    // the allowance is spent either way. Two heads would be *one* legal count —
+    // which auto-applied before P77 and now waits for Send like any other draft.
     const state = openField(from, 3);
     const untouched = openField(from, 3);
     const selected = selectRoute(board, state, from);
@@ -389,26 +395,6 @@ describe('P35 edge — the auto-apply test is exact at its boundaries', () => {
     expect(pendingOf(snap)).toHaveLength(0);
   });
 
-  it('An unreachable auto-apply state is not asserted', () => {
-    // The implication the spec argues: for a one run draft, one legal count means
-    // the ceiling is `2^(k-1)`, the allowance is exactly spent, and nothing can be
-    // clickable. Measured over every `k` the board can walk, so no scenario has to
-    // claim a forced count beside a live tip — there is no such state to claim.
-    for (const k of [1, 2, 3, 4]) {
-      const heads = 2 ** (k - 1);
-      const state = openField(from, heads);
-      const run = raySlotWalk(geometry, from, 0, k);
-      expect(countsThatWalk(rules, state, from, run), `k=${String(k)}`).toEqual([heads]);
-      const after = walkSteps(board, state, from, run, heads);
-      for (const slot of [0, 1, 2]) {
-        expect(
-          acceptedRunLength(board, after.state, run[k - 1] ?? from, slot, heads),
-          `k=${String(k)} slot ${String(slot)}`,
-        ).toBe(0);
-      }
-    }
-  });
-
   it('A forced count on a second run defeats auto-apply', () => {
     const state = openField(from, 8);
     const untouched = openField(from, 8);
@@ -420,29 +406,9 @@ describe('P35 edge — the auto-apply test is exact at its boundaries', () => {
     const phase = routePhaseOf(snap);
     expect(phase.offer.carries).toHaveLength(1);
     expect(phase.offer.clickable.size).toBe(0);
-    expect(
-      autoApplies({
-        draftLength: phase.draft.length,
-        lastRunLength: lastRunLengthOf(snap),
-        counts: phase.offer.carries,
-        clickable: phase.offer.clickable.size,
-      }),
-    ).toBe(false);
     expect(controlShown(snap)).toBe(true);
     expect(pendingOf(snap)).toHaveLength(0);
     expect(state).toEqual(untouched);
-  });
-
-  it('An auto-applied move leaves no route phase behind', () => {
-    const selected = selectRoute(board, openField(from, 1), from);
-    const snap = clickArrow(selected, first);
-    expect(snap.phase.kind).toBe('idle');
-    const paint = routePaint({ phase: snap.phase, pointer: 'fine' });
-    expect(paint.rayArrows.size).toBe(0);
-    expect(paint.turnArrows.size).toBe(0);
-    expect(paint.draftArrows).toHaveLength(0);
-    expect(paint.reachWash.size).toBe(0);
-    expect(paint.tip).toBeUndefined();
   });
 });
 

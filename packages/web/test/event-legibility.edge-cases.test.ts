@@ -331,10 +331,13 @@ describe('refusals', () => {
   });
 
   it('has a short, non-punishing phrase for every reason', () => {
+    // P77 fixes the wording per reason (board-selection-model *Refusals*): one
+    // sentence each, and `not-one-run`'s is longer than this test's old 50-char
+    // bound. "Short" is now "one sentence on one line".
     for (const [, text] of Object.entries(REFUSAL_TEXT)) {
       expect(text.length).toBeGreaterThan(0);
-      expect(text.length).toBeLessThan(50);
-      expect(text).not.toMatch(/!|INVALID/);
+      expect(text.length).toBeLessThan(80);
+      expect(text).not.toMatch(/!|INVALID|\n|\. \S/);
     }
   });
 });

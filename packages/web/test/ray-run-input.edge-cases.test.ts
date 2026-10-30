@@ -160,7 +160,10 @@ describe('P34 edge — a ray stops where the engine stops, and is never painted 
     expect(pendingOf(snap)).toHaveLength(0);
   });
 
-  it('A ray stops at a merge, and the merge arrow is clickable', () => {
+  // @superseded-P77: the merge arrow is still on the offer, but it is a merge
+  // target, not a click target — a click on it selects that stack, and the
+  // strip's Merge button (`mergeInto`) drafts the same run.
+  it('A ray stops at a merge, and the merge is drafted through mergeInto', () => {
     const state = stateWith([
       [from, { owner: A, heads: 8 }],
       [second, { owner: A, heads: 1 }],
@@ -170,7 +173,9 @@ describe('P34 edge — a ray stops where the engine stops, and is never painted 
     expect(offer.clickable.has(second)).toBe(true);
     expect(offer.clickable.has(third)).toBe(false);
     const selected = selectRoute(board, state, from);
-    const snap = clickArrow(selected, second);
+    expect(selected.snap.highlights.merges?.has(second)).toBe(true);
+    expect(selected.snap.highlights.targets.has(second)).toBe(false);
+    const snap = selected.mode.mergeInto(second);
     expect(draftOf(snap)).toHaveLength(2);
     expect(exitsOf(draftOf(snap)).map(String)).toEqual([String(first), String(second)]);
   });
@@ -341,7 +346,8 @@ describe('P34 edge — a terminal step ends the draft, because the board it chan
       [second, { owner: A, heads: 3 }],
     ]);
     const selected = selectRoute(board, state, from);
-    const drafted = clickArrow(selected, second);
+    // P77: a merge is drafted through `mergeInto`; a click on `second` selects it.
+    const drafted = selected.mode.mergeInto(second);
     const draft = [...draftOf(drafted)];
     expect(draft).toHaveLength(2);
     expect(routePhaseOf(drafted).offer.clickable.size).toBe(0);
@@ -355,7 +361,7 @@ describe('P34 edge — a terminal step ends the draft, because the board it chan
       [second, { owner: A, heads: 3 }],
     ]);
     const selected = selectRoute(board, state, from);
-    clickArrow(selected, second);
+    selected.mode.mergeInto(second);
     const popped = clickArrow(selected, first);
     expect(draftOf(popped)).toHaveLength(1);
     expect(routePhaseOf(popped).tip).toBe(first);
@@ -393,13 +399,15 @@ describe('P34 edge — the clickable set is exactly the unique-route set', () =>
     expect(sortedIds(offer.clickable.keys())).toEqual(sortedIds(unique));
   });
 
+  // P77 names this refusal: a multi-run mark answers `not-one-run`, not
+  // `out-of-reach` (board-selection-model *Refusals*).
   it('Clicking a reachable but ambiguous arrow refuses', () => {
     const ambiguous = alongSlots(geometry, from, [0, 0, 1, 1]);
     expect(counts.get(ambiguous)?.routes).toBe(3);
     const selected = selectRoute(board, openField(from, 8), from);
     const snap = clickArrow(selected, ambiguous);
     expect(snap.refusal?.arrow).toBe(ambiguous);
-    expect(snap.refusal?.reason).toBe('out-of-reach');
+    expect(snap.refusal?.reason).toBe('not-one-run');
     expect(draftOf(snap)).toHaveLength(0);
   });
 
@@ -517,7 +525,8 @@ describe('P34 edge — popping and extending compose without leaking state', () 
       [second, { owner: A, heads: 3 }],
     ]);
     const selected = selectRoute(board, state, from);
-    const merged = clickArrow(selected, second);
+    // P77: the merge is drafted through `mergeInto`; a click on `second` selects it.
+    const merged = selected.mode.mergeInto(second);
     expect(routePhaseOf(merged).carry).toBe(8);
     expect(routePhaseOf(merged).tipHeads).toBe(11);
     const popped = clickArrow(selected, first);
@@ -650,6 +659,7 @@ describe('P34 edge — the carry rewrites the last run and nothing earlier', () 
     expect(isTerminalStep(state, applyOnce(board, state, from, first, 7), hop)).toBe(true);
   });
 
+  // @superseded-P77 in its gesture only: the merge is drafted with `mergeInto`.
   it('A merge grows the tip head count above the carry', () => {
     const state = stateWith([
       [from, { owner: A, heads: 8 }],
@@ -657,7 +667,7 @@ describe('P34 edge — the carry rewrites the last run and nothing earlier', () 
     ]);
     const selected = selectRoute(board, state, from);
     expect(selected.phase.carry).toBe(8);
-    const snap = clickArrow(selected, first);
+    const snap = selected.mode.mergeInto(first);
     const phase = routePhaseOf(snap);
     expect(phase.tipHeads).toBe(11);
     for (const carry of phase.offer.carries) expect(carry).toBeLessThanOrEqual(11);

@@ -171,6 +171,16 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
       return delegate(() => inner.setCarry(count));
     },
 
+    // P77 skeleton: the rail's answer to an explicit select, and its on-rail
+    // own-head landing through `mergeInto`, are not implemented yet.
+    select(arrow): InputSnapshot {
+      throw new Error(`not implemented: rail select(${String(arrow)}) (P77)`);
+    },
+
+    mergeInto(arrow): InputSnapshot {
+      throw new Error(`not implemented: rail mergeInto(${String(arrow)}) (P77)`);
+    },
+
     send: (): InputSnapshot => delegate(() => inner.send()),
     cancel: (): InputSnapshot => delegate(() => inner.cancel()),
 

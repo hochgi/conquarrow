@@ -88,8 +88,17 @@ export interface InputHighlights {
   /**
    * Grain-adjacent self-convert exits of the selected stack (P28). Painted as a
    * refused wash — not reach, not a click target.
+   *
+   * P77: measured at the **tip** on the scratch state the draft leaves, and set
+   * by the mode itself rather than patched in by the app.
    */
   readonly refused?: ReadonlySet<ArrowId>;
+  /**
+   * Merge targets (P77): own stacks, other than the tip, that the current offer
+   * can reach. Never in `targets` — a click on one selects it; the strip's
+   * **Merge into** button drafts it through {@link InputMode.mergeInto}.
+   */
+  readonly merges?: ReadonlySet<ArrowId>;
 }
 
 export interface InputSnapshot {
@@ -114,6 +123,19 @@ export interface InputMode {
   reset(): InputSnapshot;
   onArrowClick(arrow: ArrowId, state: GameState, rules: RulesPort): InputSnapshot;
   onBackgroundClick(): InputSnapshot;
+  /**
+   * Select `arrow` explicitly (P77): open the route phase on it with an empty
+   * draft, or the blocked phase with a `no-exit` refusal. Never a destination,
+   * never a deselect. What `Next stack`, the turn anchor and the post-commit
+   * advance call — never `onArrowClick`.
+   */
+  select(arrow: ArrowId, state: GameState, rules: RulesPort): InputSnapshot;
+  /**
+   * Draft the merge onto the own stack on `arrow` (P77) — exactly what the old
+   * merge click drafted. An arrow outside `highlights.merges` leaves the draft
+   * unchanged and is refused `out-of-reach`.
+   */
+  mergeInto(arrow: ArrowId): InputSnapshot;
   /**
    * Set the count on the **last drafted run** (P35), re-emitting exactly its
    * moves.
@@ -297,7 +319,7 @@ abstract class BaseMode implements InputMode {
   }
 
   /** Select `from`, or report it stuck when nothing is clickable. */
-  protected select(from: ArrowId, state: GameState, rules: RulesPort): InputSnapshot {
+  select(from: ArrowId, state: GameState, rules: RulesPort): InputSnapshot {
     this.board = { state, rules };
     const opened = this.enterRoute(from, [], []);
     if (opened.phase.kind === 'route' && opened.phase.offer.clickable.size > 0) return opened;
@@ -407,6 +429,11 @@ abstract class BaseMode implements InputMode {
 
   cancel(): InputSnapshot {
     return this.reset();
+  }
+
+  /** P77 skeleton — the merge affordance is not implemented yet. */
+  mergeInto(arrow: ArrowId): InputSnapshot {
+    throw new Error(`not implemented: mergeInto(${String(arrow)}) (P77)`);
   }
 
   requestEndTurn(): InputSnapshot {

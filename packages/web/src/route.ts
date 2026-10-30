@@ -676,6 +676,11 @@ export interface CountControl {
   /** Legal counts for the last run, ascending. Never empty while a control shows. */
   readonly counts: readonly number[];
   readonly draftLength: number;
+  /**
+   * The arrow the **last run** began on (P77): the source for a one-run draft,
+   * the previous run's tip otherwise. Where the leftover stands.
+   */
+  readonly start: ArrowId;
 }
 
 /**
@@ -701,7 +706,23 @@ export const countControl = (opts: {
     ceiling: phase.offer.ceiling,
     counts: phase.offer.carries,
     draftLength: phase.draft.length,
+    // P77 skeleton: not yet the start of the last run.
+    start: phase.tip,
   };
+};
+
+/**
+ * The count strip's note (P77): where the heads a lowered count leaves behind
+ * stand — the arrow the last run began on — or that none stays.
+ */
+export const leftoverNote = (opts: {
+  readonly count: number;
+  readonly ceiling: number;
+  readonly start: ArrowId;
+}): string => {
+  throw new Error(
+    `not implemented: leftoverNote(${String(opts.count)}/${String(opts.ceiling)} on ${String(opts.start)}) (P77)`,
+  );
 };
 
 /** The three facts the auto-apply test reads off the state a click would produce. */
