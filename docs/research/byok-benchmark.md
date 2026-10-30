@@ -97,7 +97,29 @@ identical move lists.
 
 ## Calibration and cost
 
-_Pending._
+Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
+
+| run | cap | spent | calls | tokens in (cached) | reasoning tokens | wall |
+|---|---|---|---|---|---|---|
+| `matches` s1-first, K=20, reasoning on | $0.75 | **$0.7277** | 16 (7 rounds, then cap) | 70,225 (18,432) | 101,920 | 24.7 min |
+| `positions`, 3 positions, **fast** mode | $0.10 | **$0.0945** | 2 | 8,823 (2,304) | 13,301 | 3.2 min |
+
+- **$0.045 per call, about 85% of it reasoning tokens.** Calls average ~6.4k
+  reasoning tokens against ~4.4k prompt tokens. Output is billed at $6/M,
+  input at $2/M.
+- **About 2.3 calls per BYOK turn, about 92 s per call.** A full K=20 match is
+  roughly **$2.10 and 70 minutes**.
+- **Fast mode does not exist for grok-4.7.** With `enable_thinking: false`
+  and `max_tokens: 64` it still reasons (6.6k tokens per call, billed). So
+  P79's secondary "reasoning off" mode is the same cost and the same
+  behaviour. That mode is dropped for grok-4.7.
+- **0 fallbacks** in 16 reasoning calls.
+- **Spent so far: $0.82 of $9.40.**
+
+**Consequence:** the predeclared grid cannot be afforded. It would take
+6 cells × ~$2.10 per run, at least 4 runs. Cutting reasoning-off, a seed, then
+the second baseline still leaves about 4 matches in total, which cannot gate
+anything. The gate needs re-planning; see the next entry.
 
 ## Baseline
 
