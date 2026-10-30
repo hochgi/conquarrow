@@ -56,6 +56,23 @@ const draftMatchesRail = (
   return true;
 };
 
+const onRail = (arrows: ReadonlySet<ArrowId>, allowed: ReadonlySet<ArrowId>): Set<ArrowId> =>
+  new Set([...arrows].filter((arrow) => allowed.has(arrow)));
+
+/** Targets and merge targets alike: the rail narrows what the strip offers too (P77). */
+const filterToRail = (snap: InputSnapshot, restriction: RailRestriction): InputSnapshot => {
+  const allowed = restriction.clickable;
+  if (allowed === undefined) return snap;
+  const { targets, merges, ...rest } = snap.highlights;
+  const kept = onRail(merges ?? new Set(), allowed);
+  const highlights = {
+    ...rest,
+    targets: onRail(targets, allowed),
+    ...(kept.size === 0 ? {} : { merges: kept }),
+  };
+  return { ...snap, highlights };
+};
+
 /** Rail for an expect step; `undefined` on every other kind (free play / no board). */
 export const restrictionFor = (step: LessonStep): RailRestriction | undefined => {
   if (step.kind !== 'expect') return undefined;
@@ -76,15 +93,7 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
     return filterTargets(last);
   };
 
-  const filterTargets = (snap: InputSnapshot): InputSnapshot => {
-    const allowed = restriction.clickable;
-    if (allowed === undefined || snap.highlights.targets.size === 0) return snap;
-    const targets = new Set<ArrowId>();
-    for (const arrow of snap.highlights.targets) {
-      if (allowed.has(arrow)) targets.add(arrow);
-    }
-    return { ...snap, highlights: { ...snap.highlights, targets } };
-  };
+  const filterTargets = (snap: InputSnapshot): InputSnapshot => filterToRail(snap, restriction);
 
   const isOwnGroup = (state: Parameters<InputMode['onArrowClick']>[1], arrow: ArrowId): boolean =>
     state.groups.get(arrow)?.owner === state.activePlayer;
@@ -94,7 +103,13 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
     if (snap.phase.kind !== 'route') return snap;
     if (!restrictionAutoSends(restriction)) return snap;
     if (!draftMatchesRail(snap.phase.draft, restriction.clickable)) return snap;
-    return delegate(() => withCoach(inner.send(), restriction.coach()));
+    // The teacher speaks only when the engine refused the send: a landed rail is
+    // not an off-rail interaction, and before P77 retired apply-on-click the
+    // inner mode sent it itself, with no coach.
+    return delegate(() => {
+      const sent = inner.send();
+      return sent.refusal === undefined ? sent : withCoach(sent, restriction.coach());
+    });
   };
 
   const afterClick = (produce: () => InputSnapshot): InputSnapshot => maybeAutoSend(delegate(produce));
@@ -127,7 +142,7 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
 
     onArrowClick(arrow, state, rules): InputSnapshot {
       const { phase } = last;
-      // Route phase: pops and deselect stay; everything else must be on-rail.
+      // Route phase: pops and re-selecting the source stay; everything else must be on-rail.
       if (phase.kind === 'route') {
         const draftedOrSource =
           arrow === phase.from ||
@@ -147,10 +162,13 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
           return withCoach(last, restriction.coach(arrow));
         }
         // An on-rail exit may already hold an own head (L2: the stay-behind on
-        // home). That is a landing, not a stack switch — the selectable guard
-        // must not swallow it or the expect never commits.
+        // home). That is a landing, not a stack switch — so it is drafted as the
+        // merge it is (P77: a tile click on an own stack would select it), and
+        // the rail's auto-send commits it.
         if (onRail) {
-          return afterClick(() => inner.onArrowClick(arrow, state, rules));
+          return afterClick(() =>
+            isOwnGroup(state, arrow) ? inner.mergeInto(arrow) : inner.onArrowClick(arrow, state, rules),
+          );
         }
         if (isOwnGroup(state, arrow)) {
           const selectable = restriction.selectable;
@@ -169,6 +187,22 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
         return withCoach(last, restriction.coach());
       }
       return delegate(() => inner.setCarry(count));
+    },
+
+    // An explicit select (Next stack) obeys the same selectable guard as a click.
+    select(arrow, state, rules): InputSnapshot {
+      const selectable = restriction.selectable;
+      if (selectable !== undefined && !selectable.has(arrow)) {
+        return withCoach(last, restriction.coach(arrow));
+      }
+      return afterClick(() => inner.select(arrow, state, rules));
+    },
+
+    mergeInto(arrow): InputSnapshot {
+      if (restriction.clickable !== undefined && !restriction.clickable.has(arrow)) {
+        return withCoach(last, restriction.coach(arrow));
+      }
+      return afterClick(() => inner.mergeInto(arrow));
     },
 
     send: (): InputSnapshot => delegate(() => inner.send()),

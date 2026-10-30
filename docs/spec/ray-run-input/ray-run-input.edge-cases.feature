@@ -51,6 +51,7 @@ Feature: Route drafting at the boundaries
       Then the click is refused with reason out-of-reach
       And the draft is unchanged
 
+    @superseded-P77 # a click on an own stack selects it; the merge is drafted with mergeInto (board-selection-model)
     Scenario: A ray stops at a merge, and the merge arrow is clickable
       Given the second arrow along slot 0 holds another of the active player's stacks
       When the active player clicks a0
@@ -159,11 +160,12 @@ Feature: Route drafting at the boundaries
       When the active player clicks a0
       Then every arrow reached by exactly one shortest route from a0 is in the clickable set
 
+    # Amended by P77: a multi-run mark refuses `not-one-run` (board-selection-model *Refusals*).
     Scenario: Clicking a reachable but ambiguous arrow refuses
       Given an arrow at distance four is reachable by three shortest routes
       When the active player clicks a0
       And clicks that arrow
-      Then the click is refused with reason out-of-reach
+      Then the click is refused with reason not-one-run
       And the draft is empty
 
     Scenario: The ambiguous arrow becomes clickable after one run is drafted
@@ -263,6 +265,7 @@ Feature: Route drafting at the boundaries
 
     # P35: the ceiling is the heads where the *run began*, so a merge raises the
     # tip's head count without raising the count offered for the run that merged.
+    @superseded-P77 # a click on an own stack selects it; the merge is drafted with mergeInto (board-selection-model)
     Scenario: A merge grows the tip head count above the run's count
       Given the active player has clicked a0 with 8 heads
       When the active player clicks an adjacent arrow holding 3 of the player's own heads

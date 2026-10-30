@@ -372,11 +372,16 @@ describe('P34 core — clicking a walked arrow pops the draft back to it', () =>
     expect(routePhaseOf(popped).tip).toBe(from);
   });
 
-  it('Clicking the source with an empty draft deselects', () => {
+  // @superseded-P77: clicking the selected stack re-selects it (draft cleared,
+  // still selected). Deselect is a background click, Escape / Cancel, or the
+  // Next stack lap's *none* step. docs/spec/board-selection-model.
+  it('Clicking the source with an empty draft keeps it selected (P77)', () => {
     const selected = selectOpenField(HEADS);
     expect(selected.phase.draft).toHaveLength(0);
     const snap = clickArrow(selected, from);
-    expect(snap.phase.kind).toBe('idle');
+    expect(snap.phase.kind).toBe('route');
+    expect(snap.highlights.selected).toBe(from);
+    expect(draftOf(snap)).toHaveLength(0);
   });
 });
 
@@ -541,14 +546,15 @@ describe('P34 core — paint reads draft loudest, rays primary, reach faintest',
     expect(coarse.hoverPreview.size).toBe(0);
   });
 
+  // Hint strings: P77's normative copy (board-selection-model *Route hints*).
   it('The route phase hint names extend, go back, and send', () => {
     const selected = selectOpenField(HEADS);
     const snap = clickArrow(selected, arrowAlong(geometry, from, 0, 2));
     expect(routeHint(routePhaseOf(snap))).toBe(
-      'Click to extend · click a walked arrow to go back · Send when ready',
+      'Click to extend · click a walked arrow to go back · Send to move',
     );
     expect(ROUTE_HINT_DRAFTED).toBe(
-      'Click to extend · click a walked arrow to go back · Send when ready',
+      'Click to extend · click a walked arrow to go back · Send to move',
     );
   });
 
@@ -561,10 +567,10 @@ describe('P34 core — paint reads draft loudest, rays primary, reach faintest',
     expect(phase.draft).toHaveLength(2);
     expect(phase.offer.clickable.size).toBe(0);
     expect(routeHint(phase)).toBe(
-      'This run can go no further · click a walked arrow to go back · Send when ready',
+      'This run can go no further · click a walked arrow to go back · Send to move',
     );
     expect(ROUTE_HINT_FINISHED).toBe(
-      'This run can go no further · click a walked arrow to go back · Send when ready',
+      'This run can go no further · click a walked arrow to go back · Send to move',
     );
   });
 
@@ -572,10 +578,10 @@ describe('P34 core — paint reads draft loudest, rays primary, reach faintest',
     const selected = selectOpenField(HEADS);
     expect(selected.phase.draft).toHaveLength(0);
     expect(routeHint(selected.phase)).toBe(
-      'Click along a ray to walk straight · one turn at the end is free',
+      'Click a lit arrow to draft a run · one turn at the end is free · dashed = needs more than one run',
     );
     expect(ROUTE_HINT_EMPTY).toBe(
-      'Click along a ray to walk straight · one turn at the end is free',
+      'Click a lit arrow to draft a run · one turn at the end is free · dashed = needs more than one run',
     );
   });
 });

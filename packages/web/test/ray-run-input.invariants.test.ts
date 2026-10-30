@@ -552,7 +552,9 @@ describe('P34 invariants', () => {
     }
   });
 
-  it('If a click names an arrow that is reachable but not clickable, then the system shall refuse it with `out-of-reach` and apply nothing.', () => {
+  // P77 renames the refusal: reachable but not in one run is a multi-run mark,
+  // and a click on one is `not-one-run` (board-selection-model *Refusals*).
+  it('If a click names an arrow that is reachable but not clickable, then the system shall refuse it with `not-one-run` and apply nothing.', () => {
     const state = openField(from, 8);
     const untouched = openField(from, 8);
     const selected = selectRoute(board, state, from);
@@ -564,7 +566,7 @@ describe('P34 invariants', () => {
     for (const arrow of ambiguous.slice(0, 12)) {
       const snap = clickArrow(selected, arrow);
       expect(snap.refusal?.arrow, String(arrow)).toBe(arrow);
-      expect(snap.refusal?.reason, String(arrow)).toBe('out-of-reach');
+      expect(snap.refusal?.reason, String(arrow)).toBe('not-one-run');
       expect(draftOf(snap), String(arrow)).toHaveLength(0);
       expect(pendingOf(snap), String(arrow)).toHaveLength(0);
       expect(state).toEqual(untouched);
@@ -574,7 +576,8 @@ describe('P34 invariants', () => {
   it('The system shall derive the tip’s head count from the state after the draft, not from the carry.', () => {
     // A merge grows the count on arrival; combat shrinks it. Neither equals the carry.
     const merge = selectRoute(board, mergeState(), from);
-    const merged = clickArrow(merge, arrowAlong(geometry, from, 0, 2));
+    // P77: the merge is drafted through `mergeInto`; a click on it would select it.
+    const merged = merge.mode.mergeInto(arrowAlong(geometry, from, 0, 2));
     const mergedPhase = routePhaseOf(merged);
     const mergedAfter = walkSteps(board, merge.state, from, exitsOf(mergedPhase.draft), 8);
     expect(mergedPhase.tipHeads).toBe(11);

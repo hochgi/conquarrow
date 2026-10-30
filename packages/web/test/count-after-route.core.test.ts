@@ -2,7 +2,7 @@
  * P35 core scenarios — `docs/spec/count-after-route/count-after-route.core.feature`.
  *
  * One test per scenario, in feature order. Scenarios about the *content* of an
- * offer go through the pure helpers (`runCarries`, `countControl`, `autoApplies`);
+ * offer go through the pure helpers (`runCarries`, `countControl`);
  * scenarios about the *order of the questions* go through the input mode, because
  * that ordering is the whole feature: a click names the run, and only then is its
  * count asked.
@@ -268,47 +268,56 @@ describe('P35 core — the count control edits the run just drafted', () => {
   });
 });
 
-describe('P35 core — a click with nothing left to decide applies the move', () => {
-  it('A two head stack walking two steps applies at once', () => {
-    // `2^k` heads walking `k+1` steps: the count is forced, so there is nothing
-    // to ask. Two heads walking two steps is the smallest such case, and the
-    // reason the old *two legal counts* scenario had to move to three heads.
+/**
+ * P35's *A click with nothing left to decide applies the move* is superseded by
+ * P77 (`@superseded-P77` in the feature): every move is drafted and then sent.
+ * The four scenarios are kept **inverted** — the same clicks now draft, draw the
+ * control and wait — so the boundary they used to pin is still pinned, from the
+ * other side. docs/spec/board-selection-model/board-selection-model.md
+ */
+describe('P35 core — a click with nothing left to decide still waits for Send (P77)', () => {
+  it('A two head stack walking two steps drafts and waits', () => {
+    // `2^k` heads walking `k+1` steps: the count is forced — and still asked.
     const state = openField(from, 2);
+    const untouched = openField(from, 2);
     const selected = selectRoute(board, state, from);
     expect(countsThatWalk(rules, state, from, raySlotWalk(geometry, from, 0, 2))).toEqual([2]);
     const snap = clickArrow(selected, second);
-    expect(countsOf(pendingOf(snap))).toEqual([2, 2]);
-    expect(controlShown(snap)).toBe(false);
+    expect(pendingOf(snap)).toHaveLength(0);
+    expect(countsOf(draftOf(snap))).toEqual([2, 2]);
+    expect(controlShown(snap)).toBe(true);
+    expect(state).toEqual(untouched);
   });
 
-  it('A single head walks one step with no control at all', () => {
+  it('A single head walking one step drafts and waits', () => {
     const selected = selectRoute(board, openField(from, 1), from);
     const snap = clickArrow(selected, first);
-    expect(pendingOf(snap)).toEqual([step(from, first, 1)]);
-    expect(snap.phase.kind).toBe('idle');
-    expect(controlShown(snap)).toBe(false);
+    expect(pendingOf(snap)).toHaveLength(0);
+    expect(draftOf(snap)).toEqual([step(from, first, 1)]);
+    expect(snap.phase.kind).toBe('route');
+    expect(controlOf(snap)?.counts).toEqual([1]);
   });
 
-  it('A power-of-two stack spending its whole allowance applies at once', () => {
+  it('A power-of-two stack spending its whole allowance drafts and waits', () => {
     const state = openField(from, 8);
     const selected = selectRoute(board, state, from);
     const snap = clickArrow(selected, fourth);
     expect(countsThatWalk(rules, state, from, raySlotWalk(geometry, from, 0, 4))).toEqual([8]);
-    expect(exitsOf(pendingOf(snap)).map(String)).toEqual(
+    expect(pendingOf(snap)).toHaveLength(0);
+    expect(exitsOf(draftOf(snap)).map(String)).toEqual(
       raySlotWalk(geometry, from, 0, 4).map(String),
     );
-    expect(countsOf(pendingOf(snap))).toEqual([8, 8, 8, 8]);
-    expect(snap.phase.kind).toBe('idle');
-    expect(controlShown(snap)).toBe(false);
+    expect(countsOf(draftOf(snap))).toEqual([8, 8, 8, 8]);
+    expect(controlShown(snap)).toBe(true);
   });
 
-  it('An auto-applied click emits what Send would have emitted', () => {
+  it('Send after a forced-count click emits exactly the run the click drafted', () => {
     const selected = selectRoute(board, openField(from, 1), from);
-    // What a click would have drafted, from the offer the click read.
+    // What a click drafts, from the offer the click read.
     const option = optionFor(selected.snap, first);
-    const wouldSend = runMoves(from, option.steps, 1);
-    const snap = clickArrow(selected, first);
-    expect(pendingOf(snap)).toEqual(wouldSend);
+    const drafted = runMoves(from, option.steps, 1);
+    expect(pendingOf(clickArrow(selected, first))).toHaveLength(0);
+    expect(pendingOf(selected.mode.send())).toEqual(drafted);
   });
 
   it.each([
@@ -361,8 +370,9 @@ describe('P35 core — the control lives below the board, never on it', () => {
     // And it is not anchored on anything: no stage pixels reach it.
     expect(app.slice(dock, dock + 400)).not.toContain('tipScreen');
     const dockSource = readSource('RouteDock.tsx');
+    // Whole words: P77's `leftoverNote` is copy, not a position (board-selection-model).
     for (const positional of ['left', 'top', 'toScreen', 'tipScreen', 'viewport']) {
-      expect(dockSource, positional).not.toContain(positional);
+      expect(dockSource, positional).not.toMatch(new RegExp(`\\b${positional}(?![a-z])`));
     }
   });
 
@@ -384,6 +394,8 @@ describe('P35 core — the control lives below the board, never on it', () => {
         'count',
         'counts',
         'draftLength',
+        // P77: where the last run began — an arrow, not a coordinate.
+        'start',
       ]);
       const atDefault = controlOf(clickArrow(selectOpenField(8), first));
       expect(control).toEqual(atDefault);

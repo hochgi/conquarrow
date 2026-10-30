@@ -1,6 +1,11 @@
 /**
  * docs/spec/next-stack-cursor/next-stack-cursor.core.feature — P50.
  * One it() per Gherkin scenario. Pure helpers only — no RTL, no jsdom.
+ *
+ * P77 (board-selection-model) amends P50's "one advance function for the button
+ * and the auto-advance": a *press* walks `nextStack`'s lap, which has a **none**
+ * step after the last movable arrow; a *committed step* still advances through
+ * `advanceCursor`, unchanged. Press scenarios below therefore drive `nextStack`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -8,6 +13,7 @@ import {
   advanceCursor,
   emptyRecency,
   movableArrows,
+  nextStack,
   pushRecency,
   turnAnchor,
 } from '../src/selection/cursor';
@@ -34,17 +40,19 @@ describe('The cursor advances through every movable arrow', () => {
 
   it('A press advances to the baseline successor', () => {
     const movable = arrows('a1', 'a2', 'a3');
-    expect(advanceCursor(arrow('a1'), movable)).toBe(arrow('a2'));
+    expect(nextStack(arrow('a1'), movable)).toBe(arrow('a2'));
   });
 
   it('The cursor wraps at the end of the lap', () => {
+    // P77: the button's wrap is a3 → none → a1.
     const movable = arrows('a1', 'a2', 'a3');
-    expect(advanceCursor(arrow('a3'), movable)).toBe(arrow('a1'));
+    expect(nextStack(arrow('a3'), movable)).toBeUndefined();
+    expect(nextStack(undefined, movable)).toBe(arrow('a1'));
   });
 
   it('A full lap visits every movable arrow exactly once', () => {
     const movable = arrows('a1', 'a2', 'a3');
-    const visited = [arrow('a1'), ...lap((c) => advanceCursor(c, movable), arrow('a1'), 2)];
+    const visited = [arrow('a1'), ...lap((c) => nextStack(c, movable), arrow('a1'), 2)];
     expect(visited).toEqual(arrows('a1', 'a2', 'a3'));
     expect(new Set(visited.map(String)).size).toBe(3);
   });
@@ -55,7 +63,7 @@ describe('Pressing next stack is not a move', () => {
     const state = stubState();
     const before = JSON.stringify(state);
     const movable = arrows('a1', 'a2');
-    const next = advanceCursor(arrow('a1'), movable);
+    const next = nextStack(arrow('a1'), movable);
     expect(next).toBe(arrow('a2'));
     expect(JSON.stringify(state)).toBe(before);
     // The module cannot emit a move: it never touches `apply` or a move factory.
@@ -77,7 +85,7 @@ describe('Pressing next stack is not a move', () => {
 
   it('The button is usable with nothing selected', () => {
     const movable = arrows('a1', 'a2');
-    const next = advanceCursor(undefined, movable);
+    const next = nextStack(undefined, movable);
     expect(next).toBeDefined();
     expect(movable.map(String)).toContain(String(next));
     // ...and the button itself is not gated on having a selection. No RTL here,
@@ -111,8 +119,10 @@ describe('A committed step advances the cursor by the same rule', () => {
   });
 
   it('The lap resumes from the preempted arrow', () => {
+    // P77: a9 is last in the lap, so the press goes to none, then a1.
     const movable = arrows('a1', 'a2', 'a3', 'a9');
-    expect(advanceCursor(arrow('a9'), movable)).toBe(arrow('a1'));
+    expect(nextStack(arrow('a9'), movable)).toBeUndefined();
+    expect(nextStack(undefined, movable)).toBe(arrow('a1'));
   });
 });
 

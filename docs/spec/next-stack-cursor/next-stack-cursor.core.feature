@@ -25,11 +25,13 @@ Feature: Next stack cursor
       When next stack is pressed
       Then the cursor is on a2
 
+    # Amended by P77 (board-selection-model): a press walks the lap a1 → … → last → none → a1.
     Scenario: The cursor wraps at the end of the lap
       Given movable arrows a1, a2 and a3 in baseline order
       And the cursor is on a3
       When next stack is pressed
-      Then the cursor is on a1
+      Then the cursor is on nothing
+      And a further press puts the cursor on a1
 
     Scenario: A full lap visits every movable arrow exactly once
       Given movable arrows a1, a2 and a3 in baseline order
@@ -78,11 +80,13 @@ Feature: Next stack cursor
       And the stack on a9 can still act
       Then the cursor is on a9
 
+    # Amended by P77 (board-selection-model): a press walks the lap a1 → … → last → none → a1.
     Scenario: The lap resumes from the preempted arrow
       Given the cursor has been preempted to a9
       And a9 is last in baseline order
       When next stack is pressed
-      Then the cursor is on the first movable arrow in baseline order
+      Then the cursor is on nothing
+      And a further press puts the cursor on the first movable arrow in baseline order
 
   Rule: A turn begins on the stack that acted last
 

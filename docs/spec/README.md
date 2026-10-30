@@ -44,6 +44,7 @@ behaviour is not here, it will not be built.**
 | [bot-turn-search](./bot-turn-search/bot-turn-search.md) | P53 | §3, §6.2 (read) | 27 | — | 21 |
 | [close-and-spawner-value](./close-and-spawner-value/close-and-spawner-value.md) | P54 | §3, §7 (read) | 27 (2 `@superseded-P55`) | — | 25 |
 | [opponent-ply-and-denial](./opponent-ply-and-denial/opponent-ply-and-denial.md) | P55 | §6.2, §6.3 (read) | 21 | — | 23 |
+| [board-selection-model](./board-selection-model/board-selection-model.md) | P77 | — (web) | 44 | — | 14 |
 
 659 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
 **58 belong to P03**, **18 to P02**, **30 to P04**, **58 to P05**, **49 to P05b**,

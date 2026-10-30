@@ -116,6 +116,7 @@ Feature: Name the route, then say how many heads walk it
 
   Rule: A click with nothing left to decide applies the move
 
+    @superseded-P77 # apply-on-click is retired: every move is drafted and sent (board-selection-model)
     Scenario: A two head stack walking two steps applies at once
       Given the active player owns a stack of 2 heads on arrow f0
       And the active player has clicked f0
@@ -123,6 +124,7 @@ Feature: Name the route, then say how many heads walk it
       Then the move is applied
       And no count control was rendered
 
+    @superseded-P77 # apply-on-click is retired: every move is drafted and sent (board-selection-model)
     Scenario: A single head walks one step with no control at all
       Given the active player owns a stack of 1 head on arrow c0
       And the active player has clicked c0
@@ -131,6 +133,7 @@ Feature: Name the route, then say how many heads walk it
       And the phase is idle
       And no count control was rendered
 
+    @superseded-P77 # apply-on-click is retired: every move is drafted and sent (board-selection-model)
     Scenario: A power-of-two stack spending its whole allowance applies at once
       Given the active player owns a stack of 8 heads on arrow d0
       And the active player has clicked d0
@@ -139,6 +142,7 @@ Feature: Name the route, then say how many heads walk it
       And the phase is idle
       And no count control was rendered
 
+    @superseded-P77 # apply-on-click is retired: every move is drafted and sent (board-selection-model)
     Scenario: An auto-applied click emits what Send would have emitted
       Given the active player owns a stack of 1 head on arrow c0
       And the active player has clicked c0

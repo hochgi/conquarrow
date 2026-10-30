@@ -46,7 +46,11 @@ saved resume point, so an arrow reached by preemption is not offered again later
 in the same lap.
 
 Pressing *Next stack* with no step just committed has no destination and no
-source, so it always takes branch F.
+source, so it always takes branch F. **Amended by P77**
+([board-selection-model](../board-selection-model/board-selection-model.md)):
+for a press, branch F no longer wraps straight to the first arrow — after the
+last movable arrow the lap visits *none*, then wraps (`nextStack`). The
+post-commit advance (`advanceCursor`) keeps branch F's wrap unchanged.
 
 For a committed trip of several legs, *the step* the rule reads is the **last**
 leg: its destination, its source, and — for branch F — its source as the cursor's
@@ -132,5 +136,10 @@ make the *displayed* game differ between runs.
 - **The cursor lives in the web adapter, not in `GameState`.** It is a view
   concern; putting it in state would make it replay-visible and put a UI
   preference on the online wire.
-- **The advance function is shared by the button and the post-commit
-  auto-advance.** One rule, two triggers, so the two can never disagree.
+- ~~**The advance function is shared by the button and the post-commit
+  auto-advance.**~~ **Amended by P77** ([board-selection-model](../board-selection-model/board-selection-model.md)):
+  the button now walks its own lap — movable arrows in baseline order, then
+  *none*, then wrap — through `nextStack`, and selects through
+  `InputMode.select` rather than a synthetic click. `advanceCursor` keeps the
+  post-commit preemption rule unchanged. ~~One rule, two triggers, so the two
+  can never disagree.~~ The two now differ only in the press's *none* step.

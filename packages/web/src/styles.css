@@ -236,26 +236,86 @@ body,
    player is aiming at it, sliding every arrow under their finger mid-gesture.
    Explicit rows also mean the line count is a function of the width and not of how
    many digits the count happens to have, so no wrap can surprise it. */
+/* P77: three fixed rows — the selection line, the controls, the message line.
+   Each text row is one line, ellipsised, so neither a long arrow name nor a long
+   refusal can grow the strip; the controls row is a fixed height whether it holds
+   a count, merge buttons, both or nothing. */
 .route-dock {
   --dock-line: 2.75rem;
-  --dock-row-gap: 0.5rem;
+  --dock-text: 1.35rem;
+  --dock-controls: var(--dock-line);
+  --dock-row-gap: 0.3rem;
   grid-column: 2;
   display: grid;
-  grid-template-rows: var(--dock-line);
-  grid-auto-flow: column;
+  grid-template-rows: var(--dock-text) var(--dock-controls) var(--dock-text);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  gap: var(--dock-row-gap) 0.9rem;
-  padding: 0.5rem 0.75rem;
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  gap: var(--dock-row-gap);
+  padding: 0.4rem 0.75rem;
+  padding-bottom: max(0.4rem, env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--line);
   background: var(--panel);
+  min-width: 0;
 }
 
-/* Nothing to ask: the box stays, so the board keeps its size, and nothing is
-   painted, focusable or read out. */
-.route-dock-idle {
-  visibility: hidden;
+.route-dock-line,
+.route-dock-message {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: var(--dock-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  min-width: 0;
+}
+
+.route-dock-line {
+  font-weight: 600;
+}
+
+.route-dock-message {
+  color: var(--muted);
+}
+
+.route-dock-controls {
+  display: flex;
+  align-items: center;
+  /* `safe`: when the row is too wide it starts at the count, never cut on both
+     sides — and Send sits before the merge buttons, so it is never the item lost. */
+  justify-content: safe center;
+  flex-wrap: nowrap;
+  gap: 0.6rem;
+  height: var(--dock-controls);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.route-dock-caption {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.route-dock-merges {
+  display: flex;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
+}
+
+.route-dock-merge {
+  font: inherit;
+  font-size: 0.85rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: 1px dashed var(--accent);
+  background: var(--field);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .route-dock-count {
@@ -297,9 +357,11 @@ body,
   color: var(--muted);
 }
 
-/* The sentry §5 leaves behind — the other half of the count decision. */
+/* The sentry §5 leaves behind, and where it stands — the other half of the
+   count decision. */
 .route-dock-note {
   margin: 0;
+  white-space: nowrap;
   font-size: 0.72rem;
   letter-spacing: 0.02em;
   color: var(--muted);
@@ -815,17 +877,26 @@ body,
 
   .route-dock {
     grid-column: 1;
-    /* Two explicit rows on a phone: the count and its sentry, then Cancel and
-       Send under them. Explicit rather than wrapped, so the height is the same
-       whether the strip is holding a question or holding the board's size. */
-    grid-template-rows: var(--dock-line) var(--dock-line);
-    grid-template-columns: auto auto;
-    grid-auto-flow: row;
+    /* On a phone the controls row is two lines tall — the count and its note,
+       then the merge buttons and Cancel / Send — and it is that tall whatever it
+       holds, so the strip's height never changes. */
+    --dock-controls: calc(2 * var(--dock-line) + 0.3rem);
   }
 
-  .route-dock-actions {
-    grid-column: 1 / -1;
-    justify-self: center;
+  .route-dock-controls {
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: 0.3rem;
+    column-gap: 0.45rem;
+    /* A third line would be clipped; scroll it instead, so Send is never lost. */
+    overflow-y: auto;
+  }
+
+  .route-dock-caption,
+  .route-dock-note {
+    max-width: 34vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

@@ -121,7 +121,8 @@ Locked constants:
 - `REACH_WASH_FLOOR = 0.08`
 - `SELECTED_HALO_STROKE = '#f4efe4'`
 - `SELECTED_WASH = 'rgba(255, 236, 180, 0.30)'`
-- `SELECTED_STROKE_WIDTH = 4.8`
+- `SELECTED_STROKE_WIDTH = 4.8` — **amended by P77** to `6` (≥ 6), drawn over a
+  dark `SELECTED_UNDER_STROKE` ([board-selection-model](../board-selection-model/board-selection-model.md) *Paint*)
 
 Locked HUD strings (source / portion):
 

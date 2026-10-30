@@ -1,6 +1,10 @@
 /**
  * docs/spec/next-stack-cursor/next-stack-cursor.edge-cases.feature — P50.
  * One it() per Gherkin scenario.
+ *
+ * P77 amends the *press*: it walks `nextStack`'s lap, with a **none** step after
+ * the last movable arrow. Scenarios driven by a press use `nextStack`; those
+ * driven by a committed step keep `advanceCursor`, which P77 leaves unchanged.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -9,6 +13,7 @@ import {
   advanceCursor,
   emptyRecency,
   movableArrows,
+  nextStack,
   panForSelection,
   pushRecency,
   SELECTION_MARGIN_FRACTION,
@@ -30,7 +35,7 @@ describe('Movable is what the rules offer, not what allowance suggests', () => {
     // a4 holds a stack with allowance, but the rules offer no step out of it.
     const movable = movableArrows(stubRules('a1', 'a2'), stubState());
     expect(movable).toEqual(arrows('a1', 'a2'));
-    const visited = lap((c) => advanceCursor(c, movable), undefined, 5);
+    const visited = lap((c) => nextStack(c, movable), undefined, 5);
     expect(visited.map(String)).not.toContain('a4');
   });
 
@@ -41,7 +46,9 @@ describe('Movable is what the rules offer, not what allowance suggests', () => {
   });
 
   it('A single movable arrow is re-selected by a press', () => {
-    expect(advanceCursor(arrow('a1'), arrows('a1'))).toBe(arrow('a1'));
+    // P77: the lap is that arrow and none — a1 → none → a1.
+    expect(nextStack(arrow('a1'), arrows('a1'))).toBeUndefined();
+    expect(nextStack(undefined, arrows('a1'))).toBe(arrow('a1'));
   });
 });
 
@@ -88,26 +95,31 @@ describe('Preemption precedence', () => {
       exit: arrow('a9'),
     });
     expect(preempted).toBe(arrow('a9'));
-    const visited = lap((c) => advanceCursor(c, movable), preempted, 3);
-    expect(visited).toEqual(arrows('a1', 'a2', 'a3'));
+    // P77: a9 is last in the lap, so the first press goes to none.
+    const visited = lap((c) => nextStack(c, movable), preempted, 4);
+    expect(visited).toEqual([undefined, ...arrows('a1', 'a2', 'a3')]);
     expect(visited.map(String)).not.toContain('a9');
   });
 });
 
 describe('The movable set changes under the cursor', () => {
   it('A newly created stack is reached later in the lap', () => {
+    // P77: from a3 the press goes to none, then a1, then a2.
     const movable = arrows('a1', 'a2', 'a3');
-    const first = advanceCursor(arrow('a3'), movable);
+    expect(nextStack(arrow('a3'), movable)).toBeUndefined();
+    const first = nextStack(undefined, movable);
     expect(first).toBe(arrow('a1'));
-    expect(advanceCursor(first, movable)).toBe(arrow('a2'));
+    expect(nextStack(first, movable)).toBe(arrow('a2'));
   });
 
   it("The cursor's own arrow stops being movable", () => {
-    expect(advanceCursor(arrow('a2'), arrows('a1', 'a3'))).toBe(arrow('a3'));
+    expect(nextStack(arrow('a2'), arrows('a1', 'a3'))).toBe(arrow('a3'));
   });
 
   it('Every other arrow stops being movable', () => {
-    expect(advanceCursor(arrow('a1'), arrows('a1'))).toBe(arrow('a1'));
+    // P77: a press on the only movable arrow goes to none, the next back to a1.
+    expect(nextStack(arrow('a1'), arrows('a1'))).toBeUndefined();
+    expect(nextStack(undefined, arrows('a1'))).toBe(arrow('a1'));
   });
 
   it('The last movable arrow is spent', () => {

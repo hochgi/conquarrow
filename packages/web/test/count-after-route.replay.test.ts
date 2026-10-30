@@ -90,10 +90,12 @@ describe('P35 replay — counting after the click lands on one exact list', () =
     );
   });
 
-  it('an auto-applied click replays as the one move it sent', () => {
+  // P77 inverts this: the forced-count click drafts, and Send sends the one move.
+  it('a forced-count click then Send replays as the one move it sent', () => {
     const state = openField(from, 1);
     const selected = selectRoute(board, state, from);
-    const sent = pendingOf(clickArrow(selected, first));
+    expect(pendingOf(clickArrow(selected, first))).toHaveLength(0);
+    const sent = pendingOf(selected.mode.send());
     expect(sent).toEqual([step(from, first, 1)]);
     const final = replay(rules, state, sent);
     expect(occupancy(final)).toEqual([`${String(first)} A×1`]);

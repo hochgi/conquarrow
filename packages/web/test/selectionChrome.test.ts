@@ -97,7 +97,8 @@ describe('selection chrome — the wash constants the route tiers are drawn at',
   it('keeps the halo stroke, wash and width', () => {
     expect(SELECTED_HALO_STROKE).toBe('#f4efe4');
     expect(SELECTED_WASH).toBe('rgba(255, 236, 180, 0.30)');
-    expect(SELECTED_STROKE_WIDTH).toBe(4.8);
+    // P77 widens the marker so it reads on any fill at default zoom (≥ 6).
+    expect(SELECTED_STROKE_WIDTH).toBeGreaterThanOrEqual(6);
   });
 });
 

@@ -1,5 +1,6 @@
+import type { ArrowId } from '@conquarrow/contracts';
 import type { ReactElement } from 'react';
-import type { CountControl } from './route';
+import { leftoverNote, type CountControl } from './route';
 
 /**
  * The docked count control for a drafted route (P35).
@@ -25,18 +26,31 @@ import type { CountControl } from './route';
  *
  * **The strip is always mounted; only its content comes and goes.** `control` is
  * `undefined` whenever there is nothing to ask — an empty draft, a locked seat, a
- * finished match — and then the strip paints nothing and holds no focusable
- * widget, but its row keeps its height. That matters more than it sounds: if the
+ * finished match — and then the controls row holds no count and no Send, but
+ * keeps its height. That matters more than it sounds: if the
  * row appeared with the first click of every route, the board would shrink by the
  * strip's height at the exact moment the player is aiming at it, and every arrow
  * would slide under their finger mid-gesture. The row is reserved by the strip's
  * own fixed grid rows, so the reserved height and the live height are the same
  * height by construction rather than by a hard-coded guess.
+ *
+ * **P77 gives the strip three fixed one-line rows**: the selection line (which
+ * stack is selected, and where it sits in the Next stack lap), the controls (the
+ * count, one Merge button per merge target, Cancel and Send), and the message
+ * line (why the last click was refused, or whether the turn passes by itself).
+ * Every row is always laid out, so no text can change the board's size.
  */
 export interface RouteDockProps {
   /** The question, or `undefined` when there is none to ask. */
   readonly control?: CountControl | undefined;
+  /** Row 1: `selectionLine` — names the selected stack, or says none is. */
+  readonly selection: string;
+  /** Row 3: the last refusal's sentence, or `turnStatus`. */
+  readonly message: string;
+  /** Merge targets in `compareArrows` order — one button each. */
+  readonly merges: readonly ArrowId[];
   readonly onCount: (count: number) => void;
+  readonly onMerge: (arrow: ArrowId) => void;
   readonly onSend: () => void;
   readonly onCancel: () => void;
 }
@@ -58,27 +72,20 @@ const neighbour = (
   return direction === -1 ? under[under.length - 1] : over[0];
 };
 
-/** The sentry §5 chooses: the heads the run does not take with it. */
-const sentryNote = (heads: number): string =>
-  heads === 0 ? 'no sentry' : `${String(heads)} stay${heads === 1 ? 's' : ''}`;
-
-export const RouteDock = ({
+/** The count stepper for the last leg, captioned, with where the rest stand (§5). */
+const CountStepper = ({
   control,
   onCount,
-  onSend,
-  onCancel,
-}: RouteDockProps): ReactElement => {
-  if (control === undefined) {
-    // Mounted, silent, and exactly as tall as it will be once there is something
-    // to ask — see the note above on why the height cannot come and go.
-    return <div className="route-dock route-dock-idle" aria-hidden="true" />;
-  }
-  const { count, ceiling, counts, draftLength } = control;
+}: {
+  readonly control: CountControl;
+  readonly onCount: (count: number) => void;
+}): ReactElement => {
+  const { count, ceiling, counts, start } = control;
   const fewer = neighbour(counts, count, -1);
   const more = neighbour(counts, count, 1);
-  const sentry = Math.max(0, ceiling - count);
   return (
-    <div className="route-dock">
+    <>
+      <span className="route-dock-caption">Heads on the last leg</span>
       <div className="route-dock-count">
         <button
           type="button"
@@ -105,15 +112,61 @@ export const RouteDock = ({
           +
         </button>
       </div>
-      <p className="route-dock-note">{sentryNote(sentry)}</p>
-      <div className="route-dock-actions">
-        <button type="button" className="secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="primary" disabled={draftLength === 0} onClick={onSend}>
-          Send
-        </button>
-      </div>
-    </div>
+      <span className="route-dock-note">{leftoverNote({ count, ceiling, start })}</span>
+    </>
   );
 };
+
+export const RouteDock = ({
+  control,
+  selection,
+  message,
+  merges,
+  onCount,
+  onMerge,
+  onSend,
+  onCancel,
+}: RouteDockProps): ReactElement => (
+  <div className="route-dock">
+    <p className="route-dock-line">{selection}</p>
+    <div className="route-dock-controls">
+      {control === undefined ? null : <CountStepper control={control} onCount={onCount} />}
+      {control === undefined ? null : (
+        <div className="route-dock-actions">
+          <button type="button" className="secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={control.draftLength === 0}
+            onClick={onSend}
+          >
+            Send
+          </button>
+        </div>
+      )}
+      {/* After Cancel / Send, so a long merge list scrolls rather than pushing Send
+          out of the row. */}
+      {merges.length === 0 ? null : (
+        <div className="route-dock-merges">
+        {merges.map((arrow) => (
+          <button
+            key={String(arrow)}
+            type="button"
+            className="route-dock-merge"
+            onClick={() => {
+              onMerge(arrow);
+            }}
+          >
+            {`Merge into ${String(arrow)}`}
+          </button>
+        ))}
+        </div>
+      )}
+    </div>
+    <p className="route-dock-message" role="status">
+      {message}
+    </p>
+  </div>
+);

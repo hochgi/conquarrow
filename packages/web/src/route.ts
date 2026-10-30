@@ -35,7 +35,7 @@ import type {
   RulesPort,
   StepMove,
 } from '@conquarrow/contracts';
-import type { InputPhase } from './input/modes';
+import type { InputPhase, RoutePhase } from './input/modes';
 import { reachFrom } from './reach';
 import type { PointerKind } from './selectionChrome';
 
@@ -89,7 +89,7 @@ export interface RouteInputs {
   readonly rules: RulesPort;
   /** The scratch state **after** the draft has been walked. Never the live board. */
   readonly state: GameState;
-  /** The original source. Clicking it deselects (empty draft) or pops. */
+  /** The original source. Clicking it re-selects it with an empty draft (P77). */
   readonly from: ArrowId;
   /** Last arrow the draft walks, or `from` when the draft is empty. */
   readonly tip: ArrowId;
@@ -203,10 +203,11 @@ export interface RoutePaint {
   readonly tip?: ArrowId;
 }
 
+/** P77: names the dashed multi-run mark, which is not a click target. */
 export const ROUTE_HINT_EMPTY =
-  'Click along a ray to walk straight · one turn at the end is free';
+  'Click a lit arrow to draft a run · one turn at the end is free · dashed = needs more than one run';
 export const ROUTE_HINT_DRAFTED =
-  'Click to extend · click a walked arrow to go back · Send when ready';
+  'Click to extend · click a walked arrow to go back · Send to move';
 /**
  * Shown when the draft can go no further — allowance spent, or the last step was
  * terminal (§ *Terminal steps*). Offering "click to extend" with an empty
@@ -214,7 +215,7 @@ export const ROUTE_HINT_DRAFTED =
  * hunts for a ray that is not there and concludes the rays are broken.
  */
 export const ROUTE_HINT_FINISHED =
-  'This run can go no further · click a walked arrow to go back · Send when ready';
+  'This run can go no further · click a walked arrow to go back · Send to move';
 
 /** The arrows a list of drafted moves walks, in order. */
 export const draftExits = (draft: readonly Move[]): readonly ArrowId[] =>
@@ -240,7 +241,7 @@ export const runMoves = (
  *
  * A run ends rather than re-entering one of these, so a ray cannot loop on a
  * board with a short cycle, and the source is never offered as a destination —
- * clicking it deselects or pops (P11's idiom, unchanged).
+ * clicking it re-selects it with an empty draft (P77).
  */
 export const walkedArrows = (inputs: RouteInputs): ReadonlySet<ArrowId> =>
   new Set<ArrowId>([inputs.from, ...draftExits(inputs.draft)]);
@@ -676,6 +677,11 @@ export interface CountControl {
   /** Legal counts for the last run, ascending. Never empty while a control shows. */
   readonly counts: readonly number[];
   readonly draftLength: number;
+  /**
+   * The arrow the **last run** began on (P77): the source for a one-run draft,
+   * the previous run's tip otherwise. Where the leftover stands.
+   */
+  readonly start: ArrowId;
 }
 
 /**
@@ -701,43 +707,33 @@ export const countControl = (opts: {
     ceiling: phase.offer.ceiling,
     counts: phase.offer.carries,
     draftLength: phase.draft.length,
+    start: lastRunStart(phase),
   };
 };
 
-/** The three facts the auto-apply test reads off the state a click would produce. */
-export interface AutoApplyTest {
-  readonly draftLength: number;
-  readonly lastRunLength: number;
-  /** Legal counts for the last run. */
-  readonly counts: readonly number[];
-  /** How many arrows are clickable from the new tip. */
-  readonly clickable: number;
-}
+/**
+ * Where the last run began: the exit just before its boundary, or the source
+ * for a one-run draft (P77). The same boundary `setCarry` re-emits from.
+ */
+const lastRunStart = (phase: RoutePhase): ArrowId => {
+  const boundary = phase.draft.length - lastRunLength(phase.runLengths);
+  return draftExits(phase.draft)[boundary - 1] ?? phase.from;
+};
 
 /**
- * Does this click have nothing left to decide? (P35, *the exact test*.)
- *
- * All three must hold of the state the click would produce:
- *
- * 1. the draft is **exactly one run** — a multi-run draft is a route the player
- *    is building, and taking Send, Cancel and pop away at the last click would
- *    surprise them;
- * 2. the run's count has exactly **one** legal value — with two there is a
- *    choice to offer;
- * 3. the new tip offers **nothing** clickable — with a ray left the route may
- *    continue, and applying would cut it short.
- *
- * Condition 3 is **implied** by 1 and 2 — one legal count for a `k` step run
- * means the ceiling is exactly `2^(k-1)`, so the allowance is exactly spent and
- * nothing can be clickable — and is kept anyway, because it makes the rule
- * readable without that argument and would still hold if the allowance formula
- * moved. No reachable state satisfies 1 and 2 and fails 3, so no test asserts
- * one.
+ * The count strip's note (P77): where the heads a lowered count leaves behind
+ * stand — the arrow the last run began on — or that none stays.
  */
-export const autoApplies = (test: AutoApplyTest): boolean =>
-  test.lastRunLength === test.draftLength &&
-  test.counts.length === 1 &&
-  test.clickable === 0;
+export const leftoverNote = (opts: {
+  readonly count: number;
+  readonly ceiling: number;
+  readonly start: ArrowId;
+}): string => {
+  const left = opts.ceiling - opts.count;
+  if (left <= 0) return 'No head stays behind';
+  const heads = left === 1 ? '1 head stays' : `${String(left)} heads stay`;
+  return `${heads} on ${String(opts.start)}`;
+};
 
 /** The locked HUD line for a route phase: empty draft or drafted. */
 export const routeHint = (phase: InputPhase): string | undefined => {

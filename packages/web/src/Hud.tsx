@@ -34,8 +34,6 @@ export interface HudProps {
   readonly heads: number;
   /** Arrows of territory held by the player to move — bumps when it changes. */
   readonly land: number;
-  /** Why the last click did nothing, if it did nothing (Event 11). */
-  readonly refusalNote: string | undefined;
   readonly soundOn: boolean;
   readonly onToggleSound: () => void;
   readonly onEndTurn: () => void;
@@ -99,6 +97,94 @@ const starvationNote = (state: GameState): string | null => {
   return ` · starvation ${parts.join(', ')}`;
 };
 
+/**
+ * The HUD's buttons (P77): every slot always mounted, so nothing above or
+ * around them can move one. Rendered directly under the `h1`.
+ */
+const ActionRow = ({
+  controlsLocked,
+  pauseOffered,
+  manualPause,
+  soundOn,
+  onNextStack,
+  onEndTurn,
+  onTogglePause,
+  onDownloadLog,
+  onNewMatch,
+  onToggleSound,
+  tutorial,
+}: Pick<
+  HudProps,
+  | 'pauseOffered'
+  | 'manualPause'
+  | 'soundOn'
+  | 'onNextStack'
+  | 'onEndTurn'
+  | 'onTogglePause'
+  | 'onDownloadLog'
+  | 'onNewMatch'
+  | 'onToggleSound'
+  | 'tutorial'
+> & { readonly controlsLocked: boolean }): ReactElement => (
+  <div className="actions">
+    <button
+      type="button"
+      onClick={onNextStack}
+      disabled={controlsLocked}
+    >
+      Next stack
+    </button>
+    <button type="button" onClick={onEndTurn} disabled={controlsLocked}>
+      End turn
+    </button>
+    {/* Always mounted (P77): when Pause is not offered its slot is a hidden,
+        disabled placeholder that keeps its width, so Download log and Lobby
+        never shift when it comes and goes. */}
+    {pauseOffered ? (
+      <button
+        type="button"
+        onClick={onTogglePause}
+        aria-pressed={manualPause}
+        title="Hold bot seats until Resume. All-bot matches also pause when this tab is in the background."
+      >
+        {pauseButtonLabel(manualPause)}
+      </button>
+    ) : (
+      <button type="button" disabled aria-hidden="true" tabIndex={-1} style={{ visibility: 'hidden' }}>
+        {pauseButtonLabel(manualPause)}
+      </button>
+    )}
+    <button type="button" onClick={onDownloadLog}>
+      Download log
+    </button>
+    <button type="button" onClick={onNewMatch}>
+      Lobby
+    </button>
+    {/* Sound reinforces the five events that decide matches; it never carries
+        information the board does not already show, which is why off is a fine
+        default and why it is a toggle rather than a settings screen. */}
+    <button
+      type="button"
+      onClick={onToggleSound}
+      aria-pressed={soundOn}
+      title="Audio cues for closures, captures, cuts, combat and production"
+    >
+      Sound: {soundOn ? 'on' : 'off'}
+    </button>
+    {/* The tutorial's two buttons stay last (P77). */}
+    {tutorial === undefined ? null : (
+      <>
+        <button type="button" onClick={tutorial.onRestart}>
+          Restart lesson
+        </button>
+        <button type="button" onClick={tutorial.onSkipLesson}>
+          Skip lesson
+        </button>
+      </>
+    )}
+  </div>
+);
+
 export const Hud = ({
   state,
   victory,
@@ -118,7 +204,6 @@ export const Hud = ({
   matchSummary,
   heads,
   land,
-  refusalNote,
   soundOn,
   onToggleSound,
   onEndTurn,
@@ -143,6 +228,21 @@ export const Hud = ({
   return (
     <aside className="hud">
       <h1>Conquarrow</h1>
+      {/* The action row comes before every variable-length line (P77), so no
+          status text above the buttons can move them. */}
+      <ActionRow
+        controlsLocked={controlsLocked}
+        pauseOffered={pauseOffered}
+        manualPause={manualPause}
+        soundOn={soundOn}
+        onNextStack={onNextStack}
+        onEndTurn={onEndTurn}
+        onTogglePause={onTogglePause}
+        onDownloadLog={onDownloadLog}
+        onNewMatch={onNewMatch}
+        onToggleSound={onToggleSound}
+        {...(tutorial === undefined ? {} : { tutorial })}
+      />
       {tutorial !== undefined ? (
         <p className="banner">
           Learn: <strong>{tutorial.title}</strong>
@@ -171,7 +271,6 @@ export const Hud = ({
           : phaseHint(phase, movableCount, botBusy, vsBot, byokActive, kind)}
       </p>
       {tutorial?.coach !== undefined ? <p className="hint byok-status">{tutorial.coach}</p> : null}
-      {refusalNote !== undefined ? <p className="hint byok-status">{refusalNote}</p> : null}
       {byokStatus !== undefined ? <p className="hint byok-status">{byokStatus}</p> : null}
       {illegal !== undefined ? <p className="hint lobby-byok-warn">{illegal}</p> : null}
       {/* Keyed on the value: React remounts the span, so the bump animation
@@ -193,70 +292,21 @@ export const Hud = ({
         <p className="meta match-summary">Summary: {matchSummary}</p>
       ) : null}
 
-      <div className="actions">
-        <button
-          type="button"
-          onClick={onNextStack}
-          disabled={controlsLocked}
-        >
-          Next stack
-        </button>
-        <button type="button" onClick={onEndTurn} disabled={controlsLocked}>
-          End turn
-        </button>
-        {pauseOffered ? (
-          <button
-            type="button"
-            onClick={onTogglePause}
-            aria-pressed={manualPause}
-            title="Hold bot seats until Resume. All-bot matches also pause when this tab is in the background."
-          >
-            {pauseButtonLabel(manualPause)}
-          </button>
-        ) : null}
-        <button type="button" onClick={onDownloadLog}>
-          Download log
-        </button>
-        <button type="button" onClick={onNewMatch}>
-          Lobby
-        </button>
-        {tutorial === undefined ? null : (
-          <>
-            <button type="button" onClick={tutorial.onRestart}>
-              Restart lesson
-            </button>
-            <button type="button" onClick={tutorial.onSkipLesson}>
-              Skip lesson
-            </button>
-          </>
-        )}
-        {/* Sound reinforces the five events that decide matches; it never carries
-            information the board does not already show, which is why off is a fine
-            default and why it is a toggle rather than a settings screen. */}
-        <button
-          type="button"
-          onClick={onToggleSound}
-          aria-pressed={soundOn}
-          title="Audio cues for closures, captures, cuts, combat and production"
-        >
-          Sound: {soundOn ? 'on' : 'off'}
-        </button>
-      </div>
-
       <p className="help">
         Drag to pan · pinch or wheel to zoom · gold outline = movable this turn
-        (auto-selects and pans to the next as you finish one; Next stack walks
-        through them all) · cream
-        halo = selected · three lit rays = the runs you can draft, click one to add
-        a straight leg and click again from the new tip · a faint mark off a ray =
-        the one free turn at the end of that run · the brightest chords = the route
-        drafted so far, click a walked arrow to go back · the palest wash = still
-        reachable but not a single run away · route first, count second: the strip
-        under the board says how many heads walk the run you just drafted, the rest
-        staying where it began as a sentry (an attack always leaves one behind, so
-        that click is armed for you) · nothing is applied until Send, except a click
-        with one legal count and nowhere further to go, which applies at once ·
-        refused
+        (one is selected for you as a turn starts and after each Send; Next stack
+        walks through them all, then none) · click one of your stacks to select it
+        — a click on your own stack always selects, never moves · thick cream
+        outline = selected, and the strip under the board names it · lit arrows =
+        one run away, click one to draft a straight leg (one turn at the end is
+        free) and click again from the new tip · the brightest chords = the route
+        drafted so far, click a walked arrow to go back · dashed = reachable, but
+        needs more than one run · a dashed white outline on your own stack = a merge,
+        drafted with the strip&apos;s Merge into button · route first, count second:
+        the strip says how many heads walk the last leg, the rest staying where that
+        leg began as a sentry (an attack always leaves one behind, so that click is
+        armed for you) · nothing moves until Send · every refused click says why in
+        the strip · refused
         (not-allowed) grain = would convert with no trail home · bold
         tile edge = occupied · trail chords stay visible under enemy stacks
         (overlap is legal until a cut) · solid fill = territory, thin fill = open

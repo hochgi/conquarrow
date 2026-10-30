@@ -619,14 +619,23 @@ export const terminalFixtures = (): readonly TerminalFixture[] => {
   ];
 };
 
-/** Select, set the carry, and land the clicks — the setup every terminal test shares. */
+/**
+ * Select, set the carry, and land the clicks — the setup every terminal test shares.
+ *
+ * P77: a landing on another of the player's own stacks is drafted through
+ * `mergeInto` (the strip's Merge button), because a click on an own stack
+ * selects it.
+ */
 export const draftToTerminalTip = (
   fixture: TerminalFixture,
 ): { readonly selected: Selected; readonly snap: InputSnapshot } => {
   const selected = selectRoute(fixture.board, fixture.state, fixture.from);
   selected.mode.setCarry(fixture.carry);
   let snap = selected.snap;
-  for (const arrow of fixture.clicks) snap = clickArrow(selected, arrow);
+  for (const arrow of fixture.clicks) {
+    const own = fixture.state.groups.get(arrow)?.owner === fixture.state.activePlayer;
+    snap = own ? selected.mode.mergeInto(arrow) : clickArrow(selected, arrow);
+  }
   return { selected, snap };
 };
 
