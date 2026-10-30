@@ -163,4 +163,18 @@ describe('P79 harness — matches', () => {
     expect(firstRecord.byokPlayer).toBe('A');
     expect(seatNamedIn(firstModel.calls[0]?.user ?? '')).toBe('A');
   });
+
+  it('A long match reports progress every 10 rounds, and reporting changes nothing', async () => {
+    const lines: string[] = [];
+    const watched = await runMatch({
+      cell: cell(2, 'first'),
+      cap: 10,
+      chair: { kind: 'heuristic' },
+      progress: (line) => lines.push(line),
+    });
+    const quiet = await runMatch({ cell: cell(2, 'first'), cap: 10, chair: { kind: 'heuristic' } });
+    expect(JSON.stringify(watched)).toBe(JSON.stringify(quiet));
+    if (watched.rounds === 10) expect(lines).toEqual(['s2-first: round 10 of at most 10']);
+    else expect(lines).toEqual([]);
+  });
 });

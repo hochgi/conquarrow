@@ -445,6 +445,9 @@ export const workerMain = async (input: string): Promise<number> => {
     baseFetch: nodeFetch,
     retry: { ...parsed.retry, sleep: nodeSleep },
     meter: createMeter(parsed.budget.maxUsd, parsed.budget.prices, parsed.budget.reasoningBilledSeparately),
+    progress: (line) => {
+      process.stderr.write(`${line}\n`);
+    },
   };
   const results = await inProcessJobs(env)(parsed.jobs);
   process.stdout.write(`${RESULT_MARKER}${JSON.stringify(results)}\n`);

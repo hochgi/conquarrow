@@ -67,6 +67,8 @@ export interface JobEnv {
   readonly baseFetch: FetchLike;
   readonly retry: RetryOptions;
   readonly meter: SpendMeter;
+  /** Progress lines for a long job (a worker sends them to stderr). */
+  readonly progress?: ((line: string) => void) | undefined;
 }
 
 export type RunJobs = (jobs: readonly Job[]) => Promise<readonly JobResult[]>;
@@ -112,7 +114,8 @@ export const runJob = async (job: Job, env: JobEnv): Promise<JobResult> => {
     job.chair === 'heuristic'
       ? ({ kind: 'heuristic' } as const)
       : createByokSeat(requireAccess(env), job.chair, env.baseFetch, env.retry, env.meter);
-  return { kind: 'match', record: await runMatch({ cell: job.cell, cap: job.cap, chair }) };
+  const record = await runMatch({ cell: job.cell, cap: job.cap, chair, progress: env.progress });
+  return { kind: 'match', record };
 };
 
 /** One job at a time, in order. Never interleave jobs in one process (module state). */

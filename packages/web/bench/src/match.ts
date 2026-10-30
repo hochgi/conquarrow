@@ -30,7 +30,11 @@ export interface MatchSpec {
   /** K: the match ends after this many full rounds. */
   readonly cap: number;
   readonly chair: ChairDriver;
+  /** Told every {@link PROGRESS_EVERY} full rounds. Observation only: never feeds play. */
+  readonly progress?: ((line: string) => void) | undefined;
 }
+
+export const PROGRESS_EVERY = 10;
 
 export interface ByokTotals {
   /** BYOK seat-turns played. */
@@ -207,11 +211,15 @@ export const runMatch = async (spec: MatchSpec): Promise<MatchRecord> => {
   const tally = newTally();
   while (state.winner === undefined && tally.rounds < spec.cap) {
     const mover = state.activePlayer;
+    const roundsBefore = tally.rounds;
     const moves = await playTurn(spec, tally, state, mover === chair);
     if (tally.aborted) break;
     if (moves.length === 0) throw new Error(`cell ${spec.cell.id}: seat ${String(mover)} made no move`);
     state = foldTurn(tally, state, moves, chair);
     tally.peakIncome = maxRational(tally.peakIncome, incomeRate(state, chair));
+    if (spec.progress !== undefined && tally.rounds > roundsBefore && tally.rounds % PROGRESS_EVERY === 0) {
+      spec.progress(`${spec.cell.id}: round ${String(tally.rounds)} of at most ${String(spec.cap)}`);
+    }
   }
   return toRecord(spec, tally, state, chair);
 };
