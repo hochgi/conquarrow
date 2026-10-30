@@ -318,7 +318,7 @@ const positionsTier = async (run: Run, model: string): Promise<number> => {
   run.log(
     `positions ${String(summary.count)}: parse rate ${fmt(summary.parseRate)}, ` +
       `prompt tokens/call ${fmt(summary.meanPromptTokensPerCall, 0)}, interior passes ${String(summary.interiorPasses)}, ` +
-      `missed closes ${String(summary.missedCloses)}`,
+      `missed closes ${String(summary.missedCloses)}, rewalks ${String(summary.rewalks)}`,
   );
   return finish(run, started, {
     summary,
