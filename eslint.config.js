@@ -66,6 +66,9 @@ export default tseslint.config(
       'reports/**',
       'coverage/**',
       '.stryker-tmp/**',
+      // Untracked scratch: playtest logs and throwaway `*.proto.test.ts` probes
+      // that run by hand against the real ports. Not in a tsconfig, ships nothing.
+      'archive/**',
       // Throwaway visual validation (gitignored) — never part of the build.
       '**/.scratch/**',
       // Installed agent skills are templates (markdown, yaml, sample configs),

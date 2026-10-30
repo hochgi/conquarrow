@@ -49,7 +49,7 @@ Parked. A server-side bundle of provider keys, used only if a Lambda LLM pump is
 _Avoid_: the API key, BYOK config
 
 **match log**:
-The ordered moves of one match, plus setup. Replaying it reconstructs every position. It does not contain keys or prompts.
+The ordered moves of one match, plus setup. Replaying it reconstructs every position. It may also carry playtest records (summary counters, advisor records) that replay ignores. It does not contain keys or prompts.
 _Avoid_: save file, replay file
 
 **gateway**:
@@ -59,6 +59,22 @@ _Avoid_: treating each gateway as its own API shape
 **API shape**:
 The HTTP dialect used to ask a model for a JSON batch of legalMoves-step indices plus an endTurn flag. v1 is OpenAI chat/completions only. A small port stays in code so Anthropic Messages or Gemini can be added later without a rewrite. Seats still take turns.
 _Avoid_: adapter per company, talk (ambiguous), a single move index
+
+**decision API**:
+A hosted model that takes a state plus typed questions (choose one of N, score, yes/no) and returns typed answers with probabilities, never text. TypeSafe jev, OpenAI Decisions, and the decision models a gateway such as OpenRouter fronts are all decision APIs. In conquarrow it only ever backs an advisor, never a seat (ADR 0006).
+_Avoid_: LLM, provider (a decision API has providers too), System One (that is one wire format)
+
+**System One format**:
+The decision-API wire format TypeSafe defined (`state` plus a `questions` map keyed by name; a choice names its options in `criteria`). Most decision APIs, OpenRouter's included, copy it. The first format the advisor speaks. The OpenAI Decisions format (arrays, `choices`, `predicate`) is parked.
+_Avoid_: jev (that is one model), API shape (that is the chat dialect a seat speaks)
+
+**advisor**:
+An optional decision API attached to a BYOK seat, configured with its own base URL, key and model. Each time the seat asks its model, the advisor first ranks the same legal-move offer; the prompt shows each option's advisor probability in engine order, and the seat's model still chooses. A failed advisor call leaves the request unadvised. Local only, like BYOK. Each advised request leaves an advisor record in the match log.
+_Avoid_: bot, seat, decision seat (parked), hint (that is the teaching prompt's word)
+
+**relay**:
+A pass-through that forwards one BYOK or advisor request to a host that refuses the browser. Vite `/__byok` under `pnpm dev`; the operator's Lambda relay on Pages (ADR 0007). The key rides in transit only and is never stored or logged. The Lambda relay is invite-only during beta.
+_Avoid_: Lambda pump, hosted LLM (the relay chooses nothing and holds no key), operator keyring
 
 **pause**:
 An operator control that stops bot LLM decisions until resumed. It does not block a human from playing when it is a human chair's turn.

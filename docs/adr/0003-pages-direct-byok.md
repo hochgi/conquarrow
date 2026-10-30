@@ -20,6 +20,6 @@ All-bot matches: a pause control, and **idle pause while the tab is not focused*
 ## Consequences
 
 - Lobby and fetch-error copy must not imply that Pages play requires `pnpm`.
-- `api.openai.com` from Pages may still fail until a personal origin-allowlisted relay exists; use a CORS-ok host or Vite `/__byok`.
+- `api.openai.com` from Pages may still fail until a personal origin-allowlisted relay exists; use a CORS-ok host or Vite `/__byok`. That relay is now decided: [ADR 0007](./0007-invite-only-byok-relay.md) (invite-only Lambda relay, P71).
 - Idle-pause-on-blur for all-bot local matches, plus a Pause control on any local vs-bot match (CONTEXT.md). Spec: [bot-pause](../spec/bot-pause/bot-pause.md).
 - P20 “Online BYOK” remains parked. If it is ever unparked, Lambda applies LLM moves (browser untrusted); not a tab-held key.
