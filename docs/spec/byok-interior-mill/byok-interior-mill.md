@@ -120,7 +120,10 @@ flowchart TD
   shall be identical to the pre-P80 text.
 - **I7** (ubiquitous) The system shall produce identical offer text for the
   same position under both geometry implementations (`geometry-tiling` and
-  `geometry-fixtures`), and on repeated calls.
+  `geometry-fixtures`), and on repeated calls. Arrow ids are minted per
+  geometry, so "identical" across geometries means identical after ids are
+  replaced by placeholders, on a position whose distances match on every
+  board; repeated calls on one geometry are byte-identical.
 - **I8** (ubiquitous) `homewardPath` and `distanceToTerritory` shall return
   the same results as before the generalisation.
 
