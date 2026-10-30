@@ -94,9 +94,36 @@ its source tree**.
 - Config: the playtest config with `playerCount: 2`, i.e.
   `{dominationN: 5, R: 7, homeOffset: 5, spawnerSeed: s}`.
 - `spawnerSeed ∈ {1, 2, 3}` × **BYOK seated first or second** = **6 cells**.
-- **Round cap K** = 2 × the median `mirror` match length, rounded up to a
-  multiple of 10. The value is recorded with the result. It is set by
-  measurement, not taste.
+- **Round cap K = 20, fixed.** ~~K = 2 × the median `mirror` match length~~:
+  **resolved by measurement.** No `mirror` match ends. All 6 cells reached the
+  400-round safety cap with no winner, and seed 1's first seat finished holding
+  1,238 heads. So there is no median to double. 20 rounds was chosen for three
+  reasons:
+  - Both audited grok failure modes appear by round 10.
+  - The archived grok matches ran only about 9 rounds in all.
+  - The budget below cannot pay for long matches.
+
+  A BYOK-vs-heuristic cell will almost always be scored by land share at the
+  cap, so the win branch of the score is kept but is not expected to fire.
+
+### Budget (hard)
+
+The human's xAI balance is **$9.40, capped, no refill**. The jev balance is
+**$8**. Every model-calling run passes `--max-usd`, and the harness refuses a
+call that would cross it. Plan, in order:
+
+| step | cap | what it buys |
+|---|---|---|
+| calibration | $0.75 | 1 cell, K = 20, reasoning on: measured $/call, calls/match, wall time |
+| everything after | sized from calibration, recorded here before it runs | baseline ×2, then arms in evidence order (P80, P75, P74) |
+| reserve | ≥ $1.50 | reruns of invalid cells |
+
+If calibration shows the full grid does not fit, the grid shrinks before the
+gate loosens. The order of cuts is fixed:
+1. The reasoning-off secondary mode.
+2. Seeds, from 3 down to 2.
+3. The second baseline run, using the `positions` tier's per-call variance as
+   the noise floor instead.
 
 ### Modes and models
 
@@ -141,7 +168,8 @@ An arm **passes** when all of these hold:
    baseline's. A fallback turn is played by the heuristic, and an arm must not
    "win" on the heuristic's moves. **A cell with more than 10% fallbacks is
    invalid** and is rerun once. If it is still invalid, it is reported as
-   such.
+   such, and **an arm with any invalid cell cannot pass**. The arm mean is
+   taken over valid cells only (`meanValid`).
 5. Prompt size is within the arm's own packet budget, measured as mean
    `promptTokens` per call.
 

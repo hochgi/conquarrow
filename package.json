@@ -23,6 +23,8 @@
     "dev:web": "pnpm --filter @conquarrow/web dev",
     "byok-turn": "node tools/byok-turn-runner/src/server.mjs",
     "byok-turn:test": "node --test tools/byok-turn-runner/test/*.test.mjs",
+    "byok-bench": "node packages/web/bench/run.mjs",
+    "byok-bench:test": "vitest run --config packages/web/bench/vitest.config.ts",
     "prepare": "lefthook install"
   },
   "devDependencies": {
