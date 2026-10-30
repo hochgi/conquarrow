@@ -72,7 +72,28 @@ teaching and P76's delta also bear on this.
 
 ## Mirror (heuristic vs heuristic)
 
-_Pending._
+P79 harness, safety cap 400 rounds, `{dominationN: 5, R: 7, homeOffset: 5, playerCount: 2}`.
+Each seed was played twice, once with the "BYOK chair" seated first and once
+second. Both chairs were driven by the heuristic, and the two runs produced
+identical move lists.
+
+| seed | first seat land | second seat land | rounds | winner |
+|---|---|---|---|---|
+| 1 | 86/118 (0.729) | 32/118 (0.271) | 400 | none |
+| 2 | 64/107 (0.598) | 43/107 (0.402) | 400 | none |
+| 3 | 50/134 (0.373) | 84/134 (0.627) | 400 | none |
+
+- **No mirror match ends.** The heuristic mostly passes. Seed 1 logged 557
+  steps against 800 end-turns, and the first seat finished holding 1,238 heads.
+  So P79's "2 × median length" rule for K had nothing to measure, and K is now
+  fixed at 20 (see the packet).
+- **Seat bias.** On land share the first seat leads on 2 of 3 seeds (mean
+  0.567 vs 0.433). That is within seed-to-seed spread, so it is not a clear
+  first-mover advantage. Every arm is scored over both seat orders anyway.
+- **This bears on P78.** A heuristic that hoards heads and stops expanding
+  means no match ends by itself. That is a finding about the heuristic seat,
+  not about the rules. It is recorded here only; nothing changes from this
+  packet.
 
 ## Calibration and cost
 
