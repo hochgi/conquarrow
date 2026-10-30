@@ -153,7 +153,10 @@ runs.
 
 `matches` tier, `grok-4.20-0309-non-reasoning` (list price $1.25 / $0.20
 cached / $2.50 per M), K = 20.
-- **Cells:** 4, seeds 1–2 × both seat orders.
+- **Cells:** all 6 (seeds 1–3 × both seat orders). This was widened from 4
+  before any arm ran, once the proxy calibration measured **$0.137 per K=20
+  match** (48 calls, 52 s, 0 fallbacks, score 0.250 on `s1-first`). The full
+  grid is about $0.82 per run.
 - **Baseline:** run twice. The noise floor is the largest per-cell score
   difference between those two runs.
 - **Pass:** the arm's mean over valid cells is not below baseline's mean
