@@ -86,21 +86,17 @@ const reconstructHomeward = (
 };
 
 /**
- * Grain BFS from `start` to the first own-territory arrow.
+ * Grain BFS from `start` to the first arrow satisfying `isGoal`. The frontier
+ * follows geometry order; `seen` is membership only, never ordering.
  * `path` is start through the predecessor (excludes the landing).
- * {@link distanceToTerritory} is this search's distance.
  */
-export const homewardPath = (
+const grainSearch = (
   geometry: GeometryPort,
-  state: GameState,
-  me: PlayerId,
   start: ArrowId,
-  cap = DIST_CAP,
-  home?: ReadonlySet<string>,
+  isGoal: (arrow: ArrowId) => boolean,
+  cap: number,
 ): HomewardPath => {
-  const atHome = (arrow: ArrowId): boolean =>
-    home === undefined ? state.territory.get(arrow) === me : home.has(String(arrow));
-  if (atHome(start)) {
+  if (isGoal(start)) {
     return { distance: 0, landing: start, path: [] };
   }
   const seen = new Set<string>([String(start)]);
@@ -112,7 +108,7 @@ export const homewardPath = (
       for (const exit of geometry.outArrows(geometry.target(arrow))) {
         const key = String(exit);
         if (seen.has(key)) continue;
-        if (atHome(exit)) {
+        if (isGoal(exit)) {
           return {
             distance: d,
             landing: exit,
@@ -129,6 +125,41 @@ export const homewardPath = (
   }
   return { distance: cap + 1, landing: undefined, path: [start] };
 };
+
+/**
+ * Grain BFS from `start` to the first own-territory arrow (or the first arrow
+ * of `home`, when given). {@link distanceToTerritory} is this search's distance.
+ */
+export const homewardPath = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  start: ArrowId,
+  cap = DIST_CAP,
+  home?: ReadonlySet<string>,
+): HomewardPath =>
+  grainSearch(
+    geometry,
+    start,
+    home === undefined
+      ? (arrow) => state.territory.get(arrow) === me
+      : (arrow) => home.has(String(arrow)),
+    cap,
+  );
+
+/**
+ * P80: grain distance from `start` to the nearest arrow **not** in `me`'s
+ * territory — how far an interior stack is from its territory's edge. `0` when
+ * `start` is not own territory; `cap + 1` when no edge is within `cap`.
+ */
+export const edgeDistance = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  start: ArrowId,
+  cap = DIST_CAP,
+): number =>
+  grainSearch(geometry, start, (arrow) => state.territory.get(arrow) !== me, cap).distance;
 
 /**
  * Shortest path length along out-arrows to an arrow of `me`'s territory.

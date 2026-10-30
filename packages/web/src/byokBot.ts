@@ -34,6 +34,7 @@ import {
   playBotTurn,
   type BotTurn,
 } from './opponent';
+import { edgeDistance } from './botEvaluate';
 import type { Finding } from './findings';
 import { advanceTargetLock, syncTargetLocks, tagOnTarget } from './targets';
 import teachingBody from 'docs/byok-teaching.md?raw';
@@ -313,6 +314,33 @@ const bordersOpenSpawner = (
   return false;
 };
 
+type HomeFacts = {
+  /** `tipDist=d0→d1`, or `edgeDist=a→b` when `from` is own territory (P80). */
+  readonly slot: string;
+  readonly tag: 'leave_home' | 'home_mill' | 'to_edge' | undefined;
+};
+
+/**
+ * P80: a row from own territory says how far the edge is, and an interior step
+ * that brings the stack closer to it is `to_edge`, not `home_mill`.
+ */
+const homeFacts = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  move: StepMove,
+  tipDist: readonly [number, number],
+): HomeFacts => {
+  if (state.territory.get(move.from) !== me) {
+    return { slot: `tipDist=${String(tipDist[0])}→${String(tipDist[1])}`, tag: undefined };
+  }
+  const a = edgeDistance(geometry, state, me, move.from);
+  const b = edgeDistance(geometry, state, me, move.exit);
+  const ontoHome = state.territory.get(move.exit) === me;
+  const tag = !ontoHome ? 'leave_home' : b < a ? 'to_edge' : 'home_mill';
+  return { slot: `edgeDist=${String(a)}→${String(b)}`, tag };
+};
+
 /** Compact tags so the model can rank without inventing geometry. */
 export const annotateMove = (
   geometry: GeometryPort,
@@ -345,14 +373,13 @@ export const annotateMove = (
       const trailAfter = after.trails.get(me)?.size ?? 0;
       const gainedTerr = territoryCount(after, me) - territoryCount(state, me);
       const gainedShare = shareCount(geometry, after, me) - shareCount(geometry, state, me);
-      const fromHome = state.territory.get(move.from) === me;
+      const home = homeFacts(geometry, state, me, move, [d0, d1]);
       const ontoHome = state.territory.get(move.exit) === me;
       const tags: string[] = [];
       if (gainedTerr > 0) tags.push(gainedTerr === 1 ? 'land_bridge' : 'closes');
       if (gainedShare > 0) tags.push(`share+${String(gainedShare)}`);
       if (bordersOpenSpawner(geometry, state, move.exit)) tags.push('borders_spawner');
-      if (fromHome && !ontoHome) tags.push('leave_home');
-      if (fromHome && ontoHome) tags.push('home_mill');
+      if (home.tag !== undefined) tags.push(home.tag);
       if (d1 < d0) tags.push('homeward');
       else if (d1 > d0) tags.push('outward');
       if (ontoHome) tags.push('onto_home');
@@ -370,7 +397,7 @@ export const annotateMove = (
       return (
         `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}` +
         `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}` +
-        ` tipDist=${String(d0)}→${String(d1)} trailLen=${String(trailAfter)}` +
+        ` ${home.slot} trailLen=${String(trailAfter)}` +
         (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
       );
     }
@@ -440,7 +467,9 @@ const offerTagRows = (
 export const millOmit = (rows: readonly OfferTagRow[]): boolean => {
   if (rows.length === 0) return false;
   for (const row of rows) {
-    const mill = row.tags.includes('home_mill') || row.tags.includes('onto_home');
+    const mill =
+      (row.tags.includes('home_mill') || row.tags.includes('onto_home')) &&
+      !row.tags.includes('to_edge');
     const expanding =
       row.tags.includes('closes') || row.tags.includes('cut') || row.tags.includes('leave_home');
     if (!mill || expanding) return false;
