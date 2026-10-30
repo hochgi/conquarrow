@@ -52,6 +52,25 @@ interface TurnOutcome {
 const playedStep = (turn: TurnOutcome): boolean => turn.moves.some((m) => m.kind === 'step');
 
 /**
+ * The audit's border-walk cycle: steps onto an arrow already on the mover's
+ * own trail. Such a step lays nothing new and advances no spawner. Counted
+ * over the seat's own steps only; a fallback turn is the heuristic's, so it
+ * counts 0.
+ */
+export const rewalkCount = (start: GameState, turn: TurnOutcome): number => {
+  if (turn.llmFallbacks > 0) return 0;
+  const me = start.activePlayer;
+  let state = start;
+  let n = 0;
+  for (const move of turn.moves) {
+    if (state.activePlayer !== me) break;
+    if (move.kind === 'step' && state.trails.get(me)?.has(move.exit) === true) n += 1;
+    state = rules.apply(state, move);
+  }
+  return n;
+};
+
+/**
  * The audit's paralysis: the model's batch was empty with `endTurn` while the
  * seat had a movable stack. A fallback turn is the heuristic's, so it is never one.
  */

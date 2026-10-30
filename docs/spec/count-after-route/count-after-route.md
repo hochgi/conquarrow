@@ -170,6 +170,13 @@ ends. Which one fires is decided entirely by the three-part test below.
 
 ## Auto-apply — the exact test
 
+> **Superseded by P77** ([board-selection-model](../board-selection-model/board-selection-model.md)):
+> apply-on-click is retired — every move is drafted and then sent, however
+> little the click left to decide, and `autoApplies` is gone. The section and
+> the `apply now` edge in the flow above are kept as the record of the decision;
+> the scenarios that pinned it are tagged `@superseded-P77`, and invariants 11,
+> 13 and 22 below are amended.
+
 A click applies immediately when **all three** hold of the state it would
 produce:
 
@@ -257,12 +264,15 @@ because fewer heads arrived there.
    the moves of that run and no others.
 10. Where a count is not in `offer.carries`, the adapter shall ignore the
     request to set it.
-11. When a click yields a one-run draft with one legal count and an empty
-    clickable set, the adapter shall apply the draft without rendering a control.
+11. ~~When a click yields a one-run draft with one legal count and an empty
+    clickable set, the adapter shall apply the draft without rendering a control.~~
+    **Inverted by P77**: it shall draft it, render the control and apply nothing.
 12. When a click yields a draft failing any of those three conditions, the
     adapter shall render the control and apply nothing.
-13. An auto-applied click shall place in `pending` exactly the moves a click
-    followed by Send would have placed.
+13. ~~An auto-applied click shall place in `pending` exactly the moves a click
+    followed by Send would have placed.~~ **Inverted by P77**: after a
+    forced-count click, Send shall place in `pending` exactly the moves the click
+    drafted.
 14. While the match is over or input is locked, the adapter shall render no
     count control.
 15. The count control's model shall carry no viewport, stage or tip coordinate,
@@ -275,8 +285,9 @@ because fewer heads arrived there.
     the run ending at that arrow, truncated where the arrow falls inside a run.
 21. `runCarries` shall account for the allowance already spent by the movers, by
     measuring on the scratch state rather than from a formula.
-22. Equal inputs shall produce an equal offer, an equal paint and an equal
-    auto-apply verdict.
+22. ~~Equal inputs shall produce an equal offer, an equal paint and an equal
+    auto-apply verdict.~~ **Amended by P77**: equal inputs shall produce an
+    equal offer and an equal paint (the verdict left with `autoApplies`).
 23. `route.ts` shall reference neither a clock nor a random source.
 
 **Not a unit invariant.** *The docked strip overlaps no clickable arrow at 375 /

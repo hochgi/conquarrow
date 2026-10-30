@@ -8,9 +8,7 @@ import {
   EMPTY_STROKE,
   HIGHLIGHT_STROKE,
   MOVABLE_STROKE,
-  PATH_STROKE,
   PATH_WASH,
-  PREVIEW_STROKE,
   REACH_FILL,
   TOLL_REACH_FILL,
   SPAWNER_CURSOR,
@@ -24,10 +22,12 @@ import {
 import type { InputHighlights } from './input/modes';
 import type { RoutePaint } from './route';
 import {
-  REACH_WASH_FLOOR,
   SELECTED_HALO_STROKE,
   SELECTED_STROKE_WIDTH,
+  SELECTED_UNDER_STROKE,
   SELECTED_WASH,
+  tierStyle,
+  type RouteTier,
   type SelectionPaint,
 } from './selectionChrome';
 import { spawnerInfoAt, spawnerProminence, yieldSoonByArrow } from './spawnerInfo';
@@ -100,8 +100,13 @@ const fillFor = (arrow: ArrowId, state: GameState): { fill: string; stroke: stri
 interface PlayFlags {
   readonly isSelected: boolean;
   readonly selectedEmphasis: boolean;
-  /** Faintest tier: reachable this turn, but not on offer as a run (P34). */
+  /**
+   * The multi-run mark: reachable this turn, but not in one run (P34). P77 draws
+   * it as a dashed neutral outline — a different kind of fact, not a lit tier.
+   */
   readonly onReachWash: boolean;
+  /** An own stack the offer reaches (P77): drafted from the strip, not the tile. */
+  readonly onMerge: boolean;
   /** Primary tier: a lit spine along one out-slot. */
   readonly onRay: boolean;
   /** Subordinate to its ray: the one free turn at the end of a run. */
@@ -119,6 +124,7 @@ const idleFlags: PlayFlags = {
   isSelected: false,
   selectedEmphasis: false,
   onReachWash: false,
+  onMerge: false,
   onRay: false,
   onTurn: false,
   onDraft: false,
@@ -140,29 +146,36 @@ const playFlags = (args: {
   if (!args.play) return idleFlags;
   const { arrow, chrome, route, draft, highlights, movable } = args;
   const isSelected = chrome.selected === arrow;
+  // A merge target is on the offer, but a click on it selects that stack — so it
+  // is never painted as one run away.
+  const onMerge = highlights.merges?.has(arrow) === true;
   return {
     isSelected,
     selectedEmphasis: chrome.selectedEmphasis && isSelected,
     onReachWash: route.reachWash.has(arrow),
-    onRay: route.rayArrows.has(arrow),
-    onTurn: route.turnArrows.has(arrow),
+    onMerge,
+    onRay: !onMerge && route.rayArrows.has(arrow),
+    onTurn: !onMerge && route.turnArrows.has(arrow),
     onDraft: draft.has(arrow),
     isTip: route.tip === arrow,
     onPreview: route.hoverPreview.has(arrow),
-    isMovable: movable.has(arrow) && !isSelected,
+    // The merge dash would vanish under the movable gold outline (P77 review).
+    isMovable: movable.has(arrow) && !isSelected && !onMerge,
     refused: highlights.refused?.has(arrow) === true,
   };
 };
 
-/** Loudest mark wins: draft, then tip, then ray, then turn, then wash. */
+/**
+ * Loudest mark wins: draft, then tip, then one run away (rays and turns alike,
+ * P77). The multi-run mark and merge targets are dashed overlays, not edges.
+ */
 const tileStrokeWidth = (flags: PlayFlags, occupied: boolean): number => {
-  if (flags.onDraft || flags.isTip) return 3.0;
-  if (flags.onRay) return 2.6;
+  if (flags.onDraft || flags.isTip) return tierStyle('drafted').width;
+  if (flags.onRay || flags.onTurn) return tierStyle('one-run').width;
   if (flags.isSelected) return 2.55;
-  if (flags.onTurn) return 1.9;
   if (flags.isMovable) return 3.1;
   if (occupied) return 2.55;
-  if (flags.onReachWash || flags.onPreview) return 1.5;
+  if (flags.onPreview) return 1.5;
   return 0.7;
 };
 
@@ -172,16 +185,83 @@ const tileStrokeColor = (
   ownerStroke: string,
   baseStroke: string,
 ): string => {
-  if (flags.onDraft) return PATH_STROKE;
+  if (flags.onDraft) return tierStyle('drafted').stroke;
   if (flags.isTip) return HIGHLIGHT_STROKE;
-  if (flags.onRay) return PREVIEW_STROKE;
+  if (flags.onRay || flags.onTurn) return tierStyle('one-run').stroke;
   if (flags.isSelected) return ownerStroke;
-  if (flags.onTurn || flags.onPreview) return REACH_FILL;
+  if (flags.onPreview) return REACH_FILL;
   if (flags.isMovable) return MOVABLE_STROKE;
   if (occupied) return ownerStroke;
-  if (flags.onReachWash) return REACH_FILL;
   return baseStroke;
 };
+
+/** The dashed overlay tier, if any: merge targets first, then the multi-run mark. */
+const dashedTier = (flags: PlayFlags): RouteTier | undefined => {
+  if (flags.onMerge) return 'merge';
+  if (flags.onReachWash && !flags.onDraft && !flags.isSelected) return 'multi-run';
+  return undefined;
+};
+
+/** A dashed outline for the merge and multi-run tiers — no fill (P77). */
+const DashedTier = ({
+  points,
+  flags,
+}: {
+  readonly points: string;
+  readonly flags: PlayFlags;
+}): ReactElement | null => {
+  const tier = dashedTier(flags);
+  if (tier === undefined) return null;
+  const style = tierStyle(tier);
+  const dashed = (
+    <polygon
+      points={points}
+      fill="none"
+      stroke={style.stroke}
+      strokeWidth={style.width}
+      {...(style.dash === undefined ? {} : { strokeDasharray: style.dash })}
+      style={{ pointerEvents: 'none' }}
+    />
+  );
+  if (tier !== 'merge') return dashed;
+  // The merge dash sits on a solid dark band, so it reads on every seat's fill.
+  return (
+    <>
+      <polygon
+        points={points}
+        fill="none"
+        stroke={SELECTED_UNDER_STROKE}
+        strokeWidth={style.width + 2}
+        style={{ pointerEvents: 'none' }}
+      />
+      {dashed}
+    </>
+  );
+};
+
+/**
+ * The selected marker (P77): a dark under-stroke beneath a wide cream
+ * over-stroke, so it reads on any fill at default zoom. **Static** — the P31
+ * pulse is a separate, extra halo; nothing here animates.
+ */
+const SelectedMarker = ({ points }: { readonly points: string }): ReactElement => (
+  <g style={{ pointerEvents: 'none' }}>
+    <polygon
+      points={points}
+      fill="none"
+      stroke={SELECTED_UNDER_STROKE}
+      strokeWidth={SELECTED_STROKE_WIDTH + 4}
+      strokeLinejoin="round"
+    />
+    <polygon
+      points={points}
+      fill="none"
+      stroke={SELECTED_HALO_STROKE}
+      strokeWidth={SELECTED_STROKE_WIDTH}
+      strokeLinejoin="round"
+    />
+  </g>
+);
 
 const SelectedWash = ({
   points,
@@ -225,13 +305,14 @@ const RouteWash = ({
     );
   }
   if (flags.isSelected) return null;
-  const opacity = flags.onRay ? 0.3 : flags.onTurn ? 0.15 : REACH_WASH_FLOOR;
-  if (!flags.onRay && !flags.onTurn && !flags.onReachWash) return null;
+  // One shade for one run away, rays and turns alike (P77). The multi-run mark
+  // takes no blue fill: it is the dashed neutral outline instead.
+  if (!flags.onRay && !flags.onTurn) return null;
   return (
     <polygon
       points={points}
       fill={REACH_FILL}
-      fillOpacity={opacity}
+      fillOpacity={0.3}
       style={{ pointerEvents: 'none' }}
     />
   );
@@ -557,13 +638,15 @@ export const Board = ({
                 style={{ pointerEvents: 'none' }}
               />
             ) : null}
-            {flags.selectedEmphasis || focus?.has(arrow) === true ? (
+            <DashedTier points={points} flags={flags} />
+            {flags.selectedEmphasis ? <SelectedMarker points={points} /> : null}
+            {focus?.has(arrow) === true ? (
               <polygon
                 points={points}
                 fill="none"
                 stroke={SELECTED_HALO_STROKE}
                 strokeWidth={SELECTED_STROKE_WIDTH}
-                {...(focus?.has(arrow) === true ? { className: 'lesson-target' } : {})}
+                className="lesson-target"
                 style={{ pointerEvents: 'none' }}
               />
             ) : null}

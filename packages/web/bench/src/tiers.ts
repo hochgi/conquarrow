@@ -12,6 +12,7 @@
  * process is returned `skipped` without starting. Neither is scored.
  */
 
+import type { Move } from '@conquarrow/contracts';
 import type { FetchLike } from '../../src/byokBot';
 import { clearByokPlans } from '../../src/byokBot';
 import { clearTargetLocks } from '../../src/targets';
@@ -19,7 +20,7 @@ import { addCost, ZERO_COST, type CostTotals, type SpendMeter } from './budget';
 import { CORPUS_NAMES, corpusLog, corpusPosition, corpusPositions, parsePositionId, positionId } from './corpus';
 import type { Cell } from './grid';
 import { runMatch, type ByokTotals, type MatchRecord } from './match';
-import { formatRational, incomeRate, isInteriorPass, isMissedClose, shareCloseRows } from './metrics';
+import { formatRational, incomeRate, isInteriorPass, isMissedClose, rewalkCount, shareCloseRows } from './metrics';
 import { fallbackRate, isInvalidCell, mean, median, roundCapFromLengths, scoreOutcome } from './score';
 import { createByokSeat, playByokSeatTurn, type BenchMode, type ModelAccess } from './seat';
 import type { RetryOptions } from './transport';
@@ -52,6 +53,10 @@ export interface PositionRecord {
   readonly incomeAfter: string;
   readonly interiorPass: boolean;
   readonly missedClose: boolean;
+  /** Steps onto the seat's own trail (the audit's border-walk cycle). */
+  readonly rewalks: number;
+  /** What the seat played this turn, in order (fallback turns included). */
+  readonly moves: readonly Move[];
   readonly lastError: string | null;
 }
 
@@ -104,6 +109,8 @@ const runPosition = async (
     incomeAfter: formatRational(incomeRate(turn.state, position.seat)),
     interiorPass: !aborted && isInteriorPass(position.state, turn),
     missedClose: !aborted && isMissedClose(rows, turn),
+    rewalks: aborted ? 0 : rewalkCount(position.state, turn),
+    moves: turn.moves,
     lastError: turn.lastError ?? null,
   };
 };
@@ -349,6 +356,7 @@ export interface PositionsSummary {
   readonly meanPromptTokensPerCall: number | null;
   readonly interiorPasses: number;
   readonly missedCloses: number;
+  readonly rewalks: number;
   readonly abortedPositions: readonly string[];
   readonly skippedPositions: readonly string[];
   readonly budgetExhausted: boolean;
@@ -406,6 +414,7 @@ export const runPositionsTier = async (
     meanPromptTokensPerCall: perCall(readPrompt, readCalls),
     interiorPasses: read.filter((p) => p.interiorPass).length,
     missedCloses: read.filter((p) => p.missedClose).length,
+    rewalks: read.reduce((acc, p) => acc + p.rewalks, 0),
     abortedPositions,
     skippedPositions,
     budgetExhausted: abortedPositions.length > 0 || skippedPositions.length > 0,

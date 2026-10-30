@@ -249,8 +249,16 @@ stateDiagram-v2
 - **Pop**: clicking an arrow the draft walks truncates the draft to the prefix
   ending at that arrow, which becomes the tip. Popping to the source leaves an
   **empty draft in `route`**, not `idle`.
-- **Deselect**: clicking the source with an already-empty draft returns to
-  `idle` — today's idiom, unchanged.
+- ~~**Deselect**: clicking the source with an already-empty draft returns to
+  `idle` — today's idiom, unchanged.~~ **Superseded by P77**
+  ([board-selection-model](../board-selection-model/board-selection-model.md)):
+  a click on an own stack always selects it, so clicking the source re-selects
+  it with an empty draft. Deselect is a background click, Escape / Cancel, or the
+  `Next stack` lap's *none* step. Likewise a click on an own stack the offer
+  reaches no longer merges — it selects; the merge is drafted by the strip's
+  **Merge into** button. A click on the blocked stack re-selects it (still
+  blocked), and any other non-own click while blocked refuses `no-exit`, not
+  `out-of-reach`.
 - **Send** sets `pending` to the draft, in order, and returns to `idle`.
   **Cancel**, background click and Escape discard the draft and return to `idle`.
 - Anything else refuses through the existing `RefusalReason` path (P11 Event 11):
@@ -327,6 +335,11 @@ routePaint({ phase, hoverArrow, pointer }):
 
 Locked HUD strings:
 
+**Amended by P77** — the strings below are now
+[board-selection-model](../board-selection-model/board-selection-model.md)'s
+*Route hints* table (`Click a lit arrow to draft a run · one turn at the end is free · dashed = needs more than one run`,
+and `Send to move` in place of `Send when ready`); kept here as history.
+
 - empty draft: `Click along a ray to walk straight · one turn at the end is free`
 - non-empty draft, something still clickable:
   `Click to extend · click a walked arrow to go back · Send when ready`
@@ -370,7 +383,7 @@ decision.
 - When the draft is sent, the system shall emit its moves in draft order and no others.
 - When a drafted arrow is clicked, the system shall discard every move after it and no move before it.
 - ~~When the carry changes, the system shall leave every already-drafted move unchanged.~~ — **superseded by P35:** the count now rewrites the **last run** and leaves every *earlier* run unchanged. See `count-after-route.md` invariants 8–9.
-- If a click names an arrow that is reachable but not clickable, then the system shall refuse it with `out-of-reach` and apply nothing.
+- If a click names an arrow that is reachable but not clickable, then the system shall refuse it with ~~`out-of-reach`~~ `not-one-run` (**amended by P77**, [board-selection-model](../board-selection-model/board-selection-model.md)) and apply nothing.
 - The system shall derive the tip's head count from the state after the draft, not from the carry.
 - Equal state, tip, carry and draft shall produce an equal clickable set and equal paint.
 - While the draft is non-empty and nothing is clickable, the system shall show the run-can-go-no-further hint rather than the extend hint.

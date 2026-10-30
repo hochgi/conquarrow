@@ -45,6 +45,7 @@ Feature: Counting a route at the boundaries
 
   Rule: A terminal run still gets its count, and nothing more
 
+    @superseded-P77 # a click on an own stack selects it; the merge is drafted with mergeInto (board-selection-model)
     Scenario: A run ending in a merge offers a count and no extension
       Given the second arrow along slot 0 holds another of the active player's stacks
       And the active player has clicked a0 with 8 heads
@@ -52,6 +53,7 @@ Feature: Counting a route at the boundaries
       Then a count control is rendered
       And the clickable set from the tip is empty
 
+    @superseded-P77 # a click on an own stack selects it; the merge is drafted with mergeInto (board-selection-model)
     Scenario: A merge does not auto-apply even though the tip is finished
       Given the second arrow along slot 0 holds another of the active player's stacks
       And the active player has clicked a0 with 8 heads
@@ -183,6 +185,7 @@ Feature: Counting a route at the boundaries
       Then more than one count is offerable
       And a count control is rendered
 
+    @superseded-P77 # apply-on-click is retired: every move is drafted and sent (board-selection-model)
     Scenario: An unreachable auto-apply state is not asserted
       Given a one run draft whose count is forced
       Then its clickable set is empty
@@ -194,6 +197,7 @@ Feature: Counting a route at the boundaries
       Then a count control is rendered
       And nothing has been applied to the game state
 
+    @superseded-P77 # apply-on-click is retired: every move is drafted and sent (board-selection-model)
     Scenario: An auto-applied move leaves no route phase behind
       Given the active player owns a stack of 1 head on arrow c0
       And the active player has clicked c0

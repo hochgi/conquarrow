@@ -125,7 +125,9 @@ describe('Galcon input — drafting on the opening board', () => {
  * refused click produced, and only that one, so a later no-op cannot re-fire it.
  */
 describe('Galcon input — refusals', () => {
-  it('names an unowned tile clicked with nothing selected', () => {
+  // P77 narrows `not-yours` to enemy stacks: an idle click on an arrow that is
+  // not a stack says `nothing-selected` (board-selection-model *Refusals*).
+  it('names an empty tile clicked with nothing selected', () => {
     const { geometry, rules, state, mode } = setup();
     const mine = activeGroup(state);
     expect(mine).toBeDefined();
@@ -137,7 +139,7 @@ describe('Galcon input — refusals', () => {
 
     const snap = mode.onArrowClick(other, state, rules);
     expect(snap.refusal?.arrow).toBe(other);
-    expect(snap.refusal?.reason).toBe('not-yours');
+    expect(snap.refusal?.reason).toBe('nothing-selected');
     // A refusal changes nothing: no phase change, and nothing to apply.
     expect(snap.phase.kind).toBe('idle');
     expect(snap.pending).toBeUndefined();

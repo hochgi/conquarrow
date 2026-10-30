@@ -90,6 +90,18 @@ export const advanceCursor = (
 };
 
 /**
+ * The `Next stack` button's lap (P77): movable arrows in `compareArrows` order,
+ * then **none**, then wrap. A cursor on a non-movable arrow goes to the first
+ * movable arrow after it, or to none. `advanceCursor` keeps the post-commit
+ * preemption rule and has no none step.
+ */
+export const nextStack = (cursor: Cursor, movable: readonly ArrowId[]): Cursor => {
+  const baseline = inBaselineOrder(movable);
+  if (cursor === undefined) return baseline[0];
+  return baseline.find((candidate) => compareArrows(candidate, cursor) > 0);
+};
+
+/**
  * Per-seat recency: the arrows a seat acted on this turn, most recent first, at
  * most one entry per arrow. In memory only — never persisted, so a reload or an
  * online rejoin is exactly the first-turn case.

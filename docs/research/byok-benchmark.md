@@ -97,7 +97,80 @@ identical move lists.
 
 ## Calibration and cost
 
-_Pending._
+Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
+
+| run | cap | spent | calls | tokens in (cached) | reasoning tokens | wall |
+|---|---|---|---|---|---|---|
+| `matches` s1-first, K=20, reasoning on | $0.75 | **$0.7277** | 16 (7 rounds, then cap) | 70,225 (18,432) | 101,920 | 24.7 min |
+| `positions`, 3 positions, **fast** mode | $0.10 | **$0.0945** | 2 | 8,823 (2,304) | 13,301 | 3.2 min |
+
+- **$0.045 per call, about 85% of it reasoning tokens.** Calls average ~6.4k
+  reasoning tokens against ~4.4k prompt tokens. Output is billed at $6/M,
+  input at $2/M.
+- **About 2.3 calls per BYOK turn, about 92 s per call.** A full K=20 match is
+  roughly **$2.10 and 70 minutes**.
+- **Fast mode does not exist for grok-4.7.** With `enable_thinking: false`
+  and `max_tokens: 64` it still reasons (6.6k tokens per call, billed). So
+  P79's secondary "reasoning off" mode is the same cost and the same
+  behaviour. That mode is dropped for grok-4.7.
+- **0 fallbacks** in 16 reasoning calls.
+- **Spent so far: $0.82 of $9.40.**
+
+**Consequence:** the predeclared grid cannot be afforded. It would take
+6 cells × ~$2.10 per run, at least 4 runs. Cutting reasoning-off, a seed, then
+the second baseline still leaves about 4 matches in total, which cannot gate
+anything. The gate needs re-planning; see the next entry.
+
+## Gate plan A (chosen by the human, 2026-10-30, after calibration)
+
+This replaces P79's 6-cell × 2-mode grid, which the budget cannot buy. It is
+fixed here **before any arm runs**.
+
+### Primary: targeted positions on `grok-4.7` (the model the human plays)
+
+The `positions` tier runs on 12 corpus positions. Each position is one full
+seat turn from the logged state.
+
+| group | ids | failure it targets | reading |
+|---|---|---|---|
+| **P** stall | `grok-2026-09-10T0657#56,#64,#72,#80` | interior paralysis | `interiorPasses` |
+| **C** cycle | `grok-2026-09-10T1442#24,#34,#43,#53` | re-walking own trail | `rewalks` |
+| **O** ordinary | `grok-2026-09-10T0657#13,#25,#45`, `grok-2026-09-10T1442#13` | none (regression guard) | fallbacks, `missedCloses` |
+
+Baseline runs the set **twice**, which shows how much grok-4.7 varies from run
+to run at `temperature: 0`.
+
+**An arm's target reading must beat both baseline runs**:
+- P80 targets group P: fewer interior passes there than *either* baseline run.
+- P75 targets group C: fewer rewalks there than *either* baseline run.
+- P74 has no group of its own. It passes on either reading.
+
+**And it must not regress anywhere.** On every group, interior passes, rewalks,
+missed closes and fallbacks must not exceed the *worse* of the two baseline
+runs.
+
+### Secondary: whole-game no-regression on a proxy model
+
+`matches` tier, `grok-4.20-0309-non-reasoning` (list price $1.25 / $0.20
+cached / $2.50 per M), K = 20.
+- **Cells:** all 6 (seeds 1–3 × both seat orders). This was widened from 4
+  before any arm ran, once the proxy calibration measured **$0.137 per K=20
+  match** (48 calls, 52 s, 0 fallbacks, score 0.250 on `s1-first`). The full
+  grid is about $0.82 per run.
+- **Baseline:** run twice. The noise floor is the largest per-cell score
+  difference between those two runs.
+- **Pass:** the arm's mean over valid cells is not below baseline's mean
+  (taken over both runs) by more than the noise floor, and its fallback rate
+  is ≤ 5%.
+- **Purpose:** this guards against a prompt change that fixes the targeted
+  positions but plays the whole game worse. It does **not** gate on
+  improvement, because the proxy is not the model the human plays.
+
+### Order and money
+
+Runs go in this order: baseline (both checks), then P80, then P75, then P74.
+**P74 runs only if what remains covers it plus a $1.00 reserve.** Every run
+passes `--max-usd`. The amounts spent are recorded below as they happen.
 
 ## Baseline
 

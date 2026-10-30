@@ -30,8 +30,7 @@ import { describe, expect, it } from 'vitest';
 import type { ArrowId, GameState, Move } from '@conquarrow/contracts';
 import { MINIMAL, SPACIOUS, fixtureArrow } from '@conquarrow/geometry-fixtures';
 import type { InputSnapshot, RoutePhase } from '../src/input/modes';
-import { autoApplies, lastRunLength, routePaint, runCarries, runMoves } from '../src/route';
-import type { AutoApplyTest } from '../src/route';
+import { lastRunLength, routePaint, runCarries, runMoves } from '../src/route';
 import {
   A,
   B,
@@ -175,7 +174,7 @@ interface Walked {
 
 /**
  * Drive a case's plan through the input mode, stopping if the phase leaves
- * `route` (an auto-apply) or the ray it names is shorter than the plan.
+ * `route` or the ray it names is shorter than the plan.
  */
 const walkPlan = (item: Case, plan: readonly Leg[] = item.plan): Walked => {
   const selected = selectRoute(item.board, item.state, item.from);
@@ -185,7 +184,10 @@ const walkPlan = (item: Case, plan: readonly Leg[] = item.plan): Walked => {
     if (snap.phase.kind !== 'route') break;
     const target = rayOf(snap, leg.slot)[leg.index];
     if (target === undefined) break;
-    snap = clickArrow(selected, target);
+    // P77: a click on an own stack selects it; a merge is drafted through the
+    // strip's Merge button, which is `mergeInto`.
+    const merge = item.state.groups.get(target)?.owner === item.state.activePlayer;
+    snap = merge ? selected.mode.mergeInto(target) : clickArrow(selected, target);
     if (snap.phase.kind !== 'route') break;
     runs += 1;
   }
@@ -356,12 +358,9 @@ describe('P35 invariants', () => {
         const where = `${String(heads)} heads, slot ${String(slot)}`;
         expect(selected.phase.offer.clickable.has(enemy), where).toBe(true);
         const snap = clickArrow(selected, enemy);
-        if (snap.phase.kind !== 'route') {
-          // A lone-count attack can auto-apply; the count it drafted still obeys.
-          expect(countsOf(pendingOf(snap)), where).toEqual([heads - 1]);
-          attacks += 1;
-          continue;
-        }
+        // P77: a lone-count attack no longer auto-applies — it is drafted like any run.
+        expect(snap.phase.kind, where).toBe('route');
+        expect(pendingOf(snap), where).toHaveLength(0);
         expect(carriesOf(snap), where).not.toContain(heads);
         expect(carriesOf(snap)[carriesOf(snap).length - 1], where).toBe(heads - 1);
         expect(carriesOf(snap)[0], where).toBe(1);
@@ -441,7 +440,10 @@ describe('P35 invariants', () => {
     expect(belowFloor).toBeGreaterThan(0);
   });
 
-  it('11. When a click yields a one-run draft with one legal count and an empty clickable set, the adapter shall apply the draft without rendering a control.', () => {
+  // P35 invariants 11 and 13 are superseded by P77 (board-selection-model,
+  // invariant 1): no click applies a move. Both are kept inverted — the forced
+  // count is still drafted and asked, and Send emits exactly what the click drew.
+  it('11 (inverted by P77). When a click yields a one-run draft with one legal count and an empty clickable set, the adapter shall draft it, render the control and apply nothing.', () => {
     // `2^(k-1)` heads walking exactly `k` steps: the count is forced and the
     // allowance is spent, for k = 1, 2, 3, 4.
     for (const k of [1, 2, 3, 4]) {
@@ -455,9 +457,10 @@ describe('P35 invariants', () => {
       ).toEqual([heads]);
       const selected = selectRoute(board, state, from);
       const snap = clickArrow(selected, target);
-      expect(snap.phase.kind, `k=${String(k)}`).toBe('idle');
-      expect(pendingOf(snap), `k=${String(k)}`).toHaveLength(k);
-      expect(controlShown(snap), `k=${String(k)}`).toBe(false);
+      expect(snap.phase.kind, `k=${String(k)}`).toBe('route');
+      expect(pendingOf(snap), `k=${String(k)}`).toHaveLength(0);
+      expect(draftOf(snap), `k=${String(k)}`).toHaveLength(k);
+      expect(controlShown(snap), `k=${String(k)}`).toBe(true);
     }
   });
 
@@ -479,22 +482,9 @@ describe('P35 invariants', () => {
       expect(pendingOf(walked.snap), item.label).toHaveLength(0);
       expect(state, item.label).toEqual(untouched);
     }
-    // And the predicate itself: true only when all three hold. No case here
-    // satisfies 1 and 2 while failing 3 — that state is unreachable (spec), so
-    // the row for it asserts the predicate, not a board.
-    const verdicts: readonly (readonly [AutoApplyTest, boolean])[] = [
-      [{ draftLength: 1, lastRunLength: 1, counts: [1], clickable: 0 }, true],
-      [{ draftLength: 2, lastRunLength: 1, counts: [1], clickable: 0 }, false],
-      [{ draftLength: 1, lastRunLength: 1, counts: [1, 2], clickable: 0 }, false],
-      [{ draftLength: 1, lastRunLength: 1, counts: [1], clickable: 3 }, false],
-      [{ draftLength: 0, lastRunLength: 0, counts: [], clickable: 3 }, false],
-    ];
-    for (const [test, expected] of verdicts) {
-      expect(autoApplies(test), JSON.stringify(test)).toBe(expected);
-    }
   });
 
-  it('13. An auto-applied click shall place in `pending` exactly the moves a click followed by Send would have placed.', () => {
+  it('13 (inverted by P77). After a forced-count click, Send shall place in `pending` exactly the moves the click drafted.', () => {
     for (const k of [1, 2, 3, 4]) {
       const heads = 2 ** (k - 1);
       const state = openField(from, heads);
@@ -502,8 +492,8 @@ describe('P35 invariants', () => {
       const selected = selectRoute(board, state, from);
       // The run the offer named, at the count the click drafts it with.
       const expected = runMoves(from, optionFor(selected.snap, target).steps, heads);
-      const snap = clickArrow(selected, target);
-      expect(pendingOf(snap), `k=${String(k)}`).toEqual(expected);
+      expect(pendingOf(clickArrow(selected, target)), `k=${String(k)}`).toHaveLength(0);
+      expect(pendingOf(selected.mode.send()), `k=${String(k)}`).toEqual(expected);
     }
   });
 
@@ -535,6 +525,8 @@ describe('P35 invariants', () => {
       'count',
       'counts',
       'draftLength',
+      // P77: where the last run began — an arrow, not a coordinate.
+      'start',
     ]);
     // `countControl` takes no viewport, so "identical at every width" is a
     // property of its signature; asserted here as the same model twice over.
@@ -547,8 +539,9 @@ describe('P35 invariants', () => {
     }).snap);
     expect(control).toEqual(again);
     const dock = readSource('RouteDock.tsx');
+    // Whole words: P77's `leftoverNote` is copy, not a position (board-selection-model).
     for (const positional of ['x:', 'y:', 'left', 'top', 'toScreen', 'viewport', 'stage']) {
-      expect(dock, positional).not.toContain(positional);
+      expect(dock, positional).not.toMatch(new RegExp(`\\b${positional}(?![a-z])`));
     }
     const route = readSource('route.ts');
     for (const positional of ['toScreen', 'viewport', 'Viewport']) {
@@ -681,7 +674,8 @@ describe('P35 invariants', () => {
     expect(countsThatWalk(rules, state, from, raySlotWalk(geometry, from, 0, 2))[0]).toBe(2);
   });
 
-  it('22. Equal inputs shall produce an equal offer, an equal paint and an equal auto-apply verdict.', () => {
+  // The auto-apply verdict left this invariant with `autoApplies` (P77).
+  it('22. Equal inputs shall produce an equal offer and an equal paint.', () => {
     for (const item of CASES) {
       const left = walkPlan(item);
       const right = walkPlan(item);
@@ -700,14 +694,6 @@ describe('P35 invariants', () => {
       expect(paintOf(left.phase).draftArrows.map(String), item.label).toEqual(
         paintOf(right.phase).draftArrows.map(String),
       );
-      const verdict = (phase: RoutePhase): boolean =>
-        autoApplies({
-          draftLength: phase.draft.length,
-          lastRunLength: runLength(phase),
-          counts: phase.offer.carries,
-          clickable: phase.offer.clickable.size,
-        });
-      expect(verdict(left.phase), item.label).toBe(verdict(right.phase));
     }
   });
 
