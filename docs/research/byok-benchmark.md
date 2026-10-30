@@ -220,3 +220,38 @@ identical scores confirm only that nothing else moved. The targeted
 positions carry the improvement.
 
 **Spend to here: $4.97 of $9.40.**
+
+### Measuring after P80: increments over main
+
+With P80 merged, main *is* the P80 arm, and its row above is the new baseline.
+Later arms are measured as increments over main, not alone against pre-P80
+main. That saves a combination run the budget cannot buy. It is fair because
+P80 left the other readings untouched: rewalks were 6 with and without it, and
+the proxy was identical per cell.
+
+### P74 — teaching: the defensive half: **FAIL, parked** (2026-10-30)
+
+Branch `parked/p74-byok-defensive-half` (teaching rewrite `d4a9619`, +23.7%
+body by chars/4). Measured over main = P80. Cost $1.80 ($1.01 positions +
+$0.79 proxy).
+
+| reading | baseline (main = P80) | P74 | gate |
+|---|---|---|---|
+| P stall: interior passes | 0 | 0 | nothing left to improve |
+| C cycle: rewalks | 6 | **7** (#53: 2 → 3) | **regression ✘** |
+| O ordinary: rewalks / missed closes | 1 / 0 | 1 / 0 | ✔ |
+| fallbacks | 0 | 0 | ✔ |
+| proxy mean (6 cells) | 0.144 | 0.156 (s2-second 0.122 → 0.214, s1-second 0.143 → 0.125) | no regression ✔ |
+| prompt tokens per call | 4,586 | 4,945 (+7.8%) | ≤ 25% ✔ |
+
+P74 improves neither targeted reading and makes the cycle reading worse, so it
+does not merge. This is what the audit predicted: grok acts on tags, not
+prose. The rewrite adds 360 tokens to every call and changes the loop
+behaviour for the worse. The proxy's +0.012 mean is the only sign of a
+whole-game effect. The proxy does not gate improvement, so that is a hint for
+a future arm, not a pass.
+
+The SPEC §7 correction that P74's drafting surfaced is independent of the arm
+and lands on its own: the band table now follows `SPAWNER_BANDS`.
+
+**Spend to here: $6.77 of $9.40.**
