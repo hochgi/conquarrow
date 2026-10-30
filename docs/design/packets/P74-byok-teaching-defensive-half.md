@@ -1,6 +1,6 @@
 # P74 — BYOK teaching: the gradient, and the defensive half of every mechanic
 
-> **Status:** ready. **Depends on:** P15, P32, P64, P66, P79 (the gate). **Independent of P75**
+> **Status:** **parked: failed the P79 gate 2026-10-30** (cycle rewalks 6 → 7, no targeted gain; see the [ledger](../../research/byok-benchmark.md)). Branch `parked/p74-byok-defensive-half`. Was: ready. **Depends on:** P15, P32, P64, P66, P79 (the gate). **Independent of P75**
 > — each is measured alone. **Docs only — no code.**
 > Playtest 2026-10-29 ([findings](../../research/playtest-2026-10-29/FINDINGS.md)):
 > Claude played seat B through the browser for 39 turns and took production from
