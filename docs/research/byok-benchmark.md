@@ -174,8 +174,49 @@ passes `--max-usd`. The amounts spent are recorded below as they happen.
 
 ## Baseline
 
-_Pending._
+main at P79 + #69. Spend to here: $3.33, including both calibrations.
+
+**grok-4.7, 12 targeted positions, two runs (`base1` $0.79, `base2` $0.62).**
+The two runs were **identical, position by position**:
+
+| group | interior passes | rewalks | missed closes | fallbacks |
+|---|---|---|---|---|
+| P stall (4) | **4** | 0 | 0 | 0 |
+| C cycle (4) | 0 | **6** (2 at each of #34, #43, #53) | 0 | 0 |
+| O ordinary (4) | 0 | 1 (#25) | 0 | 0 |
+
+Both audited failures reproduce **under the current prompt**, every time.
+grok-4.7 at `temperature: 0` was stable on this set, so any change an arm
+produces is not run-to-run variance. Prompt size: 4,542 tokens per call.
+
+**Proxy `grok-4.20-non-reasoning`, 6 cells, K = 20, two runs (`pbase1` $0.59,
+`pbase2` $0.38).** Identical scores per cell, so the **noise floor is 0**.
+
+| s1-first | s1-second | s2-first | s2-second | s3-first | s3-second | mean |
+|---|---|---|---|---|---|---|
+| 0.250 | 0.143 | 0.130 | 0.122 | 0.107 | 0.111 | **0.144** |
+
+At 20 rounds the BYOK seat holds about 14% of claimed land against the
+heuristic.
 
 ## Arms
 
-_None yet._
+### P80 — interior mill paralysis: **PASS** (2026-10-30)
+
+Run as PR #70 merged with main, so the harness was identical to baseline's.
+Cost $1.64 ($1.01 positions + $0.63 proxy).
+
+| reading | baseline (both runs) | P80 | gate |
+|---|---|---|---|
+| P stall: interior passes | 4 | **0** (each plays 3 steps) | beats both runs ✔ |
+| C cycle: rewalks | 6 | 6 | no regression ✔ |
+| O ordinary: rewalks / missed closes | 1 / 0 | 1 / 0 | no regression ✔ |
+| fallbacks | 0 | 0 | ✔ |
+| proxy mean (6 cells) | 0.144 | 0.144, identical per cell | no regression ✔ |
+| prompt tokens per call | 4,542 | 4,586 (+1.0%) | ≤ 5% ✔ |
+
+The proxy's 20-round matches never reach an all-interior position, so its
+identical scores confirm only that nothing else moved. The targeted
+positions carry the improvement.
+
+**Spend to here: $4.97 of $9.40.**
