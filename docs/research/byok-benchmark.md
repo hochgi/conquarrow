@@ -121,6 +121,54 @@ Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
 the second baseline still leaves about 4 matches in total, which cannot gate
 anything. The gate needs re-planning; see the next entry.
 
+## Gate plan A (chosen by the human, 2026-10-30, after calibration)
+
+This replaces P79's 6-cell × 2-mode grid, which the budget cannot buy. It is
+fixed here **before any arm runs**.
+
+### Primary: targeted positions on `grok-4.7` (the model the human plays)
+
+The `positions` tier runs on 12 corpus positions. Each position is one full
+seat turn from the logged state.
+
+| group | ids | failure it targets | reading |
+|---|---|---|---|
+| **P** stall | `grok-2026-09-10T0657#56,#64,#72,#80` | interior paralysis | `interiorPasses` |
+| **C** cycle | `grok-2026-09-10T1442#24,#34,#43,#53` | re-walking own trail | `rewalks` |
+| **O** ordinary | `grok-2026-09-10T0657#13,#25,#45`, `grok-2026-09-10T1442#13` | none (regression guard) | fallbacks, `missedCloses` |
+
+Baseline runs the set **twice**, which shows how much grok-4.7 varies from run
+to run at `temperature: 0`.
+
+**An arm's target reading must beat both baseline runs**:
+- P80 targets group P: fewer interior passes there than *either* baseline run.
+- P75 targets group C: fewer rewalks there than *either* baseline run.
+- P74 has no group of its own. It passes on either reading.
+
+**And it must not regress anywhere.** On every group, interior passes, rewalks,
+missed closes and fallbacks must not exceed the *worse* of the two baseline
+runs.
+
+### Secondary: whole-game no-regression on a proxy model
+
+`matches` tier, `grok-4.20-0309-non-reasoning` (list price $1.25 / $0.20
+cached / $2.50 per M), K = 20.
+- **Cells:** 4, seeds 1–2 × both seat orders.
+- **Baseline:** run twice. The noise floor is the largest per-cell score
+  difference between those two runs.
+- **Pass:** the arm's mean over valid cells is not below baseline's mean
+  (taken over both runs) by more than the noise floor, and its fallback rate
+  is ≤ 5%.
+- **Purpose:** this guards against a prompt change that fixes the targeted
+  positions but plays the whole game worse. It does **not** gate on
+  improvement, because the proxy is not the model the human plays.
+
+### Order and money
+
+Runs go in this order: baseline (both checks), then P80, then P75, then P74.
+**P74 runs only if what remains covers it plus a $1.00 reserve.** Every run
+passes `--max-usd`. The amounts spent are recorded below as they happen.
+
 ## Baseline
 
 _Pending._
