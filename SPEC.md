@@ -688,12 +688,19 @@ The cutoff is what makes an unbounded board playable, and it does the job the to
 > at a reflected pair with `homeOffset = 5`. Domination *N* = **5** full rounds.
 > Force and density are **authored bands** of *r*, and they are the same table:
 >
-> | *r* | force | density | ≈ spawners | one head every |
+> | *r* | force | density | ≈ spawners (seeds 1–3) | one head every |
 > |---|---|---|---|---|
-> | 0–1 | 1/3 | all | 14 | 3 rounds |
-> | 2–3 | 1/9 | ½ | 30 | 9 rounds |
-> | 4–5 | 1/12 | ¼ | 27 | 12 rounds |
-> | 6–7 | 1/12 | ⅛ | 30 | 12 rounds |
+> | 0–1 | 1/3 | ½ | 6–9 | 3 rounds |
+> | 2–3 | 1/9 | ⅓ | 17–26 | 9 rounds |
+> | 4–5 | 1/12 | ⅙ | 27–34 across both 1/12 bands | 12 rounds |
+> | 6–7 | 1/12 | 1/12 | | 12 rounds |
+>
+> ~~Density all / ½ / ¼ / ⅛, about 101 spawners on the disc.~~ **Retuned in the
+> 2026-08-07 playtest commit** to ½ / ⅓ / ⅙ / 1/12 in `SPAWNER_BANDS`. This table
+> lagged the code until P74 (2026-10-30) noticed it. The counts above are
+> measured, at `R = 7`, `homeOffset = 5`, 2 players, `spawnerSeed` 1–3.
+> **`SPAWNER_BANDS` is authoritative.** If this table disagrees with it again,
+> the table is wrong.
 >
 > ~~Force at distance *r* is `1/3^r` for *r* ∈ `[1, R]`, and every vertex inside
 > *R* carries a spawner.~~ — **retuned after the first playtest.** `1/3^r` ran the
@@ -706,11 +713,11 @@ The cutoff is what makes an unbounded board playable, and it does the job the to
 > concentrated, not richer**: it is worth bleeding for because it pays out between
 > flips, not because everywhere else is barren. Un-thinned density also put 338
 > spawners on the disc, which made the board unreadable before it made it
-> unbalanced; the bands leave ~101. All of these live in `MatchConfig` /
+> unbalanced; the bands leave ~50–70. All of these live in `MatchConfig` /
 > `SPAWNER_BANDS` and are setup data only — the core never branches on them
 > (§7, *placement and force are setup data*).
 
-The arithmetic those are aimed at, since every arrow borders exactly two eligible vertices and so has two feed slots. At half density, **three quarters of centre arrows are fed and a third of those are double-fed**, and **seven in eight centre spawners have at least one keystone arrow** — the double-fed ones that wound two spawners when captured. At an eighth, home arrows are mostly single-fed or bare and fill on the scale of decades, which is what the quiet is for.
+The arithmetic those are aimed at, since every arrow borders exactly two eligible vertices and so has two feed slots. At half density, **three quarters of centre arrows are fed and a third of those are double-fed**, and **seven in eight centre spawners have at least one keystone arrow** — the double-fed ones that wound two spawners when captured. At a sixth and below (the home and rim bands), home arrows are mostly single-fed or bare and fill on the scale of decades, which is what the quiet is for.
 
 A starting point for the first playtest, not a result. What they are chosen to produce: a centre that pays out inside ten turns and is therefore worth bleeding for, a home economy that rewards being left alone, and a board where sweeping the specials is not something a player can do.
 
@@ -932,7 +939,7 @@ The decoy play this enables: bait an attacker into committing to a cut, and coun
     **Item 32's *N* joins this table** — consecutive full rounds a living player may hold **zero** spawner shares before losing by starvation (§9). Same shape as *R*: a number with a direct meaning that only playtesting can set, read once by the victory check rather than spread through it.
 12. ~~Spawner density~~ — **resolved: not one number, because it is not uniform.** The criterion as originally stated — *scarce enough that nobody sweeps them, common enough that overlap stays the norm* — cannot be met by a single density: overlap only becomes typical at densities where spawners stop being scarce. Under a **clustered** placement it is met trivially, and clustering is already the §7 principle for force. Dense and fast in the contested centre, sparse and slow at home.
 
-    MVP defaults, chosen to be playable rather than derived: about **half** the eligible vertices in the central disc, **an eighth** in the home annulus, and **none at all past the cutoff radius *R***. See §7, *the radial gradient*. Still in the tuning sweep with item 11 — but it no longer blocks anything, because a fixture board can be built from these today.
+    MVP defaults, chosen to be playable rather than derived: about **half** the eligible vertices in the central disc, **an eighth** in the home annulus, and **none at all past the cutoff radius *R***. *(Since retuned to ½ / ⅓ / ⅙ / 1/12 by band. §7 and `SPAWNER_BANDS` hold the current values.)* See §7, *the radial gradient*. Still in the tuning sweep with item 11 — but it no longer blocks anything, because a fixture board can be built from these today.
 
     **The bands became radii when the board became unbounded** (item 4). That is a restatement rather than a retune: contestedness was always "distance from the middle", and on a finite rectangle a band index was a way of saying so. The cutoff *R* is genuinely new, and it is what replaces the board edge — see item 32 for the part it does not fix.
 
