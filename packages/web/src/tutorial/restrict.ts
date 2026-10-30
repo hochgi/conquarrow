@@ -56,6 +56,23 @@ const draftMatchesRail = (
   return true;
 };
 
+const onRail = (arrows: ReadonlySet<ArrowId>, allowed: ReadonlySet<ArrowId>): Set<ArrowId> =>
+  new Set([...arrows].filter((arrow) => allowed.has(arrow)));
+
+/** Targets and merge targets alike: the rail narrows what the strip offers too (P77). */
+const filterToRail = (snap: InputSnapshot, restriction: RailRestriction): InputSnapshot => {
+  const allowed = restriction.clickable;
+  if (allowed === undefined) return snap;
+  const { targets, merges, ...rest } = snap.highlights;
+  const kept = onRail(merges ?? new Set(), allowed);
+  const highlights = {
+    ...rest,
+    targets: onRail(targets, allowed),
+    ...(kept.size === 0 ? {} : { merges: kept }),
+  };
+  return { ...snap, highlights };
+};
+
 /** Rail for an expect step; `undefined` on every other kind (free play / no board). */
 export const restrictionFor = (step: LessonStep): RailRestriction | undefined => {
   if (step.kind !== 'expect') return undefined;
@@ -76,22 +93,7 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
     return filterTargets(last);
   };
 
-  const onRail = (arrows: ReadonlySet<ArrowId>, allowed: ReadonlySet<ArrowId>): Set<ArrowId> =>
-    new Set([...arrows].filter((arrow) => allowed.has(arrow)));
-
-  // Targets and merge targets alike: the rail narrows what the strip offers too.
-  const filterTargets = (snap: InputSnapshot): InputSnapshot => {
-    const allowed = restriction.clickable;
-    if (allowed === undefined) return snap;
-    const { targets, merges, ...rest } = snap.highlights;
-    const kept = onRail(merges ?? new Set(), allowed);
-    const highlights = {
-      ...rest,
-      targets: onRail(targets, allowed),
-      ...(kept.size === 0 ? {} : { merges: kept }),
-    };
-    return { ...snap, highlights };
-  };
+  const filterTargets = (snap: InputSnapshot): InputSnapshot => filterToRail(snap, restriction);
 
   const isOwnGroup = (state: Parameters<InputMode['onArrowClick']>[1], arrow: ArrowId): boolean =>
     state.groups.get(arrow)?.owner === state.activePlayer;
@@ -140,7 +142,7 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
 
     onArrowClick(arrow, state, rules): InputSnapshot {
       const { phase } = last;
-      // Route phase: pops and deselect stay; everything else must be on-rail.
+      // Route phase: pops and re-selecting the source stay; everything else must be on-rail.
       if (phase.kind === 'route') {
         const draftedOrSource =
           arrow === phase.from ||

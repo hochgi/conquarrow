@@ -44,3 +44,32 @@ export const turnStatus = (movableCount: number): string => {
   const stacks = movableCount === 1 ? 'stack' : 'stacks';
   return `${String(movableCount)} ${stacks} can still move · End turn when done`;
 };
+
+/**
+ * The strip's two text rows for the human seat, as App draws them.
+ *
+ * While input is locked (a seat thinking, a replay, a lesson card, match over)
+ * the board is not the human seat's to drive, so neither row speaks for it — the
+ * rows stay mounted and blank, except that a `board-busy` refusal still says why
+ * the click did nothing.
+ */
+export const stripLines = (opts: {
+  readonly locked: boolean;
+  readonly selected: Cursor;
+  readonly heads: number;
+  readonly movable: readonly ArrowId[];
+  /** The last refused click's sentence, if the last click was refused. */
+  readonly refusal: string | undefined;
+}): { readonly selection: string; readonly message: string } => {
+  if (opts.locked) return { selection: '', message: opts.refusal ?? '' };
+  return {
+    selection: selectionLine(opts),
+    message: opts.refusal ?? turnStatus(opts.movable.length),
+  };
+};
+
+/** One Merge button per merge target, in `compareArrows` order; none while locked. */
+export const mergeButtons = (
+  merges: ReadonlySet<ArrowId> | undefined,
+  locked: boolean,
+): readonly ArrowId[] => (locked || merges === undefined ? [] : [...merges].toSorted(compareArrows));

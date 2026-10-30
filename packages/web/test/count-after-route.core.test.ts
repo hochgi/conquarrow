@@ -370,8 +370,9 @@ describe('P35 core — the control lives below the board, never on it', () => {
     // And it is not anchored on anything: no stage pixels reach it.
     expect(app.slice(dock, dock + 400)).not.toContain('tipScreen');
     const dockSource = readSource('RouteDock.tsx');
+    // Whole words: P77's `leftoverNote` is copy, not a position (board-selection-model).
     for (const positional of ['left', 'top', 'toScreen', 'tipScreen', 'viewport']) {
-      expect(dockSource, positional).not.toContain(positional);
+      expect(dockSource, positional).not.toMatch(new RegExp(`\\b${positional}\\b`));
     }
   });
 

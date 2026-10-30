@@ -24,16 +24,19 @@ import { Hud } from './Hud';
 import type { TutorialHud } from './Hud';
 import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
+import { pointerUpIntent, type PointerUpIntent } from './input/pointer';
 import { Lobby } from './Lobby';
 import {
   advanceCursor,
   emptyRecency,
   movableArrows,
+  nextStack,
   panForSelection,
   pushRecency,
   turnAnchor,
 } from './selection/cursor';
 import type { RecencyStacks } from './selection/cursor';
+import { mergeButtons, stripLines } from './selection/status';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
 import { commitSequence, divergenceReport } from './online-replay';
@@ -97,7 +100,7 @@ import {
 } from './spectate';
 import { cameraCues, type CameraCue } from './cameraCues';
 import { spectatedConversion, type ConversionFrame } from './conversionPlayback';
-import { presentRefusal, presentSteps, REFUSAL_TEXT, type FxOverlay } from './fx/present';
+import { presentRefusal, presentSteps, refusalText, type FxOverlay } from './fx/present';
 import {
   emptyQueue,
   enqueue,
@@ -111,7 +114,7 @@ import { loadSoundEnabled, playOverlayCues, saveSoundEnabled } from './fx/sound'
 import { replaySteps } from './fx/steps';
 import { ConvertTip } from './ConvertTip';
 import { RouteDock } from './RouteDock';
-import { convertTooltip, refusedConvertExits } from './refusedConvert';
+import { CONVERT_REFUSED_COPY } from './refusedConvert';
 import { countControl, routePaint } from './route';
 import { selectionPaint, type PointerKind } from './selectionChrome';
 import { spawnerInfoAt } from './spawnerInfo';
@@ -426,8 +429,6 @@ export const App = (): ReactElement => {
    */
   const recencyRef = useRef<RecencyStacks>(emptyRecency());
   const cursorSeatRef = useRef<string | undefined>(undefined);
-  /** Where the cursor stands, so the button and the auto-advance agree. */
-  const cursorRef = useRef<ArrowId | undefined>(undefined);
   /**
    * A new match is a new lap. Without this, a match opening on the same seat id
    * the last one ended on would short-circuit the turn anchor — `cursorSeatRef`
@@ -436,7 +437,6 @@ export const App = (): ReactElement => {
   const resetCursorState = (): void => {
     recencyRef.current = emptyRecency();
     cursorSeatRef.current = undefined;
-    cursorRef.current = undefined;
   };
 
   useEffect(() => {
@@ -1178,14 +1178,9 @@ export const App = (): ReactElement => {
     return set;
   }, [state]);
 
-  const boardHighlights = useMemo(() => {
-    const from = snap.phase.kind === 'idle' ? undefined : snap.phase.from;
-    if (from === undefined || state === undefined) return snap.highlights;
-    // P28's refused wash still names the source's own grain outs, in the route
-    // phase exactly as before: they are not reach and not a click target.
-    const refused = refusedConvertExits(state, geometry, rules, from);
-    return refused.size === 0 ? snap.highlights : { ...snap.highlights, refused };
-  }, [snap, state]);
+  // P77: the mode measures P28's refused exits itself, at the tip on the scratch
+  // state the draft leaves — the app no longer patches the source's in.
+  const boardHighlights = snap.highlights;
 
   const chrome = useMemo(() => {
     const hover = hoverArrow?.arrow;
@@ -1295,14 +1290,16 @@ export const App = (): ReactElement => {
    * exactly that moment.
    */
   const placeCursor = useCallback(
-    (arrow: ArrowId | undefined, at: GameState): void => {
-      cursorRef.current = arrow;
-      if (arrow === undefined) return;
-      setSnap(mode.onArrowClick(arrow, at, rules));
+    (arrow: ArrowId | undefined, at: GameState): InputSnapshot => {
+      // P77: the cursor *selects* (or deselects) — never a click, which could
+      // toggle the selection off or extend a draft.
+      if (arrow === undefined) return inputRef.current.reset();
+      const placed = inputRef.current.select(arrow, at, rules);
       const focus = arrowCentroid(arrow);
       setViewport((v) => panForSelection(v, focus));
+      return placed;
     },
-    [mode],
+    [],
   );
 
   const commitSnap = useCallback(
@@ -1310,13 +1307,10 @@ export const App = (): ReactElement => {
       setSnap(next);
       if (next.refusal !== undefined) {
         const { arrow, reason } = next.refusal;
-        // P28 already knows a grain-out that would flip your own heads; naming
-        // *that* beats the generic "too far" the reach test would give.
-        const wouldConvert = boardHighlights.refused?.has(arrow) === true;
-        const finalReason = wouldConvert ? 'would-convert' : reason;
+        // The mode names the reason itself (P77), refused exits included.
         pushRefusal(
-          presentRefusal(arrow, finalReason, fxSeq.current),
-          REFUSAL_TEXT[finalReason],
+          presentRefusal(arrow, reason, fxSeq.current),
+          refusalText(reason, next.highlights.selected),
         );
       } else {
         // Any action that *did* something answers the last refusal — leaving the
@@ -1378,12 +1372,14 @@ export const App = (): ReactElement => {
       // arrow the trip was drafted from: a multi-leg trip ends there, and the
       // precedence branches above already read that leg. The two coincide for
       // every single-leg trip, which is the common case.
-      placeCursor(
-        advanceCursor(last.from, movableArrows(rules, applied), {
-          from: last.from,
-          exit: last.exit,
-        }),
-        applied,
+      setSnap(
+        placeCursor(
+          advanceCursor(last.from, movableArrows(rules, applied), {
+            from: last.from,
+            exit: last.exit,
+          }),
+          applied,
+        ),
       );
     },
     [
@@ -1395,7 +1391,6 @@ export const App = (): ReactElement => {
       pushFx,
       pushRefusal,
       noteLocalTurn,
-      boardHighlights.refused,
     ],
   );
 
@@ -1420,16 +1415,20 @@ export const App = (): ReactElement => {
     // move the local selection and fight the spectated camera.
     if (tutorialRef.current !== undefined) return;
     if (aiSeatsRef.current.has(seat) || spectatedIn(state)) return;
-    cursorRef.current = cursor;
-    placeCursor(cursor, state);
+    setSnap(placeCursor(cursor, state));
   }, [state, placeCursor, spectatedIn]);
 
-  /** The button: one manual invocation of the advance that already happens. */
-  const nextStack = useCallback(() => {
+  /**
+   * The button (P77): the lap from the current selection — every movable stack
+   * in order, then none. It selects or deselects, discarding any open draft, and
+   * goes through `commitSnap` so it answers the last refusal like any action.
+   */
+  const pressNextStack = useCallback(() => {
     const at = stateRef.current;
     if (at === undefined || at.winner !== undefined) return;
-    placeCursor(advanceCursor(cursorRef.current, movableArrows(rules, at)), at);
-  }, [placeCursor]);
+    const cursor = nextStack(snapRef.current.highlights.selected, movableArrows(rules, at));
+    commitSnap(placeCursor(cursor, at));
+  }, [placeCursor, commitSnap]);
 
   const setCarry = useCallback(
     (n: number) => {
@@ -1864,24 +1863,43 @@ export const App = (): ReactElement => {
       setHover(undefined);
       setHoverArrow(undefined);
     }
-    if (pinched || !hadPointer || wasDrag || inputLocked) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const sx = e.clientX - rect.left;
-    const sy = e.clientY - rect.top;
-    const arrow = hitArrow(layout, viewport, sx, sy, arrows, hitPadding(e.pointerType));
-    if (arrow === undefined) {
-      commitSnap(liveInput().onBackgroundClick());
-      return;
+    const hit =
+      pinched || !hadPointer || wasDrag
+        ? undefined
+        : hitArrow(layout, viewport, e.clientX - rect.left, e.clientY - rect.top, arrows, hitPadding(e.pointerType));
+    const intent = pointerUpIntent({ hadPointer, dragged: wasDrag, pinched, inputLocked, hit });
+    if (intent.kind === 'arrow') {
+      // Drop capture so the strip owns the next events (and the ghost tap from
+      // this finger-up cannot bounce back into the board).
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      pointers.current.clear();
     }
-    // Drop capture so the tip control owns the next events (and the ghost tap from
-    // this finger-up cannot bounce back into the board).
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
+    actOnPointerUp(intent);
+  };
+
+  /** What a decided pointer-up does (P77 *The click, decided*). */
+  const actOnPointerUp = (intent: PointerUpIntent): void => {
+    switch (intent.kind) {
+      case 'nothing':
+        return;
+      case 'background':
+        commitSnap(liveInput().onBackgroundClick());
+        return;
+      case 'refuse':
+        // A click on an arrow while the board is locked is refused like any
+        // other; the input mode is not consulted, so the selection stands.
+        pushRefusal(
+          presentRefusal(intent.arrow, intent.reason, fxSeq.current),
+          refusalText(intent.reason),
+        );
+        return;
+      case 'arrow':
+        commitSnap(liveInput().onArrowClick(intent.arrow, state, rules));
+        return;
     }
-    pointers.current.clear();
-    // Clicking an arrow *is* moving the cursor there, so the lap resumes from it.
-    cursorRef.current = arrow;
-    commitSnap(liveInput().onArrowClick(arrow, state, rules));
   };
 
   const onPointerLeave = (): void => {
@@ -1900,11 +1918,21 @@ export const App = (): ReactElement => {
     setViewport((v) => zoomAt(v, e.clientX - rect.left, e.clientY - rect.top, factor));
   };
 
-  const selectedFrom = snap.phase.kind === 'idle' ? undefined : snap.phase.from;
+  // P28's tooltip follows the refused set the mode measured at the tip (P77).
   const convertCopy =
-    hoverArrow === undefined
-      ? undefined
-      : convertTooltip(state, geometry, rules, selectedFrom, hoverArrow.arrow);
+    hoverArrow !== undefined && snap.highlights.refused?.has(hoverArrow.arrow) === true
+      ? CONVERT_REFUSED_COPY
+      : undefined;
+  const strip = stripLines({
+    locked: inputLocked,
+    selected: snap.highlights.selected,
+    heads:
+      snap.highlights.selected === undefined
+        ? 0
+        : (state.groups.get(snap.highlights.selected)?.heads ?? 0),
+    movable: [...movable],
+    refusal: refusalNote,
+  });
   const tutorialStep = tutorial?.session.step();
   const snapCoach = tutorial === undefined ? undefined : (snap as TutoredSnapshot).coach;
   const tutorialCoach =
@@ -1967,7 +1995,6 @@ export const App = (): ReactElement => {
         matchSummary={matchSummaryLine(victory.kind === 'over', log.summary)}
         heads={activeTotals.heads}
         land={activeTotals.land}
-        refusalNote={refusalNote}
         soundOn={soundOn}
         onToggleSound={() => {
           const next = !soundOn;
@@ -1980,7 +2007,7 @@ export const App = (): ReactElement => {
         }}
         onNextStack={() => {
           if (inputLocked) return;
-          nextStack();
+          pressNextStack();
         }}
         onDownloadLog={() => {
           downloadMatchLog(withWinner(log, state.winner));
@@ -2083,7 +2110,13 @@ export const App = (): ReactElement => {
           badly on a phone. */}
       <RouteDock
         control={dock}
+        selection={strip.selection}
+        message={strip.message}
+        merges={mergeButtons(snap.highlights.merges, inputLocked)}
         onCount={setCarry}
+        onMerge={(arrow) => {
+          commitSnap(liveInput().mergeInto(arrow));
+        }}
         onSend={() => {
           commitSnap(liveInput().send());
         }}

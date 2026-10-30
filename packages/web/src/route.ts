@@ -89,7 +89,7 @@ export interface RouteInputs {
   readonly rules: RulesPort;
   /** The scratch state **after** the draft has been walked. Never the live board. */
   readonly state: GameState;
-  /** The original source. Clicking it deselects (empty draft) or pops. */
+  /** The original source. Clicking it re-selects it with an empty draft (P77). */
   readonly from: ArrowId;
   /** Last arrow the draft walks, or `from` when the draft is empty. */
   readonly tip: ArrowId;
@@ -241,7 +241,7 @@ export const runMoves = (
  *
  * A run ends rather than re-entering one of these, so a ray cannot loop on a
  * board with a short cycle, and the source is never offered as a destination —
- * clicking it deselects or pops (P11's idiom, unchanged).
+ * clicking it re-selects it with an empty draft (P77).
  */
 export const walkedArrows = (inputs: RouteInputs): ReadonlySet<ArrowId> =>
   new Set<ArrowId>([inputs.from, ...draftExits(inputs.draft)]);
