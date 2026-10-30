@@ -45,6 +45,11 @@ much**, so a seat can rank rows by income without reconstructing the board.
 - **Completion is called out.** When a step takes a vertex to `3/3`, add tag
   `completes_spawner`. This is the case `share+N` already covers on a closing
   row, but not on the row that merely walks the third arrow of a loop.
+- **Re-walking is not advancing.** If the exit is already on the seat's own
+  trail or territory, the step emits **no** `advances=` clause. Today's
+  `bordersOpenSpawner(exit)` fires on such re-walks, and in the archived
+  2026-09-10T1442 match grok walked a 3-cycle of its own trail for 9 calls
+  chasing it ([audit](../../research/byok-benchmark.md#2-border-walk-cycle-re-walking-its-own-trail-for-shares-9-of-12-calls)).
 - **`unclaimed` is not a holding.** `held` counts owners. An arrow owned by
   nobody advances nothing until it is territory; `advances=` is computed against
   the state **after** `rules.apply`, exactly as `share+N` already is.
@@ -77,6 +82,8 @@ much**, so a seat can rank rows by income without reconstructing the board.
 - A step onto an arrow flanking one spawner emits one `advances=` clause
 - A step onto a double-fed arrow emits two clauses and the `double_fed` tag
 - A step onto an arrow flanking no spawner emits neither
+- A step onto an arrow already on the seat's own trail emits no `advances=`,
+  even when it flanks an open spawner (the 2026-09-10T1442 cycle position)
 - Walking the third arrow of a vertex emits `completes_spawner`
 - A closing row that completes a vertex emits both `share+N` and `completes_spawner`
 - `advances=` reflects post-`apply` ownership, not pre

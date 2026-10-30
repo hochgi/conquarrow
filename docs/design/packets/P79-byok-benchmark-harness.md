@@ -1,7 +1,7 @@
 # P79 — BYOK benchmark harness: measure before changing the prompt
 
 > **Status:** ready. **Depends on:** P10 (replay), P15, P32. **Blocks:** P74,
-> P75, P76 and the P72 re-gate. Each of those claims to make a BYOK seat
+> P75, P76, P80 and the P72 re-gate. Each of those claims to make a BYOK seat
 > play better. Today nothing can check that claim.
 >
 > Playtest 2026-10-29 ([findings](../../research/playtest-2026-10-29/FINDINGS.md))
@@ -25,9 +25,11 @@ Work order:
 2. **P79 (this packet).** The harness, the baseline and the noise floor.
 3. **Cost checkpoint.** One calibration match, measured. The human approves
    the full grid's projected spend before it runs.
-4. **P74 and P75 as independent arms.** Each branches from main and each is
-   measured alone. Their combination is measured too, if both pass alone.
-   Whatever passes the gate ships.
+4. **P80, P75 and P74 as independent arms**, in that order of evidence (the
+   audit found grok failures P80 and P75 address directly; P74's have not
+   been seen in grok yet). Each branches from main and is measured alone;
+   combinations of those that pass alone are measured after. Whatever passes
+   the gate ships.
 5. **P76.** Shape decision informed by step 4. If P74/P75 close the gap, P76
    may not be needed. The P72 jev re-gate becomes an arm on this harness.
 
@@ -156,7 +158,9 @@ gate is a defended decision rule, not a p-value.
   log's `summary` line exactly (steps / closes / cuts). If it does not, the
   corpus loader is wrong.
 - Per position, record: parse ok or fallback, `promptTokens`, income rate at
-  the end of the seat's turn, and **missed close**. A missed close is a turn
+  the end of the seat's turn, **interior pass** (the batch is empty with
+  `endTurn` while the seat has a movable stack — the audit's paralysis), and
+  **missed close**. A missed close is a turn
   where the offer had a row tagged `closes` with `share+N > 0` and the batch
   played none.
 
@@ -216,6 +220,8 @@ network, no key.
 - Replaying each corpus log reproduces its `summary` line.
 - A corpus position is a state with the seat to move and no step yet taken
   this turn.
+- Interior pass is counted for an empty `endTurn` batch while a stack can
+  move, and not for a seat with no legal step
 - Missed close is counted when the offer had a `share+N > 0` close and the
   batch played none, and is not counted when it played one.
 - The configured API key string appears in no results file and no captured
