@@ -76,14 +76,21 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
     return filterTargets(last);
   };
 
+  const onRail = (arrows: ReadonlySet<ArrowId>, allowed: ReadonlySet<ArrowId>): Set<ArrowId> =>
+    new Set([...arrows].filter((arrow) => allowed.has(arrow)));
+
+  // Targets and merge targets alike: the rail narrows what the strip offers too.
   const filterTargets = (snap: InputSnapshot): InputSnapshot => {
     const allowed = restriction.clickable;
-    if (allowed === undefined || snap.highlights.targets.size === 0) return snap;
-    const targets = new Set<ArrowId>();
-    for (const arrow of snap.highlights.targets) {
-      if (allowed.has(arrow)) targets.add(arrow);
-    }
-    return { ...snap, highlights: { ...snap.highlights, targets } };
+    if (allowed === undefined) return snap;
+    const { targets, merges, ...rest } = snap.highlights;
+    const kept = onRail(merges ?? new Set(), allowed);
+    const highlights = {
+      ...rest,
+      targets: onRail(targets, allowed),
+      ...(kept.size === 0 ? {} : { merges: kept }),
+    };
+    return { ...snap, highlights };
   };
 
   const isOwnGroup = (state: Parameters<InputMode['onArrowClick']>[1], arrow: ArrowId): boolean =>
@@ -94,7 +101,13 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
     if (snap.phase.kind !== 'route') return snap;
     if (!restrictionAutoSends(restriction)) return snap;
     if (!draftMatchesRail(snap.phase.draft, restriction.clickable)) return snap;
-    return delegate(() => withCoach(inner.send(), restriction.coach()));
+    // The teacher speaks only when the engine refused the send: a landed rail is
+    // not an off-rail interaction, and before P77 retired apply-on-click the
+    // inner mode sent it itself, with no coach.
+    return delegate(() => {
+      const sent = inner.send();
+      return sent.refusal === undefined ? sent : withCoach(sent, restriction.coach());
+    });
   };
 
   const afterClick = (produce: () => InputSnapshot): InputSnapshot => maybeAutoSend(delegate(produce));
@@ -147,10 +160,13 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
           return withCoach(last, restriction.coach(arrow));
         }
         // An on-rail exit may already hold an own head (L2: the stay-behind on
-        // home). That is a landing, not a stack switch — the selectable guard
-        // must not swallow it or the expect never commits.
+        // home). That is a landing, not a stack switch — so it is drafted as the
+        // merge it is (P77: a tile click on an own stack would select it), and
+        // the rail's auto-send commits it.
         if (onRail) {
-          return afterClick(() => inner.onArrowClick(arrow, state, rules));
+          return afterClick(() =>
+            isOwnGroup(state, arrow) ? inner.mergeInto(arrow) : inner.onArrowClick(arrow, state, rules),
+          );
         }
         if (isOwnGroup(state, arrow)) {
           const selectable = restriction.selectable;
@@ -171,14 +187,20 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
       return delegate(() => inner.setCarry(count));
     },
 
-    // P77 skeleton: the rail's answer to an explicit select, and its on-rail
-    // own-head landing through `mergeInto`, are not implemented yet.
-    select(arrow): InputSnapshot {
-      throw new Error(`not implemented: rail select(${String(arrow)}) (P77)`);
+    // An explicit select (Next stack) obeys the same selectable guard as a click.
+    select(arrow, state, rules): InputSnapshot {
+      const selectable = restriction.selectable;
+      if (selectable !== undefined && !selectable.has(arrow)) {
+        return withCoach(last, restriction.coach(arrow));
+      }
+      return afterClick(() => inner.select(arrow, state, rules));
     },
 
     mergeInto(arrow): InputSnapshot {
-      throw new Error(`not implemented: rail mergeInto(${String(arrow)}) (P77)`);
+      if (restriction.clickable !== undefined && !restriction.clickable.has(arrow)) {
+        return withCoach(last, restriction.coach(arrow));
+      }
+      return afterClick(() => inner.mergeInto(arrow));
     },
 
     send: (): InputSnapshot => delegate(() => inner.send()),

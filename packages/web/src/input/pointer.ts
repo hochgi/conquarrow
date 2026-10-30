@@ -33,7 +33,14 @@ export interface PointerUp {
 }
 
 export const pointerUpIntent = (up: PointerUp): PointerUpIntent => {
-  throw new Error(
-    `not implemented: pointerUpIntent(${String(up.hit)}, locked=${String(up.inputLocked)}) (P77)`,
-  );
+  // A pan or a pinch moved the camera, and a release with no press behind it is
+  // not a click: none of them touches the input snapshot (invariant 13).
+  if (!up.hadPointer || up.dragged || up.pinched) return { kind: 'nothing' };
+  if (up.inputLocked) {
+    // A refused click like any other — but a background click refuses nothing.
+    return up.hit === undefined
+      ? { kind: 'nothing' }
+      : { kind: 'refuse', arrow: up.hit, reason: 'board-busy' };
+  }
+  return up.hit === undefined ? { kind: 'background' } : { kind: 'arrow', arrow: up.hit };
 };

@@ -62,10 +62,9 @@ export const REFUSAL_TEXT: Readonly<Record<RefusalReason, string>> = {
   'out-of-reach': 'Too far this turn',
   'no-exit': 'Nowhere to go from here',
   'would-convert': 'No trail home — those heads would flip',
-  // P77 skeleton — copy not written yet.
-  'nothing-selected': '',
-  'not-one-run': '',
-  'board-busy': '',
+  'nothing-selected': 'Nothing selected · click one of your stacks first',
+  'not-one-run': 'Reachable, but not in one run · click a lit arrow on the way first',
+  'board-busy': 'The board is not taking moves right now',
 };
 
 /**
@@ -74,9 +73,10 @@ export const REFUSAL_TEXT: Readonly<Record<RefusalReason, string>> = {
  * text for every reason.
  */
 export const refusalText = (reason: RefusalReason, selected?: ArrowId): string => {
-  throw new Error(
-    `not implemented: refusalText(${reason}, ${selected === undefined ? '-' : String(selected)}) (P77)`,
-  );
+  if (selected === undefined) return REFUSAL_TEXT[reason];
+  if (reason === 'out-of-reach') return `Too far for the stack on ${String(selected)}`;
+  if (reason === 'no-exit') return `The stack on ${String(selected)} has no move left this turn`;
+  return REFUSAL_TEXT[reason];
 };
 
 /** One arrow inside an overlay, with its own delay from the overlay's origin. */

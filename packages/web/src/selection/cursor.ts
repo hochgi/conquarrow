@@ -96,9 +96,9 @@ export const advanceCursor = (
  * preemption rule and has no none step.
  */
 export const nextStack = (cursor: Cursor, movable: readonly ArrowId[]): Cursor => {
-  throw new Error(
-    `not implemented: nextStack(${String(cursor)}, ${String(movable.length)} movable) (P77)`,
-  );
+  const baseline = inBaselineOrder(movable);
+  if (cursor === undefined) return baseline[0];
+  return baseline.find((candidate) => compareArrows(candidate, cursor) > 0);
 };
 
 /**

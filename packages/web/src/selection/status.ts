@@ -8,6 +8,7 @@
  * arrives in.
  */
 
+import { compareArrows } from '@conquarrow/rules-core';
 import type { ArrowId } from '@conquarrow/contracts';
 import type { Cursor } from './cursor';
 
@@ -23,12 +24,23 @@ export const selectionLine = (opts: {
   readonly heads: number;
   readonly movable: readonly ArrowId[];
 }): string => {
-  throw new Error(
-    `not implemented: selectionLine(${String(opts.selected)}, ${String(opts.heads)}, ${String(opts.movable.length)}) (P77)`,
-  );
+  const { selected, heads, movable } = opts;
+  const m = movable.length;
+  if (selected === undefined) {
+    return m === 0 ? 'No stack selected · nothing can move' : `No stack selected · ${String(m)} can move`;
+  }
+  const named = `Selected: ${String(heads)} on ${String(selected)}`;
+  // The 1-based lap position: arrows strictly before `selected` in
+  // `compareArrows` order, plus one — never the index in `movable`'s own order.
+  const isMovable = movable.some((arrow) => compareArrows(arrow, selected) === 0);
+  if (!isMovable) return `${named} · no move left · ${String(m)} can move`;
+  const n = movable.filter((arrow) => compareArrows(arrow, selected) < 0).length + 1;
+  return `${named} · ${String(n)} of ${String(m)}`;
 };
 
 /** Row 3's text when no refusal is showing: whether the turn passes by itself. */
 export const turnStatus = (movableCount: number): string => {
-  throw new Error(`not implemented: turnStatus(${String(movableCount)}) (P77)`);
+  if (movableCount === 0) return 'Nothing can move · the turn passes by itself';
+  const stacks = movableCount === 1 ? 'stack' : 'stacks';
+  return `${String(movableCount)} ${stacks} can still move · End turn when done`;
 };
