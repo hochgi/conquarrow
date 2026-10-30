@@ -13,6 +13,9 @@ coverage/
 # SAM local / CI build
 .aws-sam/
 
+# P79 BYOK benchmark output — summarised by hand in docs/research/byok-benchmark.md
+packages/web/bench/results/
+
 # mutation / coverage artefacts
 .stryker-tmp/
 reports/
