@@ -12,9 +12,9 @@ import { annotateMove, clearByokPlans, movesForLlm } from '../../src/byokBot';
 import { clearTargetLocks } from '../../src/targets';
 import { geometry, rules } from '../src/board';
 import { main, type CliIo } from '../src/cli';
-import { corpusLog, corpusPositions } from '../src/corpus';
+import { corpusLog, corpusPosition, corpusPositions } from '../src/corpus';
 import { matchConfigFor } from '../src/grid';
-import { isInteriorPass, isMissedClose, shareCloseRows } from '../src/metrics';
+import { isInteriorPass, isMissedClose, rewalkCount, shareCloseRows } from '../src/metrics';
 import { createByokSeat, playByokSeatTurn } from '../src/seat';
 import { inProcessJobs } from '../src/tiers';
 import { relayFetch } from '../src/transport';
@@ -235,5 +235,27 @@ describe('P79 harness — the Node stand-in for the dev relay', () => {
       }),
     ).rejects.toThrow(/no allowed upstream/);
     expect(model.calls).toHaveLength(0);
+  });
+});
+
+describe('P79 harness — rewalk', () => {
+  it("counts a step onto the seat's own trail and not a fresh step (the 2026-09-10T1442 cycle)", () => {
+    const cycle = corpusPosition('grok-2026-09-10T1442', 34);
+    const cycleMove = corpusLog('grok-2026-09-10T1442').moves[34];
+    expect(cycleMove?.kind).toBe('step');
+    if (cycleMove === undefined) throw new Error('corpus move missing');
+    expect(rewalkCount(cycle.state, { moves: [cycleMove], llmFallbacks: 0 })).toBe(1);
+
+    const opening = corpusPosition('grok-2026-09-10T0657', 4);
+    const freshMove = corpusLog('grok-2026-09-10T0657').moves[4];
+    if (freshMove === undefined) throw new Error('corpus move missing');
+    expect(rewalkCount(opening.state, { moves: [freshMove], llmFallbacks: 0 })).toBe(0);
+  });
+
+  it('is 0 on a fallback turn', () => {
+    const cycle = corpusPosition('grok-2026-09-10T1442', 34);
+    const cycleMove = corpusLog('grok-2026-09-10T1442').moves[34];
+    if (cycleMove === undefined) throw new Error('corpus move missing');
+    expect(rewalkCount(cycle.state, { moves: [cycleMove], llmFallbacks: 1 })).toBe(0);
   });
 });
