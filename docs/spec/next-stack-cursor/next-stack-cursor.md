@@ -132,5 +132,9 @@ make the *displayed* game differ between runs.
 - **The cursor lives in the web adapter, not in `GameState`.** It is a view
   concern; putting it in state would make it replay-visible and put a UI
   preference on the online wire.
-- **The advance function is shared by the button and the post-commit
-  auto-advance.** One rule, two triggers, so the two can never disagree.
+- ~~**The advance function is shared by the button and the post-commit
+  auto-advance.**~~ **Amended by P77** ([board-selection-model](../board-selection-model/board-selection-model.md)):
+  the button now walks its own lap — movable arrows in baseline order, then
+  *none*, then wrap — through `nextStack`, and selects through
+  `InputMode.select` rather than a synthetic click. `advanceCursor` keeps the
+  post-commit preemption rule unchanged. One rule, two triggers, so the two can never disagree.

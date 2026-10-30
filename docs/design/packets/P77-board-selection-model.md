@@ -1,6 +1,6 @@
 # P77 — The board selection model
 
-> **Status:** ready. **Depends on:** P11, P48. **Not a BYOK packet** — this is
+> **Status:** in progress — spec: [board-selection-model](../../spec/board-selection-model/board-selection-model.md). **Depends on:** P11, P48. **Not a BYOK packet** — this is
 > the human seat's input layer.
 > Playtest 2026-10-29 ([findings](../../research/playtest-2026-10-29/FINDINGS.md) §4):
 > selection cost a move or a whole turn on **five separate turns**, twice after

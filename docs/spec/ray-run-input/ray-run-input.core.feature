@@ -162,6 +162,7 @@ Feature: Draft a route from straight runs, then send it
       And the phase is route
       And the tip is a0
 
+    @superseded-P77 # clicking the selected stack re-selects it; deselect is background, Escape, Cancel or the lap's none step
     Scenario: Clicking the source with an empty draft deselects
       Given the active player has clicked a0
       And the draft is empty
