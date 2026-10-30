@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { movesEqual } from '@conquarrow/contracts';
+import { mintPlayerId, movesEqual, SPAWNER_BANDS, step } from '@conquarrow/contracts';
 import type { GameState, Move, PlayerId, StepMove } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import { chooseMove } from '../src/opponent';
@@ -125,7 +125,63 @@ export const withEmptyTerritory = (state: GameState): GameState => ({
   territory: new Map(),
 });
 
-export const withTrailLen = (state: GameState, me: PlayerId, len: number): GameState => {
+/** P74 budget: the teaching body before P74, in characters (git 363e7de). */
+export const P74_BASELINE_CHARS = 6279;
+
+/** Rough tokenizer (no BPE dependency in the repo): chars / 4, rounded up. */
+export const approxTokens = (text: string): number => Math.ceil(text.length / 4);
+
+/** P74: section body under one `## ` heading, up to the next. */
+export const teachingSection = (teaching: string, heading: string): string => {
+  const start = teaching.indexOf(`## ${heading}\n`);
+  if (start < 0) throw new Error(`setup: teaching has no ## ${heading}`);
+  const next = teaching.indexOf('\n## ', start + 1);
+  return next < 0 ? teaching.slice(start) : teaching.slice(start, next);
+};
+
+const ratio = (q: { readonly num: number; readonly den: number }): string =>
+  `${String(q.num)}/${String(q.den)}`;
+
+/** P74: the Gradient table rows, derived from `SPAWNER_BANDS` so the two cannot drift. */
+export const bandTableRows = (): readonly string[] => {
+  let lo = 0;
+  return SPAWNER_BANDS.map((band) => {
+    const hi = Number.isFinite(band.upTo) ? String(band.upTo) : 'R';
+    const row = `| ${String(lo)}–${hi} | ${ratio(band.force)} | ${ratio(band.density)} |`;
+    lo = band.upTo + 1;
+    return row;
+  });
+};
+
+/** P74: the message `apply` throws for a self-converting step, read from the engine. */
+export const selfConvertRefusal = (): string => {
+  const A = mintPlayerId('A');
+  const B = mintPlayerId('B');
+  const from = geometry.outArrows(geometry.seedPoint())[0];
+  if (from === undefined) throw new Error('setup: tiling offered no out-arrow at its seed');
+  const exit = geometry.outArrows(geometry.target(from))[0];
+  if (exit === undefined) throw new Error('setup: no grain out');
+  const state: GameState = {
+    players: [A, B],
+    activePlayer: A,
+    groups: new Map([[from, { owner: A, heads: 1, spent: 0 }]]),
+    trails: new Map([[A, new Set([from])]]),
+    territory: new Map([[exit, B]]),
+    accumulators: new Map(),
+    spawners: new Map(),
+    starvationStreaks: new Map(),
+    dominationN: 5,
+    winner: undefined,
+  };
+  try {
+    rules.apply(state, step(from, exit, 1));
+  } catch (error) {
+    if (error instanceof Error) return error.message;
+  }
+  throw new Error('setup: a stack-grade step onto enemy territory was not refused');
+};
+
+export const withTrailLen =(state: GameState, me: PlayerId, len: number): GameState => {
   const owned = [...state.territory.keys()].filter((id) => state.territory.get(id) === me);
   const others = [...state.territory.keys()].filter((id) => state.territory.get(id) !== me);
   const ids = [...owned, ...others];

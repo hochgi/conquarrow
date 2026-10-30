@@ -23,9 +23,12 @@ import {
   t2Board,
 } from './byok-batch-turn.support';
 import {
+  P74_BASELINE_CHARS,
   SPEED_FORMULA,
   SUGGESTION_ONLY,
   TEACHING_LOCKS,
+  approxTokens,
+  bandTableRows,
   baselineLine,
   byokBotSource,
   chooseOfferStep,
@@ -35,8 +38,10 @@ import {
   pagesHeuristicSource,
   readTeachingFile,
   rules,
+  selfConvertRefusal,
   specSection1,
   t1Opening,
+  teachingSection,
   withEmptyTerritory,
   withTrailLen,
 } from './byok-teaching-prompt.support';
@@ -184,5 +189,37 @@ describe('byok-teaching-prompt invariants', () => {
     expect(teaching).not.toContain('§11');
     expect(teaching).not.toContain('even-odd');
     expect(teaching).not.toContain('evaporation front');
+  });
+});
+
+describe('byok-teaching-prompt invariants — P74 defensive half', () => {
+  it('The Gradient table shall have exactly one row per SPAWNER_BANDS band, in order, with its force and density.', () => {
+    const gradient = teachingSection(readTeachingFile(), 'Gradient');
+    const rows = gradient.split('\n').filter((line) => /^\| \d/.test(line));
+    expect(rows).toEqual(bandTableRows());
+  });
+
+  it('The quoted self-convert refusal shall be the message apply throws for that step.', () => {
+    const refusal = selfConvertRefusal();
+    expect(refusal.length).toBeGreaterThan(0);
+    expect(teachingSection(readTeachingFile(), 'Missing rows are rules')).toContain(`"${refusal}"`);
+  });
+
+  it('The teaching body shall grow by at most 25% over the P74 baseline (chars / 4).', () => {
+    const ceiling = Math.floor(approxTokens('x'.repeat(P74_BASELINE_CHARS)) * 1.25);
+    expect(approxTokens(readTeachingFile())).toBeLessThanOrEqual(ceiling);
+  });
+
+  it('Each offensive clause shall carry its defensive half, and the seat shall reason from the losing conditions.', () => {
+    const teaching = readTeachingFile();
+    const tempo = teachingSection(teaching, 'Tempo');
+    expect(tempo).toMatch(/spare head is free/);
+    expect(tempo).toMatch(/Merging into a larger stack is free/);
+    expect(teachingSection(teaching, 'Close, cut, mill')).toMatch(/encirclement/);
+    expect(teachingSection(teaching, 'Board')).toMatch(/inside your own territory too/);
+    expect(teaching).toMatch(/one arrow short/);
+    const losing = teachingSection(teaching, 'Losing');
+    expect(losing).toContain('zero heads is survivable and zero shares is not');
+    expect(losing).toMatch(/opponent's production counts/);
   });
 });

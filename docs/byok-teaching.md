@@ -4,11 +4,24 @@ Curated for the BYOK seat. If this disagrees with SPEC.md, SPEC wins.
 
 ## Win
 
-The match ends when one seat remains. A won match offers nothing. A seat with no territory is lost. A living player who owns no spawner share at all for N consecutive full rounds loses (starvation). Loop: risk heads → take territory → hold specials → make heads.
+The match ends when one seat remains. A seat with no territory is lost. A seat that owns no spawner share for N consecutive full rounds loses (starvation). Loop: risk heads → take territory → hold specials → make heads.
+
+## Gradient
+
+A spawner pays `force` heads per full round, round-robin over its 3 shares; you get the shares you hold. By graph distance r from the origin:
+
+| r | force | density |
+|---|---|---|
+| 0–1 | 1/3 | 1/2 |
+| 2–3 | 1/9 | 1/3 |
+| 4–5 | 1/12 | 1/6 |
+| 6–R | 1/12 | 1/12 |
+
+Past R (default 7) there are no spawners. Force runs 4:1 centre to outer band, density 6:1. An arrow borders exactly 2 vertices, so dense centre arrows are often double-fed. A spawner row's `force` tells you its band; higher pays faster. By default homes start in the 4–5 band: expanding outward from home moves into the worst ground on the board.
 
 ## Board
 
-The board is an unbounded plane tiled with arrows. Movement follows the grain only. Every point is 3-in / 3-out. The girth is 3. A spawner sits on a vertex (never occupied).
+The board is an unbounded plane tiled with arrows. Movement follows the grain only, inside your own territory too: territory is safe, not free. Against the grain costs double, so a head deep in your back-country can be turns from the fighting. Every point is 3-in / 3-out. The girth is 3. A spawner sits on a vertex (never occupied).
 
 ## Move and turn
 
@@ -16,13 +29,25 @@ A move takes one portion of one arrow one step along an out-arrow. A turn is an 
 
 ## Tempo
 
-speed(N) = 1 + floor(log₂ N). On a split, both parts inherit spent. Arrive as majority and the joined group is barred at speed 0. Splitting is a decision before you walk, not after. Same (from, exit), larger count is the same walk, faster. A 2^k lump walks k+1 steps this turn as one count — send it as one count, not as 2^k singletons. The leftover keeps the parent's spent, so you may send the lump first and still move the remainder.
+speed(N) = 1 + floor(log₂ N). On a split, both parts inherit spent. Arrive as majority and the joined group is barred at speed 0. Splitting is a decision before you walk, not after. A 2^k lump walks k+1 steps as one count; send it as one count, not as 2^k singletons. The leftover keeps the parent's spent, so you may send the lump first and still move the remainder. A 4-stack is 3 tiles this turn; three singletons are 1+1+1.
+
+Between powers of two the spare head is free: speed(2) = speed(3) = 2, so a 3-stack can leave a sentry and still walk 2. A cut destroys your trail only up to your nearest head (or territory) each way. The tip already stops it, so a sentry belongs between the deep end of the trail and home.
+
+Merging into a larger stack is free in the right order: walk the larger stack first, then step the smaller group onto it once its steps are spent. Crossing a power of two (3→4, 7→8) buys a tile every turn after.
 
 ## Close, cut, mill
 
-Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill with empty trail and no expansion is wasted tempo. Crossing your own territory toward its edge (`to_edge`) is how an interior stack gets back to work; it is not a mill. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
+Closing claims enclosed ground, including enemy heads. Read backwards, that is encirclement: your heads inside an enemy loop convert whole, whatever the stack size, unless on a territory-grade trail. Concentration wins combat and loses to closure; two enemy trails flanking your salient can be the two arms of a pincer. home_mill with empty trail and no expansion is wasted tempo. Crossing your own territory toward its edge (`to_edge`) is how an interior stack gets back to work; it is not a mill. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
 
-Tags name outcomes. They are not orders. `on_target` loses to an available `closes`, an available `cut`, an opponent share or territory lead, and when trailLen is already at least girth and tipDist is not shrinking. Do not invent a tag. Do not treat `borders_spawner` as walking past the close.
+`on_target` loses to an available `closes`, an available `cut`, an opponent share or territory lead, and when trailLen is already at least girth and tipDist is not shrinking. Do not invent a tag. Do not treat `borders_spawner` as walking past the close.
+
+## Missing rows are rules
+
+`LEGAL_MOVES` omits illegal steps; a missing row is a rule.
+
+- A step onto enemy territory needs `from` on your own territory or your territory-grade trail. Otherwise it is refused: "step onto enemy territory without a territory-grade trail would convert".
+- Enemy territory is taken only by a closure: a step onto it lays trail, the landing claims it.
+- Anchors: trail reaching neither your territory nor one of your stacks is dormant and claims nothing until a head re-attaches. A head inside enemy territory whose trail no longer reaches your territory converts; sentries do not save it.
 
 ## JSON contract
 
@@ -32,23 +57,15 @@ Return only a JSON object (no markdown fence):
 
 ## Plan
 
-`plan` is one clause naming the job this seat is still on after this batch (close this trail, contest the open enemy trail, spend leftover on the same exit). It is not an offer index. It is not geometry. It is not a second `why`.
+`plan` is one clause naming the job still open after this batch (close this trail, contest the open enemy trail). Not an offer index, not geometry, not a second `why`.
 
-Write it when the job needs another POST or another seat-turn. Omit it on a pass (`[]` + `endTurn: true`) or when this batch finishes the job (close lands, trailLen will be 0).
+Keep it under 512 characters, one paragraph, no invented destinations. Do not put indices in plan; they go stale on the next offer.
 
-Keep it under 512 characters, one paragraph, no invented destinations. Do not put indices in plan (`close the 3-stack` not `play [2]`). Indices go stale on the next offer.
-
-A share is a factory. Force on a held vertex is future heads. Territory with no new share is painted dirt. closes without share+N on that row claims painted dirt only. The pinwheel 1-share vs 3-share example already shows the other case. Do not invent `share+N`.
-
-Opening implication of `speed(N) = 1 + floor(log₂ N)` only: a 4-stack is 3 tiles this turn; three singletons are 1+1+1. That is why an early lump has more ground, not because we said "prefer 4."
+A share is a factory. closes without share+N on that row claims painted dirt only — unless it shortens the next loop to a spawner, e.g. leaves a vertex one arrow short. A land bridge across spawner borders turns those arrows into shares. Do not invent `share+N`.
 
 Other seats have a job you can read from the header: share lead, longest enemy trail, whether any legal row is `cut` / `closes` / `borders_spawner`. Weigh cut-if-present against expand-if-present. A plan cannot create a cut that is not a row.
 
-A plan that names a tag is already wrong (`continue on_target`, `walk on_target`). Tags are hints. Rewrite it.
-
-Rewrite when: the job is done; this offer no longer contains that walk; the threat line shows a `cut` / `share+N` close that beats the old job; the current `closes` row has no `share+N`; the lead has flipped against this seat and the plan is still "close this dirt trail."
-
-The echoed `Plan:` line is a reminder, not an order. `LEGAL_MOVES` still binds. A plan cannot create a cut that is not a row.
+A plan that names a tag is already wrong. Rewrite it when the job is done, its walk left the offer, a `cut` / `share+N` close beats it or the lead flipped. The echoed `Plan:` line is a reminder, not an order.
 
 Hit 12 shape. Offer has count=3 closes [2] and [8].
 Good: {"moves":[2],"endTurn":true,"why":"lump close","plan":"close the open trail"}
@@ -81,14 +98,14 @@ Same (from, exit):
 [1] count=2
 [2] count=3
 
-Lump count=3 walks 2 tiles this turn (speed(3)=2). Split 2+1 before walking: the pair walks 2 tiles and the singleton walks 1 tile → 3 tiles. After the lump both parts inherit spent. Do not peel three count=1 as three POSTs — legal, but that is singleton throughput without the pair's extra step.
+Lump count=3 walks 2 tiles (speed(3)=2). Split 2+1 before walking: the pair walks 2 and the singleton 1 → 3 tiles. Do not peel three count=1 as three POSTs.
 
 ## Pinwheel 1-share vs 3-share
 
 The girth is 3: one pinwheel is one vertex and three border arrows — three shares.
 
 Before
-You: 1 head on one border of an open spawner pinwheel, trail back to a small home blob. Shares=0.
+You: 1 head on one border of an open pinwheel, trail back home. Shares=0.
 [0] homeward close (lands; claims the trail and that one border).
 [1] walk another border of the same pinwheel.
 
@@ -96,4 +113,10 @@ After 1-share
 apply(state, move) → state: the path and one border are territory. Shares=1.
 
 After 3-share
-Each step is apply(state, move) → state. After walking the other two borders then landing, all three borders are territory. Shares=3.
+Walk the other two borders, then land: all three borders are territory. Shares=3.
+
+## Losing
+
+With a share and no heads you are alive, skipped until a spawner pays. With no share you starve in N full rounds, or lose at once with no heads. So zero heads is survivable and zero shares is not: when behind, spend heads on shares, do not hoard them.
+
+Reducing an opponent's production counts: spawner rows show their `held`. When behind, taking or blockading their share is often worth more per step than any gain.
