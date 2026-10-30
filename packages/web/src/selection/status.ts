@@ -10,6 +10,7 @@
 
 import { compareArrows } from '@conquarrow/rules-core';
 import type { ArrowId } from '@conquarrow/contracts';
+import { REFUSAL_TEXT } from '../fx/present';
 import type { Cursor } from './cursor';
 
 /**
@@ -62,9 +63,12 @@ export const stripLines = (opts: {
   readonly refusal: string | undefined;
 }): { readonly selection: string; readonly message: string } => {
   if (opts.locked) return { selection: '', message: opts.refusal ?? '' };
+  // A board-busy note answers a click on a locked board; once the lock lifts it
+  // is no longer true, even if no click has cleared it yet.
+  const refusal = opts.refusal === REFUSAL_TEXT['board-busy'] ? undefined : opts.refusal;
   return {
     selection: selectionLine(opts),
-    message: opts.refusal ?? turnStatus(opts.movable.length),
+    message: refusal ?? turnStatus(opts.movable.length),
   };
 };
 

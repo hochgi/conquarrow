@@ -159,7 +159,8 @@ const playFlags = (args: {
     onDraft: draft.has(arrow),
     isTip: route.tip === arrow,
     onPreview: route.hoverPreview.has(arrow),
-    isMovable: movable.has(arrow) && !isSelected,
+    // The merge dash would vanish under the movable gold outline (P77 review).
+    isMovable: movable.has(arrow) && !isSelected && !onMerge,
     refused: highlights.refused?.has(arrow) === true,
   };
 };
@@ -212,7 +213,7 @@ const DashedTier = ({
   const tier = dashedTier(flags);
   if (tier === undefined) return null;
   const style = tierStyle(tier);
-  return (
+  const dashed = (
     <polygon
       points={points}
       fill="none"
@@ -221,6 +222,20 @@ const DashedTier = ({
       {...(style.dash === undefined ? {} : { strokeDasharray: style.dash })}
       style={{ pointerEvents: 'none' }}
     />
+  );
+  if (tier !== 'merge') return dashed;
+  // The merge dash sits on a solid dark band, so it reads on every seat's fill.
+  return (
+    <>
+      <polygon
+        points={points}
+        fill="none"
+        stroke={SELECTED_UNDER_STROKE}
+        strokeWidth={style.width + 2}
+        style={{ pointerEvents: 'none' }}
+      />
+      {dashed}
+    </>
   );
 };
 

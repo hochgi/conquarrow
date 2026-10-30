@@ -1295,6 +1295,9 @@ export const App = (): ReactElement => {
       // toggle the selection off or extend a draft.
       if (arrow === undefined) return inputRef.current.reset();
       const placed = inputRef.current.select(arrow, at, rules);
+      // A select the tutorial's guard refused leaves the selection where it was,
+      // so the camera stays too.
+      if (placed.highlights.selected !== arrow) return placed;
       const focus = arrowCentroid(arrow);
       setViewport((v) => panForSelection(v, focus));
       return placed;

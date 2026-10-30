@@ -131,18 +131,6 @@ export const RouteDock = ({
     <p className="route-dock-line">{selection}</p>
     <div className="route-dock-controls">
       {control === undefined ? null : <CountStepper control={control} onCount={onCount} />}
-      {merges.map((arrow) => (
-        <button
-          key={String(arrow)}
-          type="button"
-          className="route-dock-merge"
-          onClick={() => {
-            onMerge(arrow);
-          }}
-        >
-          {`Merge into ${String(arrow)}`}
-        </button>
-      ))}
       {control === undefined ? null : (
         <div className="route-dock-actions">
           <button type="button" className="secondary" onClick={onCancel}>
@@ -156,6 +144,24 @@ export const RouteDock = ({
           >
             Send
           </button>
+        </div>
+      )}
+      {/* After Cancel / Send, so a long merge list scrolls rather than pushing Send
+          out of the row. */}
+      {merges.length === 0 ? null : (
+        <div className="route-dock-merges">
+        {merges.map((arrow) => (
+          <button
+            key={String(arrow)}
+            type="button"
+            className="route-dock-merge"
+            onClick={() => {
+              onMerge(arrow);
+            }}
+          >
+            {`Merge into ${String(arrow)}`}
+          </button>
+        ))}
         </div>
       )}
     </div>

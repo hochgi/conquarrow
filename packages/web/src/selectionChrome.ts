@@ -12,7 +12,7 @@
  */
 
 import type { ArrowId } from '@conquarrow/contracts';
-import { HIGHLIGHT_STROKE, PATH_STROKE, PREVIEW_STROKE } from './colors';
+import { PATH_STROKE, PREVIEW_STROKE } from './colors';
 import type { InputHighlights, InputPhase } from './input/modes';
 
 export type PointerKind = 'fine' | 'coarse';
@@ -35,6 +35,8 @@ export const SELECTED_UNDER_STROKE = '#0b1016';
  * another shade of their hue.
  */
 export const MULTI_RUN_STROKE = '#a3a9b0';
+/** The merge tier's dash (P77) — white, laid over {@link SELECTED_UNDER_STROKE}. */
+export const MERGE_STROKE = '#ffffff';
 
 /** The route paint tiers (P77). */
 export type RouteTier = 'drafted' | 'one-run' | 'multi-run' | 'merge';
@@ -52,7 +54,9 @@ const TIER_STYLES: Readonly<Record<RouteTier, TierStyle>> = {
   'one-run': { stroke: PREVIEW_STROKE, width: 2.6 },
   'multi-run': { stroke: MULTI_RUN_STROKE, width: 1.5, dash: '4 3' },
   // Legal, but drafted from the strip — a click on the tile selects that stack.
-  merge: { stroke: HIGHLIGHT_STROKE, width: 2.6, dash: '6 3' },
+  // White over a dark under-stroke (Board), so it reads on every seat's fill —
+  // gold was invisible on seat A's own tiles.
+  merge: { stroke: MERGE_STROKE, width: 2.6, dash: '6 3' },
 };
 
 /** How each route tier is stroked (P77). Board reads it. */

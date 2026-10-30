@@ -372,7 +372,7 @@ describe('P35 core — the control lives below the board, never on it', () => {
     const dockSource = readSource('RouteDock.tsx');
     // Whole words: P77's `leftoverNote` is copy, not a position (board-selection-model).
     for (const positional of ['left', 'top', 'toScreen', 'tipScreen', 'viewport']) {
-      expect(dockSource, positional).not.toMatch(new RegExp(`\\b${positional}\\b`));
+      expect(dockSource, positional).not.toMatch(new RegExp(`\\b${positional}(?![a-z])`));
     }
   });
 

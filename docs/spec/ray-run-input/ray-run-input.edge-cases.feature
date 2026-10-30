@@ -160,11 +160,12 @@ Feature: Route drafting at the boundaries
       When the active player clicks a0
       Then every arrow reached by exactly one shortest route from a0 is in the clickable set
 
+    # Amended by P77: a multi-run mark refuses `not-one-run` (board-selection-model *Refusals*).
     Scenario: Clicking a reachable but ambiguous arrow refuses
       Given an arrow at distance four is reachable by three shortest routes
       When the active player clicks a0
       And clicks that arrow
-      Then the click is refused with reason out-of-reach
+      Then the click is refused with reason not-one-run
       And the draft is empty
 
     Scenario: The ambiguous arrow becomes clickable after one run is drafted

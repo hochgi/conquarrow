@@ -24,11 +24,13 @@ Feature: Next stack cursor — edge cases
       When A's turn begins
       Then the cursor is on nothing
 
+    # Amended by P77 (board-selection-model): a press walks the lap a1 → … → last → none → a1.
     Scenario: A single movable arrow is re-selected by a press
       Given a1 is the only movable arrow
       And the cursor is on a1
       When next stack is pressed
-      Then the cursor is on a1
+      Then the cursor is on nothing
+      And a further press puts the cursor on a1
 
   Rule: Preemption precedence
 
@@ -68,20 +70,23 @@ Feature: Next stack cursor — edge cases
       # A merge costs the stack its speed bonus for the turn (SPEC §3), so this
       # is the ordinary case, not the exotic one.
 
+    # Amended by P77 (board-selection-model): a press walks the lap a1 → … → last → none → a1.
     Scenario: A preempted arrow is not offered again in the same lap
       Given movable arrows a1, a2, a3 and a9 with a9 last in baseline order
       And the cursor is preempted from a1 to a9
-      When next stack is pressed twice
-      Then the cursor has been on a1, a2 and a3
+      When next stack is pressed four times
+      Then the cursor has been on nothing, a1, a2 and a3
       And the cursor has not returned to a9
 
   Rule: The movable set changes under the cursor
 
+    # Amended by P77 (board-selection-model): a press walks the lap a1 → … → last → none → a1.
     Scenario: A newly created stack is reached later in the lap
       Given movable arrows a1, a2 and a3 in baseline order
       And the cursor is on a3 after a split created a movable stack on a2
       When next stack is pressed
-      Then the cursor is on a1
+      Then the cursor is on nothing
+      And a further press puts the cursor on a1
       And a further press puts the cursor on a2
 
     Scenario: The cursor's own arrow stops being movable
@@ -90,12 +95,14 @@ Feature: Next stack cursor — edge cases
       When next stack is pressed
       Then the cursor is on the next movable arrow after a2 in baseline order
 
+    # Amended by P77 (board-selection-model): a press walks the lap a1 → … → last → none → a1.
     Scenario: Every other arrow stops being movable
       Given movable arrows a1 and a2
       And the cursor is on a1
       And a2 stops being movable
       When next stack is pressed
-      Then the cursor is on a1
+      Then the cursor is on nothing
+      And a further press puts the cursor on a1
 
     Scenario: The last movable arrow is spent
       Given a1 is the only movable arrow

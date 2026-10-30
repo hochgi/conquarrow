@@ -281,7 +281,9 @@ body,
 .route-dock-controls {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* `safe`: when the row is too wide it starts at the count, never cut on both
+     sides — and Send sits before the merge buttons, so it is never the item lost. */
+  justify-content: safe center;
   flex-wrap: nowrap;
   gap: 0.6rem;
   height: var(--dock-controls);
@@ -293,6 +295,14 @@ body,
   font-size: 0.72rem;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.route-dock-merges {
+  display: flex;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
 }
 
 .route-dock-merge {

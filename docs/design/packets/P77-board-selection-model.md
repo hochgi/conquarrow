@@ -1,6 +1,6 @@
 # P77 — The board selection model
 
-> **Status:** in progress — spec: [board-selection-model](../../spec/board-selection-model/board-selection-model.md). **Depends on:** P11, P48. **Not a BYOK packet** — this is
+> **Spec:** [board-selection-model](../../spec/board-selection-model/board-selection-model.md); replay: [p77-replay](../../research/playtest-2026-10-29/p77-replay/README.md). **Depends on:** P11, P48. **Not a BYOK packet** — this is
 > the human seat's input layer.
 > Playtest 2026-10-29 ([findings](../../research/playtest-2026-10-29/FINDINGS.md) §4):
 > selection cost a move or a whole turn on **five separate turns**, twice after
@@ -93,9 +93,9 @@ click intended as a move can be consumed as a selection change.
 
 ## Definition of done
 
-- [ ] `pnpm verify` green.
-- [ ] Replaying the five selection incidents from the 2026-10-29 log by hand,
+- [x] `pnpm verify` green.
+- [x] Replaying the five selection incidents from the 2026-10-29 log by hand,
       none of them can be reproduced.
-- [ ] No click can both change selection and commit a move.
-- [ ] No highlighted ray is refused by `apply`.
-- [ ] Every refused click produces a visible reason.
+- [x] No click can both change selection and commit a move.
+- [x] No highlighted ray is refused by `apply`.
+- [x] Every refused click produces a visible reason.

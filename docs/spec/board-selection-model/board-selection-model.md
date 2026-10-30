@@ -199,9 +199,13 @@ stays" being read as "stays home".
   fill, and `ROUTE_HINT_EMPTY` names it. A pure `tierStyle(tier)` in
   `selectionChrome.ts` returns `{ stroke, width, dash? }` for
   `'drafted' | 'one-run' | 'multi-run' | 'merge'` and Board reads it.
-- **Merge targets** are painted with the `merge` tier (dashed, never
-  `PREVIEW_STROKE`; Board may tint it with the active player's colour) — legal, but a click on the tile
-  selects; the strip's **Merge into `${arrow}`** button drafts it.
+- **Merge targets** are painted with the `merge` tier — a white dash
+  (`MERGE_STROKE`) over a solid `SELECTED_UNDER_STROKE` band, never
+  `PREVIEW_STROKE`, so it reads on every seat's fill — and are not also painted
+  with the movable gold outline. Legal, but a click on the tile selects; the
+  strip's **Merge into `${arrow}`** button drafts it. In the strip, Cancel/Send
+  come before the merge buttons, which scroll sideways when they overflow, so
+  Send is never pushed off the row.
 - **Refused** grain neighbours keep P28's refused treatment and `not-allowed`
   cursor — measured at the **tip** on the scratch state, not at the source.
 
@@ -250,7 +254,9 @@ seeds of own/enemy stacks and territory).
 
 1. **Ubiquitous** — The system shall never return `pending` from
    `onArrowClick`; a move reaches the host only through `send`,
-   `requestEndTurn`, or the turn auto-pass.
+   `requestEndTurn`, or the turn auto-pass. (Invariants 1–4 are about the
+   input modes; a tutorial rail's decorator keeps its scripted auto-send —
+   see Decisions.)
 2. **Event-driven** — When an own stack on the live board is clicked, the system
    shall return a snapshot whose selected stack is that arrow and whose draft is
    empty, whatever the phase, draft or offer before the click.
@@ -328,6 +334,15 @@ seeds of own/enemy stacks and territory).
   keeps its name `reachWash` (a rename would touch P34's suite for nothing).
 - **The refusal moves to the strip's message line** (next to the board) and
   leaves the HUD; the fx overlay on the clicked arrow (Event 11) is unchanged.
+- **While input is locked the strip's text rows are blank** (`stripLines`),
+  except that a `board-busy` refusal is shown. The selection line and turn status
+  describe the *active* seat, which while locked is a bot, a replay or nobody — so
+  "Selected … · 2 of 3" or "3 stacks can still move" would speak for a seat the
+  human is not driving. The rows stay mounted, so nothing reflows.
+- **`Next stack` laps from `highlights.selected`**, not from a separate cursor:
+  the selection *is* the cursor, so a click on another own stack moves the lap
+  with it and the two cannot drift. After an online Send (no post-commit advance
+  there) the lap restarts from its first arrow.
 
 ## Superseded
 
@@ -335,13 +350,31 @@ Scenarios this packet retires are tagged `@superseded-P77` in place and keep
 their text as history; their tests are deleted or inverted by phase 2:
 
 - [count-after-route core](../count-after-route/count-after-route.core.feature):
-  *A click with nothing left to decide applies the move* (5 scenarios);
+  *A click with nothing left to decide applies the move* (4 of its 6 scenarios —
+  the outline and *A multi-run draft never auto-applies* still hold);
   [edge cases](../count-after-route/count-after-route.edge-cases.feature):
-  *The auto-apply test is exact at its boundaries* (5) and the merge-by-click
-  scenarios (2).
+  *The auto-apply test is exact at its boundaries* (2 of its 4) and the
+  merge-by-click scenarios (2).
 - [ray-run-input core](../ray-run-input/ray-run-input.core.feature):
   *Clicking the source with an empty draft deselects*;
   [edge cases](../ray-run-input/ray-run-input.edge-cases.feature): the two
   merge-by-click scenarios.
 - [next-stack-cursor](../next-stack-cursor/next-stack-cursor.md): the button's
   wrap (`a3 → a1`) becomes `a3 → none → a1`; `advanceCursor` itself is unchanged.
+
+**Amended in place** (behaviour still tested, wording updated, each marked
+`# Amended by P77`) rather than superseded, because the scenario's subject
+survives and only its expected value moved:
+
+- next-stack-cursor core *The cursor wraps at the end of the lap*, *The lap
+  resumes from the preempted arrow*; edge cases *A single movable arrow is
+  re-selected by a press*, *A preempted arrow is not offered again in the same
+  lap*, *A newly created stack is reached later in the lap*, *Every other arrow
+  stops being movable* — each press past the last movable arrow now lands on
+  *none* first.
+- ray-run-input edge *Clicking a reachable but ambiguous arrow refuses* —
+  `not-one-run`, not `out-of-reach`; core's three route-hint scenarios — the
+  *Route hints* table above.
+- The overviews' prose: count-after-route *Auto-apply* and invariants 11, 13,
+  22; ray-run-input's deselect / blocked bullets, hint strings and the
+  reachable-not-clickable invariant; selection-chrome's `SELECTED_STROKE_WIDTH`.

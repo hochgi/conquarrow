@@ -236,16 +236,17 @@ Feature: Draft a route from straight runs, then send it
       When the pointer hovers the ray arrow two steps along slot 0
       Then the hover preview is the clickable set that arrow would offer as tip
 
+    # Amended by P77: the hint strings are board-selection-model's normative copy.
     Scenario: The route phase hint names extend, go back, and send
       Given the active player has drafted a two step route
-      Then the hint reads "Click to extend · click a walked arrow to go back · Send when ready"
+      Then the hint reads "Click to extend · click a walked arrow to go back · Send to move"
 
     Scenario: A tip with nothing clickable says the run can go no further
       Given the active player has drafted a route that has spent every step of allowance
       Then the clickable set from the tip is empty
-      And the hint reads "This run can go no further · click a walked arrow to go back · Send when ready"
+      And the hint reads "This run can go no further · click a walked arrow to go back · Send to move"
 
     Scenario: The empty draft hint names the ray and the free turn
       Given the active player has clicked a0
       And the draft is empty
-      Then the hint reads "Click along a ray to walk straight · one turn at the end is free"
+      Then the hint reads "Click a lit arrow to draft a run · one turn at the end is free · dashed = needs more than one run"

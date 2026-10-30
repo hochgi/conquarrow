@@ -541,7 +541,7 @@ describe('P35 invariants', () => {
     const dock = readSource('RouteDock.tsx');
     // Whole words: P77's `leftoverNote` is copy, not a position (board-selection-model).
     for (const positional of ['x:', 'y:', 'left', 'top', 'toScreen', 'viewport', 'stage']) {
-      expect(dock, positional).not.toMatch(new RegExp(`\\b${positional}(?![\\w])`));
+      expect(dock, positional).not.toMatch(new RegExp(`\\b${positional}(?![a-z])`));
     }
     const route = readSource('route.ts');
     for (const positional of ['toScreen', 'viewport', 'Viewport']) {

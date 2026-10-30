@@ -301,7 +301,7 @@ export const Hud = ({
         one run away, click one to draft a straight leg (one turn at the end is
         free) and click again from the new tip · the brightest chords = the route
         drafted so far, click a walked arrow to go back · dashed = reachable, but
-        needs more than one run · a dashed gold outline on your own stack = a merge,
+        needs more than one run · a dashed white outline on your own stack = a merge,
         drafted with the strip&apos;s Merge into button · route first, count second:
         the strip says how many heads walk the last leg, the rest staying where that
         leg began as a sentry (an attack always leaves one behind, so that click is
