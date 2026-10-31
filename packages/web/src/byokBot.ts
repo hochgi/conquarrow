@@ -341,6 +341,99 @@ const homeFacts = (
   return { slot: `edgeDist=${String(a)}→${String(b)}`, tag };
 };
 
+const annotateEndTurn = (geometry: GeometryPort, state: GameState, me: PlayerId): string => {
+  const trail = state.trails.get(me)?.size ?? 0;
+  const shares = shareCount(geometry, state, me);
+  const tags: string[] = [];
+  if (trail >= 4) tags.push('exposed_trail');
+  if (closeUrgency(trail) >= 36) tags.push('should_close_soon');
+  if (shares === 0 && trail === 0) tags.push('no_shares_yet');
+  const tagStr = tags.length > 0 ? ` tags=${tags.join(',')}` : '';
+  return `endTurn trailLen=${String(trail)} shares=${String(shares)}${tagStr}`;
+};
+
+/** `closes` / `land_bridge` and `share+N`: what `apply` realised for `me`. */
+const gainTags = (
+  geometry: GeometryPort,
+  state: GameState,
+  after: GameState,
+  me: PlayerId,
+): readonly string[] => {
+  const tags: string[] = [];
+  const gainedTerr = territoryCount(after, me) - territoryCount(state, me);
+  const gainedShare = shareCount(geometry, after, me) - shareCount(geometry, state, me);
+  if (gainedTerr > 0) tags.push(gainedTerr === 1 ? 'land_bridge' : 'closes');
+  if (gainedShare > 0) tags.push(`share+${String(gainedShare)}`);
+  return tags;
+};
+
+type CourseFacts = {
+  /** `tipDist=` / `edgeDist=` (P80). */
+  readonly slot: string;
+  readonly tags: readonly string[];
+};
+
+/** Where the step goes: home facts, distance, target, trails and stacks it meets. */
+const courseFacts = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  move: StepMove,
+  targets: readonly Finding[],
+): CourseFacts => {
+  const d0 = distanceToTerritory(geometry, state, me, move.from);
+  const d1 = distanceToTerritory(geometry, state, me, move.exit);
+  const home = homeFacts(geometry, state, me, move, [d0, d1]);
+  const tags: string[] = [];
+  if (home.tag !== undefined) tags.push(home.tag);
+  if (d1 < d0) tags.push('homeward');
+  else if (d1 > d0) tags.push('outward');
+  if (state.territory.get(move.exit) === me) tags.push('onto_home');
+  if (tagOnTarget(move, targets)) tags.push('on_target');
+  tags.push(...cutOrNearTrailTags(geometry, state, me, move.exit));
+  const dest = state.groups.get(move.exit);
+  if (dest !== undefined && dest.owner !== me) tags.push('combat');
+  return { slot: home.slot, tags };
+};
+
+/** ` leave= spd= spent= left=`: the portion's tempo on `from`. */
+const portionSlot = (state: GameState, move: StepMove): string => {
+  const fromGroup = state.groups.get(move.from);
+  const leave = (fromGroup?.heads ?? move.count) - move.count;
+  const spent = fromGroup?.spent ?? 0;
+  const portionSpd = fromGroup?.speedOverride ?? speed(move.count);
+  const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
+  return `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}`;
+};
+
+const annotateStep = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  move: StepMove,
+  targets: readonly Finding[],
+): string => {
+  const head = `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}`;
+  let after: GameState;
+  try {
+    after = rules.apply(state, move);
+  } catch {
+    return `${head} tags=illegal`;
+  }
+  const trailAfter = after.trails.get(me)?.size ?? 0;
+  const course = courseFacts(geometry, state, me, move, targets);
+  const tags = [
+    ...gainTags(geometry, state, after, me),
+    ...(bordersOpenSpawner(geometry, state, move.exit) ? ['borders_spawner'] : []),
+    ...course.tags,
+  ];
+  return (
+    `${head}${portionSlot(state, move)} ${course.slot} trailLen=${String(trailAfter)}` +
+    (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
+  );
+};
+
 /** Compact tags so the model can rank without inventing geometry. */
 export const annotateMove = (
   geometry: GeometryPort,
@@ -349,60 +442,10 @@ export const annotateMove = (
   me: PlayerId,
   move: Move,
   targets: readonly Finding[] = [],
-): string => {
-  switch (move.kind) {
-    case 'endTurn': {
-      const trail = state.trails.get(me)?.size ?? 0;
-      const shares = shareCount(geometry, state, me);
-      const tags: string[] = [];
-      if (trail >= 4) tags.push('exposed_trail');
-      if (closeUrgency(trail) >= 36) tags.push('should_close_soon');
-      if (shares === 0 && trail === 0) tags.push('no_shares_yet');
-      const tagStr = tags.length > 0 ? ` tags=${tags.join(',')}` : '';
-      return `endTurn trailLen=${String(trail)} shares=${String(shares)}${tagStr}`;
-    }
-    case 'step': {
-      let after: GameState;
-      try {
-        after = rules.apply(state, move);
-      } catch {
-        return `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)} tags=illegal`;
-      }
-      const d0 = distanceToTerritory(geometry, state, me, move.from);
-      const d1 = distanceToTerritory(geometry, state, me, move.exit);
-      const trailAfter = after.trails.get(me)?.size ?? 0;
-      const gainedTerr = territoryCount(after, me) - territoryCount(state, me);
-      const gainedShare = shareCount(geometry, after, me) - shareCount(geometry, state, me);
-      const home = homeFacts(geometry, state, me, move, [d0, d1]);
-      const ontoHome = state.territory.get(move.exit) === me;
-      const tags: string[] = [];
-      if (gainedTerr > 0) tags.push(gainedTerr === 1 ? 'land_bridge' : 'closes');
-      if (gainedShare > 0) tags.push(`share+${String(gainedShare)}`);
-      if (bordersOpenSpawner(geometry, state, move.exit)) tags.push('borders_spawner');
-      if (home.tag !== undefined) tags.push(home.tag);
-      if (d1 < d0) tags.push('homeward');
-      else if (d1 > d0) tags.push('outward');
-      if (ontoHome) tags.push('onto_home');
-      if (tagOnTarget(move, targets)) tags.push('on_target');
-      tags.push(...cutOrNearTrailTags(geometry, state, me, move.exit));
-      const dest = state.groups.get(move.exit);
-      if (dest !== undefined && dest.owner !== me) tags.push('combat');
-      const fromGroup = state.groups.get(move.from);
-      const fromHeads = fromGroup?.heads ?? move.count;
-      const leave = fromHeads - move.count;
-      const spent = fromGroup?.spent ?? 0;
-      const override = fromGroup?.speedOverride;
-      const portionSpd = override !== undefined ? override : speed(move.count);
-      const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
-      return (
-        `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}` +
-        `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}` +
-        ` ${home.slot} trailLen=${String(trailAfter)}` +
-        (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
-      );
-    }
-  }
-};
+): string =>
+  move.kind === 'endTurn'
+    ? annotateEndTurn(geometry, state, me)
+    : annotateStep(geometry, rules, state, me, move, targets);
 
 /** Group steps by `from` in first-seen-in-offer order; keep global `[i]`. */
 const groupedStepEntries = (
