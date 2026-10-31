@@ -108,14 +108,6 @@ describe('P75 byok-offer-vertex-join edge cases', () => {
       expect(clauseFor(row, v1)).toBe(`advances=${String(v1)} 0/3→1/3 force=1/4`);
     });
 
-    // BLOCKED — kicked back to phase 1. Under the engine, a step's apply claims
-    // territory only on a closure, and a closure's exit is already the seat's
-    // territory (closureOf, D1), so that row is a re-walk and emits no clause
-    // (Decision 2). The Given — a non-re-walk exit whose apply claims another
-    // border — cannot be built; over the 1,421 non-re-walk corpus rows, apply
-    // changes no territory at all. The post-apply reading is still pinned by I4
-    // (a equals the count in `after`) in the invariants file.
-    it.todo('advances= reflects post-apply ownership, not pre (BLOCKED: Given is unsatisfiable — see comment)');
 
     it('An arrow flanking a vertex wholly held by an opponent reports that opponent\'s hold', () => {
       const state = stateOf({

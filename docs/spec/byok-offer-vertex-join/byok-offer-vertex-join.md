@@ -13,7 +13,7 @@ port method**: `GeometryPort.flankVertices` and `borderArrows` already exist.
 **Features:** [core](./byok-offer-vertex-join.core.feature) ·
 [edge cases](./byok-offer-vertex-join.edge-cases.feature)
 
-**Counts:** 18 scenarios (8 core, 10 edge) · 9 invariants · 0 SPEC §11 items.
+**Counts:** 17 scenarios (8 core, 9 edge) · 9 invariants · 0 SPEC §11 items.
 
 **Arm discipline.** P75 is one arm of the P79 gate, measured as an increment
 over main (= P80). P74 is parked. Nothing in the offer, tags, header or prompt
@@ -54,14 +54,21 @@ much, and says nothing on a re-walk.
    yields one clause `advances=<v> <h>/3→<h+1>/3 force=<n>/<d>`, where `<v>` is
    `String(v)` and `force` is the spawner's `force` as `num/den` (same
    formatting as the spawner row's `force`). `h+1` counts `exit` as the seat's:
-   it is the seat's hold on `v` once this exit is its territory (it is already
-   territory on a closing row; it becomes territory on a later close otherwise).
+   it is the seat's hold on `v` once this exit is its territory, which happens
+   on a later close.
    This is the *potential*; `share+N` stays the *realised* gain.
 2. **Re-walk emits nothing.** A re-walk row carries no `advances=` clause and
    no `double_fed` tag, whatever it flanks. This is the audit's cycle.
 3. **Post-`apply`.** `h` and `k` are read from `after`, exactly as `share+N`
-   is. A step whose `apply` claims other borders of `v` (a closing step) shows
-   the claimed count, not the pre-step one.
+   is. *Amended in phase 2:* this is not observably different from reading
+   `state`. `apply` changes territory only on a closure, and a closure's exit
+   is already the seat's territory (`closureOf`), so a closing row is a
+   re-walk and carries no clause. Over the 1,421 non-re-walk corpus rows,
+   `apply` changed no territory for any seat. The packet's scenario
+   "`advances=` reflects post-`apply` ownership, not pre" therefore has no
+   satisfiable Given and is dropped; the `after` reading is kept for parity
+   with `share+N` and pinned by I4. Post-`apply` *is* observable in
+   Decision 7(b), which reads a closing row's completed vertex.
 4. **Order.** Clauses are emitted in `compareVertices` order (the vertex twin
    of `compareArrows`; both are the opaque-id order). Never `flankVertices`'
    own order, never a `Set`'s.
@@ -173,7 +180,8 @@ flowchart TD
   same position on repeated calls, and identical text under both geometry
   implementations after ids are replaced by placeholders.
 - **I9** (ubiquitous) A row that touches no flanked spawner shall be
-  byte-identical to its pre-P75 text with `borders_spawner` removed.
+  byte-identical to its pre-P75 text with `borders_spawner` removed, except
+  for `completes_spawner` on a closing row (Decision 7(b)).
 
 ## Out of scope
 

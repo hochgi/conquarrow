@@ -25,13 +25,6 @@ Feature: advances= clauses are exact at the boundaries
       When the step onto a1 is annotated
       Then the clause for v1 reads "0/3→1/3"
 
-    Scenario: advances= reflects post-apply ownership, not pre
-      Given a step whose apply claims territory on another border of spawner vertex v1
-      And whose exit a1 also flanks v1 and was not A's trail or territory before the step
-      When the step is annotated
-      Then the clause for v1 counts the border claimed by apply
-      And it differs from the count the pre-step state would give
-
     Scenario: An arrow flanking a vertex wholly held by an opponent reports that opponent's hold
       Given spawner vertex v1's three borders are all seat B's territory
       And A's stack is territory-grade protected and may step onto border a1 of v1
