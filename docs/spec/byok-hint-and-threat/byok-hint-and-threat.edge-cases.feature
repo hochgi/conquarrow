@@ -32,14 +32,17 @@ Feature: BYOK hint-and-threat — plan echo, observation rank, unchanged seams
       Then the line contains "Longest enemy trail: none"
 
     Scenario: No cut and no closes prints No cut/contest/deny row and does not invent deny
-      Given threatLineFromCounts whose offer tags are only borders_spawner
+      # P75 retired borders_spawner; the named spawner tag is now completes_spawner
+      Given threatLineFromCounts whose offer tags are only completes_spawner
       When threatLineFromCounts runs
-      Then the line contains "Offer tags: borders_spawner"
+      Then the line contains "Offer tags: completes_spawner"
       And the line contains "No cut/contest/deny row"
       And annotateMove does not emit "deny"
       When offer tags are empty
       Then the line contains "No cut/contest/deny row"
       And the line does not contain "Offer tags:"
+      When offer tags are only the retired borders_spawner
+      Then the line does not contain "Offer tags:"
 
     Scenario: No shared point with an enemy trail prints the locked vertex phrase
       Given threatLineFromCounts with nearTrail false

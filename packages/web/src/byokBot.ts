@@ -440,8 +440,8 @@ const advancesClause = (
 
 /**
  * The spawners `exit` flanks (at most 2), in `compareVertices` order. Read through
- * `borderArrows`, the port's inverse of `flankVertices`: the P66 near_trail
- * contract keeps `annotateMove` off `flankVertices`.
+ * `borderArrows` (the port's inverse of the flank lookup): the P66 near_trail
+ * contract keeps `annotateMove` off the flank lookup itself.
  */
 const flankedSpawners = (
   geometry: GeometryPort,

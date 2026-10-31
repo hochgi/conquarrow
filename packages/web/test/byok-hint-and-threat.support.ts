@@ -384,8 +384,9 @@ export const matchLogSource = (): string =>
 
 export const annotateMoveSource = (): string => {
   const src = byokBotSource();
-  const start = src.indexOf('export const annotateMove =');
-  if (start < 0) throw new Error('setup: annotateMove missing');
+  // P75 split annotateMove into a dispatcher over private helpers; start at the first.
+  const start = src.indexOf('const annotateEndTurn =');
+  if (start < 0) throw new Error('setup: annotateMove helpers missing');
   const end = src.indexOf('export const formatLegalMoves', start);
   return end < 0 ? src.slice(start) : src.slice(start, end);
 };
