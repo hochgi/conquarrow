@@ -43,6 +43,7 @@ import {
   withoutIds,
 } from './byok-interior-mill.support';
 import type { Case, Row } from './byok-interior-mill.support';
+import { withoutBordersSpawner, withoutP75 } from './byok-offer-vertex-join.support';
 
 const bank: readonly Case[] = [
   ...minusOneCases(spacious),
@@ -136,7 +137,8 @@ describe('P80 byok-interior-mill invariants', () => {
 
   it('I3 — to_edge takes the slot home_mill held: after the gain tags, before homeward/outward/onto_home', () => {
     const gain = (tag: string): boolean =>
-      ['closes', 'land_bridge', 'borders_spawner', 'leave_home'].includes(tag) || tag.startsWith('share+');
+      ['closes', 'land_bridge', 'completes_spawner', 'double_fed', 'leave_home'].includes(tag) ||
+      tag.startsWith('share+');
     const withToEdge = interior.filter((s) => s.row.tags.includes('to_edge'));
     expect(withToEdge.length).toBeGreaterThan(0);
     for (const s of withToEdge) {
@@ -189,9 +191,11 @@ describe('P80 byok-interior-mill invariants', () => {
     let rows = 0;
     for (const position of positions) {
       const id = positionId(position.log, position.moveIndex);
-      const now = offTerritoryLines(position);
+      // P75 retired borders_spawner for advances= clauses and two tags (Decision 5);
+      // the frozen golden keeps the pre-P75 text, so both sides drop exactly that.
+      const now = offTerritoryLines(position).map(withoutP75);
       rows += now.length;
-      expect(now, id).toEqual(offTerritoryRows[id]);
+      expect(now, id).toEqual((offTerritoryRows[id] ?? []).map(withoutBordersSpawner));
     }
     expect(rows).toBeGreaterThan(100);
   });

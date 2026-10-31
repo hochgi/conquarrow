@@ -314,7 +314,7 @@ export const hit5ThreatInput = (): ThreatLineInput => {
 
 export const namedOfferTags = (rows: readonly OfferTagRow[]): string[] => {
   const present = new Set(rows.flatMap((row) => row.tags));
-  return ['cut', 'closes', 'borders_spawner'].filter((tag) => present.has(tag));
+  return ['cut', 'closes', 'completes_spawner'].filter((tag) => present.has(tag));
 };
 
 export const isNonExpandingMillRow = (row: OfferTagRow): boolean => {
