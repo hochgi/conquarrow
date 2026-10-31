@@ -255,3 +255,34 @@ The SPEC §7 correction that P74's drafting surfaced is independent of the arm
 and lands on its own: the band table now follows `SPAWNER_BANDS`.
 
 **Spend to here: $6.77 of $9.40.**
+
+### P75 — offer rows name the vertices they advance: **PASS** (2026-10-31)
+
+Run as PR #72 merged with main, so it is measured over main = P80. Cost
+$1.64: $0.99 positions, plus $0.55 proxy and $0.10 for one cell (s3-second)
+re-run from the reserve after the cap stopped it at round 17.
+
+| reading | baseline (main = P80) | P75 | gate |
+|---|---|---|---|
+| C cycle: rewalks | 6 | **0** (#34, #43, #53 each 2 → 0) | beats both runs ✔ |
+| P stall: interior passes | 0 | 0 | ✔ |
+| O ordinary: rewalks / missed closes | 1 / 0 | 1 / 0 | ✔ |
+| fallbacks | 0 | 0 | ✔ |
+| prompt tokens per call | 4,586 | 4,632 (+1.0%) | ≤ 15% ✔ |
+
+**Proxy, 6 cells:**
+
+| | s1-first | s1-second | s2-first | s2-second | s3-first | s3-second | mean |
+|---|---|---|---|---|---|---|---|
+| baseline | 0.250 | 0.143 | 0.130 | 0.122 | 0.107 | 0.111 | 0.144 |
+| P75 | 0.130 | **0.489** | 0.120 | 0.172 | 0.107 | **0.615** | **0.272** |
+
+No regression on the mean, so the proxy check passes. It is also the
+largest whole-game movement any arm has produced: the mean nearly doubles. That
+is still a proxy reading, so it is reported, not counted as the gain. It is
+uneven: two cells go down (s1-first −0.12, s2-first −0.01) and three go up a
+lot. With six cells, this is a strong hint, not a measurement of how much
+better the proxy plays.
+
+**Spend to here: $8.41 of $9.40.** That leaves about $0.99, which is the
+reserve. No further arm is funded.
