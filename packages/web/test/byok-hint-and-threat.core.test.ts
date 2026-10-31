@@ -74,7 +74,9 @@ describe('BYOK tags are hints, threat line names the lead, baseline names the lu
     expect(mill).toMatch(/tipDist/);
     expect(mill).toMatch(/not shrinking/i);
     expect(mill).toMatch(/invent a tag/i);
-    expect(mill).toMatch(/borders_spawner/);
+    // P75 Decision 13: the mill paragraph names the advances= row, not borders_spawner.
+    expect(mill).toMatch(/advances=/);
+    expect(teaching).not.toMatch(/borders_spawner/);
     expect(mill).toMatch(/walk(?:ing)? past the close/i);
     expect(teaching).toContain(SPEED_FORMULA);
     expect(teaching).toContain('On a split, both parts inherit');
@@ -178,7 +180,10 @@ describe('BYOK tags are hints, threat line names the lead, baseline names the lu
     expect(threat).toContain('C 18 shares / 25 terr');
     expect(threat).toContain('B 5 / 14');
     expect(threat).toContain('Longest enemy trail: C 6');
-    expect(threat).toContain('Offer tags: closes, borders_spawner');
+    // P75 Decision 11: the frozen Hit 12 rows keep borders_spawner (Decision 14), but the
+    // header no longer names it.
+    expect(threat).toMatch(/Offer tags: closes(\.|$)/);
+    expect(threat).not.toContain('borders_spawner');
     expect(threat).not.toContain('No cut/contest/deny row');
   });
 

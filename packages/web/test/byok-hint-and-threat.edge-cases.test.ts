@@ -97,7 +97,18 @@ describe('BYOK hint-and-threat — plan echo, observation rank, unchanged seams'
   });
 
   it('No cut and no closes prints No cut/contest/deny row and does not invent deny', () => {
-    const withBorders = threatLineFromCounts({
+    const withCompletes = threatLineFromCounts({
+      me: 'B',
+      players: ['A', 'B', 'C'],
+      shares: { A: 1, B: 1, C: 1 },
+      territory: { A: 1, B: 1, C: 1 },
+      trailLen: { A: 0, B: 0, C: 0 },
+      offerTags: ['completes_spawner'],
+      nearTrail: false,
+    });
+    expect(withCompletes).toContain('Offer tags: completes_spawner');
+    expect(withCompletes).toContain('No cut/contest/deny row');
+    const retired = threatLineFromCounts({
       me: 'B',
       players: ['A', 'B', 'C'],
       shares: { A: 1, B: 1, C: 1 },
@@ -106,8 +117,8 @@ describe('BYOK hint-and-threat — plan echo, observation rank, unchanged seams'
       offerTags: ['borders_spawner'],
       nearTrail: false,
     });
-    expect(withBorders).toContain('Offer tags: borders_spawner');
-    expect(withBorders).toContain('No cut/contest/deny row');
+    expect(retired).not.toContain('Offer tags:');
+    expect(retired).not.toContain('borders_spawner');
     expect(annotateMoveSource()).not.toMatch(/['"]deny['"]/);
     const { state, me } = requireSeatB();
     const move = offerSteps(state)[0];

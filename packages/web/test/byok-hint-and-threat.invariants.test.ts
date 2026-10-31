@@ -91,7 +91,8 @@ describe('byok-hint-and-threat invariants', () => {
     expect(mill).toMatch(/closes/);
     expect(mill).toMatch(/cut/);
     expect(mill).toMatch(/invent a tag/i);
-    expect(mill).toMatch(/borders_spawner/);
+    expect(mill).toMatch(/advances=/);
+    expect(teaching).not.toMatch(/borders_spawner/);
     expect(mill).toMatch(/walk(?:ing)? past the close/i);
     for (const phrase of TEACHING_LOCKS) {
       expect(teaching, phrase).toContain(phrase);

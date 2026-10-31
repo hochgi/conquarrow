@@ -22,7 +22,7 @@ speed(N) = 1 + floor(log₂ N). On a split, both parts inherit spent. Arrive as 
 
 Closing claims enclosed ground, including enemy heads. A cut evaporates enemy trail. home_mill with empty trail and no expansion is wasted tempo. Crossing your own territory toward its edge (`to_edge`) is how an interior stack gets back to work; it is not a mill. Tags on the offer name outcomes (leave_home, home_mill, onto_home, closes, cut, share+N, on_target); they are not orders.
 
-Tags name outcomes. They are not orders. `on_target` loses to an available `closes`, an available `cut`, an opponent share or territory lead, and when trailLen is already at least girth and tipDist is not shrinking. Do not invent a tag. Do not treat `borders_spawner` as walking past the close.
+Tags name outcomes. They are not orders. `on_target` loses to an available `closes`, an available `cut`, an opponent share or territory lead, and when trailLen is already at least girth and tipDist is not shrinking. Do not invent a tag. Do not treat an `advances=` row as walking past the close.
 
 ## JSON contract
 
@@ -42,7 +42,7 @@ A share is a factory. Force on a held vertex is future heads. Territory with no 
 
 Opening implication of `speed(N) = 1 + floor(log₂ N)` only: a 4-stack is 3 tiles this turn; three singletons are 1+1+1. That is why an early lump has more ground, not because we said "prefer 4."
 
-Other seats have a job you can read from the header: share lead, longest enemy trail, whether any legal row is `cut` / `closes` / `borders_spawner`. Weigh cut-if-present against expand-if-present. A plan cannot create a cut that is not a row.
+Other seats have a job you can read from the header: share lead, longest enemy trail, whether any legal row is `cut` / `closes` / `completes_spawner`. Weigh cut-if-present against expand-if-present. A plan cannot create a cut that is not a row.
 
 A plan that names a tag is already wrong (`continue on_target`, `walk on_target`). Tags are hints. Rewrite it.
 
@@ -54,12 +54,12 @@ Hit 12 shape. Offer has count=3 closes [2] and [8].
 Good: {"moves":[2],"endTurn":true,"why":"lump close","plan":"close the open trail"}
 Bad:  {"moves":[4,0],"endTurn":false,"why":"split for spawner"}  // abandoned the close; no plan
 
-Hit 5 / 9 shape. Offer has closes [3] (no share+N) and borders_spawner [5].
+Hit 5 / 9 shape. Offer has closes [3] (no share+N) and an advances= row [5].
 Plan: close the open trail
 Good: {"moves":[5],"endTurn":false,"why":"border the pinwheel","plan":"walk a border of the open pinwheel; dirt close is not a share"}
 Bad:  {"moves":[3],"endTurn":true,"why":"lump close"}  // dirt; shares stay 4
 
-Hit 12 is how: if this batch closes, send the lump already on the offer; do not peel. Hit 5 / 9 is whether: a `closes` row with no `share+N` is painted dirt — rewrite that job when a `borders_spawner` walk is also on the offer. The baseline may still name the lump close; it is a suggestion, not an order.
+Hit 12 is how: if this batch closes, send the lump already on the offer; do not peel. Hit 5 / 9 is whether: a `closes` row with no `share+N` is painted dirt — rewrite that job when an `advances=` walk is also on the offer. The baseline may still name the lump close; it is a suggestion, not an order.
 
 ## Close vs cut
 

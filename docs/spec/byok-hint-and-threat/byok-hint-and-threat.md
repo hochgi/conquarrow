@@ -99,8 +99,8 @@ paragraph. Required beats — do **not** turn them into “prefer X” orders:
 - `on_target` loses to: an available `closes`, an available `cut`, an
   opponent share/territory lead, `trailLen` already ≥ girth and `tipDist`
   not shrinking.
-- Do not invent a tag. Do not treat `borders_spawner` as “walk past the
-  close.”
+- Do not invent a tag. ~~Do not treat `borders_spawner` as “walk past the
+  close.”~~ — superseded by P75 ([byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decisions 11, 13): do not treat an `advances=` row as walking past the close.
 
 Keep every P62/P63 lock (verbatim where those packets required them):
 
@@ -195,8 +195,8 @@ already has it.
 
 Inputs: `me`, `players` (`state.players` as printed ids), per-seat
 `shares` and `territory` counts, per-seat `trailLen`, the set of tags
-present on any **this-offer** step (`cut` / `closes` / `borders_spawner`
-from `annotateMove`), and whether any legal exit shares a **point** with
+present on any **this-offer** step (`cut` / `closes` /
+~~`borders_spawner`~~ `completes_spawner` — superseded by P75 ([byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decisions 11, 13) — from `annotateMove`), and whether any legal exit shares a **point** with
 an enemy-trail arrow (BSSN 10).
 
 **Lead clause.** Every seat including `me` is listed. Sort: shares
@@ -209,10 +209,10 @@ first in `state.players`. If that max is 0 or there is no enemy:
 `Longest enemy trail: none`. Else: `Longest enemy trail: {id} {n}`.
 
 **Offer-tag clause.** Let `named` be those of `cut`, `closes`,
-`borders_spawner` that appear on any offer step, in that order. If
+~~`borders_spawner`~~ `completes_spawner` (superseded by P75 ([byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decisions 11, 13)) that appear on any offer step, in that order. If
 `named` is nonempty: `Offer tags: {named joined by ", "}`. If there is
 **no** `cut` and **no** `closes`: also `No cut/contest/deny row` (even
-when `borders_spawner` is present). Do **not** invent a `deny` tag —
+when `completes_spawner` is present). Do **not** invent a `deny` tag —
 `annotateMove` does not emit `deny`.
 
 **Dirt-close clause (P66).** At most **one** extra clause, exact text
@@ -401,7 +401,7 @@ Hit 12 and Hit 5/9 can share `closes` without `share+N` plus
 `borders_spawner`. They answer different questions: Hit 12 is **how**
 (if this batch closes, send the lump; do not peel). Hit 5/9 is
 **whether** (a 0-share close is painted dirt — rewrite that job when a
-`borders_spawner` walk is also on the offer). The baseline may still
+~~`borders_spawner` walk~~ `advances=` row (superseded by P75 ([byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decisions 11, 13)) is also on the offer). The baseline may still
 name the lump close; tags and the baseline are hints.
 
 JSON contract **key** is unchanged:
@@ -422,7 +422,7 @@ Required beats. Do **not** turn them into “prefer X”:
   is why an early lump has more ground, not because we said “prefer 4.”
 - Other seats have a job you can read from the header: share lead,
   longest enemy trail, whether any legal row is `cut` / `closes` /
-  `borders_spawner`. Weigh cut-if-present against expand-if-present. A
+  ~~`borders_spawner`~~ `completes_spawner` (P75: `borders_spawner` retired — see [byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decision 13). Weigh cut-if-present against expand-if-present. A
   plan cannot create a cut that is not a row.
 - A plan that **names a tag** (`continue on_target`, `walk on_target`)
   is already wrong. Tags are hints. Rewrite it.
@@ -435,7 +435,7 @@ Required beats. Do **not** turn them into “prefer X”:
 Worked contrast, compact — required substrings:
 
 ```
-Hit 5 / 9 shape. Offer has closes [3] (no share+N) and borders_spawner [5].
+Hit 5 / 9 shape. Offer has closes [3] (no share+N) and an advances= row [5].
 Plan: close the open trail
 Good: {"moves":[5],"endTurn":false,"why":"border the pinwheel","plan":"walk a border of the open pinwheel; dirt close is not a share"}
 Bad:  {"moves":[3],"endTurn":true,"why":"lump close"}  // dirt; shares stay 4
@@ -568,7 +568,7 @@ flowchart TD
    beats (tags are not orders; `on_target` loses to an available `closes`
    or `cut`, an opponent share/territory lead, and `trailLen` already ≥
    girth with `tipDist` not shrinking; do not invent a tag; do not treat
-   `borders_spawner` as walk-past-the-close) and the P62/P63 locked
+   an `advances=` row as walk-past-the-close (P75: `borders_spawner` retired — see [byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decision 13)) and the P62/P63 locked
    substrings, and shall not contain `domination` (any case), `§11`,
    `even-odd`, or `evaporation front`.
 2. The teaching file shall contain a `## Plan` section after the JSON
@@ -648,7 +648,7 @@ flowchart TD
     and that a plan that names a tag is already wrong. It shall contain
     the Hit 5/9 Good/Bad contrast. It shall distinguish Hit 12 as how
     (lump, do not peel) from Hit 5/9 as whether (dirt vs
-    `borders_spawner`). It shall still contain every P62/P63/P64
+    an `advances=` row (P75: `borders_spawner` retired — see [byok-offer-vertex-join](../byok-offer-vertex-join/byok-offer-vertex-join.md) Decision 13)). It shall still contain every P62/P63/P64
     lock and shall not match prefer-orders (`prefer 4-stacks`,
     `prefer spawners`, `never close` included). Teaching may mention
     “prefer 4” only as the thing it is *not* saying.

@@ -14,10 +14,12 @@ import type {
   Move,
   PlayerId,
   RulesPort,
+  Spawner,
   StepMove,
+  VertexId,
 } from '@conquarrow/contracts';
 import { endTurn, movesEqual, speed } from '@conquarrow/contracts';
-import { compareArrows } from '@conquarrow/rules-core';
+import { compareArrows, compareVertices } from '@conquarrow/rules-core';
 import { chooseTurnGreedy } from './botSearch';
 import type { ByokConfig } from './byokConfig';
 import {
@@ -42,7 +44,10 @@ import teachingBody from 'docs/byok-teaching.md?raw';
 /** Completions cap (POSTs), not applied steps — a single batch may spend the offer. */
 const MAX_COMPLETIONS_PER_TURN = 64;
 const MAX_LISTED_ARROWS = 24;
-/** Keep the board summary small — huge spawner dumps make models restate state until max_tokens. */
+/**
+ * Keep the board summary small — huge spawner dumps make models restate state until max_tokens.
+ * Caps tier-1 rows only: a vertex incident to the seat's stacks or offer is always listed (P75).
+ */
 const MAX_SPAWNER_ROWS = 12;
 
 /**
@@ -166,7 +171,10 @@ const pickSpawnerRows = (
     if (a.tier !== b.tier) return a.tier - b.tier;
     return a.vertex < b.vertex ? -1 : a.vertex > b.vertex ? 1 : 0;
   });
-  return interesting.slice(0, MAX_SPAWNER_ROWS).map(({ vertex, force, held, unclaimed }) => ({
+  // P75 Decision 10: tier 0 is never capped; tier 1 fills only while below the cap.
+  const tierZero = interesting.filter((row) => row.tier === 0).length;
+  const shown = Math.max(tierZero, MAX_SPAWNER_ROWS);
+  return interesting.slice(0, shown).map(({ vertex, force, held, unclaimed }) => ({
     vertex,
     force,
     held,
@@ -295,25 +303,6 @@ const cutOrNearTrailTags = (
   return near === undefined ? [] : [`near_trail:${String(near)}`];
 };
 
-/** Exit is a border arrow of a spawner that still has an unclaimed share. */
-const bordersOpenSpawner = (
-  geometry: GeometryPort,
-  state: GameState,
-  exit: ArrowId,
-): boolean => {
-  for (const vertex of state.spawners.keys()) {
-    const borders = geometry.borderArrows(vertex);
-    let onSpawner = false;
-    let open = false;
-    for (const border of borders) {
-      if (border === exit) onSpawner = true;
-      if (state.territory.get(border) === undefined) open = true;
-    }
-    if (onSpawner && open) return true;
-  }
-  return false;
-};
-
 type HomeFacts = {
   /** `tipDist=d0→d1`, or `edgeDist=a→b` when `from` is own territory (P80). */
   readonly slot: string;
@@ -341,6 +330,182 @@ const homeFacts = (
   return { slot: `edgeDist=${String(a)}→${String(b)}`, tag };
 };
 
+const annotateEndTurn = (geometry: GeometryPort, state: GameState, me: PlayerId): string => {
+  const trail = state.trails.get(me)?.size ?? 0;
+  const shares = shareCount(geometry, state, me);
+  const tags: string[] = [];
+  if (trail >= 4) tags.push('exposed_trail');
+  if (closeUrgency(trail) >= 36) tags.push('should_close_soon');
+  if (shares === 0 && trail === 0) tags.push('no_shares_yet');
+  const tagStr = tags.length > 0 ? ` tags=${tags.join(',')}` : '';
+  return `endTurn trailLen=${String(trail)} shares=${String(shares)}${tagStr}`;
+};
+
+/** `closes` / `land_bridge` and `share+N`: what `apply` realised for `me`. */
+const gainTags = (
+  geometry: GeometryPort,
+  state: GameState,
+  after: GameState,
+  me: PlayerId,
+): readonly string[] => {
+  const tags: string[] = [];
+  const gainedTerr = territoryCount(after, me) - territoryCount(state, me);
+  const gainedShare = shareCount(geometry, after, me) - shareCount(geometry, state, me);
+  if (gainedTerr > 0) tags.push(gainedTerr === 1 ? 'land_bridge' : 'closes');
+  if (gainedShare > 0) tags.push(`share+${String(gainedShare)}`);
+  return tags;
+};
+
+type CourseFacts = {
+  /** `tipDist=` / `edgeDist=` (P80). */
+  readonly slot: string;
+  readonly tags: readonly string[];
+};
+
+/** Where the step goes: home facts, distance, target, trails and stacks it meets. */
+const courseFacts = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  move: StepMove,
+  targets: readonly Finding[],
+): CourseFacts => {
+  const d0 = distanceToTerritory(geometry, state, me, move.from);
+  const d1 = distanceToTerritory(geometry, state, me, move.exit);
+  const home = homeFacts(geometry, state, me, move, [d0, d1]);
+  const tags: string[] = [];
+  if (home.tag !== undefined) tags.push(home.tag);
+  if (d1 < d0) tags.push('homeward');
+  else if (d1 > d0) tags.push('outward');
+  if (state.territory.get(move.exit) === me) tags.push('onto_home');
+  if (tagOnTarget(move, targets)) tags.push('on_target');
+  tags.push(...cutOrNearTrailTags(geometry, state, me, move.exit));
+  const dest = state.groups.get(move.exit);
+  if (dest !== undefined && dest.owner !== me) tags.push('combat');
+  return { slot: home.slot, tags };
+};
+
+/** ` leave= spd= spent= left=`: the portion's tempo on `from`. */
+const portionSlot = (state: GameState, move: StepMove): string => {
+  const fromGroup = state.groups.get(move.from);
+  const leave = (fromGroup?.heads ?? move.count) - move.count;
+  const spent = fromGroup?.spent ?? 0;
+  const portionSpd = fromGroup?.speedOverride ?? speed(move.count);
+  const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
+  return `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}`;
+};
+
+/** `k(P, v)`: how many of `vertex`'s border arrows are `player`'s territory in `s`. */
+const holdOf = (
+  geometry: GeometryPort,
+  s: GameState,
+  player: PlayerId,
+  vertex: VertexId,
+): number => geometry.borderArrows(vertex).filter((arrow) => s.territory.get(arrow) === player).length;
+
+/** Decision 7(b): `apply` took some spawner vertex to all 3 of `me`'s shares. */
+const applyCompletesSpawner = (
+  geometry: GeometryPort,
+  state: GameState,
+  after: GameState,
+  me: PlayerId,
+): boolean => {
+  for (const vertex of state.spawners.keys()) {
+    if (holdOf(geometry, after, me, vertex) === 3 && holdOf(geometry, state, me, vertex) < 3) return true;
+  }
+  return false;
+};
+
+/**
+ * Decisions 1 and 9: ` advances=<v> h/3→h+1/3 force=n/d`, plus ` denies=<P>:k/3→k-1/3`
+ * when the exit is another seat's territory. `h` counts `v`'s other borders that
+ * are `me`'s territory in `after`.
+ */
+const advancesClause = (
+  geometry: GeometryPort,
+  after: GameState,
+  me: PlayerId,
+  exit: ArrowId,
+  [vertex, spawner]: readonly [VertexId, Spawner],
+): { readonly text: string; readonly h: number } => {
+  const h = geometry
+    .borderArrows(vertex)
+    .filter((arrow) => arrow !== exit && after.territory.get(arrow) === me).length;
+  const advances = ` advances=${String(vertex)} ${String(h)}/3→${String(h + 1)}/3 force=${forceKey(spawner.force)}`;
+  const owner = after.territory.get(exit);
+  if (owner === undefined || owner === me) return { text: advances, h };
+  const k = holdOf(geometry, after, owner, vertex);
+  return { text: `${advances} denies=${String(owner)}:${String(k)}/3→${String(k - 1)}/3`, h };
+};
+
+/**
+ * The spawners `exit` flanks (at most 2), in `compareVertices` order. Read through
+ * `borderArrows` (the port's inverse of the flank lookup): the P66 near_trail
+ * contract keeps `annotateMove` off the flank lookup itself.
+ */
+const flankedSpawners = (
+  geometry: GeometryPort,
+  state: GameState,
+  exit: ArrowId,
+): readonly (readonly [VertexId, Spawner])[] =>
+  [...state.spawners.entries()]
+    .filter(([vertex]) => geometry.borderArrows(vertex).includes(exit))
+    .toSorted(([a], [b]) => compareVertices(a, b));
+
+type SpawnerJoin = {
+  /** Every `advances=` clause, each with its leading space; `''` when none. */
+  readonly clauses: string;
+  /** `completes_spawner` then `double_fed`, each when it holds. */
+  readonly tags: readonly string[];
+};
+
+/**
+ * P75: the spawner vertices a step advances, joined onto its row. A re-walk
+ * (exit already `me`'s trail or territory) advances nothing.
+ */
+const spawnerJoin = (
+  geometry: GeometryPort,
+  state: GameState,
+  after: GameState,
+  me: PlayerId,
+  exit: ArrowId,
+): SpawnerJoin => {
+  const reWalk = (state.trails.get(me)?.has(exit) ?? false) || state.territory.get(exit) === me;
+  const flanked = reWalk ? [] : flankedSpawners(geometry, state, exit);
+  const clauses = flanked.map((entry) => advancesClause(geometry, after, me, exit, entry));
+  const tags: string[] = [];
+  if (clauses.some((c) => c.h === 2) || applyCompletesSpawner(geometry, state, after, me)) {
+    tags.push('completes_spawner');
+  }
+  if (clauses.length === 2) tags.push('double_fed');
+  return { clauses: clauses.map((c) => c.text).join(''), tags };
+};
+
+const annotateStep = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  move: StepMove,
+  targets: readonly Finding[],
+): string => {
+  const head = `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}`;
+  let after: GameState;
+  try {
+    after = rules.apply(state, move);
+  } catch {
+    return `${head} tags=illegal`;
+  }
+  const trailAfter = after.trails.get(me)?.size ?? 0;
+  const course = courseFacts(geometry, state, me, move, targets);
+  const join = spawnerJoin(geometry, state, after, me, move.exit);
+  const tags = [...gainTags(geometry, state, after, me), ...join.tags, ...course.tags];
+  return (
+    `${head}${portionSlot(state, move)} ${course.slot} trailLen=${String(trailAfter)}${join.clauses}` +
+    (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
+  );
+};
+
 /** Compact tags so the model can rank without inventing geometry. */
 export const annotateMove = (
   geometry: GeometryPort,
@@ -349,60 +514,10 @@ export const annotateMove = (
   me: PlayerId,
   move: Move,
   targets: readonly Finding[] = [],
-): string => {
-  switch (move.kind) {
-    case 'endTurn': {
-      const trail = state.trails.get(me)?.size ?? 0;
-      const shares = shareCount(geometry, state, me);
-      const tags: string[] = [];
-      if (trail >= 4) tags.push('exposed_trail');
-      if (closeUrgency(trail) >= 36) tags.push('should_close_soon');
-      if (shares === 0 && trail === 0) tags.push('no_shares_yet');
-      const tagStr = tags.length > 0 ? ` tags=${tags.join(',')}` : '';
-      return `endTurn trailLen=${String(trail)} shares=${String(shares)}${tagStr}`;
-    }
-    case 'step': {
-      let after: GameState;
-      try {
-        after = rules.apply(state, move);
-      } catch {
-        return `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)} tags=illegal`;
-      }
-      const d0 = distanceToTerritory(geometry, state, me, move.from);
-      const d1 = distanceToTerritory(geometry, state, me, move.exit);
-      const trailAfter = after.trails.get(me)?.size ?? 0;
-      const gainedTerr = territoryCount(after, me) - territoryCount(state, me);
-      const gainedShare = shareCount(geometry, after, me) - shareCount(geometry, state, me);
-      const home = homeFacts(geometry, state, me, move, [d0, d1]);
-      const ontoHome = state.territory.get(move.exit) === me;
-      const tags: string[] = [];
-      if (gainedTerr > 0) tags.push(gainedTerr === 1 ? 'land_bridge' : 'closes');
-      if (gainedShare > 0) tags.push(`share+${String(gainedShare)}`);
-      if (bordersOpenSpawner(geometry, state, move.exit)) tags.push('borders_spawner');
-      if (home.tag !== undefined) tags.push(home.tag);
-      if (d1 < d0) tags.push('homeward');
-      else if (d1 > d0) tags.push('outward');
-      if (ontoHome) tags.push('onto_home');
-      if (tagOnTarget(move, targets)) tags.push('on_target');
-      tags.push(...cutOrNearTrailTags(geometry, state, me, move.exit));
-      const dest = state.groups.get(move.exit);
-      if (dest !== undefined && dest.owner !== me) tags.push('combat');
-      const fromGroup = state.groups.get(move.from);
-      const fromHeads = fromGroup?.heads ?? move.count;
-      const leave = fromHeads - move.count;
-      const spent = fromGroup?.spent ?? 0;
-      const override = fromGroup?.speedOverride;
-      const portionSpd = override !== undefined ? override : speed(move.count);
-      const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
-      return (
-        `step from=${String(move.from)} exit=${String(move.exit)} count=${String(move.count)}` +
-        `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}` +
-        ` ${home.slot} trailLen=${String(trailAfter)}` +
-        (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
-      );
-    }
-  }
-};
+): string =>
+  move.kind === 'endTurn'
+    ? annotateEndTurn(geometry, state, me)
+    : annotateStep(geometry, rules, state, me, move, targets);
 
 /** Group steps by `from` in first-seen-in-offer order; keep global `[i]`. */
 const groupedStepEntries = (
@@ -531,7 +646,7 @@ export type ByokPlanBatch = {
   readonly plan?: unknown;
 };
 
-const NAMED_OFFER_TAGS = ['cut', 'closes', 'borders_spawner'] as const;
+const NAMED_OFFER_TAGS = ['cut', 'closes', 'completes_spawner'] as const;
 
 const leadClause = (input: ThreatLineInput): string => {
   const seats = [...input.players].sort((a, b) => {
@@ -755,7 +870,7 @@ export const buildUserPrompt = (
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me, moves)),
     '',
-    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. endTurn is a flag, not a numbered row:',
+    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     ...baseline,

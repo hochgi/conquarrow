@@ -24,7 +24,8 @@ Feature: BYOK tags are hints, threat line names the lead, baseline names the lum
       And it teaches that on_target loses to an opponent share or territory lead
       And it teaches that on_target loses when trailLen is already at least girth and tipDist is not shrinking
       And it says not to invent a tag
-      And it says not to treat borders_spawner as walking past the close
+      # P75: borders_spawner retired; the teaching names the advances= row
+      And it says not to treat an advances= row as walking past the close
       And it contains "speed(N) = 1 + floor(log₂ N)"
       And it contains "On a split, both parts inherit"
       And it contains "majority" and "speed 0"
