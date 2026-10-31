@@ -137,7 +137,7 @@ export const advanceTargetLock = (
 };
 
 export const formatTargetsForPrompt = (targets: readonly Finding[]): string => {
-  if (targets.length === 0) return 'TARGETS: none (stacks free — prefer leave_home / borders_spawner).';
+  if (targets.length === 0) return 'TARGETS: none (stacks free — prefer leave_home / advances= rows).';
   const lines = targets.map(
     (t, i) =>
       `[T${String(i)}] kind=${t.kind} from=${String(t.from)} goal=${String(t.goal)} ` +
