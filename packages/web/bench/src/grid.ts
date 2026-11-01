@@ -17,6 +17,8 @@ export interface Cell {
   readonly seed: number;
   /** Where the BYOK chair sits in turn order. In `mirror` the heuristic drives it. */
   readonly byokSeat: SeatOrder;
+  /** P78's grid varies the board; absent means {@link matchConfigFor}`(seed)`. */
+  readonly config?: MatchConfig;
 }
 
 export const cellId = (seed: number, byokSeat: SeatOrder): string =>
@@ -35,6 +37,8 @@ export const matchConfigFor = (seed: number): MatchConfig => ({
   playerCount: 2,
   spawnerSeed: seed,
 });
+
+export const cellConfig = (cell: Cell): MatchConfig => cell.config ?? matchConfigFor(cell.seed);
 
 /** Index into `state.players` of the BYOK chair. */
 export const seatIndexOf = (order: SeatOrder): 0 | 1 => (order === 'first' ? 0 : 1);

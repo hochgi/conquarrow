@@ -15,7 +15,7 @@ import { emptyMatchSummary, foldMatchSummary, type MatchSummary } from '../../sr
 import { playBotTurn } from '../../src/opponent';
 import { clearTargetLocks } from '../../src/targets';
 import { geometry, rules } from './board';
-import { matchConfigFor, seatIndexOf, type Cell } from './grid';
+import { cellConfig, seatIndexOf, type Cell } from './grid';
 import { ZERO_COST, type CostTotals } from './budget';
 import { formatRational, headsOf, incomeRate, landOf, maxRational, totalLand } from './metrics';
 import { serializeMove, type SerializedMove } from './moves';
@@ -77,7 +77,7 @@ export interface MatchRecord {
     readonly closes: number;
   };
   readonly summary: Omit<MatchSummary, 'firstCloseAt'> & { readonly firstCloseAt: number | null };
-  /** Replayable from `makeMatch(matchConfigFor(cell.seed))`. */
+  /** Replayable from `makeMatch(cellConfig(cell))`. */
   readonly moves: readonly SerializedMove[];
 }
 
@@ -205,7 +205,7 @@ const toRecord = (spec: MatchSpec, tally: Tally, state: GameState, chair: Player
 export const runMatch = async (spec: MatchSpec): Promise<MatchRecord> => {
   clearByokPlans();
   clearTargetLocks();
-  let state = makeMatch(matchConfigFor(spec.cell.seed));
+  let state = makeMatch(cellConfig(spec.cell));
   const chair = state.players[seatIndexOf(spec.cell.byokSeat)];
   if (chair === undefined) throw new Error(`cell ${spec.cell.id}: no seat for the BYOK chair`);
   const tally = newTally();

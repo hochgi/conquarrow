@@ -1,5 +1,5 @@
 /**
- * `pnpm byok-bench <mirror|positions|matches> [options]` — the composition root.
+ * `pnpm byok-bench <mirror|reach|positions|matches> [options]` — the composition root.
  *
  * Everything impure arrives through {@link CliIo}: the environment, the clock,
  * `fetch`, the git revision, the results directory and the job runner. The
@@ -18,6 +18,7 @@ import { parseArgs } from 'node:util';
 import type { FetchLike } from '../../src/byokBot';
 import { createMeter, DEFAULT_PRICES, ZERO_COST, type CostTotals, type Prices } from './budget';
 import { gridCells, selectCells, type Cell } from './grid';
+import { REACH_DEFAULT_CAP, reachCells, runReachTier, type ReachRow } from './reachTier';
 import { latestCalibration, resultExists, resultFileName, writeResult } from './results';
 import { BENCH_MODES, ENV_API_KEY, modelAccessFromEnv, type BenchMode, type ModelAccess } from './seat';
 import {
@@ -46,12 +47,15 @@ export interface CliIo {
   readonly jobRunner: (env: JobEnv, concurrency: number) => RunJobs;
 }
 
-type Tier = 'mirror' | 'positions' | 'matches';
+type Tier = 'mirror' | 'reach' | 'positions' | 'matches';
+
+/** Tiers the heuristic plays alone: no model, no key, no budget. */
+const isFree = (tier: Tier): boolean => tier === 'mirror' || tier === 'reach';
 
 interface Options {
   readonly tier: Tier;
   readonly cells: readonly string[] | undefined;
-  /** matches: K. mirror: a safety cap (default 400). */
+  /** matches: K. mirror: a safety cap (default 400). reach: the grid's cap (default 100). */
   readonly roundCap: number | undefined;
   readonly mode: BenchMode;
   /** Undefined = the default, which depends on `maxUsd`. */
@@ -73,12 +77,13 @@ const LOW_CAP_USD = 3;
 
 export const EXIT_BUDGET = 4;
 
-const USAGE = `usage: pnpm byok-bench <mirror|positions|matches> [options]
+const USAGE = `usage: pnpm byok-bench <mirror|reach|positions|matches> [options]
   --max-usd X                  hard spend cap (required for positions, matches)
   --yes                        allow a tier that calls the model to spend
-  --cells s1-first,s2-second   run only these grid cells (default: all 6)
+  --cells s1-first,s2-second   run only these grid cells (default: all 6;
+                               reach: all 16, ids like p2-R7-h5-s1)
   --round-cap K                matches: the round cap K (from the mirror run);
-                               mirror: safety cap (default 400)
+                               mirror: safety cap (default 400); reach: cap (default 100)
   --mode reasoning|fast        lobby Reasoning flag (default reasoning)
   --positions ID,ID            positions: only these, ID = <log>#<move-index>
   --max-positions N            positions: at most the first N
@@ -112,7 +117,7 @@ const list = (raw: string | undefined): readonly string[] | undefined =>
   raw?.split(',').map((c) => c.trim()).filter((c) => c.length > 0);
 
 const isTier = (value: string | undefined): value is Tier =>
-  value === 'mirror' || value === 'positions' || value === 'matches';
+  value === 'mirror' || value === 'reach' || value === 'positions' || value === 'matches';
 
 const isMode = (value: string): value is BenchMode => (BENCH_MODES as readonly string[]).includes(value);
 
@@ -286,6 +291,32 @@ const mirrorTier = async (run: Run): Promise<number> => {
   });
 };
 
+const lossLine = (row: ReachRow): string => {
+  const l = row.losses;
+  const c = row.closures;
+  return (
+    `${row.id}  r${String(row.rounds)}  ${String(row.summary.steps)} steps · ${String(row.summary.closes)} closes · ` +
+    `${String(row.summary.cuts)} cuts  lost: combat ${String(l.combat)} / encirclement ${String(l.encirclement)} / ` +
+    `evaporation ${String(l.evaporation)} / vanished ${String(l.vanished)}  attacks ${String(row.attacks)}  ` +
+    `closures: bridge ${String(c.landBridge)} / area ${String(c.areaCapture)} / with-enemy ${String(c.captureWithEnemyHeads)}  ` +
+    `contact→death ${row.contactToDeathTurns === null ? '—' : String(row.contactToDeathTurns)}`
+  );
+};
+
+const reachTier = async (run: Run): Promise<number> => {
+  const cells = selectCells(reachCells(), run.opts.cells);
+  const started = run.io.now();
+  const cap = run.opts.roundCap ?? REACH_DEFAULT_CAP;
+  const summary = await runReachTier(cells, cap, run.io.jobRunner(run.env, run.concurrency));
+  for (const row of [...summary.corpus, ...summary.grid]) run.log(lossLine(row));
+  return finish(run, started, {
+    summary,
+    spend: { cost: ZERO_COST, retries: 0 },
+    jobsRun: cells.length,
+    budgetExhausted: false,
+  });
+};
+
 const matchesTier = async (run: Run, model: string): Promise<number> => {
   const k = run.opts.roundCap;
   if (k === undefined) throw new Error('matches needs --round-cap K (2 × median mirror length, rounded up to a multiple of 10)');
@@ -332,7 +363,7 @@ const makeRun = (opts: Options, io: CliIo, access: ModelAccess | undefined): Run
   const redact = redactor(io.env[ENV_API_KEY] ?? '');
   const revision = io.revision();
   const model = access?.model ?? 'heuristic';
-  const mode = opts.tier === 'mirror' ? 'none' : opts.mode;
+  const mode = isFree(opts.tier) ? 'none' : opts.mode;
   const concurrency = concurrencyOf(opts);
   const budget = {
     maxUsd: opts.maxUsd ?? null,
@@ -354,7 +385,7 @@ const makeRun = (opts: Options, io: CliIo, access: ModelAccess | undefined): Run
       mode,
       startedAt: io.isoNow(),
       concurrency,
-      ...(opts.tier === 'mirror' ? {} : { budget }),
+      ...(isFree(opts.tier) ? {} : { budget }),
       ...(opts.tag === undefined ? {} : { tag: opts.tag }),
     },
     env: {
@@ -368,7 +399,7 @@ const makeRun = (opts: Options, io: CliIo, access: ModelAccess | undefined): Run
 };
 
 const dispatch = async (opts: Options, io: CliIo): Promise<number> => {
-  const callsModel = opts.tier !== 'mirror';
+  const callsModel = !isFree(opts.tier);
   if (callsModel && opts.maxUsd === undefined) {
     throw new Error(`${opts.tier} calls the model: --max-usd is required`);
   }
@@ -379,6 +410,7 @@ const dispatch = async (opts: Options, io: CliIo): Promise<number> => {
     return 1;
   }
   if (opts.tier === 'mirror') return mirrorTier(run);
+  if (opts.tier === 'reach') return reachTier(run);
   const model = access?.model ?? '';
   return opts.tier === 'matches' ? matchesTier(run, model) : positionsTier(run, model);
 };
