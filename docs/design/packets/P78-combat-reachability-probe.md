@@ -1,6 +1,7 @@
 # P78 — Is combat reachable? A measurement, not a change
 
-> **Status:** ready. **Depends on:** P10 (replay), P07, P33, P79 (match runner). **Throwaway
+> **Status:** done — [research note](../../research/combat-reachability.md): combat is reachable
+> (83–85 % of heads lost in the heuristic grid; 7 heads in the 2026-10-29 log). **Depends on:** P10 (replay), P07, P33, P79 (match runner). **Throwaway
 > measurement** — produces a research note, not shipped code.
 > Playtest 2026-10-29 ([findings](../../research/playtest-2026-10-29/FINDINGS.md) §3):
 > the match summary reads **605 steps · 62 closes · 7 cuts**, and as far as the
