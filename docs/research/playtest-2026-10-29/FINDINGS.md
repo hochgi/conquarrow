@@ -147,10 +147,16 @@ heads should be spent, not hoarded.
 
 ## 3. Rules / engine observations
 
-- **Enclosure dominates combat.** 62 closes against **7 cuts** in the whole match, and as far as I
+- ~~**Enclosure dominates combat.** 62 closes against **7 cuts** in the whole match, and as far as I
   could see **no head was ever killed in head-to-head combat** — every head that died, on any side,
   was captured inside a closure. The entire combat vocabulary (fronts, firebreaks, evaporation,
-  1:1 exchange) is close to vestigial at this board size. Worth a deliberate test.
+  1:1 exchange) is close to vestigial at this board size. Worth a deliberate test.~~
+  **Corrected by replay (P78, [combat-reachability.md](../combat-reachability.md)).** The log has
+  **5 attacks costing 7 heads**, 35 % of the 20 heads lost. Two of them were seat B's (moves 361,
+  677). In the heuristic grid, combat is 83–85 % of all heads lost. What survives is the seat-level
+  reading: **for seat B, encirclement was the main killer** (11 of 13 heads). Most of those
+  conversions came from losing territory grade (§6.3), not from being inside a closing loop. The
+  claim above was judged from inside one seat; that seat's view hid the other seats' fights.
 - **Concentration inverts between the two threats.** Massing stacks is correct against combat and
   fatal against enclosure — a closure takes everything inside the loop regardless of lives. My
   match ended when I massed two stacks against C's two large groups, which were the two ends of a
