@@ -1,6 +1,6 @@
 # P76 — BYOK horizon: what changed, and what is reachable
 
-> **Status:** blocked on one design decision (below). **Depends on:** P79, and the measured results of P74 and P75. If those close
+> **Status:** **parked 2026-11-01 by the human.** P80 and P75 fixed both audited grok failures. P76's evidence comes from late-game play in the Claude playtest, which the K = 20 benchmark cannot see. **Unpark when** a longer-game measurement of grok's own play (K = 40–60) shows a territorial bleed or a missed reachable goal. If it is unparked, the shape decision below still has to be made and recorded in an ADR. Was: blocked on one design decision (below). **Depends on:** P79, and the measured results of P74 and P75. If those close
 > the gap, this packet may not be needed.
 > Playtest 2026-10-29 ([findings](../../research/playtest-2026-10-29/FINDINGS.md) §2.3, §2.9):
 > the offer is regenerated per position and describes **one step**. Two
