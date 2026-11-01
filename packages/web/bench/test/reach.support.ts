@@ -76,7 +76,7 @@ export const aRingWithAnInside = (): { readonly wall: readonly ArrowId[]; readon
   const inside = [...new Set(wall.flatMap(exitsFrom))]
     .filter((a) => !wall.includes(a))
     .filter((a) => points.has(String(geometry.origin(a))) && points.has(String(geometry.target(a))))
-    .toSorted((x, y) => (String(x) < String(y) ? -1 : 1));
+    .toSorted((x, y) => (String(x) < String(y) ? -1 : String(x) > String(y) ? 1 : 0));
   if (inside.length === 0) throw new Error('setup: that ring has no inside');
   return { wall, inside };
 };
