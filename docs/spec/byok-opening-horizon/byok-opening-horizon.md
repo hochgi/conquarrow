@@ -100,6 +100,10 @@ exposed tip, it shows what landing home by the shortest walk would claim.
    - `share+<S>` always prints, including `share+0`, so the field has one
      shape.
    - `ifHome=` and `share+` are omitted when `tipDist` is `none`.
+   - They are also omitted when `buildUserPrompt` is called without a
+     `RulesPort`, because `enclosedBy` is then unavailable. Such a prompt
+     has no `LEGAL_MOVES` rows either. The seat's only caller,
+     `playLlmBotTurn`, always passes one.
    - The tips line keeps its sort order and its "none" text.
    - A tip stack on an own-territory arrow is not a tip, as today.
 7. **`ifHome` is a projection.** It is computed for the shortest walk only.

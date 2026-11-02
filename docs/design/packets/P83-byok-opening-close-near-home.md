@@ -23,7 +23,7 @@ It lost all 6 cells, eliminated at rounds 62–116
 - At round 20 its income was 1/4–1/2 heads per round, against the
   heuristic's 47/18–49/9.
 
-The [2026-11-02 playtest](https://github.com/hochgi/conquarrow/blob/fe662c6/docs/research/playtest-2026-11-02/FINDINGS.md)
+The [2026-11-02 playtest](../../research/playtest-2026-11-02/FINDINGS.md)
 is the reference opening. A human beat two heuristic seats in about 42 rounds
 by closing small loops near home from round 5: 16 area captures, and income
 2.78 at round 20.
@@ -80,14 +80,15 @@ would claim.
      trail landed home by the shortest grain walk from that tip. That is the
      trail, plus the walk's non-own arrows, plus `rules.enclosedBy(own ∪
      trail ∪ walk)`.
-   - It is a projection, not a promise: the board moves in between. It is
-     labelled as one in the legend, and printed for the shortest walk only.
+   - It is a projection, not a promise: the board moves in between. The
+     tips line's prefix labels it as one (`ifHome = claim if it walks home
+     now`, spec Decision 8), and it is printed for the shortest walk only.
    - It is omitted when the tip has no way home within the cap.
    - It never ranks, and never names a route or a row index.
 5. **Legend, not teaching.** The `LEGAL_MOVES` legend sentence gains one
-   clause each for `homeIn=` and `leaves_horizon`, and one for `ifHome=` on
-   the tips line. The teaching doc's tag list names the new tag. No new
-   paragraph.
+   clause each for `homeIn=` and `leaves_horizon`, and the tips line gains a
+   prefix that glosses `ifHome=`. The teaching doc's tag list names the new
+   tag. No new paragraph.
 6. **No new port method.** Reuse `distanceToTerritory` / `homewardPath`
    (`botEvaluate.ts`), `speed` and `rules.enclosedBy`. The claim arithmetic
    is the same as `botFinish.ts`'s claim estimate. If both can share one
