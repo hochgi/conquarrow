@@ -44,6 +44,7 @@ import {
 } from './byok-interior-mill.support';
 import type { Case, Row } from './byok-interior-mill.support';
 import { withoutBordersSpawner, withoutP75 } from './byok-offer-vertex-join.support';
+import { withoutP83 } from './byok-opening-horizon.support';
 
 const bank: readonly Case[] = [
   ...minusOneCases(spacious),
@@ -193,7 +194,8 @@ describe('P80 byok-interior-mill invariants', () => {
       const id = positionId(position.log, position.moveIndex);
       // P75 retired borders_spawner for advances= clauses and two tags (Decision 5);
       // the frozen golden keeps the pre-P75 text, so both sides drop exactly that.
-      const now = offTerritoryLines(position).map(withoutP75);
+      // P83 (byok-opening-horizon I6): rows gain homeIn= / leaves_horizon and print none for 17; drop exactly that.
+      const now = offTerritoryLines(position).map((line) => withoutP75(withoutP83(line)));
       rows += now.length;
       expect(now, id).toEqual((offTerritoryRows[id] ?? []).map(withoutBordersSpawner));
     }
@@ -208,7 +210,10 @@ describe('P80 byok-interior-mill invariants', () => {
         const state = starState(board, shape);
         const once = legalMovesText(board, state);
         expect(legalMovesText(board, state), `${board.name} ${shape}`).toBe(once);
-        expect(withoutIds(once), `${board.name} ${shape}`).toBe(withoutIds(reference));
+        // P83: a 'lone' exit's grain distance home differs by board (5 on the tiling, 3 on a
+        // fixture), so its homeIn= differs; P80's own tokens must still agree (P83 I6, I7).
+        const p80 = (text: string): string => withoutIds(text.split('\n').map(withoutP83).join('\n'));
+        expect(p80(once), `${board.name} ${shape}`).toBe(p80(reference));
       }
     }
   });

@@ -41,6 +41,7 @@ import {
   withoutP75,
 } from './byok-offer-vertex-join.support';
 import type { Board, Seen } from './byok-offer-vertex-join.support';
+import { withoutP83 } from './byok-opening-horizon.support';
 
 const rows: readonly Seen[] = bankRows();
 const where = (s: Seen): string => s.label;
@@ -232,10 +233,11 @@ describe('P75 byok-offer-vertex-join invariants', () => {
         const prior = was[i] ?? '';
         if (flanksSpawner(tiling.geometry, position.state, move.exit)) {
           flanked += 1;
-          expect(withoutP75(line), `${id}: ${line}`).toBe(withoutBordersSpawner(prior));
+          // P83 (byok-opening-horizon I6): rows gain homeIn= / leaves_horizon and print none for 17; drop exactly that.
+          expect(withoutP75(withoutP83(line)), `${id}: ${line}`).toBe(withoutBordersSpawner(prior));
         } else {
           plain += 1;
-          expect(withoutP75(line), `${id}: ${line}`).toBe(prior);
+          expect(withoutP75(withoutP83(line)), `${id}: ${line}`).toBe(prior);
           expect(line, `${id}: ${line}`).not.toContain('advances=');
         }
       }

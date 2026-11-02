@@ -23,6 +23,7 @@ import {
   tiling,
   withoutIds,
 } from './byok-interior-mill.support';
+import { withoutP83 } from './byok-opening-horizon.support';
 
 /** Pre-P80 text of every row from the trail arrow 0>1, written from main at 9d7af96. */
 const PRE_P80_OFF_TERRITORY_ROWS = [
@@ -78,13 +79,15 @@ describe('P80 byok-interior-mill edge cases', () => {
         expect(row.line).not.toContain('edgeDist=');
         expect(row.tags).not.toContain('to_edge');
       }
-      expect(rows.map((row) => row.line)).toEqual([...PRE_P80_OFF_TERRITORY_ROWS]);
+      // P83 (byok-opening-horizon I6): rows gain homeIn= / leaves_horizon and print none for 17; drop exactly that.
+      expect(rows.map((row) => withoutP83(row.line))).toEqual([...PRE_P80_OFF_TERRITORY_ROWS]);
     });
 
     it('The exposed-tips header still prints tipDist', () => {
       const { board, state, me } = offTerritoryCase();
       const prompt = buildUserPrompt(board.geometry, state, me, offerOf(board, state), true, board.rules);
-      const tips = prompt.split('\n').find((line) => line.startsWith('Exposed tips:'));
+      // P83 Decision 8 prefixes a non-empty tips line `Exposed tips (ifHome=…):`.
+      const tips = prompt.split('\n').find((line) => line.startsWith('Exposed tips'));
       expect(tips).toBeDefined();
       expect(tips).toContain('tipDist=');
       expect(tips).not.toContain('edgeDist=');

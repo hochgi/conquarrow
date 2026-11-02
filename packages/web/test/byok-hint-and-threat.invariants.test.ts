@@ -126,7 +126,7 @@ describe('byok-hint-and-threat invariants', () => {
     const lead = leadLine(prompt);
     expect(lead, 'no Lead: line').toBeDefined();
     expect(lineIndex(prompt, 'Lead:')).toBeGreaterThan(lineIndex(prompt, 'Shares='));
-    expect(lineIndex(prompt, 'Lead:')).toBeGreaterThan(lineIndex(prompt, 'Exposed tips:'));
+    expect(lineIndex(prompt, 'Lead:')).toBeGreaterThan(lineIndex(prompt, 'Exposed tips'));
     expect(lineIndex(prompt, 'Lead:')).toBeLessThan(lineIndex(prompt, 'STATE_JSON:'));
     expect(lead).toMatch(/\bB \d+/);
     expect(lead).toMatch(/Longest enemy trail:/);

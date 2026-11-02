@@ -146,7 +146,7 @@ describe('BYOK tags are hints, threat line names the lead, baseline names the lu
     expect(lead, 'no Lead: line').toBeDefined();
     expect(prompt.split('\n').filter((line) => line.startsWith('Lead:'))).toHaveLength(1);
     const sharesIdx = lineIndex(prompt, 'Shares=');
-    const tipsIdx = lineIndex(prompt, 'Exposed tips:');
+    const tipsIdx = lineIndex(prompt, 'Exposed tips');
     const leadIdx = lineIndex(prompt, 'Lead:');
     const jsonIdx = lineIndex(prompt, 'STATE_JSON:');
     expect(leadIdx).toBeGreaterThan(sharesIdx);

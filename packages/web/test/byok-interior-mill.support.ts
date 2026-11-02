@@ -149,10 +149,13 @@ export interface Row {
   readonly tags: readonly string[];
 }
 
+/** P83 Decision 5 prints the capped side of `tipDist=` as `none`; read it back as {@link CAPPED}. */
+const side = (text: string): number => (text === 'none' ? CAPPED : Number(text));
+
 const pair = (re: RegExp, line: string): readonly [number, number] | undefined => {
   const match = re.exec(line);
   if (match?.[1] === undefined || match[2] === undefined) return undefined;
-  return [Number(match[1]), Number(match[2])];
+  return [side(match[1]), side(match[2])];
 };
 
 export const parseRow = (line: string): Row => {
@@ -168,7 +171,7 @@ export const parseRow = (line: string): Row => {
     exit: head[3],
     count: Number(head[4]),
     edgeDist: pair(/ edgeDist=(\d+)→(\d+)/, line),
-    tipDist: pair(/ tipDist=(\d+)→(\d+)/, line),
+    tipDist: pair(/ tipDist=(\d+|none)→(\d+|none)/, line),
     tags: tags === undefined ? [] : tags.split(','),
   };
 };

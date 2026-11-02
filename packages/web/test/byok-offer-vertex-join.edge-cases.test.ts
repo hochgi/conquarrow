@@ -47,6 +47,7 @@ import {
   withoutIds,
 } from './byok-offer-vertex-join.support';
 import type { Board } from './byok-offer-vertex-join.support';
+import { withoutP83 } from './byok-opening-horizon.support';
 
 const a1 = allArrows(spacious).toSorted(compareArrows)[0];
 if (a1 === undefined) throw new Error('setup: spacious has no arrows');
@@ -197,7 +198,8 @@ describe('P75 byok-offer-vertex-join edge cases', () => {
           if (flanksSpawner(tiling.geometry, position.state, move.exit)) continue;
           compared += 1;
           // Decision 5/7(b): the only tag P75 may add to such a row is completes_spawner.
-          expect(dropTags(line, ['completes_spawner']), id).toBe(was[i]);
+          // P83 (byok-opening-horizon I6): homeIn= / leaves_horizon / none-for-17 are dropped too.
+          expect(dropTags(withoutP83(line), ['completes_spawner']), id).toBe(was[i]);
         }
       }
       expect(compared).toBeGreaterThan(200);
@@ -290,6 +292,7 @@ function starOffer(board: Board): string[] {
   expect(text, `setup: ${board.name} star offer has an illegal row`).not.toContain('tags=illegal');
   return text
     .split('\n')
-    .map((line) => withoutIds(line.replace(/^\[\d+\] /, '')))
+    // P83: the exits' grain distances home differ by board, so homeIn= does; compare P75's tokens.
+    .map((line) => withoutIds(withoutP83(line).replace(/^\[\d+\] /, '')))
     .toSorted();
 }

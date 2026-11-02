@@ -1241,7 +1241,15 @@ export const testByokConnection = async (
   return { ok: true, sample };
 };
 
+/** One usable completion's `plan` / `why`: sanitised strings, or `null` when not a string (P83 Decision 10). */
+export interface ByokReply {
+  readonly plan: string | null;
+  readonly why: string | null;
+}
+
 export interface LlmBotTurn extends BotTurn {
+  /** P83 Decision 10: one entry per completion whose reply parsed to a usable batch, in call order. */
+  readonly replies: readonly ByokReply[];
   readonly llmHits: number;
   readonly llmFallbacks: number;
   readonly lastError: string | undefined;
@@ -1394,12 +1402,13 @@ export const playLlmBotTurn = async (
   fetchImpl: FetchLike = fetch,
 ): Promise<LlmBotTurn> => {
   if (state.activePlayer !== me || state.winner !== undefined) {
-    return { state, moves: [], llmHits: 0, llmFallbacks: 0, lastError: undefined, ...ZERO_TURN_STATS };
+    return { state, moves: [], replies: [], llmHits: 0, llmFallbacks: 0, lastError: undefined, ...ZERO_TURN_STATS };
   }
   if (!isByokReady(config)) {
     const fallback = playBotTurn(geometry, rules, state, me);
     return {
       ...fallback,
+      replies: [],
       llmHits: 0,
       llmFallbacks: 0,
       lastError: 'byok not ready',
@@ -1469,6 +1478,8 @@ export const playLlmBotTurn = async (
   return {
     state: at,
     moves,
+    // P83 skeleton: phase 3 records each usable completion's plan / why here.
+    replies: [],
     llmHits: fellBack ? 0 : 1,
     llmFallbacks: fellBack ? 1 : 0,
     lastError,

@@ -10,7 +10,7 @@
 import { ZERO } from '@conquarrow/contracts';
 import type { GameState, Move, PlayerId, Rational } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
-import { clearByokPlans, type LlmBotTurn } from '../../src/byokBot';
+import { clearByokPlans, type ByokReply, type LlmBotTurn } from '../../src/byokBot';
 import { emptyMatchSummary, foldMatchSummary, type MatchSummary } from '../../src/matchLog';
 import { playBotTurn } from '../../src/opponent';
 import { clearTargetLocks } from '../../src/targets';
@@ -79,6 +79,17 @@ export interface MatchRecord {
   readonly summary: Omit<MatchSummary, 'firstCloseAt'> & { readonly firstCloseAt: number | null };
   /** Replayable from `makeMatch(cellConfig(cell))`. */
   readonly moves: readonly SerializedMove[];
+  /**
+   * P83 Decision 10: one entry per BYOK seat-turn folded in. `at` indexes that
+   * seat-turn's first move in {@link moves}; `replies` are its usable completions'
+   * `plan` / `why`, in call order. Empty for the heuristic chair.
+   */
+  readonly byokTurns: readonly ByokTurnRecord[];
+}
+
+export interface ByokTurnRecord {
+  readonly at: number;
+  readonly replies: readonly ByokReply[];
 }
 
 interface Tally {
@@ -200,6 +211,8 @@ const toRecord = (spec: MatchSpec, tally: Tally, state: GameState, chair: Player
   },
   summary: { ...tally.summary, firstCloseAt: tally.summary.firstCloseAt ?? null },
   moves: tally.moves.map(serializeMove),
+  // P83 skeleton: phase 3 records each BYOK seat-turn here.
+  byokTurns: [],
 });
 
 export const runMatch = async (spec: MatchSpec): Promise<MatchRecord> => {
