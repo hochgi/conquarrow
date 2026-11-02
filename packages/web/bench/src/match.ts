@@ -101,6 +101,7 @@ interface Tally {
   lastError: string | undefined;
   aborted: boolean;
   readonly moves: Move[];
+  readonly byokTurns: ByokTurnRecord[];
 }
 
 const newTally = (): Tally => ({
@@ -122,6 +123,7 @@ const newTally = (): Tally => ({
   lastError: undefined,
   aborted: false,
   moves: [],
+  byokTurns: [],
 });
 
 const addByokTurn = (tally: Tally, turn: LlmBotTurn): void => {
@@ -134,6 +136,8 @@ const addByokTurn = (tally: Tally, turn: LlmBotTurn): void => {
   b.lengthOuts += turn.lengthOuts ?? 0;
   b.salvageParses += turn.salvageParses ?? 0;
   if (turn.lastError !== undefined) tally.lastError = turn.lastError;
+  // Folded next, so the turn's first move lands at this index (P83 Decision 10).
+  tally.byokTurns.push({ at: tally.moves.length, replies: turn.replies });
 };
 
 /** A function, not a property read: the meter changes under an `await`. */
@@ -211,8 +215,7 @@ const toRecord = (spec: MatchSpec, tally: Tally, state: GameState, chair: Player
   },
   summary: { ...tally.summary, firstCloseAt: tally.summary.firstCloseAt ?? null },
   moves: tally.moves.map(serializeMove),
-  // P83 skeleton: phase 3 records each BYOK seat-turn here.
-  byokTurns: [],
+  byokTurns: tally.byokTurns,
 });
 
 export const runMatch = async (spec: MatchSpec): Promise<MatchRecord> => {

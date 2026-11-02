@@ -11,6 +11,7 @@ import type {
   ArrowId,
   GameState,
   GeometryPort,
+  Group,
   Move,
   PlayerId,
   RulesPort,
@@ -29,14 +30,8 @@ import {
   isByokReady,
   resolveByokProxyUrl,
 } from './byokConfig';
-import {
-  chooseMove,
-  closeUrgency,
-  distanceToTerritory,
-  playBotTurn,
-  type BotTurn,
-} from './opponent';
-import { edgeDistance } from './botEvaluate';
+import { chooseMove, closeUrgency, playBotTurn, type BotTurn } from './opponent';
+import { edgeDistance, homewardPath } from './botEvaluate';
 import type { Finding } from './findings';
 import { advanceTargetLock, syncTargetLocks, tagOnTarget } from './targets';
 import teachingBody from 'docs/byok-teaching.md?raw';
@@ -303,6 +298,81 @@ const cutOrNearTrailTags = (
   return near === undefined ? [] : [`near_trail:${String(near)}`];
 };
 
+/**
+ * `d(x)` (P83 Terms): grain distance to own territory. `n` is the BFS's own
+ * number — `DIST_CAP + 1` past the cap, so `homeward` / `outward` compare as
+ * before — and `capped` says the number is that sentinel, printed `none`.
+ */
+type HomeDistance = { readonly n: number; readonly capped: boolean };
+
+const homeDistance = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  start: ArrowId,
+): HomeDistance => {
+  const walk = homewardPath(geometry, state, me, start);
+  return { n: walk.distance, capped: walk.landing === undefined };
+};
+
+const distanceText = (d: HomeDistance): string => (d.capped ? 'none' : String(d.n));
+
+/** P83 Decision 4: the horizon, in turns. */
+const HORIZON = 2;
+
+/**
+ * `turnsHome(d, L, v)` (P83 Terms): `undefined` (printed `none`) when `d` is
+ * capped; `0` when this turn's `left` steps reach home; else `⌈(d − L) / v⌉`.
+ */
+const turnsHome = (d: HomeDistance, left: number, v: number): number | undefined => {
+  if (d.capped) return undefined;
+  if (d.n <= left) return 0;
+  return Math.ceil((d.n - left) / v);
+};
+
+const turnsText = (turns: number | undefined): string =>
+  turns === undefined ? 'none' : String(turns);
+
+/** ` leave= spd= spent=`: the portion's tempo on `from` (spd = merge override or speed(count)). */
+type PortionTempo = { readonly leave: number; readonly spd: number; readonly spent: number };
+
+const portionTempo = (state: GameState, move: StepMove): PortionTempo => {
+  const fromGroup = state.groups.get(move.from);
+  return {
+    leave: (fromGroup?.heads ?? move.count) - move.count,
+    spd: fromGroup?.speedOverride ?? speed(move.count),
+    spent: fromGroup?.spent ?? 0,
+  };
+};
+
+type HorizonFacts = {
+  /** ` homeIn=<t>`, or `''` when the exit is own territory (P83 Decisions 1–2). */
+  readonly slot: string;
+  /** `leaves_horizon` on the crossing step (P83 Decision 4). */
+  readonly tags: readonly string[];
+};
+
+/**
+ * P83: this portion's turns home after the step, with this turn's leftover
+ * steps first and later turns at `speed(count)` (an override is a this-turn
+ * fact); `leaves_horizon` when the step carries it from ≤ H to beyond H.
+ */
+const horizonFacts = (
+  state: GameState,
+  me: PlayerId,
+  move: StepMove,
+  [d0, d1]: readonly [HomeDistance, HomeDistance],
+): HorizonFacts => {
+  if (state.territory.get(move.exit) === me) return { slot: '', tags: [] };
+  const tempo = portionTempo(state, move);
+  const left = tempo.spd - tempo.spent;
+  const v = speed(move.count);
+  const before = turnsHome(d0, left, v);
+  const after = turnsHome(d1, left - 1, v);
+  const crosses = before !== undefined && before <= HORIZON && (after === undefined || after > HORIZON);
+  return { slot: ` homeIn=${turnsText(after)}`, tags: crosses ? ['leaves_horizon'] : [] };
+};
+
 type HomeFacts = {
   /** `tipDist=d0→d1`, or `edgeDist=a→b` when `from` is own territory (P80). */
   readonly slot: string;
@@ -318,10 +388,10 @@ const homeFacts = (
   state: GameState,
   me: PlayerId,
   move: StepMove,
-  tipDist: readonly [number, number],
+  tipDist: readonly [HomeDistance, HomeDistance],
 ): HomeFacts => {
   if (state.territory.get(move.from) !== me) {
-    return { slot: `tipDist=${String(tipDist[0])}→${String(tipDist[1])}`, tag: undefined };
+    return { slot: `tipDist=${distanceText(tipDist[0])}→${distanceText(tipDist[1])}`, tag: undefined };
   }
   const a = edgeDistance(geometry, state, me, move.from);
   const b = edgeDistance(geometry, state, me, move.exit);
@@ -357,12 +427,18 @@ const gainTags = (
 };
 
 type CourseFacts = {
-  /** `tipDist=` / `edgeDist=` (P80). */
+  /** `tipDist=` / `edgeDist=` (P80), then ` homeIn=` (P83). */
   readonly slot: string;
   readonly tags: readonly string[];
 };
 
-/** Where the step goes: home facts, distance, target, trails and stacks it meets. */
+/** `homeward` / `outward` on the numeric distances (17 compares as before, P83 Decision 5). */
+const gradientTags = ([d0, d1]: readonly [HomeDistance, HomeDistance]): readonly string[] => {
+  if (d1.n < d0.n) return ['homeward'];
+  return d1.n > d0.n ? ['outward'] : [];
+};
+
+/** Where the step goes: home facts, distance, horizon, target, trails and stacks it meets. */
 const courseFacts = (
   geometry: GeometryPort,
   state: GameState,
@@ -370,29 +446,28 @@ const courseFacts = (
   move: StepMove,
   targets: readonly Finding[],
 ): CourseFacts => {
-  const d0 = distanceToTerritory(geometry, state, me, move.from);
-  const d1 = distanceToTerritory(geometry, state, me, move.exit);
-  const home = homeFacts(geometry, state, me, move, [d0, d1]);
+  const dists = [
+    homeDistance(geometry, state, me, move.from),
+    homeDistance(geometry, state, me, move.exit),
+  ] as const;
+  const home = homeFacts(geometry, state, me, move, dists);
+  const horizon = horizonFacts(state, me, move, dists);
   const tags: string[] = [];
   if (home.tag !== undefined) tags.push(home.tag);
-  if (d1 < d0) tags.push('homeward');
-  else if (d1 > d0) tags.push('outward');
+  tags.push(...gradientTags(dists), ...horizon.tags);
   if (state.territory.get(move.exit) === me) tags.push('onto_home');
   if (tagOnTarget(move, targets)) tags.push('on_target');
   tags.push(...cutOrNearTrailTags(geometry, state, me, move.exit));
   const dest = state.groups.get(move.exit);
   if (dest !== undefined && dest.owner !== me) tags.push('combat');
-  return { slot: home.slot, tags };
+  return { slot: `${home.slot}${horizon.slot}`, tags };
 };
 
 /** ` leave= spd= spent= left=`: the portion's tempo on `from`. */
 const portionSlot = (state: GameState, move: StepMove): string => {
-  const fromGroup = state.groups.get(move.from);
-  const leave = (fromGroup?.heads ?? move.count) - move.count;
-  const spent = fromGroup?.spent ?? 0;
-  const portionSpd = fromGroup?.speedOverride ?? speed(move.count);
+  const { leave, spd, spent } = portionTempo(state, move);
   const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
-  return `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}`;
+  return `${leaveStr} spd=${String(spd)} spent=${String(spent)} left=${String(spd - spent)}`;
 };
 
 /** `k(P, v)`: how many of `vertex`'s border arrows are `player`'s territory in `s`. */
@@ -822,6 +897,69 @@ const nearTrailFromRows = (rows: readonly OfferTagRow[]): boolean => {
   return false;
 };
 
+/** P83 Decision 8: the tips line's legend, printed only when there is a tip. */
+const TIPS_PREFIX =
+  'Exposed tips (ifHome=+land share+shares: what landing by the shortest walk home would claim now, a projection):';
+
+/**
+ * P83 Terms, `ifHome` claim: what landing by `homewardPath`'s walk from `tip`
+ * would make `me`'s territory now — `C = (trail ∪ walk ∪ enclosedBy(own ∪
+ * trail ∪ walk)) − own`. `land = |C|`; `shares` counts an arrow once per
+ * spawner vertex it borders, as {@link shareCount} does. `undefined` when the
+ * tip has no way home within the cap. A query: nothing is applied.
+ */
+const ifHomeClaim = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  tip: ArrowId,
+): { readonly land: number; readonly shares: number } | undefined => {
+  const walk = homewardPath(geometry, state, me, tip);
+  if (walk.landing === undefined) return undefined;
+  const isOwn = (arrow: ArrowId): boolean => state.territory.get(arrow) === me;
+  const own = [...state.territory.keys()].filter(isOwn);
+  const reach = [...(state.trails.get(me) ?? []), ...walk.path];
+  const enclosed = rules.enclosedBy(new Set([...own, ...reach]), me);
+  const claim = new Set([...reach, ...enclosed].filter((arrow) => !isOwn(arrow)));
+  let shares = 0;
+  for (const vertex of state.spawners.keys()) {
+    shares += geometry.borderArrows(vertex).filter((arrow) => claim.has(arrow)).length;
+  }
+  return { land: claim.size, shares };
+};
+
+/** P83 Decision 6: `<arrow> tipDist=<d> homeIn=<t> ifHome=+<L> share+<S> heads=<n>`. */
+const tipEntry = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  [tip, group]: readonly [ArrowId, Group],
+  rules: RulesPort | undefined,
+): string => {
+  const d = homeDistance(geometry, state, me, tip);
+  const spd = group.speedOverride ?? speed(group.heads);
+  const homeIn = turnsHome(d, spd - group.spent, speed(group.heads));
+  const claim = d.capped || rules === undefined ? undefined : ifHomeClaim(geometry, rules, state, me, tip);
+  const ifHome = claim === undefined ? '' : ` ifHome=+${String(claim.land)} share+${String(claim.shares)}`;
+  return `${String(tip)} tipDist=${distanceText(d)} homeIn=${turnsText(homeIn)}${ifHome} heads=${String(group.heads)}`;
+};
+
+/** `Exposed tips`: every own stack on an own trail arrow, by arrow id; `none` when there is none. */
+const exposedTipsLine = (
+  geometry: GeometryPort,
+  state: GameState,
+  me: PlayerId,
+  rules: RulesPort | undefined,
+): string => {
+  const trail = state.trails.get(me);
+  const tips = [...state.groups.entries()]
+    .filter(([arrow, group]) => group.owner === me && (trail?.has(arrow) ?? false))
+    .toSorted((a, b) => (String(a[0]) < String(b[0]) ? -1 : String(a[0]) > String(b[0]) ? 1 : 0));
+  if (tips.length === 0) return 'Exposed tips: none';
+  return `${TIPS_PREFIX} ${tips.map((entry) => tipEntry(geometry, state, me, entry, rules)).join('; ')}`;
+};
+
 export const buildUserPrompt = (
   geometry: GeometryPort,
   state: GameState,
@@ -833,16 +971,6 @@ export const buildUserPrompt = (
 ): string => {
   const trail = state.trails.get(me)?.size ?? 0;
   const myShares = shareCount(geometry, state, me);
-  const tipLines: string[] = [];
-  for (const [arrow, group] of [...state.groups.entries()].toSorted((a, b) =>
-    String(a[0]) < String(b[0]) ? -1 : String(a[0]) > String(b[0]) ? 1 : 0,
-  )) {
-    if (group.owner !== me) continue;
-    if (!(state.trails.get(me)?.has(arrow) ?? false)) continue;
-    tipLines.push(
-      `${String(arrow)} tipDist=${String(distanceToTerritory(geometry, state, me, arrow))} heads=${String(group.heads)}`,
-    );
-  }
   const rows =
     rules === undefined ? [] : offerTagRows(geometry, rules, state, me, moves);
   const counts = seatCountMaps(geometry, state);
@@ -863,14 +991,14 @@ export const buildUserPrompt = (
   return [
     `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
     `Shares=${String(myShares)}, trailLen=${String(trail)}.`,
-    tipLines.length > 0 ? `Exposed tips: ${tipLines.join('; ')}` : 'Exposed tips: none',
+    exposedTipsLine(geometry, state, me, rules),
     threat,
     ...planEcho,
     '',
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me, moves)),
     '',
-    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
+    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. homeIn=t: this portion\'s turns after this step until it can land on your territory by the shortest walk (0 = still this turn, none = no territory within 16 steps); leaves_horizon: this step takes it from 2 or fewer turns from home to more. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     ...baseline,
@@ -957,15 +1085,23 @@ const collectJsonObjectSlices = (text: string): string[] => {
   return slices;
 };
 
-interface ParsedBatchResult {
-  readonly batch: ParsedMoveBatch;
-  readonly salvaged: boolean;
+/** The reply object's free-text keys, read raw beside the batch: `plan` (P66) and `why` (P83). */
+interface ReplyKeys {
   readonly plan: unknown;
+  readonly why: unknown;
 }
 
-const planKeyOf = (value: unknown): unknown => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  return (value as Record<string, unknown>)['plan'];
+interface ParsedBatchResult extends ReplyKeys {
+  readonly batch: ParsedMoveBatch;
+  readonly salvaged: boolean;
+}
+
+const replyKeysOf = (value: unknown): ReplyKeys => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return { plan: undefined, why: undefined };
+  }
+  const rec = value as Record<string, unknown>;
+  return { plan: rec['plan'], why: rec['why'] };
 };
 
 const lastUsableFromSlices = (stripped: string): ParsedBatchResult | undefined => {
@@ -975,7 +1111,7 @@ const lastUsableFromSlices = (stripped: string): ParsedBatchResult | undefined =
     if (slice === undefined) continue;
     const value = tryJsonParse(slice);
     const batch = asUsableBatch(value);
-    if (batch !== undefined) return { batch, salvaged: true, plan: planKeyOf(value) };
+    if (batch !== undefined) return { batch, salvaged: true, ...replyKeysOf(value) };
   }
   return undefined;
 };
@@ -988,7 +1124,7 @@ const parseMoveBatchResult = (text: string): ParsedBatchResult | undefined => {
   const stripped = stripMarkdownFence(text);
   const wholeValue = tryJsonParse(stripped);
   const whole = asUsableBatch(wholeValue);
-  if (whole !== undefined) return { batch: whole, salvaged: false, plan: planKeyOf(wholeValue) };
+  if (whole !== undefined) return { batch: whole, salvaged: false, ...replyKeysOf(wholeValue) };
   return lastUsableFromSlices(stripped);
 };
 
@@ -1393,6 +1529,80 @@ const afterPrefix = (
   return { kind: 'continue', at, lastError: tailError };
 };
 
+/** P83 Decision 10: a reply text is the key's value when it is a string, sanitised as a plan is; else `null`. */
+const replyText = (value: unknown): string | null =>
+  typeof value === 'string' ? sanitizePlan(value) : null;
+
+const byokReplyOf = (keys: ReplyKeys): ByokReply => ({
+  plan: replyText(keys.plan),
+  why: replyText(keys.why),
+});
+
+/** What one seat-turn's completions add up to. Mutable within the turn only. */
+interface TurnTally {
+  completions: number;
+  fellBack: boolean;
+  lastError: string | undefined;
+  promptTokens: number;
+  completionTokens: number;
+  lengthOuts: number;
+  salvageParses: number;
+  readonly replies: ByokReply[];
+}
+
+const newTurnTally = (): TurnTally => ({
+  completions: 0,
+  fellBack: false,
+  lastError: undefined,
+  ...ZERO_TURN_STATS,
+  replies: [],
+});
+
+/**
+ * One completion's parse. A usable batch is tallied (usage, salvage, its
+ * `plan` / `why` reply) and returned; a failed fetch or an unusable reply
+ * records `lastError` and returns `undefined` — the caller falls back.
+ */
+const usableCompletion = (
+  fetched: LlmBatchFetchResult,
+  tally: TurnTally,
+): ParsedBatchResult | undefined => {
+  if (!fetched.ok) {
+    tally.lastError = fetched.reason;
+    return undefined;
+  }
+  tally.promptTokens += fetched.promptTokens;
+  tally.completionTokens += fetched.completionTokens;
+  if (fetched.lengthOut) tally.lengthOuts += 1;
+  const parsed = parseMoveBatchResult(fetched.text);
+  if (parsed === undefined) {
+    tally.lastError = unusableReplyError(fetched.text);
+    return undefined;
+  }
+  if (parsed.salvaged) tally.salvageParses += 1;
+  tally.replies.push(byokReplyOf(parsed));
+  return parsed;
+};
+
+const turnResult = (
+  at: GameState,
+  moves: readonly Move[],
+  tally: TurnTally,
+  config: ByokConfig,
+): LlmBotTurn => ({
+  state: at,
+  moves,
+  replies: tally.replies,
+  llmHits: tally.fellBack ? 0 : 1,
+  llmFallbacks: tally.fellBack ? 1 : 0,
+  lastError: tally.lastError,
+  promptTokens: tally.promptTokens,
+  completionTokens: tally.completionTokens,
+  lengthOuts: tally.lengthOuts,
+  salvageParses: tally.salvageParses,
+  maxTokens: tally.completions > 0 ? liveTurnMaxTokens(config) : 0,
+});
+
 export const playLlmBotTurn = async (
   geometry: GeometryPort,
   rules: RulesPort,
@@ -1418,43 +1628,26 @@ export const playLlmBotTurn = async (
 
   const ctx: SeatTurnCtx = { geometry, rules, me };
   const moves: Move[] = [];
+  const tally = newTurnTally();
   let at = state;
-  let completions = 0;
-  let fellBack = false;
-  let lastError: string | undefined;
-  let promptTokens = 0;
-  let completionTokens = 0;
-  let lengthOuts = 0;
-  let salvageParses = 0;
 
   while (at.winner === undefined && at.activePlayer === me) {
     const offer = movesForLlm(rules.legalMoves(at));
-    if (offer.length === 0 || completions >= MAX_COMPLETIONS_PER_TURN) {
+    if (offer.length === 0 || tally.completions >= MAX_COMPLETIONS_PER_TURN) {
       at = forceEndTurn(ctx, at, moves);
       break;
     }
-    if (completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
-    completions += 1;
+    if (tally.completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
+    tally.completions += 1;
     const targets = syncTargetLocks(geometry, rules, at, me);
     const prompt = buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
     const fetched = await fetchLlmMoveBatch(config, prompt, me, fetchImpl);
-    if (!fetched.ok) {
-      lastError = fetched.reason;
-      at = greedyRemainder(ctx, at, moves);
-      fellBack = true;
-      break;
-    }
-    promptTokens += fetched.promptTokens;
-    completionTokens += fetched.completionTokens;
-    if (fetched.lengthOut) lengthOuts += 1;
-    const parsedResult = parseMoveBatchResult(fetched.text);
+    const parsedResult = usableCompletion(fetched, tally);
     if (parsedResult === undefined) {
-      lastError = unusableReplyError(fetched.text);
       at = greedyRemainder(ctx, at, moves);
-      fellBack = true;
+      tally.fellBack = true;
       break;
     }
-    if (parsedResult.salvaged) salvageParses += 1;
     const parsed = parsedResult.batch;
     rememberByokPlan(me, {
       moves: parsed.indices,
@@ -1465,9 +1658,9 @@ export const playLlmBotTurn = async (
     at = commitPrefix(ctx, mapped, moves);
     const decision = afterPrefix(ctx, parsed, mapped, moves);
     at = decision.at;
-    if (decision.lastError !== undefined) lastError = decision.lastError;
+    if (decision.lastError !== undefined) tally.lastError = decision.lastError;
     if (decision.kind === 'stop') {
-      if (decision.fellBack) fellBack = true;
+      if (decision.fellBack) tally.fellBack = true;
       break;
     }
   }
@@ -1475,18 +1668,5 @@ export const playLlmBotTurn = async (
   if (at.winner === undefined && at.activePlayer === me) {
     at = forceEndTurn(ctx, at, moves);
   }
-  return {
-    state: at,
-    moves,
-    // P83 skeleton: phase 3 records each usable completion's plan / why here.
-    replies: [],
-    llmHits: fellBack ? 0 : 1,
-    llmFallbacks: fellBack ? 1 : 0,
-    lastError,
-    promptTokens,
-    completionTokens,
-    lengthOuts,
-    salvageParses,
-    maxTokens: completions > 0 ? liveTurnMaxTokens(config) : 0,
-  };
+  return turnResult(at, moves, tally, config);
 };
