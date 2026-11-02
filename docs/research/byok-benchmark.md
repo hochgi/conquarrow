@@ -353,3 +353,26 @@ spends its surplus and finishes games (see "After P81" under Mirror). Those
 baselines must be **re-measured before any further BYOK arm**; do not compare
 a new arm's proxy score with them. The `positions` tier never plays the
 heuristic and is unaffected.
+
+### Post-P81 proxy baseline (2026-11-02)
+
+Measured on main at `8d98a0d` (P81 merged; P80 + P75 already on main), with
+the same command as the earlier proxy rows: `grok-4.20-0309-non-reasoning`,
+6 cells, K = 20, tag `pbase81`. **This is the baseline every later BYOK arm's
+proxy run compares against.**
+
+| cell | s1-first | s1-second | s2-first | s2-second | s3-first | s3-second | mean |
+|---|---|---|---|---|---|---|---|
+| P75 arm, pre-P81 opponent | 0.130 | 0.489 | 0.120 | 0.172 | 0.107 | 0.615 | 0.272 |
+| **main, post-P81 opponent** | **0.130** | **0.564** | **0.120** | **0.400** | **0.081** | **0.661** | **0.326** |
+
+All 6 cells were capped at round 20 with 0 fallbacks, over 230 calls. That
+cost **$0.62**.
+
+The opponent change moves the second-seat cells up (s2-second +0.23) and
+s3-first down (−0.03). Within 20 rounds the finishing heuristic spends heads
+it used to hoard, which leaves the BYOK seat more land. The first-seat cells
+barely move.
+
+**Budget.** The human added $10 to xAI on 2026-11-02, so the balance was
+$11.01 before this run. Spent since the top-up: $0.62.
