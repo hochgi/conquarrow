@@ -95,6 +95,52 @@ identical move lists.
   not about the rules. It is recorded here only; nothing changes from this
   packet.
 
+### After P81 (2026-11-02): the heuristic finishes
+
+[P81](../design/packets/P81-heuristic-finishes-matches.md) diagnosed the stall
+as search-budget starvation plus a reply-scoring asymmetry that favoured
+`[endTurn]`, and then a missing finishing objective
+([spec](../spec/heuristic-finishes/heuristic-finishes.md#diagnosis-recorded-before-the-fix-as-the-packet-requires)).
+Measured with the same tiers, free only. **Before** is `main` `6e0cee3`
+(it reproduces the archived run above move for move); **after** is
+`56de8dc`.
+
+**Mirror** (`pnpm byok-bench mirror`, 400-round safety cap, concurrency 6):
+
+| seed | before: rounds / winner | after: rounds / winner | after: steps per 40-round window (A / B) |
+|---|---|---|---|
+| 1 | 400 / none | **55 / B** | 66/123, 2/45 |
+| 2 | 400 / none | **95 / B** | 67/68, 112/119, 23/57 |
+| 3 | 400 / none | **63 / A** | 111/68, 83/15 |
+
+- **Matches end: 6/6** cells within 200 rounds (gate ≥ 5/6). Both seat orders
+  of a seed are the same game, as before.
+- **No late stasis.** In every window the seat ahead on heads took ≥ 45 steps
+  (gate ≥ 20). Before, the leader had 40-round windows with **0** steps in all
+  three seeds (seed 1 rounds 227–267, seed 2 319–359, seed 3 172–212).
+- **Deterministic.** Two runs at `7a367a5` and the run at `56de8dc` gave
+  byte-identical move lists in all six cells (`56de8dc` only touches code that
+  used to throw).
+- **Wall time.** Before 1,688 s for 800 seat-turns per cell (6 cells in
+  parallel), **2.11 s per turn**. After 132 s, longest cell 190 seat-turns,
+  **0.70 s per turn** (0.93 s if all six cells' turns share the wall). Both
+  are under the 1.5× gate. The before run shared the machine with prototype
+  experiments, and early-game turns are cheaper than late-game ones, so the
+  matched-position figure is the fairer one: the round-160 seed-1 position
+  took 1.6 s per `chooseTurnBeam` before and 0.6 s with the multi-source BFS.
+
+**Reach grid** (`pnpm byok-bench reach --round-cap 200`, 16 cells):
+
+| reading | P78 (cap 100, before) | after P81 (cap 200) | gate |
+|---|---|---|---|
+| cells ending with a winner | 0/16 | **15/16** (only `p3-R7-h5-s1` capped) | ≥ 12/16 ✔ |
+| combat share of heads lost, 2 seats | 85 % (417/489) | 73 % (303/416) | |
+| combat share of heads lost, 3 seats | 83 % (1361/1648) | 79 % (1647/2094) | |
+| combat share, whole grid | 83–85 % | **78 %** (1950/2510) | ≥ 50 % ✔ |
+
+Ends by round: two seats 52–95, three seats 103–169. Evaporation still kills
+nobody; 4 heads vanished with a lost seat.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
@@ -286,3 +332,13 @@ better the proxy plays.
 
 **Spend to here: $8.41 of $9.40.** That leaves about $0.99, which is the
 reserve. No further arm is funded.
+
+## P81 changed the opponent (2026-11-02)
+
+**Every proxy whole-game number above predates P81** — the baseline mean
+0.144, the P74 and P75 proxy rows, and the P80 proxy check. The `matches` tier
+plays the BYOK seat against the heuristic, and since P81 that heuristic
+spends its surplus and finishes games (see "After P81" under Mirror). Those
+baselines must be **re-measured before any further BYOK arm**; do not compare
+a new arm's proxy score with them. The `positions` tier never plays the
+heuristic and is unaffected.

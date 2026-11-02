@@ -121,10 +121,10 @@ spawner share for N full rounds starves (§9).
 
 ## Definition of done
 
-- [ ] Diagnosis recorded: which of (a), (b), (c) held, or something else.
-- [ ] `pnpm verify` green.
-- [ ] Acceptance thresholds met and recorded in
+- [x] Diagnosis recorded: which of (a), (b), (c) held, or something else.
+- [x] `pnpm verify` green.
+- [x] Acceptance thresholds met and recorded in
       `docs/research/byok-benchmark.md` under "Mirror", with before and after
       tables.
-- [ ] Mirror wall time before and after recorded; per-turn mean ≤ 1.5×.
-- [ ] Ledger notes that BYOK proxy baselines predate this change.
+- [x] Mirror wall time before and after recorded; per-turn mean ≤ 1.5×.
+- [x] Ledger notes that BYOK proxy baselines predate this change.
