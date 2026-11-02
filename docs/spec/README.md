@@ -46,6 +46,7 @@ behaviour is not here, it will not be built.**
 | [opponent-ply-and-denial](./opponent-ply-and-denial/opponent-ply-and-denial.md) | P55 | §6.2, §6.3 (read) | 21 | — | 23 |
 | [board-selection-model](./board-selection-model/board-selection-model.md) | P77 | — (web) | 44 | — | 14 |
 | [byok-offer-vertex-join](./byok-offer-vertex-join/byok-offer-vertex-join.md) | P75 | §7 (read) — (web) | 17 | — | 9 |
+| [heuristic-finishes](./heuristic-finishes/heuristic-finishes.md) | P81 | §9 (read) — (web) | 20 | — | 9 |
 
 659 scenarios. **94 are in scope for P01**, 2 are tagged `@deferred-P08`,
 **58 belong to P03**, **18 to P02**, **30 to P04**, **58 to P05**, **49 to P05b**,

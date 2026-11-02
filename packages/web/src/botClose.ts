@@ -15,7 +15,7 @@ import type {
   RulesPort,
   VertexId,
 } from '@conquarrow/contracts';
-import { evaluate, grainDistanceToAny, homewardPath } from './botEvaluate';
+import { evaluate, grainDistanceFromAny, grainDistanceToAny, homewardPath } from './botEvaluate';
 import { exposureForBot } from './botReply';
 
 export const SHARE_VALUE_S = 100;
@@ -161,11 +161,7 @@ export const campaignTarget = (
     if (own >= 3) continue;
     const spawner = state.spawners.get(vertex);
     if (spawner === undefined) continue;
-    let dist = distCap + 1;
-    for (const from of groups) {
-      const d = grainDistToVertex(geometry, from, vertex, distCap);
-      if (d < dist) dist = d;
-    }
+    const dist = grainDistanceFromAny(geometry, groups, [...geometry.borderArrows(vertex)], distCap);
     const score = ((spawner.force.num / spawner.force.den) * (3 - own)) / Math.max(1, dist);
     if (
       best === undefined ||

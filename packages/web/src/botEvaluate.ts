@@ -210,6 +210,39 @@ export const grainDistanceToAny = (
   return cap + 1;
 };
 
+/**
+ * P81 decision 3: grain BFS distance from the nearest of `starts` to the nearest
+ * of `goals` — one multi-source search equal to the minimum over `starts` of
+ * {@link grainDistanceToAny} with the same goals and cap (`cap + 1` when none
+ * is within `cap`, or when `starts` or `goals` is empty).
+ */
+export const grainDistanceFromAny = (
+  geometry: GeometryPort,
+  starts: readonly ArrowId[],
+  goals: readonly ArrowId[],
+  cap: number,
+): number => {
+  const want = new Set(goals.map((arrow) => String(arrow)));
+  if (want.size === 0) return cap + 1;
+  if (starts.some((start) => want.has(String(start)))) return 0;
+  const seen = new Set<string>(starts.map((start) => String(start)));
+  let frontier: readonly ArrowId[] = starts;
+  for (let d = 1; d <= cap && frontier.length > 0; d += 1) {
+    const next: ArrowId[] = [];
+    for (const arrow of frontier) {
+      for (const exit of geometry.outArrows(geometry.target(arrow))) {
+        const key = String(exit);
+        if (seen.has(key)) continue;
+        if (want.has(key)) return d;
+        seen.add(key);
+        next.push(exit);
+      }
+    }
+    frontier = next;
+  }
+  return cap + 1;
+};
+
 const stackShapeScore = (state: GameState, me: PlayerId, rules: RulesPort): number => {
   let score = 0;
   const steppable = new Set<ArrowId>();

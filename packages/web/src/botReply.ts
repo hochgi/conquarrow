@@ -245,6 +245,46 @@ export const worstReachableReply = (
   };
 };
 
+/** What a reply probe needs: the seat it scores for, the enemies' search and the score. */
+export type ReplyProbe = {
+  readonly geometry: GeometryPort;
+  readonly rules: RulesPort;
+  readonly me: PlayerId;
+  readonly search: ReplySearchFn;
+  readonly score: (state: GameState) => number;
+};
+
+export type ReplyDamage = {
+  /** `min(0, min over enemies of score(after reply) − score(after pass))` — never positive. */
+  readonly damage: number;
+  readonly appliesUsed: number;
+};
+
+/**
+ * P81 decision 2 — the worst damage a reachable enemy's reply does to `me`,
+ * measured against that same enemy passing from the same hypothesised chair, so
+ * the round boundary's production cancels. Enemies run in ascending PlayerId
+ * order while `turnAppliesLeft` lasts; a reply that helps `me` counts as 0.
+ */
+export const worstReplyDamage = (
+  probe: ReplyProbe,
+  terminal: GameState,
+  turnAppliesLeft: number,
+  distCap: number = DEFAULT_REPLY_DIST_CAP,
+): ReplyDamage => {
+  if (terminal.winner !== undefined || turnAppliesLeft <= 0) return { damage: 0, appliesUsed: 0 };
+  let damage = 0;
+  let left = turnAppliesLeft;
+  for (const enemy of reachableEnemySeats(probe.geometry, terminal, probe.me, distCap)) {
+    if (left <= 0) break;
+    const reply = foldEnemyReply(probe.geometry, probe.rules, terminal, enemy, probe.search, left);
+    left -= reply.applies;
+    const passed = probe.rules.apply(hypothesiseChair(terminal, enemy), endTurn());
+    damage = Math.min(damage, probe.score(reply.after) - probe.score(passed));
+  }
+  return { damage, appliesUsed: turnAppliesLeft - left };
+};
+
 /** Trail arrows lost under the worst (min bot-evaluate) reachable reply. */
 export const exposureFromWorstReply = (
   geometry: GeometryPort,

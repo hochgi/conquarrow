@@ -118,6 +118,15 @@ re-litigate them.
    no reply ran. Incomplete beam ranking stays P53 (`evaluate` of the
    incomplete, no reply — the seat has not handed off).
 
+   > **Superseded for the live seat's finalists by P81.** P59 scores only
+   > finalists after a reply; P81
+   > ([heuristic-finishes decision 2](../heuristic-finishes/heuristic-finishes.md#decisions-bssn-recorded-here))
+   > scores a finalist as `evaluate(terminal) + min(0, min over reachable
+   > enemies of [evaluate(after the reply) − evaluate(after that enemy
+   > passes)])`, so the round boundary's production no longer favours
+   > `[endTurn]`. The `replyScore` export below keeps this decision's
+   > formula, and `exposure` (decision 10) is unchanged.
+
 10. **`exposure` is trail arrows lost under the worst reply.**
     On the **current** state (the close-value caller — typically
     before we walk home, so `findings` / `botClose` pass `rules`):
@@ -199,7 +208,7 @@ re-litigate them.
 |---|---|
 | **reply** | one full enemy turn planned with `beam-v1` from a hypothetical chair on the bot's terminal state |
 | **reachable enemy** | a seat ≠ me with a group whose grain distance to any of mine is ≤ distCap |
-| **replyScore** | `min` bot-`evaluate` after each reachable enemy's best reply (or unreplied `evaluate`) |
+| **replyScore** | `min` bot-`evaluate` after each reachable enemy's best reply (or unreplied `evaluate`). The live seat's finalists use P81's damage-relative score instead (see decision 9) |
 | **worst reply** | the reachable enemy reply that produced that min |
 | **exposure** | `max(0, trailSize_before − trailSize_after)` on my trail under the worst reply |
 | **box** | every legal exit of a group denied (territory-illegal + §6.2 stay-behind) |
