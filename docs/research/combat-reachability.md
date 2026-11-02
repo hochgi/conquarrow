@@ -243,9 +243,9 @@ goes to §11 from here:
   It is §6.3 as specified; whether players can *see* it coming is a UI
   question.
 
-A doc drift spotted on the way, out of scope here: the vocabulary table in
-`AGENTS.md` still says a front *"carries exactly one kill"*. SPEC §6.1 (P12)
-says evaporation kills nobody.
+A doc drift spotted on the way: the vocabulary table in `AGENTS.md` said a
+front *"carries exactly one kill"*, while SPEC §6.1 (P12) says evaporation
+kills nobody. **Fixed** (front, firebreak and sentry rows now follow §6.1).
 
 ## Reproducing
 
