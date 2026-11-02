@@ -261,6 +261,52 @@ describe('heuristic-finishes edge cases', () => {
     });
   });
 
+  describe('Regression: a finisher replay never builds an empty step', () => {
+    // The P81 acceptance run (`byok-bench reach`) crashed in contracts' `step()`
+    // ("a step moves a whole positive portion, got 0"): the carve replay's
+    // "all but one" fallback reached a 1-head group, and the staging walk read
+    // a lost walker as 0 heads. These boards inject that attrition through the
+    // port: the real rules, except that each step leaves the moved group with
+    // `heads` heads, or removes it when `heads` is 0.
+    const attritionRules = (heads: number): RulesPort => ({
+      ...rules,
+      apply(at, move) {
+        const next = rules.apply(at, move);
+        if (move.kind !== 'step') return next;
+        const group = next.groups.get(move.exit);
+        if (group?.owner !== at.activePlayer) return next;
+        const groups = new Map(next.groups);
+        if (heads === 0) groups.delete(move.exit);
+        else groups.set(move.exit, { ...group, heads });
+        return { ...next, groups };
+      },
+    });
+
+    it('A carve whose group is cut to one head mid-replay is dropped, not thrown', () => {
+      const state = mirrorAt(CARVE_MOVE);
+      const { A } = seatsOf(state);
+      expect(specDominant(state, A)).toBe(true);
+      expect(specCarveCandidates(state, A).length).toBeGreaterThan(0);
+
+      // After its first step every candidate's group holds 1 head with its
+      // allowance spent: the full count is illegal and "all but one" is 0.
+      expect(carvePlans(geometry, attritionRules(1), state, A)).toEqual([]);
+    });
+
+    it('A staging walk whose walker is lost mid-walk stops there, not thrown', () => {
+      const { state, A, s1 } = stagingBoard();
+      expect(specDominant(state, A)).toBe(true);
+
+      const walk = stagingWalk(geometry, attritionRules(0), state, A);
+
+      expect(walk).toBeDefined();
+      const steps = walk?.moves.filter((m): m is StepMove => m.kind === 'step') ?? [];
+      expect(steps).toHaveLength(1);
+      expect(steps[0]?.from).toBe(s1);
+      expect(walk?.moves.at(-1)).toEqual(endTurn());
+    });
+  });
+
   describe('Rule: Behaviour-preserving changes', () => {
     it('Findings at a beam node are computed from one step per from→exit', () => {
       const { state, A, stack } = fiveHeadStackBoard();

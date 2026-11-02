@@ -15,7 +15,7 @@ uses the existing `RulesPort.enclosedBy` query.
 **Features:** [core](./heuristic-finishes.core.feature) ·
 [edge cases](./heuristic-finishes.edge-cases.feature)
 
-**Counts:** 18 scenarios (5 core, 13 edge; outlines count once) · 9 invariants · 0 SPEC §11 items.
+**Counts:** 20 scenarios (5 core, 15 edge; outlines count once) · 9 invariants · 0 SPEC §11 items.
 
 ## Purpose
 

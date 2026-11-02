@@ -112,3 +112,18 @@ Feature: Finisher and search-budget edges — gates, carve shapes, staging limit
       Given any set of start arrows, any set of goal arrows and a cap
       When grainDistanceFromAny is computed
       Then it equals the minimum over the starts of grainDistanceToAny with the same goals and cap
+
+  Rule: A finisher replay never builds an empty step
+
+    Scenario: A carve whose group is cut to one head mid-replay is dropped, not crashed
+      Given seat A is dominant and carvePlans replays a claiming loop for stack S1
+      And after its first step S1's group holds one head and the full-count next step is illegal
+      When carvePlans is asked for seat A
+      Then that candidate is dropped
+      And no step with fewer than one head is ever constructed
+
+    Scenario: A staging walk whose walker is gone stops
+      Given seat A is dominant and stagingWalk walks stack S1
+      And after its first step no A group stands where S1 moved
+      When stagingWalk is asked for seat A
+      Then the walk is that one step followed by endTurn

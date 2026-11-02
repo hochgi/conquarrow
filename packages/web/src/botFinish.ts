@@ -84,15 +84,22 @@ const ownGroupsOnOwnGround = (
     .filter(([arrow, group]) => group.owner === me && state.territory.get(arrow) === me)
     .toSorted(([a], [b]) => compareArrows(a, b));
 
-/** The legal step `from → exit` moving `count` heads, if there is one. */
+/**
+ * The legal step `from → exit` moving `count` heads, if there is one. Checks the
+ * count before building the move: `step()` throws on a count below 1, which a
+ * 1-head group's "all but one" or a group lost to a fight would otherwise reach.
+ */
 const legalStep = (
   rules: RulesPort,
   state: GameState,
-  move: StepMove,
-): StepMove | undefined =>
-  move.count >= 1 && rules.legalMoves(state).some((legal) => movesEqual(legal, move))
-    ? move
-    : undefined;
+  from: ArrowId,
+  exit: ArrowId,
+  count: number,
+): StepMove | undefined => {
+  if (!Number.isInteger(count) || count < 1 || from === exit) return undefined;
+  const move = step(from, exit, count);
+  return rules.legalMoves(state).some((legal) => movesEqual(legal, move)) ? move : undefined;
+};
 
 /** Close a plan with `endTurn` while it is still `me`'s turn. */
 const closeTurn = (
@@ -287,10 +294,11 @@ const carveStep = (
   cur: ArrowId,
   exit: ArrowId,
 ): StepMove | undefined => {
-  const heads = at.groups.get(cur)?.heads ?? 0;
+  const group = at.groups.get(cur);
+  if (group === undefined) return undefined;
   return (
-    legalStep(rules, at, step(cur, exit, heads)) ??
-    legalStep(rules, at, step(cur, exit, heads - 1))
+    legalStep(rules, at, cur, exit, group.heads) ??
+    legalStep(rules, at, cur, exit, group.heads - 1)
   );
 };
 
@@ -437,7 +445,9 @@ const walkSteps = (
   let cur = from;
   const moves: Move[] = [];
   for (const exit of path) {
-    const move = legalStep(rules, at, step(cur, exit, at.groups.get(cur)?.heads ?? 0));
+    const group = at.groups.get(cur);
+    if (group === undefined) break;
+    const move = legalStep(rules, at, cur, exit, group.heads);
     if (move === undefined) break;
     at = rules.apply(at, move);
     moves.push(move);
