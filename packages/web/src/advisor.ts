@@ -252,7 +252,15 @@ export const adviseCompletion = (
       reason: `offer too large (${String(ask.offerSize)} > ${String(ADVISOR_MAX_OPTIONS)})`,
     });
   }
-  const body = advisorRequestBody(byok.advisor, ask.me, ask.systemPrompt, ask.plainPrompt, ask.offerSize);
+  let body: AdvisorRequestBody;
+  try {
+    body = advisorRequestBody(byok.advisor, ask.me, ask.systemPrompt, ask.plainPrompt, ask.offerSize);
+  } catch (err) {
+    // Unreachable today (every offer index has a prompt row); kept so that
+    // "failure is silence" holds by construction rather than by that fact.
+    const message = err instanceof Error ? err.message : 'unknown';
+    return Promise.resolve({ ok: false, reason: redactKeys(byok, `unusable prompt: ${message}`) });
+  }
   return askAdvisor(byok, body, ask.offerSize, fetchImpl);
 };
 
