@@ -116,7 +116,10 @@ describe('Rule: On, one choice question per completion', () => {
       expect(body.questions.move.criteria[key]).not.toMatch(/^\[\d+\] /);
     }
     expect(body.state).toBe(`${system}\n\n${statePrefix(plain)}`);
-    expect(body.state).not.toContain(LEGAL_MOVES_PREFIX);
+    // The teaching body (inside the system prompt) mentions LEGAL_MOVES in prose;
+    // what the state must not carry is the offer block, which starts on a line
+    // beginning LEGAL_MOVES.
+    expect(body.state.split('\n').some((l) => l.startsWith(LEGAL_MOVES_PREFIX))).toBe(false);
   });
 });
 

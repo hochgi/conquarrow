@@ -187,10 +187,12 @@ export interface LoggedAdvisorRecord extends AdvisorRecord {
   readonly at: number;
 }
 
-/** One-line HUD / review string. */
+const agreed = (record: AdvisorRecord): boolean => record.picked === record.top;
+
+/** One-line HUD / review string; ` · advisor agreed a/n` ends it when advice was logged. */
 export const formatMatchSummary = (
   summary: MatchSummary,
-  _advisorRecords?: readonly AdvisorRecord[],
+  advisorRecords: readonly AdvisorRecord[] = [],
 ): string => {
   const parts = [
     `${String(summary.steps)} steps`,
@@ -201,6 +203,10 @@ export const formatMatchSummary = (
   if (summary.firstCloseAt !== undefined) {
     parts.push(`first close @ move ${String(summary.firstCloseAt)}`);
   }
+  if (advisorRecords.length > 0) {
+    const a = advisorRecords.filter(agreed).length;
+    parts.push(`advisor agreed ${String(a)}/${String(advisorRecords.length)}`);
+  }
   return parts.join(' · ');
 };
 
@@ -208,9 +214,9 @@ export const formatMatchSummary = (
 export const matchSummaryLine = (
   over: boolean,
   summary: MatchSummary | undefined,
-  _advisorRecords?: readonly AdvisorRecord[],
+  advisorRecords?: readonly AdvisorRecord[],
 ): string | undefined =>
-  over && summary !== undefined ? formatMatchSummary(summary) : undefined;
+  over && summary !== undefined ? formatMatchSummary(summary, advisorRecords) : undefined;
 
 export interface MatchLog {
   readonly version: typeof MATCH_LOG_VERSION;
@@ -329,11 +335,13 @@ export const withByokStats = (
  * `movesBefore + turnMoveIndex`, in completion order. Zero records → `log`.
  */
 export const withAdvisorRecords = (
-  _log: MatchLog,
-  _records: readonly AdvisorRecord[],
-  _movesBefore: number,
+  log: MatchLog,
+  records: readonly AdvisorRecord[],
+  movesBefore: number,
 ): MatchLog => {
-  throw new Error('not implemented: withAdvisorRecords (P72)');
+  if (records.length === 0) return log;
+  const logged = records.map((record) => ({ ...record, at: movesBefore + record.turnMoveIndex }));
+  return { ...log, advisorRecords: [...(log.advisorRecords ?? []), ...logged] };
 };
 
 export const withWinner = (log: MatchLog, winner: PlayerId | undefined): MatchLog =>

@@ -33,6 +33,8 @@ export const BYOK_UPSTREAM_ALLOWLIST: readonly string[] = [
   'api.z.ai',
   'zenmux.ai',
   'api.valarhq.ai',
+  // Decision-API advisor (P72): TypeSafe System One
+  'api.typesafe.ai',
 ];
 
 export const isAllowedByokUpstream = (urlString: string): boolean => {
@@ -75,14 +77,15 @@ export const DEFAULT_ADVISOR: AdvisorConfig = {
 };
 
 /** Enabled, with base URL, key and model all non-empty after trimming. */
-export const isAdvisorReady = (_config: AdvisorConfig): boolean => {
-  throw new Error('not implemented: isAdvisorReady (P72)');
-};
+export const isAdvisorReady = (config: AdvisorConfig): boolean =>
+  config.enabled &&
+  config.baseUrl.trim().length > 0 &&
+  config.apiKey.trim().length > 0 &&
+  config.model.trim().length > 0;
 
 /** Normalize so `${base}/systemone` is well-formed. */
-export const systemOneUrl = (_baseUrl: string): string => {
-  throw new Error('not implemented: systemOneUrl (P72)');
-};
+export const systemOneUrl = (baseUrl: string): string =>
+  `${baseUrl.trim().replace(/\/+$/, '')}/systemone`;
 
 export interface ByokConfig {
   readonly enabled: boolean;

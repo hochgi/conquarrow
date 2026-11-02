@@ -70,8 +70,7 @@ export const byokFieldsFromConfig = (config: ByokConfig): SeatByokFields => ({
   reasoning: config.reasoning,
   useTurnRunner: config.useTurnRunner,
   turnRunnerUrl: config.turnRunnerUrl,
-  // P72 skeleton: phase 3 carries config.advisor.
-  advisor: DEFAULT_ADVISOR,
+  advisor: config.advisor,
 });
 
 export const byokConfigForSeat = (seat: SeatConfig): ByokConfig => ({
@@ -177,31 +176,45 @@ export const summarizeDrivers = (plan: SeatPlan): SeatDriverSummary => {
   return 'mixed';
 };
 
+const asRecord = (raw: unknown): Record<string, unknown> =>
+  typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+
+const stringOr = (o: Record<string, unknown>, key: string, fallback: string): string => {
+  const value = o[key];
+  return typeof value === 'string' ? value : fallback;
+};
+
+/** P72 Decision 1: absent → off; non-boolean `enabled` → off; a non-string field → its default. */
+const parseAdvisor = (raw: unknown): AdvisorConfig => {
+  const o = asRecord(raw);
+  return {
+    enabled: o['enabled'] === true,
+    baseUrl: stringOr(o, 'baseUrl', DEFAULT_ADVISOR.baseUrl),
+    apiKey: stringOr(o, 'apiKey', DEFAULT_ADVISOR.apiKey),
+    model: stringOr(o, 'model', DEFAULT_ADVISOR.model),
+  };
+};
+
+const parseByokFields = (raw: unknown): SeatByokFields => {
+  const o = asRecord(raw);
+  return {
+    baseUrl: stringOr(o, 'baseUrl', DEFAULT_BYOK.baseUrl),
+    apiKey: stringOr(o, 'apiKey', ''),
+    model: stringOr(o, 'model', DEFAULT_BYOK.model),
+    proxyUrl: stringOr(o, 'proxyUrl', ''),
+    reasoning: o['reasoning'] !== false,
+    useTurnRunner: o['useTurnRunner'] === true,
+    turnRunnerUrl: stringOr(o, 'turnRunnerUrl', ''),
+    advisor: parseAdvisor(o['advisor']),
+  };
+};
+
 const parseSeat = (raw: unknown): SeatConfig | undefined => {
   if (typeof raw !== 'object' || raw === null) return undefined;
   const o = raw as Record<string, unknown>;
   const kind = o['kind'];
   if (kind !== 'human' && kind !== 'heuristic' && kind !== 'byok') return undefined;
-  const byokRaw = o['byok'];
-  const byokObj =
-    typeof byokRaw === 'object' && byokRaw !== null
-      ? (byokRaw as Record<string, unknown>)
-      : {};
-  return {
-    kind,
-    byok: {
-      baseUrl: typeof byokObj['baseUrl'] === 'string' ? byokObj['baseUrl'] : DEFAULT_BYOK.baseUrl,
-      apiKey: typeof byokObj['apiKey'] === 'string' ? byokObj['apiKey'] : '',
-      model: typeof byokObj['model'] === 'string' ? byokObj['model'] : DEFAULT_BYOK.model,
-      proxyUrl: typeof byokObj['proxyUrl'] === 'string' ? byokObj['proxyUrl'] : '',
-      reasoning: byokObj['reasoning'] !== false,
-      useTurnRunner: byokObj['useTurnRunner'] === true,
-      turnRunnerUrl:
-        typeof byokObj['turnRunnerUrl'] === 'string' ? byokObj['turnRunnerUrl'] : '',
-      // P72 skeleton: phase 3 parses byokObj['advisor'] with defaults.
-      advisor: DEFAULT_ADVISOR,
-    },
-  };
+  return { kind, byok: parseByokFields(o['byok']) };
 };
 
 export const loadSeatPlan = (): SeatPlan => {

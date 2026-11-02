@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react';
 import type { InviteSeat, PagesLobbyMode, PlannedSeatKind, StartedGameRow } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { testByokConnection } from './byokBot';
-import { DEFAULT_BYOK, isByokReady } from './byokConfig';
+import { DEFAULT_ADVISOR, DEFAULT_BYOK, isByokReady, type AdvisorConfig } from './byokConfig';
 import {
   CREATING_INVITE_COPY,
   formatLibraryRow,
@@ -74,6 +74,74 @@ const KIND_OPTIONS: readonly { value: SeatKind; label: string }[] = [
   { value: 'heuristic', label: 'AI' },
   { value: 'byok', label: 'BYOK LLM' },
 ];
+
+/**
+ * The decision-API advisor on a local BYOK seat (P72). Unchecking hides the
+ * fields and keeps their values, so one seat can play advised and unadvised.
+ */
+const AdvisorFields = ({
+  advisor,
+  onAdvisor,
+}: {
+  readonly advisor: AdvisorConfig;
+  readonly onAdvisor: (next: AdvisorConfig) => void;
+}): ReactElement => (
+  <>
+    <label className="lobby-check">
+      <input
+        type="checkbox"
+        checked={advisor.enabled}
+        onChange={(e) => {
+          onAdvisor({ ...advisor, enabled: e.target.checked });
+        }}
+      />
+      Advisor (decision API)
+    </label>
+    {advisor.enabled ? (
+      <>
+        <label className="lobby-count">
+          Advisor base URL
+          <input
+            type="url"
+            autoComplete="off"
+            spellCheck={false}
+            value={advisor.baseUrl}
+            placeholder={DEFAULT_ADVISOR.baseUrl}
+            onChange={(e) => {
+              onAdvisor({ ...advisor, baseUrl: e.target.value });
+            }}
+          />
+        </label>
+        <label className="lobby-count">
+          Advisor API key
+          <input
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={advisor.apiKey}
+            placeholder="(this browser only)"
+            onChange={(e) => {
+              onAdvisor({ ...advisor, apiKey: e.target.value });
+            }}
+          />
+        </label>
+        <label className="lobby-count">
+          Advisor model
+          <input
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={advisor.model}
+            placeholder={DEFAULT_ADVISOR.model}
+            onChange={(e) => {
+              onAdvisor({ ...advisor, model: e.target.value });
+            }}
+          />
+        </label>
+      </>
+    ) : null}
+  </>
+);
 
 export const Lobby = ({
   plan,
@@ -347,6 +415,12 @@ export const Lobby = ({
                         />
                       </label>
                     ) : null}
+                    <AdvisorFields
+                      advisor={seat.byok.advisor}
+                      onAdvisor={(advisor) => {
+                        onPlan(updateSeat(plan, index, { byok: { ...seat.byok, advisor } }));
+                      }}
+                    />
                     <div className="lobby-byok-actions">
                       <button
                         type="button"

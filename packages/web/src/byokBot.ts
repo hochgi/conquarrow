@@ -21,6 +21,7 @@ import type {
 import { endTurn, movesEqual, speed } from '@conquarrow/contracts';
 import { compareArrows, compareVertices } from '@conquarrow/rules-core';
 import { chooseTurnGreedy } from './botSearch';
+import { adviseCompletion, adviseUserPrompt } from './advisor';
 import type { ByokConfig } from './byokConfig';
 import {
   BYOK_CORS_HINT,
@@ -1405,6 +1406,9 @@ interface TurnTally {
   completionTokens: number;
   lengthOuts: number;
   salvageParses: number;
+  readonly advisorRecords: AdvisorRecord[];
+  advisorFailures: number;
+  advisorLastError: string | undefined;
 }
 
 /** One BYOK seat-turn in progress: the seat, its transport, the applied moves and the tally. */
@@ -1448,11 +1452,51 @@ const applyBatch = (
   return { at: decision.at, stop: decision.kind === 'stop' };
 };
 
-/** This completion's user prompt. */
-const completionPrompt = (turn: LlmSeatTurn, at: GameState, offer: readonly Move[]): string => {
-  const { geometry, rules, me, config } = turn;
+/** An advised completion's record, until the reply says what the model picked. */
+type PendingRecord = Omit<AdvisorRecord, 'picked'>;
+
+interface CompletionPrompt {
+  readonly text: string;
+  /** Present only on an advised completion. */
+  readonly pending: PendingRecord | undefined;
+}
+
+/**
+ * This completion's user prompt: the plain prompt, or — when the advisor
+ * answers — the advised one (P72). A failed advisor is counted and the
+ * prompt stays plain.
+ */
+const completionPrompt = async (
+  turn: LlmSeatTurn,
+  at: GameState,
+  offer: readonly Move[],
+): Promise<CompletionPrompt> => {
+  const { geometry, rules, me, config, tally } = turn;
   const targets = syncTargetLocks(geometry, rules, at, me);
-  return buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
+  const plain = buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
+  const systemPrompt = buildSystemPrompt(me, config.reasoning);
+  const ask = { me, systemPrompt, plainPrompt: plain, offerSize: offer.length };
+  const advice = await adviseCompletion(config, ask, turn.fetchImpl);
+  if (advice === undefined) return { text: plain, pending: undefined };
+  if (!advice.ok) {
+    tally.advisorFailures += 1;
+    tally.advisorLastError = advice.reason;
+    return { text: plain, pending: undefined };
+  }
+  const pending: PendingRecord = {
+    seat: me,
+    turnMoveIndex: turn.moves.length,
+    model: advice.model,
+    offerSize: offer.length,
+    top: advice.top,
+    probabilities: advice.probabilities.map((p) => Math.round(p * 1000) / 1000),
+  };
+  return { text: adviseUserPrompt(plain, advice.probabilities), pending };
+};
+
+/** Keep an advised completion's record, with the model's first pick (or null). */
+const keepRecord = (tally: TurnTally, pending: PendingRecord | undefined, picked: number | null): void => {
+  if (pending !== undefined) tally.advisorRecords.push({ ...pending, picked });
 };
 
 /** One completion's reply: tally it, parse it, apply its batch — or fall back. */
@@ -1460,14 +1504,19 @@ const afterReply = (
   turn: LlmSeatTurn,
   at: GameState,
   offer: readonly Move[],
+  prompt: CompletionPrompt,
   fetched: LlmBatchFetchResult,
 ): CompletionStep => {
   const { tally } = turn;
-  if (!fetched.ok) return fallBack(turn, at, fetched.reason);
+  if (!fetched.ok) {
+    keepRecord(tally, prompt.pending, null);
+    return fallBack(turn, at, fetched.reason);
+  }
   tally.promptTokens += fetched.promptTokens;
   tally.completionTokens += fetched.completionTokens;
   if (fetched.lengthOut) tally.lengthOuts += 1;
   const result = parseMoveBatchResult(fetched.text);
+  keepRecord(tally, prompt.pending, result?.batch.indices[0] ?? null);
   if (result === undefined) return fallBack(turn, at, unusableReplyError(fetched.text));
   if (result.salvaged) tally.salvageParses += 1;
   return applyBatch(turn, at, offer, result);
@@ -1486,7 +1535,36 @@ const turnResult = (turn: LlmSeatTurn, at: GameState): LlmBotTurn => {
     lengthOuts: tally.lengthOuts,
     salvageParses: tally.salvageParses,
     maxTokens: tally.completions > 0 ? liveTurnMaxTokens(turn.config) : 0,
-    // P72 skeleton: phase 3 asks the advisor per completion.
+    advisorRecords: tally.advisorRecords,
+    advisorFailures: tally.advisorFailures,
+    advisorLastError: tally.advisorLastError,
+  };
+};
+
+/** A seat-turn the model never sees: not this seat's move, or a BYOK seat not ready (greedy-v1). */
+const turnWithoutLlm = (
+  ctx: SeatTurnCtx,
+  state: GameState,
+  config: ByokConfig,
+): LlmBotTurn | undefined => {
+  if (state.activePlayer !== ctx.me || state.winner !== undefined) {
+    return {
+      state,
+      moves: [],
+      llmHits: 0,
+      llmFallbacks: 0,
+      lastError: undefined,
+      ...ZERO_TURN_STATS,
+      ...ZERO_ADVISOR_STATS,
+    };
+  }
+  if (isByokReady(config)) return undefined;
+  return {
+    ...playBotTurn(ctx.geometry, ctx.rules, state, ctx.me),
+    llmHits: 0,
+    llmFallbacks: 0,
+    lastError: 'byok not ready',
+    ...ZERO_TURN_STATS,
     ...ZERO_ADVISOR_STATS,
   };
 };
@@ -1499,28 +1577,8 @@ export const playLlmBotTurn = async (
   config: ByokConfig,
   fetchImpl: FetchLike = fetch,
 ): Promise<LlmBotTurn> => {
-  if (state.activePlayer !== me || state.winner !== undefined) {
-    return {
-      state,
-      moves: [],
-      llmHits: 0,
-      llmFallbacks: 0,
-      lastError: undefined,
-      ...ZERO_TURN_STATS,
-      ...ZERO_ADVISOR_STATS,
-    };
-  }
-  if (!isByokReady(config)) {
-    const fallback = playBotTurn(geometry, rules, state, me);
-    return {
-      ...fallback,
-      llmHits: 0,
-      llmFallbacks: 0,
-      lastError: 'byok not ready',
-      ...ZERO_TURN_STATS,
-      ...ZERO_ADVISOR_STATS,
-    };
-  }
+  const early = turnWithoutLlm({ geometry, rules, me }, state, config);
+  if (early !== undefined) return early;
 
   const turn: LlmSeatTurn = {
     geometry,
@@ -1537,6 +1595,9 @@ export const playLlmBotTurn = async (
       completionTokens: 0,
       lengthOuts: 0,
       salvageParses: 0,
+      advisorRecords: [],
+      advisorFailures: 0,
+      advisorLastError: undefined,
     },
   };
   let at = state;
@@ -1548,9 +1609,9 @@ export const playLlmBotTurn = async (
     }
     if (turn.tally.completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
     turn.tally.completions += 1;
-    const prompt = completionPrompt(turn, at, offer);
-    const fetched = await fetchLlmMoveBatch(config, prompt, me, fetchImpl);
-    const step = afterReply(turn, at, offer, fetched);
+    const prompt = await completionPrompt(turn, at, offer);
+    const fetched = await fetchLlmMoveBatch(config, prompt.text, me, fetchImpl);
+    const step = afterReply(turn, at, offer, prompt, fetched);
     at = step.at;
     if (step.stop) break;
   }

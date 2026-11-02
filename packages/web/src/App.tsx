@@ -44,13 +44,14 @@ import { parsePagesHash } from './online-hash';
 import { isCallerToMove } from './online-pages';
 import { usePagesHost } from './online-runtime';
 import { displaySeatKind, kindsForHost, logFromOnlineBoard } from './online-shell-ui';
-import type { ByokRunStats, MatchLog, SeatDriverLog } from './matchLog';
+import type { AdvisorRecord, ByokRunStats, MatchLog, SeatDriverLog } from './matchLog';
 import {
   appendMovesWithSummary,
   createMatchLog,
   downloadMatchLog,
   matchSummaryLine,
   saveMatchLog,
+  withAdvisorRecords,
   withByokStats,
   withWinner,
 } from './matchLog';
@@ -229,10 +230,28 @@ const byokTurnMessage = (seatKey: string, stats: ByokRunStats): string | undefin
   return undefined;
 };
 
+/** What a BYOK seat-turn adds to the match log once its last move is committed. */
+type ByokTurnLog = {
+  readonly delta: ByokRunStats;
+  readonly seat: PlayerId;
+  /** P72: placed at the moves logged before this seat-turn plus each `turnMoveIndex`. */
+  readonly advisorRecords: readonly AdvisorRecord[];
+  /** Moves this seat-turn logs, so the log can tell where the seat-turn began. */
+  readonly turnMoves: number;
+};
+
 type LocalAiPlan = {
   readonly moves: readonly Move[];
-  readonly byok: { readonly delta: ByokRunStats; readonly seat: PlayerId } | undefined;
+  readonly byok: ByokTurnLog | undefined;
 };
+
+/** Fold a finished BYOK seat-turn into the log; `log` already holds its moves. */
+const withByokTurn = (log: MatchLog, byok: ByokTurnLog): MatchLog =>
+  withAdvisorRecords(
+    withByokStats(log, byok.delta, byok.seat),
+    byok.advisorRecords,
+    log.moves.length - byok.turnMoves,
+  );
 
 const planLocalAiTurn = async (seat: SeatConfig, start: GameState): Promise<LocalAiPlan> => {
   if (seat.kind === 'byok') {
@@ -257,6 +276,8 @@ const planLocalAiTurn = async (seat: SeatConfig, start: GameState): Promise<Loca
           maxTokens: turn.maxTokens ?? 0,
         },
         seat: start.activePlayer,
+        advisorRecords: turn.advisorRecords,
+        turnMoves: turn.moves.length,
       },
     };
   }
@@ -556,8 +577,7 @@ export const App = (): ReactElement => {
       moves: readonly Move[],
       nextState: GameState,
       beforeState?: GameState,
-      byokDelta?: ByokRunStats,
-      byokSeat?: PlayerId,
+      byok?: ByokTurnLog,
     ): void => {
       if (moves.length === 0) return;
       setLog((prev) => {
@@ -567,7 +587,7 @@ export const App = (): ReactElement => {
             ? appendMovesWithSummary(prev, moves, beforeState, nextState)
             : { ...prev, moves: [...prev.moves, ...moves] };
         let updated = withWinner(base, nextState.winner);
-        if (byokDelta !== undefined) updated = withByokStats(updated, byokDelta, byokSeat);
+        if (byok !== undefined) updated = withByokTurn(updated, byok);
         saveMatchLog(updated);
         return updated;
       });
@@ -608,13 +628,12 @@ export const App = (): ReactElement => {
     (
       moves: readonly Move[],
       next: GameState,
-      byokDelta?: ByokRunStats,
-      byokSeat?: PlayerId,
+      byok?: ByokTurnLog,
     ): void => {
       const before = stateRef.current;
       pushFx(before, moves, next);
       stateRef.current = next;
-      record(moves, next, before, byokDelta, byokSeat);
+      record(moves, next, before, byok);
       setState(next);
       setSnap(mode.reset());
       setRefusalNote(undefined);
@@ -1127,7 +1146,7 @@ export const App = (): ReactElement => {
           },
           onApplied: (move, after, index) => {
             if (plan.byok !== undefined && index === plan.moves.length - 1) {
-              commitApplied([move], after, plan.byok.delta, plan.byok.seat);
+              commitApplied([move], after, plan.byok);
               return;
             }
             commitApplied([move], after);
@@ -1995,7 +2014,7 @@ export const App = (): ReactElement => {
         }}
         seatSummary={log.seats.map((s) => `${String(s.player)}=${displaySeatKind(s.kind)}`).join(' · ')}
         moveCount={log.moves.length}
-        matchSummary={matchSummaryLine(victory.kind === 'over', log.summary)}
+        matchSummary={matchSummaryLine(victory.kind === 'over', log.summary, log.advisorRecords)}
         heads={activeTotals.heads}
         land={activeTotals.land}
         soundOn={soundOn}
