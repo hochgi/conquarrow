@@ -210,6 +210,23 @@ export const grainDistanceToAny = (
   return cap + 1;
 };
 
+/**
+ * P81 decision 3: grain BFS distance from the nearest of `starts` to the nearest
+ * of `goals` — one multi-source search equal to the minimum over `starts` of
+ * {@link grainDistanceToAny} with the same goals and cap (`cap + 1` when none
+ * is within `cap`).
+ *
+ * PHASE-2 SKELETON: not implemented.
+ */
+export const grainDistanceFromAny = (
+  _geometry: GeometryPort,
+  _starts: readonly ArrowId[],
+  _goals: readonly ArrowId[],
+  _cap: number,
+): number => {
+  throw new Error('not implemented');
+};
+
 const stackShapeScore = (state: GameState, me: PlayerId, rules: RulesPort): number => {
   let score = 0;
   const steppable = new Set<ArrowId>();

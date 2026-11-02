@@ -132,6 +132,36 @@ export const replyScore = (
     (state) => evaluate(geometry, state, me, rules),
   ).botScore;
 
+/**
+ * P81 decision 2 — a finalist's score: `evaluate(terminal)` plus
+ * `min(0, min over reachable enemies e of [evaluate(after e's reply) −
+ * evaluate(after e passes)])`. The reply and the pass both start from
+ * `hypothesiseChair(terminal, e)`, so the round boundary's production cancels
+ * and a reply can only lower the score, by the damage it does.
+ *
+ * PHASE-2 SKELETON: not implemented.
+ */
+export const finalistReplyScore = (
+  _geometry: GeometryPort,
+  _rules: RulesPort,
+  _terminal: GameState,
+  _me: PlayerId,
+  _budget?: { readonly turnAppliesLeft: number },
+): number => {
+  throw new Error('not implemented');
+};
+
+/**
+ * P81 decision 1 — the `RulesPort` view `orderSteps` hands `collectFindings`:
+ * `legalMoves` keeps, for each `(from, exit)`, only the step with the largest
+ * legal count (`endTurn` unchanged); every other method is `rules`'s own.
+ *
+ * PHASE-2 SKELETON: not implemented.
+ */
+export const oneStepPerExit = (_rules: RulesPort): RulesPort => {
+  throw new Error('not implemented');
+};
+
 /** Two `count=1` steps in the same plan that share `from` and `exit`. */
 export const isShuttle = (moves: readonly Move[]): boolean => {
   const ones: StepMove[] = [];
