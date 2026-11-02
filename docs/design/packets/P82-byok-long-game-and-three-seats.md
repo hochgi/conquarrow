@@ -1,6 +1,6 @@
 # P82 — BYOK long game and 3-player check
 
-> **Status:** ready. **Kind:** measurement, plus one harness flag. It is a
+> **Status:** done 2026-11-02. Results: [`byok-long-game.md`](../../research/byok-long-game.md). **Kind:** measurement, plus one harness flag. It is a
 > tooling packet, so it skips the four-phase pipeline (`AGENTS.md`).
 > **Depends on:** P79 (harness), P81 (the heuristic finishes matches). It runs
 > on the **final combination**: main after P72 is either merged or parked.
