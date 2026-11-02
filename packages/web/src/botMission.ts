@@ -17,6 +17,7 @@ import type {
 import { campaignTarget, exposure } from './botClose';
 import {
   distanceToTerritory,
+  grainDistanceFromAny,
   grainDistanceToAny,
   homewardPath,
 } from './botEvaluate';
@@ -223,13 +224,12 @@ export const remainingPath = (
   campaign: VertexId | undefined,
 ): number => {
   if (campaign === undefined) return CAMPAIGN_DIST_CAP + 1;
-  const borders = bordersOf(geometry, campaign);
-  let best = CAMPAIGN_DIST_CAP + 1;
-  for (const from of ownFromSet(state, me)) {
-    const d = grainDistanceToAny(geometry, from, borders, CAMPAIGN_DIST_CAP);
-    if (d < best) best = d;
-  }
-  return best;
+  return grainDistanceFromAny(
+    geometry,
+    ownFromSet(state, me),
+    bordersOf(geometry, campaign),
+    CAMPAIGN_DIST_CAP,
+  );
 };
 
 export const kiteLength = (

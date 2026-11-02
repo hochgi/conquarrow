@@ -18,7 +18,8 @@ import type {
   VertexId,
 } from '@conquarrow/contracts';
 import { ARROW_VALUE_A, campaignTarget } from './botClose';
-import { evaluate, grainDistanceToAny, MOBILITY_SCALE } from './botEvaluate';
+import { evaluate, grainDistanceFromAny, MOBILITY_SCALE } from './botEvaluate';
+import { carvePlans, isQuietPlan, stagingWalk } from './botFinish';
 import {
   denyExitOf,
   isSidewaysDirt,
@@ -46,6 +47,8 @@ import {
   REPLY_MAX_PLAN,
   REPLY_TURN_APPLIES,
   worstReachableReply,
+  worstReplyDamage,
+  type ReplyProbe,
   type ReplySearchFn,
 } from './botReply';
 import { collectFindings, DEFAULT_FINDINGS_CAPS } from './findings';
@@ -91,8 +94,6 @@ const MAX_MOVES_PER_TURN = 64;
 const UNRANKED = Number.POSITIVE_INFINITY;
 const CAMPAIGN_DIST_CAP = DEFAULT_FINDINGS_CAPS.distCap;
 
-const compareIds = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-
 export const moveKey = (move: Move): string => {
   switch (move.kind) {
     case 'step':
@@ -132,35 +133,34 @@ export const replyScore = (
     (state) => evaluate(geometry, state, me, rules),
   ).botScore;
 
+const replyProbe = (geometry: GeometryPort, rules: RulesPort, me: PlayerId): ReplyProbe => ({
+  geometry,
+  rules,
+  me,
+  search: enemyReplySearch,
+  score: (state) => evaluate(geometry, state, me, rules),
+});
+
 /**
  * P81 decision 2 — a finalist's score: `evaluate(terminal)` plus
  * `min(0, min over reachable enemies e of [evaluate(after e's reply) −
  * evaluate(after e passes)])`. The reply and the pass both start from
  * `hypothesiseChair(terminal, e)`, so the round boundary's production cancels
  * and a reply can only lower the score, by the damage it does.
- *
- * PHASE-2 SKELETON: not implemented.
  */
 export const finalistReplyScore = (
-  _geometry: GeometryPort,
-  _rules: RulesPort,
-  _terminal: GameState,
-  _me: PlayerId,
-  _budget?: { readonly turnAppliesLeft: number },
-): number => {
-  throw new Error('not implemented');
-};
-
-/**
- * P81 decision 1 — the `RulesPort` view `orderSteps` hands `collectFindings`:
- * `legalMoves` keeps, for each `(from, exit)`, only the step with the largest
- * legal count (`endTurn` unchanged); every other method is `rules`'s own.
- *
- * PHASE-2 SKELETON: not implemented.
- */
-export const oneStepPerExit = (_rules: RulesPort): RulesPort => {
-  throw new Error('not implemented');
-};
+  geometry: GeometryPort,
+  rules: RulesPort,
+  terminal: GameState,
+  me: PlayerId,
+  budget?: { readonly turnAppliesLeft: number },
+): number =>
+  evaluate(geometry, terminal, me, rules) +
+  worstReplyDamage(
+    replyProbe(geometry, rules, me),
+    terminal,
+    budget?.turnAppliesLeft ?? REPLY_TURN_APPLIES,
+  ).damage;
 
 /** Two `count=1` steps in the same plan that share `from` and `exit`. */
 export const isShuttle = (moves: readonly Move[]): boolean => {
@@ -258,27 +258,20 @@ export const pickBetterComplete = (
   return ka <= kb ? a : b;
 };
 
+/** Decision 2 for the live search: {@link finalistReplyScore} on the search's reply budget. */
 const scoreWithReplies = (search: Search, child: CompletePlan): CompletePlan => {
   const terminal = child.state;
+  const unreplied = evaluate(search.geometry, terminal, search.me, search.inner);
   if (!search.withReplies || terminal.winner !== undefined) {
-    return {
-      ...child,
-      replyScore: evaluate(search.geometry, terminal, search.me, search.inner),
-    };
+    return { ...child, replyScore: unreplied };
   }
-  const before = search.replyTurnAppliesLeft;
-  const result = worstReachableReply(
-    search.geometry,
-    search.inner,
+  const { damage, appliesUsed } = worstReplyDamage(
+    replyProbe(search.geometry, search.inner, search.me),
     terminal,
-    search.me,
-    DEFAULT_REPLY_DIST_CAP,
     search.replyTurnAppliesLeft,
-    enemyReplySearch,
-    (state) => evaluate(search.geometry, state, search.me, search.inner),
   );
-  search.replyTurnAppliesLeft = Math.max(0, before - result.appliesUsed);
-  return { ...child, replyScore: result.botScore };
+  search.replyTurnAppliesLeft = Math.max(0, search.replyTurnAppliesLeft - appliesUsed);
+  return { ...child, replyScore: unreplied + damage };
 };
 
 const planHasStep = (moves: readonly Move[]): boolean =>
@@ -367,39 +360,20 @@ const departingExitIsThreatened = (
   return false;
 };
 
-const grainDistToVertex = (
-  geometry: GeometryPort,
-  from: ArrowId,
-  vertex: VertexId,
-  cap: number,
-): number =>
-  grainDistanceToAny(
-    geometry,
-    from,
-    [...geometry.borderArrows(vertex)].toSorted((a, b) =>
-      compareIds(String(a), String(b)),
-    ),
-    cap,
-  );
-
 const nearestOwnGroupDist = (
   geometry: GeometryPort,
   state: GameState,
   me: PlayerId,
   vertex: VertexId,
 ): number => {
-  let best = CAMPAIGN_DIST_CAP + 1;
-  let any = false;
-  const arrows = [...state.groups.entries()]
-    .filter(([, group]) => group.owner === me)
-    .map(([arrow]) => arrow)
-    .toSorted((a, b) => compareIds(String(a), String(b)));
-  for (const from of arrows) {
-    any = true;
-    const d = grainDistToVertex(geometry, from, vertex, CAMPAIGN_DIST_CAP);
-    if (d < best) best = d;
-  }
-  return any ? best : CAMPAIGN_DIST_CAP + 1;
+  const arrows: ArrowId[] = [];
+  for (const [arrow, group] of state.groups) if (group.owner === me) arrows.push(arrow);
+  return grainDistanceFromAny(
+    geometry,
+    arrows,
+    [...geometry.borderArrows(vertex)],
+    CAMPAIGN_DIST_CAP,
+  );
 };
 
 const closerToCampaign = (search: Search, terminal: GameState): boolean => {
@@ -746,6 +720,38 @@ const findingRank = (
   return i < 0 ? UNRANKED : i;
 };
 
+const exitKey = (move: StepMove): string =>
+  `${String(move.from)}>${String(move.exit)}`;
+
+/**
+ * P81 decision 1 — the `RulesPort` view `orderSteps` hands `collectFindings`:
+ * `legalMoves` keeps, for each `(from, exit)`, only the step with the largest
+ * legal count (`endTurn` unchanged), at the position of that pair's first step;
+ * every other method is `rules`'s own.
+ */
+export const oneStepPerExit = (rules: RulesPort): RulesPort => ({
+  ...rules,
+  legalMoves(state) {
+    const out: Move[] = [];
+    const slot = new Map<string, number>();
+    for (const move of rules.legalMoves(state)) {
+      if (move.kind !== 'step') {
+        out.push(move);
+        continue;
+      }
+      const at = slot.get(exitKey(move));
+      const held = at === undefined ? undefined : out[at];
+      if (at === undefined) {
+        slot.set(exitKey(move), out.length);
+        out.push(move);
+      } else if (held?.kind === 'step' && move.count > held.count) {
+        out[at] = move;
+      }
+    }
+    return out;
+  },
+});
+
 type OrderedSteps = {
   readonly findings: readonly OriginFinding[];
   readonly steps: readonly StepMove[];
@@ -760,7 +766,7 @@ const orderSteps = (
 ): OrderedSteps => {
   const collected = collectFindings(
     geometry,
-    rules,
+    oneStepPerExit(rules),
     state,
     me,
     DEFAULT_FINDINGS_CAPS,
@@ -797,8 +803,6 @@ const rankIncompletes = (search: Search, plans: readonly Incomplete[]): Incomple
     .map((row) => row.plan);
 };
 
-const exitKey = (move: StepMove): string =>
-  `${String(move.from)}>${String(move.exit)}`;
 
 const selectBranch = (sorted: readonly StepMove[], branch: number): StepMove[] => {
   const picked: StepMove[] = [];
@@ -937,6 +941,108 @@ export const chooseTurnGreedy: ChooseTurn = (geometry, rules, state, me) => {
   return moves;
 };
 
+const missionContextOf = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  campaign: VertexId | undefined,
+): MissionContext => ({
+  geometry,
+  rules,
+  origin: state,
+  me,
+  campaign,
+  outbound: remainingPath(geometry, state, me, campaign),
+  originTerritory: originTerritoryOf(state, me),
+  missions: missionsOf(geometry, rules, state, me, cutAttackFindings(rules, state, me)),
+  denyExit: denyExitOf(rules, state, me),
+});
+
+type SearchSetup = {
+  readonly campaign: VertexId | undefined;
+  readonly missionCtx: MissionContext | undefined;
+  readonly withReplies: boolean;
+  readonly maxApplies: number;
+};
+
+const newSearch = (
+  geometry: GeometryPort,
+  rules: RulesPort,
+  state: GameState,
+  me: PlayerId,
+  setup: SearchSetup,
+): Search => {
+  const search: Search = {
+    applies: 0,
+    best: undefined,
+    bestStepped: undefined,
+    bestExpedition: undefined,
+    bestCampaign: undefined,
+    origin: state,
+    trackSortie: stillAtHome(state, me) && !departingExitIsThreatened(state, me, rules),
+    campaign: setup.campaign,
+    originExposure: setup.missionCtx?.missions.includes('bank') === true ? 1 : 0,
+    geometry,
+    rules,
+    inner: rules,
+    me,
+    maxApplies: setup.maxApplies,
+    withReplies: setup.withReplies,
+    replyTurnAppliesLeft: REPLY_TURN_APPLIES,
+    missionCtx: setup.missionCtx,
+    completes: [],
+  };
+  search.rules = capRules(rules, search);
+  return search;
+};
+
+type BeamShape = {
+  readonly beamWidth: number;
+  readonly branch: number;
+  readonly maxPlan: number;
+};
+
+const beamShapeOf = (budget: ChooseTurnBudget | undefined): BeamShape => ({
+  beamWidth: budget?.beam ?? BEAM,
+  branch: budget?.branch ?? BRANCH,
+  maxPlan: budget?.maxPlan ?? MAX_PLAN,
+});
+
+/** Expand the beam until no plan extends; end the best open plan if none completed. */
+const runBeam = (search: Search, shape: BeamShape): void => {
+  const seed: Incomplete = { moves: [], state: search.origin };
+  let beam: Incomplete[] = [seed];
+  for (;;) {
+    const extendable = beam.filter((plan) => isExtendable(plan, search.me, shape.maxPlan));
+    if (extendable.length === 0) break;
+    const next = expandBeam(search, extendable, shape.branch, shape.maxPlan);
+    if (next.length === 0) break;
+    beam = rankIncompletes(search, next).slice(0, shape.beamWidth);
+  }
+  if (search.best === undefined) {
+    considerEnd(search, rankIncompletes(search, beam)[0] ?? seed);
+  }
+};
+
+/** P81 decision 5 — the live seat's carves join the search as complete plans. */
+const seedCarves = (search: Search): void => {
+  if (!search.withReplies) return;
+  for (const plan of carvePlans(search.geometry, search.inner, search.origin, search.me)) {
+    adoptComplete(search, plan);
+  }
+};
+
+/** P81 decision 6 — the live seat's quiet choice yields to a staging walk, when one exists. */
+const stageIfQuiet = (
+  search: Search,
+  chosen: CompletePlan | undefined,
+): CompletePlan | undefined => {
+  if (!search.withReplies || chosen === undefined) return chosen;
+  if (!isQuietPlan(search.origin, chosen.state, search.me)) return chosen;
+  return stagingWalk(search.geometry, search.inner, search.origin, search.me) ?? chosen;
+};
+
 export const chooseTurnBeamWithBudget: (
   geometry: GeometryPort,
   rules: RulesPort,
@@ -947,63 +1053,23 @@ export const chooseTurnBeamWithBudget: (
   if (state.activePlayer !== me || state.winner !== undefined) return [];
   const withReplies = budget?.withReplies ?? false;
   const campaign = campaignTarget(geometry, state, me);
-  const originFindings: OriginFinding[] = withReplies ? cutAttackFindings(rules, state, me) : [];
-  const missionCtx: MissionContext | undefined = withReplies
-    ? {
-        geometry,
-        rules,
-        origin: state,
-        me,
-        campaign,
-        outbound: remainingPath(geometry, state, me, campaign),
-        originTerritory: originTerritoryOf(state, me),
-        missions: missionsOf(geometry, rules, state, me, originFindings),
-        denyExit: denyExitOf(rules, state, me),
-      }
+  // Before enterBeamSearch: the mission context's exposure folds real replies.
+  const missionCtx = withReplies
+    ? missionContextOf(geometry, rules, state, me, campaign)
     : undefined;
-  const originExposure = missionCtx?.missions.includes('bank') === true ? 1 : 0;
   enterBeamSearch();
   try {
-  const beamWidth = budget?.beam ?? BEAM;
-  const branch = budget?.branch ?? BRANCH;
-  const maxPlan = budget?.maxPlan ?? MAX_PLAN;
-  const maxApplies = budget?.maxApplies ?? MAX_APPLIES;
-  const seed: Incomplete = { moves: [], state };
-  const search: Search = {
-    applies: 0,
-    best: undefined,
-    bestStepped: undefined,
-    bestExpedition: undefined,
-    bestCampaign: undefined,
-    origin: state,
-    trackSortie: stillAtHome(state, me) && !departingExitIsThreatened(state, me, rules),
-    campaign,
-    originExposure,
-    geometry,
-    rules,
-    inner: rules,
-    me,
-    maxApplies,
-    withReplies,
-    replyTurnAppliesLeft: REPLY_TURN_APPLIES,
-    missionCtx,
-    completes: [],
-  };
-  search.rules = capRules(rules, search);
-  let beam: Incomplete[] = [seed];
-  for (;;) {
-    const extendable = beam.filter((plan) => isExtendable(plan, me, maxPlan));
-    if (extendable.length === 0) break;
-    const next = expandBeam(search, extendable, branch, maxPlan);
-    if (next.length === 0) break;
-    beam = rankIncompletes(search, next).slice(0, beamWidth);
-  }
-  if (search.best === undefined) {
-    const fallback = rankIncompletes(search, beam)[0] ?? seed;
-    considerEnd(search, fallback);
-  }
-  if (search.withReplies && search.missionCtx !== undefined) applyFinalistReplies(search);
-  return applyMissionGates(search, pickReturnedPlan(search))?.moves ?? [endTurn()];
+    const search = newSearch(geometry, rules, state, me, {
+      campaign,
+      missionCtx,
+      withReplies,
+      maxApplies: budget?.maxApplies ?? MAX_APPLIES,
+    });
+    seedCarves(search);
+    runBeam(search, beamShapeOf(budget));
+    if (search.withReplies && search.missionCtx !== undefined) applyFinalistReplies(search);
+    const chosen = applyMissionGates(search, pickReturnedPlan(search));
+    return stageIfQuiet(search, chosen)?.moves ?? [endTurn()];
   } finally {
     leaveBeamSearch();
   }
