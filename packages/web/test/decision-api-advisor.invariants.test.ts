@@ -306,6 +306,25 @@ describe('I6 Deterministic top', () => {
   });
 });
 
+describe('Decision 8: a probabilities value that is not a JSON object', () => {
+  // JSON's object and array are distinct types: an array (or null, a number, a
+  // string) is "not an object", so it fails with the spec's missing-object
+  // reason rather than reading as an object with no m<i> keys.
+  const shapes: readonly { readonly name: string; readonly probabilities: unknown }[] = [
+    { name: 'array', probabilities: [0.1, 0.6, 0.3] },
+    { name: 'null', probabilities: null },
+    { name: 'number', probabilities: 0.6 },
+    { name: 'string', probabilities: 'm1' },
+  ];
+  it('fails with "missing answers.move.probabilities"', async () => {
+    for (const { name, probabilities } of shapes) {
+      const fetch = scriptedFetch([], [advisorJson({ answers: { move: { probabilities } } })]);
+      const answer = await askAdvisor(seatConfig(), sampleBody(3), 3, fetch.fetch);
+      expect(answer, name).toEqual({ ok: false, reason: 'missing answers.move.probabilities' });
+    }
+  });
+});
+
 describe('I7 Records match advice', () => {
   const ok = advisorAnswers({ m0: 0.25, m1: 0.75 }, 'jev-1.14.0');
   const bad = advisorStatus(502);
