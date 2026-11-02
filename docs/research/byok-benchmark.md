@@ -479,3 +479,29 @@ format, or a decision model that is stronger on its own, would be a new arm.
 It is not a re-run of this one.
 
 **Spend:** P72 used $1.68 of its $2.50 xAI cap and $0.03 of its $0.50 jev cap.
+
+## P82: long game and 3-player check (2026-11-02)
+
+These run on main at `a0f1dc2` (P80 + P75; P72 parked) with the proxy model.
+The full write-up is in [`byok-long-game.md`](./byok-long-game.md).
+
+- **Long game, 2 players, cap 150: the BYOK seat lost all 6 cells.** It was
+  eliminated at rounds 62–116, so there are 0 wins and rounds-to-win has no
+  value yet.
+- **Cause: production.** In 5 of 6 cells the opening walks past the offer's
+  `tipDist` cap of 17 with nothing to close. At round 20 the heuristic leads
+  income in 5 of 6 cells, and afterwards small enemy closures take shares
+  faster than the seat replaces them.
+- **Missed closes and stalls are minor.** After round 20 the seat closed in
+  61 of the 66 turns where a close was available, and stalled 0 times.
+- **P76 trigger: the bleed half is met** (unanswered closure bleeds in 6/6
+  cells). Unparking is the human's call.
+- **3 players, K = 20: the smoke check passes.** 9/9 cells are valid, with
+  0 fallbacks and a mean of 0.184. Seat order dominates: the third seat
+  averages 0.335.
+- **Cost:** $5.13. That is $3.40 for the long run (including a partial cell
+  cut off by its per-worker spend share), $0.82 for that cell's rerun and
+  $0.91 for the 3-player run.
+
+**Budget since the $10 top-up** ($11.01 available): post-P81 baseline $0.62,
+P72 $1.68, P82 $5.13. **Spent $7.43; about $3.58 left.**
