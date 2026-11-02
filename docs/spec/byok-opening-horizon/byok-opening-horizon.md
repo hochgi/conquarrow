@@ -113,13 +113,16 @@ exposed tip, it shows what landing home by the shortest walk would claim.
      quantity. Sharing a helper would change the heuristic's code, which the
      packet forbids.
 8. **Legend.**
-   - The `LEGAL_MOVES` legend sentence gains: *homeIn=t: this portion's turns
-     after this step until it can land on your territory by the shortest
-     walk (0 = still this turn, none = no territory within 16 steps);
-     leaves_horizon: this step takes it from 2 or fewer turns from home to
-     more.*
-   - The tips line is prefixed `Exposed tips (ifHome=+land share+shares: what
-     landing by the shortest walk home would claim now, a projection):`.
+   - The `LEGAL_MOVES` legend sentence gains, word for word: *homeIn=t: this
+     portion's turns until it can land home (0 = this turn, none = beyond 16
+     steps); leaves_horizon: this step takes it past 2 turns from home.*
+   - The tips line is prefixed, word for word: `Exposed tips (ifHome = claim
+     if it walks home now):`.
+   - **Amended after phase 3.** The first wording (a 240-character clause and
+     a 110-character prefix) alone cost about 8.4 % of a 4,000-character
+     prompt, which broke Decision 11 and P75's own ceiling at #34. The budget
+     stands, so the text was shortened. Nothing it says was dropped except
+     the word "projection", which the tips prefix keeps as "if … now".
    - With no tips, it stays `Exposed tips: none`.
 9. **Teaching.** `docs/byok-teaching.md`'s tag-enumeration sentence gains
    `leaves_horizon`. No other prose changes.
