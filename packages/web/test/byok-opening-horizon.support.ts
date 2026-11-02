@@ -71,11 +71,11 @@ export const CAPPED = DIST_CAP + 1;
 
 /** Decision 8, verbatim: the clause the `LEGAL_MOVES` legend gains. */
 export const LEGEND_CLAUSE =
-  "homeIn=t: this portion's turns after this step until it can land on your territory by the shortest walk (0 = still this turn, none = no territory within 16 steps); leaves_horizon: this step takes it from 2 or fewer turns from home to more.";
+  "homeIn=t: this portion's turns until it can land home (0 = this turn, none = beyond 16 steps); leaves_horizon: this step takes it past 2 turns from home.";
 
 /** Decision 8, verbatim: the tips line's prefix when there is a tip. */
 export const TIPS_PREFIX =
-  'Exposed tips (ifHome=+land share+shares: what landing by the shortest walk home would claim now, a projection):';
+  'Exposed tips (ifHome = claim if it walks home now):';
 
 export const NO_TIPS = 'Exposed tips: none';
 

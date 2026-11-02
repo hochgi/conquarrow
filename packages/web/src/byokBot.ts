@@ -899,7 +899,7 @@ const nearTrailFromRows = (rows: readonly OfferTagRow[]): boolean => {
 
 /** P83 Decision 8: the tips line's legend, printed only when there is a tip. */
 const TIPS_PREFIX =
-  'Exposed tips (ifHome=+land share+shares: what landing by the shortest walk home would claim now, a projection):';
+  'Exposed tips (ifHome = claim if it walks home now):';
 
 /**
  * P83 Terms, `ifHome` claim: what landing by `homewardPath`'s walk from `tip`
@@ -998,7 +998,7 @@ export const buildUserPrompt = (
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me, moves)),
     '',
-    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. homeIn=t: this portion\'s turns after this step until it can land on your territory by the shortest walk (0 = still this turn, none = no territory within 16 steps); leaves_horizon: this step takes it from 2 or fewer turns from home to more. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
+    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. homeIn=t: this portion\'s turns until it can land home (0 = this turn, none = beyond 16 steps); leaves_horizon: this step takes it past 2 turns from home. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     ...baseline,
