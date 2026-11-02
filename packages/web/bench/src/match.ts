@@ -20,7 +20,8 @@ import { ZERO_COST, type CostTotals } from './budget';
 import { formatRational, headsOf, incomeRate, landOf, maxRational, totalLand } from './metrics';
 import { serializeMove, type SerializedMove } from './moves';
 import type { Outcome } from './score';
-import { playByokSeatTurn, type ByokSeat } from './seat';
+import { playByokSeatTurn, seatBudgetSpent, type ByokSeat } from './seat';
+import { addAdvisorTurn, advisorTotalsOf, ZERO_ADVISOR_COUNTS, type AdvisorCounts, type AdvisorTotals } from './advice';
 
 /** Who drives the BYOK chair: a model (`matches`), or the heuristic (`mirror`). */
 export type ChairDriver = { readonly kind: 'heuristic' } | ByokSeat;
@@ -67,6 +68,8 @@ export interface MatchRecord {
   readonly cost: CostTotals;
   /** The last fallback reason, if any. Redacted before it is written or printed. */
   readonly lastError: string | null;
+  /** P72: what the advisor said and what it cost; null for an unadvised chair. */
+  readonly advisor: AdvisorTotals | null;
   /** Reported, not gated. */
   readonly secondary: {
     /** Two seats: the match ends when one is out, so this is `rounds`. */
@@ -89,6 +92,7 @@ interface Tally {
   byok: { -readonly [K in keyof ByokTotals]: ByokTotals[K] };
   lastError: string | undefined;
   aborted: boolean;
+  advice: AdvisorCounts;
   readonly moves: Move[];
 }
 
@@ -110,6 +114,7 @@ const newTally = (): Tally => ({
   },
   lastError: undefined,
   aborted: false,
+  advice: ZERO_ADVISOR_COUNTS,
   moves: [],
 });
 
@@ -123,10 +128,11 @@ const addByokTurn = (tally: Tally, turn: LlmBotTurn): void => {
   b.lengthOuts += turn.lengthOuts ?? 0;
   b.salvageParses += turn.salvageParses ?? 0;
   if (turn.lastError !== undefined) tally.lastError = turn.lastError;
+  tally.advice = addAdvisorTurn(tally.advice, turn);
 };
 
-/** A function, not a property read: the meter changes under an `await`. */
-const budgetSpent = (seat: ByokSeat): boolean => seat.meter.exhausted;
+/** A function, not a property read: the meters change under an `await`. */
+const budgetSpent = (seat: ByokSeat): boolean => seatBudgetSpent(seat);
 
 /**
  * One turn's moves, or none when the budget stopped the chair: then the match is
@@ -192,6 +198,7 @@ const toRecord = (spec: MatchSpec, tally: Tally, state: GameState, chair: Player
       : tally.byok,
   cost: spec.chair.kind === 'byok' ? spec.chair.tally.cost : ZERO_COST,
   lastError: tally.lastError ?? null,
+  advisor: spec.chair.kind === 'byok' ? advisorTotalsOf(spec.chair, tally.advice) : null,
   secondary: {
     roundsSurvived: tally.rounds,
     peakIncome: formatRational(tally.peakIncome),

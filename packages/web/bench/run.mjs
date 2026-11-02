@@ -31,9 +31,11 @@ try {
 } catch (err) {
   // `main` redacts its own errors; this catches the loader and a worker's
   // failures, and redacts them the same way before printing.
-  const key = (process.env.BYOK_API_KEY ?? '').trim();
+  const keys = [process.env.BYOK_API_KEY, process.env.JEV_API_KEY]
+    .map((k) => (k ?? '').trim())
+    .filter((k) => k.length > 0);
   const message = err instanceof Error ? err.message : 'failed to start';
-  process.stderr.write(`byok-bench: ${key.length > 0 ? message.split(key).join('[redacted]') : message}\n`);
+  process.stderr.write(`byok-bench: ${keys.reduce((m, k) => m.split(k).join('[redacted]'), message)}\n`);
   process.exitCode = 1;
 } finally {
   await server.close();

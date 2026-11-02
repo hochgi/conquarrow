@@ -38,6 +38,8 @@ export interface WorkerInput {
   readonly jobs: readonly Job[];
   readonly retry: Omit<RetryOptions, 'sleep'>;
   readonly budget: BudgetShare;
+  /** P72: the advisor's share, dealt out like the model's. Absent when unadvised. */
+  readonly advisorBudget?: BudgetShare;
 }
 
 export const RESULT_MARKER = '@@P79-RESULT@@';
@@ -81,26 +83,31 @@ export const budgetShare = (meter: SpendMeter, workers: number): BudgetShare => 
 });
 
 export const childProcessJobs =
-  (cap: number, retry: RetryOptions, meter: SpendMeter): RunJobs =>
+  (cap: number, retry: RetryOptions, meter: SpendMeter, advisorMeter?: SpendMeter): RunJobs =>
   async (jobs) => {
     if (jobs.length === 0) return [];
     const policy = { maxRetries: retry.maxRetries, baseDelayMs: retry.baseDelayMs, timeoutMs: retry.timeoutMs };
     const chunks = chunkRoundRobin(jobs, cap);
     const budget = budgetShare(meter, chunks.length);
-    const results = await runPool(chunks, cap, (chunk) => runWorker({ jobs: chunk, retry: policy, budget }));
+    const advisorBudget = advisorMeter === undefined ? undefined : budgetShare(advisorMeter, chunks.length);
+    const results = await runPool(chunks, cap, (chunk) =>
+      runWorker({ jobs: chunk, retry: policy, budget, ...(advisorBudget === undefined ? {} : { advisorBudget }) }),
+    );
     const merged = unchunk(results, jobs.length);
-    chargeParent(meter, merged);
+    chargeParent(meter, merged, advisorMeter);
     return merged;
   };
 
-/** Book the workers' spend on the parent meter, so a later round (a rerun) sees it. */
-const chargeParent = (meter: SpendMeter, results: readonly JobResult[]): void => {
+/** Book the workers' spend on the parent meters, so a later round (a rerun) sees it. */
+const chargeParent = (meter: SpendMeter, results: readonly JobResult[], advisorMeter?: SpendMeter): void => {
   for (const result of results) {
     if (result.kind === 'skipped') {
       meter.exhausted = true;
       continue;
     }
     meter.total = addCost(meter.total, result.record.cost);
+    const advice = result.record.advisor;
+    if (advisorMeter !== undefined && advice !== null) advisorMeter.total = addCost(advisorMeter.total, advice.cost);
     const aborted =
       result.kind === 'match'
         ? result.record.outcome.kind === 'aborted_budget'

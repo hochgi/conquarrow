@@ -22,7 +22,24 @@ import type { Cell } from './grid';
 import { runMatch, type ByokTotals, type MatchRecord } from './match';
 import { formatRational, incomeRate, isInteriorPass, isMissedClose, rewalkCount, shareCloseRows } from './metrics';
 import { fallbackRate, isInvalidCell, mean, median, roundCapFromLengths, scoreOutcome } from './score';
-import { createByokSeat, playByokSeatTurn, type BenchMode, type ModelAccess } from './seat';
+import {
+  createByokSeat,
+  playByokSeatTurn,
+  seatBudgetSpent,
+  type AdvisorAccess,
+  type AdvisorName,
+  type BenchMode,
+  type ByokSeat,
+  type ModelAccess,
+} from './seat';
+import {
+  addAdvisorTurn,
+  advisorTotalsOf,
+  copyRate,
+  sumAdvisorTotals,
+  ZERO_ADVISOR_COUNTS,
+  type AdvisorTotals,
+} from './advice';
 import type { RetryOptions } from './transport';
 
 export type Job =
@@ -31,8 +48,16 @@ export type Job =
       readonly cell: Cell;
       readonly cap: number;
       readonly chair: 'heuristic' | BenchMode;
+      /** P72: the decision API advising the BYOK chair, if any. */
+      readonly advisor?: AdvisorName;
     }
-  | { readonly kind: 'position'; readonly log: string; readonly moveIndex: number; readonly mode: BenchMode };
+  | {
+      readonly kind: 'position';
+      readonly log: string;
+      readonly moveIndex: number;
+      readonly mode: BenchMode;
+      readonly advisor?: AdvisorName;
+    };
 
 export const jobId = (job: Job): string =>
   job.kind === 'match' ? job.cell.id : positionId(job.log, job.moveIndex);
@@ -58,6 +83,8 @@ export interface PositionRecord {
   /** What the seat played this turn, in order (fallback turns included). */
   readonly moves: readonly Move[];
   readonly lastError: string | null;
+  /** P72: what the advisor said and cost on this turn; null when unadvised. */
+  readonly advisor: AdvisorTotals | null;
 }
 
 export type JobResult =
@@ -72,6 +99,9 @@ export interface JobEnv {
   readonly baseFetch: FetchLike;
   readonly retry: RetryOptions;
   readonly meter: SpendMeter;
+  /** P72: present when a job is advised. The advisor's meter is its own, beside the model's. */
+  readonly advisorAccess?: AdvisorAccess | undefined;
+  readonly advisorMeter?: SpendMeter | undefined;
   /** Progress lines for a long job (a worker sends them to stderr). */
   readonly progress?: ((line: string) => void) | undefined;
 }
@@ -83,6 +113,23 @@ const requireAccess = (env: JobEnv): ModelAccess => {
   return env.access;
 };
 
+const advisorFor = (
+  env: JobEnv,
+  name: AdvisorName | undefined,
+): { readonly access: AdvisorAccess; readonly meter: SpendMeter } | undefined => {
+  if (name === undefined) return undefined;
+  if (env.advisorAccess === undefined || env.advisorMeter === undefined) {
+    throw new Error(`this job is advised by ${name}; its access or meter is not set`);
+  }
+  return { access: env.advisorAccess, meter: env.advisorMeter };
+};
+
+const seatFor = (env: JobEnv, mode: BenchMode, advisor: AdvisorName | undefined): ByokSeat =>
+  createByokSeat(requireAccess(env), mode, env.baseFetch, env.retry, env.meter, advisorFor(env, advisor));
+
+/** A process stops starting jobs once either of its meters has refused a call. */
+const processSpent = (env: JobEnv): boolean => env.meter.exhausted || (env.advisorMeter?.exhausted ?? false);
+
 const runPosition = async (
   job: Extract<Job, { kind: 'position' }>,
   env: JobEnv,
@@ -90,11 +137,11 @@ const runPosition = async (
   clearByokPlans();
   clearTargetLocks();
   const position = corpusPosition(job.log, job.moveIndex);
-  const seat = createByokSeat(requireAccess(env), job.mode, env.baseFetch, env.retry, env.meter);
+  const seat = seatFor(env, job.mode, job.advisor);
   const rows = shareCloseRows(position.state);
   const turn = await playByokSeatTurn(seat, position.state);
-  // Jobs start only on an unspent meter, so an exhausted one was spent here.
-  const aborted = env.meter.exhausted;
+  // Jobs start only on unspent meters, so an exhausted one was spent here.
+  const aborted = seatBudgetSpent(seat);
   return {
     id: positionId(job.log, job.moveIndex),
     log: job.log,
@@ -112,6 +159,7 @@ const runPosition = async (
     rewalks: aborted ? 0 : rewalkCount(position.state, turn),
     moves: turn.moves,
     lastError: turn.lastError ?? null,
+    advisor: advisorTotalsOf(seat, addAdvisorTurn(ZERO_ADVISOR_COUNTS, turn)),
   };
 };
 
@@ -120,7 +168,7 @@ export const runJob = async (job: Job, env: JobEnv): Promise<JobResult> => {
   const chair =
     job.chair === 'heuristic'
       ? ({ kind: 'heuristic' } as const)
-      : createByokSeat(requireAccess(env), job.chair, env.baseFetch, env.retry, env.meter);
+      : seatFor(env, job.chair, job.advisor);
   const record = await runMatch({ cell: job.cell, cap: job.cap, chair, progress: env.progress });
   return { kind: 'match', record };
 };
@@ -131,7 +179,7 @@ export const inProcessJobs =
   async (jobs) => {
     const out: JobResult[] = [];
     for (const job of jobs) {
-      out.push(env.meter.exhausted ? { kind: 'skipped', id: jobId(job) } : await runJob(job, env));
+      out.push(processSpent(env) ? { kind: 'skipped', id: jobId(job) } : await runJob(job, env));
     }
     return out;
   };
@@ -259,6 +307,12 @@ export interface MatchesSummary {
   readonly meanPromptTokensPerCall: number | null;
   /** Everything sent, discarded first runs of rerun cells included. */
   readonly spend: Spend;
+  /** P72: over the final cells (aborted excluded); null when unadvised. */
+  readonly advisor: AdvisorTotals | null;
+  /** Advised completions where the model played the advisor's top pick. */
+  readonly copyRate: number | null;
+  /** P72: everything the advisor was sent, discarded first runs included. */
+  readonly advisorSpend: AdvisorTotals | null;
 }
 
 const sumTotals = (records: readonly MatchRecord[]): ByokTotals => {
@@ -310,8 +364,15 @@ export const runMatchesTier = async (
   k: number,
   mode: BenchMode,
   runJobs: RunJobs,
+  advisor?: AdvisorName,
 ): Promise<MatchesSummary> => {
-  const jobFor = (cell: Cell): Job => ({ kind: 'match', cell, cap: k, chair: mode });
+  const jobFor = (cell: Cell): Job => ({
+    kind: 'match',
+    cell,
+    cap: k,
+    chair: mode,
+    ...(advisor === undefined ? {} : { advisor }),
+  });
   const firstResults = await runJobs(cells.map(jobFor));
   const first = matchRecords(firstResults);
   const spentOut = first.some(isAborted) || skippedIds(firstResults).length > 0;
@@ -325,6 +386,7 @@ export const runMatchesTier = async (
   });
   const skippedCells = [...skippedIds(firstResults), ...skippedIds(rerunResults)];
   const totals = sumTotals(final.filter((c) => !isAborted(c)));
+  const advice = sumAdvisorTotals(final.filter((c) => !isAborted(c)).map((c) => c.advisor));
   return {
     tier: 'matches',
     mode,
@@ -340,6 +402,9 @@ export const runMatchesTier = async (
     fallbackRate: fallbackRate(totals.fallbacks, totals.turns),
     meanPromptTokensPerCall: perCall(totals.promptTokens, totals.calls),
     spend: matchSpend([...first, ...reruns]),
+    advisor: advice,
+    copyRate: copyRate(advice),
+    advisorSpend: sumAdvisorTotals([...first, ...reruns].map((r) => r.advisor)),
   };
 };
 
@@ -361,6 +426,11 @@ export interface PositionsSummary {
   readonly skippedPositions: readonly string[];
   readonly budgetExhausted: boolean;
   readonly spend: Spend;
+  /** P72: over positions that produced a reading; null when unadvised. */
+  readonly advisor: AdvisorTotals | null;
+  readonly copyRate: number | null;
+  /** P72: everything the advisor was sent, aborted positions included. */
+  readonly advisorSpend: AdvisorTotals | null;
 }
 
 export interface PositionFilter {
@@ -384,9 +454,19 @@ const selectedPositions = (filter: PositionFilter): { readonly log: string; read
 };
 
 /** Every corpus position (log by log, in move order), or the ones named; then the first `max`. */
-export const positionJobs = (mode: BenchMode, filter: PositionFilter = {}): readonly Job[] => {
+export const positionJobs = (
+  mode: BenchMode,
+  filter: PositionFilter = {},
+  advisor?: AdvisorName,
+): readonly Job[] => {
   const picked = selectedPositions(filter).map(
-    (p): Job => ({ kind: 'position', log: p.log, moveIndex: p.moveIndex, mode }),
+    (p): Job => ({
+      kind: 'position',
+      log: p.log,
+      moveIndex: p.moveIndex,
+      mode,
+      ...(advisor === undefined ? {} : { advisor }),
+    }),
   );
   return filter.max === undefined ? picked : picked.slice(0, filter.max);
 };
@@ -404,6 +484,7 @@ export const runPositionsTier = async (
   const abortedPositions = positions.filter((p) => p.parse === 'aborted_budget').map((p) => p.id);
   const readCalls = read.reduce((acc, p) => acc + p.calls, 0);
   const readPrompt = read.reduce((acc, p) => acc + p.promptTokens, 0);
+  const advice = sumAdvisorTotals(read.map((p) => p.advisor));
   return {
     tier: 'positions',
     mode,
@@ -419,5 +500,8 @@ export const runPositionsTier = async (
     skippedPositions,
     budgetExhausted: abortedPositions.length > 0 || skippedPositions.length > 0,
     spend: spendOf(positions),
+    advisor: advice,
+    copyRate: copyRate(advice),
+    advisorSpend: sumAdvisorTotals(positions.map((p) => p.advisor)),
   };
 };

@@ -33,6 +33,9 @@ export interface Prices {
 /** grok-4.7 list prices. */
 export const DEFAULT_PRICES: Prices = { in: 2.0, cached: 0.5, out: 6.0 };
 
+/** jev list prices (P72 advisor): $0.042 per 1M input tokens, output free. */
+export const JEV_PRICES: Prices = { in: 0.042, cached: 0.042, out: 0 };
+
 export const FIRST_CALL_ESTIMATE_USD = 0.03;
 
 export interface CallUsage {
@@ -107,6 +110,18 @@ export const readUsage = (body: unknown, reasoningBilledSeparately: boolean): Ca
   };
 };
 
+/**
+ * A System One reply's `usage` (P72 advisor): `input_tokens` / `output_tokens`,
+ * or the chat names when a gateway uses those. Absent fields are zero, so a
+ * reply without usage still counts as a call, at $0.
+ */
+export const readAdvisorUsage = (body: unknown): CallUsage => {
+  const usage = obj(obj(body)['usage']);
+  const p = count(usage['input_tokens']) || count(usage['prompt_tokens']);
+  const o = count(usage['output_tokens']) || count(usage['completion_tokens']);
+  return { promptTokens: p, cachedTokens: 0, completionTokens: o, reasoningTokens: 0, billableOutputTokens: o };
+};
+
 export const usdOf = (usage: CallUsage, prices: Prices): number =>
   ((usage.promptTokens - usage.cachedTokens) * prices.in +
     usage.cachedTokens * prices.cached +
@@ -151,12 +166,17 @@ export interface CostTally {
   cost: CostTotals;
 }
 
-const readClonedUsage = async (response: Response, meter: SpendMeter): Promise<CallUsage> => {
+/** How a metered leaf reads one response body's usage. */
+export type UsageReader = (body: unknown, meter: SpendMeter) => CallUsage;
+
+const chatUsage: UsageReader = (body, meter) => readUsage(body, meter.reasoningBilledSeparately);
+
+const readClonedUsage = async (response: Response, meter: SpendMeter, read: UsageReader): Promise<CallUsage> => {
   try {
     const body: unknown = await response.clone().json();
-    return readUsage(body, meter.reasoningBilledSeparately);
+    return read(body, meter);
   } catch {
-    return readUsage(undefined, meter.reasoningBilledSeparately);
+    return read(undefined, meter);
   }
 };
 
@@ -166,11 +186,11 @@ const readClonedUsage = async (response: Response, meter: SpendMeter): Promise<C
  * one admission per completion, however many transport retries it takes.
  */
 export const meteredFetch =
-  (base: FetchLike, meter: SpendMeter, tally: CostTally): FetchLike =>
+  (base: FetchLike, meter: SpendMeter, tally: CostTally, read: UsageReader = chatUsage): FetchLike =>
   async (input, init) => {
     if (!admit(meter)) throw new Error(BUDGET_REFUSAL);
     const response = await base(input, init);
-    const usage = response.ok ? await readClonedUsage(response, meter) : readUsage(undefined, true);
+    const usage = response.ok ? await readClonedUsage(response, meter, read) : readUsage(undefined, true);
     // Only a priced reply counts as a call: a failed one would drag the estimate down.
     const charged: CostTotals = { ...usage, calls: response.ok ? 1 : 0, usd: usdOf(usage, meter.prices) };
     meter.total = addCost(meter.total, charged);

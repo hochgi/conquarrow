@@ -13,7 +13,8 @@
  *   and Vitest. Node has no relay to talk to, so this forwards the same request
  *   upstream — same body, same headers, minus the relay header — subject to the
  *   same allowlist.
- * - `redactor` scrubs the key out of anything the harness writes or prints.
+ * - `redactor` scrubs the keys (the seat's and, for P72, the advisor's) out of
+ *   anything the harness writes or prints.
  */
 
 import type { FetchLike } from '../../src/byokBot';
@@ -106,8 +107,11 @@ export const relayFetch =
 
 export const REDACTED = '[redacted]';
 
-/** Replace every occurrence of the key (as configured, and trimmed) with `[redacted]`. */
-export const redactor = (secret: string): ((text: string) => string) => {
-  const needles = [...new Set([secret, secret.trim()])].filter((s) => s.length > 0);
+/** Replace every occurrence of each key (as configured, and trimmed) with `[redacted]`. */
+export const redactor = (...secrets: readonly string[]): ((text: string) => string) => {
+  const needles = [...new Set(secrets.flatMap((secret) => [secret, secret.trim()]))]
+    .filter((s) => s.length > 0)
+    // Longest first, so a key that contains another is never left half-redacted.
+    .toSorted((a, b) => b.length - a.length);
   return (text) => needles.reduce((out, needle) => out.split(needle).join(REDACTED), text);
 };

@@ -16,11 +16,22 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import type { FetchLike } from '../../src/byokBot';
-import { createMeter, DEFAULT_PRICES, ZERO_COST, type CostTotals, type Prices } from './budget';
+import { createMeter, DEFAULT_PRICES, JEV_PRICES, ZERO_COST, type CostTotals, type Prices } from './budget';
 import { PLAYER_COUNTS, gridCells, selectCells, type Cell, type PlayerCount } from './grid';
 import { REACH_DEFAULT_CAP, reachCells, runReachTier, type ReachRow } from './reachTier';
 import { latestCalibration, resultExists, resultFileName, writeResult } from './results';
-import { BENCH_MODES, ENV_API_KEY, modelAccessFromEnv, type BenchMode, type ModelAccess } from './seat';
+import {
+  ADVISOR_NAMES,
+  advisorAccessFromEnv,
+  BENCH_MODES,
+  ENV_SECRET_KEYS,
+  modelAccessFromEnv,
+  type AdvisorAccess,
+  type AdvisorName,
+  type BenchMode,
+  type ModelAccess,
+} from './seat';
+import type { AdvisorTotals } from './advice';
 import {
   inProcessJobs,
   positionJobs,
@@ -71,6 +82,10 @@ interface Options {
   readonly reasoningBilledSeparately: boolean;
   readonly retries: number;
   readonly timeoutMs: number;
+  /** P72: the decision API advising the BYOK chair (positions, matches). */
+  readonly advisor: AdvisorName | undefined;
+  /** The advisor's own hard cap, apart from `--max-usd`. Required with `--advisor`. */
+  readonly advisorMaxUsd: number | undefined;
 }
 
 const MIRROR_SAFETY_CAP = 400;
@@ -101,7 +116,10 @@ const USAGE = `usage: pnpm byok-bench <mirror|reach|positions|matches> [options]
   --tag LABEL                  appended to the results file name (e.g. run2)
   --retries N                  transport retries per call (default 5)
   --timeout-ms N               per attempt (default 300000)
-env: BYOK_BASE_URL, BYOK_MODEL, BYOK_API_KEY (positions, matches)`;
+  --advisor jev                P72: a decision API advises the BYOK chair (positions, matches)
+  --advisor-max-usd X          the advisor's own hard spend cap (required with --advisor)
+env: BYOK_BASE_URL, BYOK_MODEL, BYOK_API_KEY (positions, matches);
+     JEV_API_KEY, JEV_BASE_URL (default https://api.typesafe.ai/v1), JEV_MODEL (default jev-latest) with --advisor jev`;
 
 const positiveInt = (raw: string | undefined, name: string): number | undefined => {
   if (raw === undefined) return undefined;
@@ -133,6 +151,17 @@ const isTier = (value: string | undefined): value is Tier =>
   value === 'mirror' || value === 'reach' || value === 'positions' || value === 'matches';
 
 const isMode = (value: string): value is BenchMode => (BENCH_MODES as readonly string[]).includes(value);
+
+const advisorOf = (raw: string | undefined): AdvisorName | undefined => {
+  if (raw === undefined) return undefined;
+  const name = ADVISOR_NAMES.find((n) => n === raw);
+  if (name === undefined) throw new Error(`--advisor must be one of ${ADVISOR_NAMES.join(', ')}`);
+  return name;
+};
+
+/** Scrub every key the bench may hold (the seat's and the advisor's). */
+const envRedactor = (env: CliIo['env']): ((text: string) => string) =>
+  redactor(...ENV_SECRET_KEYS.map((name) => env[name] ?? ''));
 
 const pricesOf = (values: Record<string, string | boolean | undefined>, env: CliIo['env']): Prices => {
   const pick = (flag: string, envName: string, fallback: number): number => {
@@ -172,6 +201,8 @@ export const parseOptions = (argv: readonly string[], env: CliIo['env'] = {}): O
       'reasoning-billed-separately': { type: 'boolean' },
       retries: { type: 'string' },
       'timeout-ms': { type: 'string' },
+      advisor: { type: 'string' },
+      'advisor-max-usd': { type: 'string' },
     },
   });
   const tier = positionals[0];
@@ -194,6 +225,8 @@ export const parseOptions = (argv: readonly string[], env: CliIo['env'] = {}): O
     reasoningBilledSeparately: values['reasoning-billed-separately'] !== false,
     retries: nonNegative(values.retries, '--retries') ?? 5,
     timeoutMs: positiveInt(values['timeout-ms'], 'timeout-ms') ?? 300_000,
+    advisor: advisorOf(values.advisor),
+    advisorMaxUsd: nonNegative(values['advisor-max-usd'], '--advisor-max-usd'),
   };
 };
 
@@ -254,9 +287,24 @@ const mayProceed = (run: Run, model: string, jobs: number): boolean => {
 interface Finished {
   readonly summary: object;
   readonly spend: Spend;
+  /** P72: what the advisor was sent; undefined when the run is unadvised. */
+  readonly advisorSpend?: AdvisorTotals | null;
   readonly jobsRun: number;
   readonly budgetExhausted: boolean;
 }
+
+const advisorCostLine = (advice: AdvisorTotals | null): string =>
+  advice === null
+    ? 'advisor: no call made'
+    : `advisor: tokens in ${String(advice.cost.promptTokens)}, calls ${String(advice.calls)}, ` +
+      `retries ${String(advice.retries)}, cost ${usd(advice.cost.usd)}, models ${advice.models.join(',') || '—'}`;
+
+/** `copied a/n (rate)`: advised completions where the model played the advisor's top pick. */
+const copyLine = (advice: AdvisorTotals | null, rate: number | null): string =>
+  advice === null
+    ? ''
+    : `  advisor: copied ${String(advice.agreed)}/${String(advice.asked)} (${fmt(rate)}), ` +
+      `failures ${String(advice.failures)}${advice.lastError === null ? '' : ` lastAdvisorError=${advice.lastError}`}`;
 
 const finish = (run: Run, startedMs: number, done: Finished): number => {
   const wallMs = run.io.now() - startedMs;
@@ -269,8 +317,9 @@ const finish = (run: Run, startedMs: number, done: Finished): number => {
     // Last, so no summary field can shadow the run's cost.
     cost: done.spend.cost,
   };
-  const path = writeResult(run.io.resultsDir, run.file, body, redactor(run.io.env[ENV_API_KEY] ?? ''));
+  const path = writeResult(run.io.resultsDir, run.file, body, envRedactor(run.io.env));
   run.log(costLine(done.spend.cost, done.spend.retries, wallMs));
+  if (done.advisorSpend !== undefined) run.log(advisorCostLine(done.advisorSpend));
   run.log(`wrote ${path}`);
   if (!done.budgetExhausted) return 0;
   run.log(
@@ -338,26 +387,35 @@ const matchesTier = async (run: Run, model: string): Promise<number> => {
   const cells = cellsOf(run.opts);
   if (!mayProceed(run, model, cells.length)) return 3;
   const started = run.io.now();
-  const summary = await runMatchesTier(cells, k, run.opts.mode, run.io.jobRunner(run.env, run.concurrency));
+  const summary = await runMatchesTier(
+    cells,
+    k,
+    run.opts.mode,
+    run.io.jobRunner(run.env, run.concurrency),
+    run.opts.advisor,
+  );
   for (const c of summary.cells) {
     run.log(
       `${c.cell.id}  ${c.byokPlayer}  ${c.outcome.kind}@r${String(c.rounds)}  score=${fmt(c.score)}  ` +
         `turns=${String(c.byok.turns)} fallbacks=${String(c.byok.fallbacks)}  cost=${usd(c.cost.usd)}` +
-        `${c.invalid ? ' INVALID' : ''}${c.lastError === null ? '' : `  lastError=${c.lastError}`}`,
+        `${c.invalid ? ' INVALID' : ''}${c.lastError === null ? '' : `  lastError=${c.lastError}`}` +
+        copyLine(c.advisor, c.advisor === null || c.advisor.asked === 0 ? null : c.advisor.agreed / c.advisor.asked),
     );
   }
   for (const id of summary.skippedCells) run.log(`${id}  skipped (budget)`);
   run.log(`mean ${fmt(summary.mean)} (valid ${fmt(summary.meanValid)}), fallback rate ${fmt(summary.fallbackRate)}`);
+  if (summary.advisor !== null) run.log(copyLine(summary.advisor, summary.copyRate).trim());
   return finish(run, started, {
     summary: { seeds: seedsOf(cells), ...summary },
     spend: summary.spend,
+    ...(run.opts.advisor === undefined ? {} : { advisorSpend: summary.advisorSpend }),
     jobsRun: summary.cells.length + summary.cells.filter((c) => c.reran).length,
     budgetExhausted: summary.budgetExhausted,
   });
 };
 
 const positionsTier = async (run: Run, model: string): Promise<number> => {
-  const jobs = positionJobs(run.opts.mode, { ids: run.opts.positions, max: run.opts.maxPositions });
+  const jobs = positionJobs(run.opts.mode, { ids: run.opts.positions, max: run.opts.maxPositions }, run.opts.advisor);
   if (!mayProceed(run, model, jobs.length)) return 3;
   const started = run.io.now();
   const summary = await runPositionsTier(run.opts.mode, jobs, run.io.jobRunner(run.env, run.concurrency));
@@ -366,18 +424,33 @@ const positionsTier = async (run: Run, model: string): Promise<number> => {
       `prompt tokens/call ${fmt(summary.meanPromptTokensPerCall, 0)}, interior passes ${String(summary.interiorPasses)}, ` +
       `missed closes ${String(summary.missedCloses)}, rewalks ${String(summary.rewalks)}`,
   );
+  for (const p of summary.positions) {
+    run.log(
+      `${p.id}  ${p.parse}  interiorPass=${String(p.interiorPass)} rewalks=${String(p.rewalks)} ` +
+        `missedClose=${String(p.missedClose)}` +
+        copyLine(p.advisor, p.advisor === null || p.advisor.asked === 0 ? null : p.advisor.agreed / p.advisor.asked),
+    );
+  }
+  if (summary.advisor !== null) run.log(copyLine(summary.advisor, summary.copyRate).trim());
   return finish(run, started, {
     summary,
     spend: summary.spend,
+    ...(run.opts.advisor === undefined ? {} : { advisorSpend: summary.advisorSpend }),
     jobsRun: summary.positions.length,
     budgetExhausted: summary.budgetExhausted,
   });
 };
 
-const makeRun = (opts: Options, io: CliIo, access: ModelAccess | undefined): Run => {
-  const redact = redactor(io.env[ENV_API_KEY] ?? '');
+const makeRun = (
+  opts: Options,
+  io: CliIo,
+  access: ModelAccess | undefined,
+  advisor: AdvisorAccess | undefined,
+): Run => {
+  const redact = envRedactor(io.env);
   const revision = io.revision();
   const model = access?.model ?? 'heuristic';
+  const advisorMeter = advisor === undefined ? undefined : createMeter(opts.advisorMaxUsd, JEV_PRICES, false);
   const mode = isFree(opts.tier) ? 'none' : opts.mode;
   const concurrency = concurrencyOf(opts);
   const budget = {
@@ -391,7 +464,13 @@ const makeRun = (opts: Options, io: CliIo, access: ModelAccess | undefined): Run
     log: (line) => {
       io.log(redact(line));
     },
-    file: resultFileName({ tier: opts.tier, ...revision, mode, model, tag: opts.tag }),
+    file: resultFileName({
+      tier: opts.tier,
+      ...revision,
+      mode,
+      model: advisor === undefined ? model : `${model}+${advisor.name}`,
+      tag: opts.tag,
+    }),
     header: {
       tier: opts.tier,
       sha: revision.sha,
@@ -402,12 +481,25 @@ const makeRun = (opts: Options, io: CliIo, access: ModelAccess | undefined): Run
       concurrency,
       ...(isFree(opts.tier) ? {} : { budget }),
       ...(opts.tag === undefined ? {} : { tag: opts.tag }),
+      ...(advisor === undefined
+        ? {}
+        : {
+            advisorConfig: {
+              name: advisor.name,
+              baseUrl: advisor.baseUrl,
+              model: advisor.model,
+              maxUsd: opts.advisorMaxUsd ?? null,
+              prices: JEV_PRICES,
+            },
+          }),
     },
     env: {
       access,
       baseFetch: io.fetch,
       retry: retryOf(opts, io),
       meter: createMeter(opts.maxUsd, opts.prices, opts.reasoningBilledSeparately),
+      advisorAccess: advisor,
+      advisorMeter,
     },
     concurrency,
   };
@@ -418,8 +510,13 @@ const dispatch = async (opts: Options, io: CliIo): Promise<number> => {
   if (callsModel && opts.maxUsd === undefined) {
     throw new Error(`${opts.tier} calls the model: --max-usd is required`);
   }
+  if (opts.advisor !== undefined && !callsModel) throw new Error(`--advisor needs a tier that calls the model`);
+  if (opts.advisor !== undefined && opts.advisorMaxUsd === undefined) {
+    throw new Error('--advisor calls a decision API: --advisor-max-usd is required');
+  }
   const access = callsModel ? modelAccessFromEnv(io.env) : undefined;
-  const run = makeRun(opts, io, access);
+  const advisor = opts.advisor === undefined ? undefined : advisorAccessFromEnv(opts.advisor, io.env);
+  const run = makeRun(opts, io, access, advisor);
   if (resultExists(io.resultsDir, run.file)) {
     run.log(`${run.file} already exists; pass --tag to keep both runs`);
     return 1;
@@ -431,7 +528,7 @@ const dispatch = async (opts: Options, io: CliIo): Promise<number> => {
 };
 
 export const main = async (argv: readonly string[], io: CliIo): Promise<number> => {
-  const redact = redactor(io.env[ENV_API_KEY] ?? '');
+  const redact = envRedactor(io.env);
   let opts: Options;
   try {
     opts = parseOptions(argv, io.env);
@@ -479,12 +576,14 @@ export const nodeIo = (): CliIo => ({
   revision: gitRevision,
   resultsDir: DEFAULT_RESULTS_DIR,
   sleep: nodeSleep,
-  jobRunner: (env, concurrency) => childProcessJobs(concurrency, env.retry, env.meter),
+  jobRunner: (env, concurrency) => childProcessJobs(concurrency, env.retry, env.meter, env.advisorMeter),
 });
 
 /** `run.mjs __worker`: jobs on stdin, one marked JSON line on stdout. */
 export const workerMain = async (input: string): Promise<number> => {
   const parsed = JSON.parse(input) as WorkerInput;
+  const advisorName = parsed.jobs.find((job) => job.advisor !== undefined)?.advisor;
+  const advisorBudget = parsed.advisorBudget;
   const env: JobEnv = {
     access: parsed.jobs.some((job) => job.kind === 'position' || job.chair !== 'heuristic')
       ? modelAccessFromEnv(process.env)
@@ -492,6 +591,11 @@ export const workerMain = async (input: string): Promise<number> => {
     baseFetch: nodeFetch,
     retry: { ...parsed.retry, sleep: nodeSleep },
     meter: createMeter(parsed.budget.maxUsd, parsed.budget.prices, parsed.budget.reasoningBilledSeparately),
+    advisorAccess: advisorName === undefined ? undefined : advisorAccessFromEnv(advisorName, process.env),
+    advisorMeter:
+      advisorBudget === undefined
+        ? undefined
+        : createMeter(advisorBudget.maxUsd, advisorBudget.prices, advisorBudget.reasoningBilledSeparately),
     progress: (line) => {
       process.stderr.write(`${line}\n`);
     },
