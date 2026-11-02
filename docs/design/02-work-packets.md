@@ -105,6 +105,7 @@ scheduled early in the first place.
 | P78 | Is combat reachable? | research | §6.2, §11 | P10, P07, P33, P79 | **[packet](./packets/P78-combat-reachability-probe.md).** Measurement only, no change. The 2026-10-29 match ran **605 steps · 62 closes · 7 cuts** with no head apparently ever killed in head-to-head combat — every death was capture inside a closure. Instrument a replay harness, score the archived logs plus a `homeOffset` × `R` × `playerCount` grid, and write `docs/research/combat-reachability.md`. May raise a §11 item; must not resolve one. |
 | P79 | BYOK benchmark harness | tooling | — | P10, P15, P32 | **[packet](./packets/P79-byok-benchmark-harness.md).** Gates P74–P76 and the P72 re-gate: no BYOK change ships unless it measurably beats the current prompt. Headless BYOK-vs-heuristic matches through the real `playLlmBotTurn` / `playBotTurn`, 2 players × 3 spawner seeds × both seat orders, grok-4.7 with reasoning on (gate) and off (no regression). Score = faster win > survival land share > elimination. Noise floor from baseline run twice. Heuristic mirror (free) for seat bias and round cap. Cost checkpoint with the human before the full grid. |
 | P80 | Interior stacks: `home_mill` is not waste | web | — | P15, P32, P64, P66, P79 | **[packet](./packets/P80-interior-mill-paralysis.md).** Audit of archived grok matches: a seat whose stacks sit inside its own territory passed **four turns running** — every row was `home_mill` ("wasted tempo") with `tipDist=0→0`, and `millOmit` withheld the suggestion. Rows from own territory print `edgeDist=a→b`; a step toward the edge is `to_edge`, not `home_mill`. **Shipped 2026-10-30 (#70): passed the P79 gate, interior passes 4 → 0.** |
+| P81 | The heuristic seat finishes matches | web | — | P55, P78, P79 | **[packet](./packets/P81-heuristic-finishes-matches.md).** Defect (human, 2026-11-02): no heuristic-vs-heuristic match has ever ended (6/6 at 400 rounds, 16/16 at 100). There are two symptoms. In late game it sits idle while hoarding (seed 1: 2–4 steps per 40 rounds after round 160, 1,238 heads). Even when active, it never closes out a seat. Diagnose first, among three hypotheses: the beam horizon is shorter than the walk to the edge; the evaluation rewards hoarding; there is no finishing objective. Fix in the heuristic only. Acceptance, predeclared: ≥ 5/6 mirror cells and ≥ 12/16 P78 grid cells end within 200 rounds, and combat share stays ≥ 50 %. The BYOK proxy baselines must be re-measured afterwards. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -193,6 +194,7 @@ flowchart TD
   P79 -.-> P72
   P79 --> P78["P78 combat probe"]
   P48 --> P77["P77 selection model"]
+  P78 --> P81["P81 heuristic finishes"]
 ```
 
 ## Build order and why
