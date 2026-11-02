@@ -107,6 +107,7 @@ scheduled early in the first place.
 | P80 | Interior stacks: `home_mill` is not waste | web | — | P15, P32, P64, P66, P79 | **[packet](./packets/P80-interior-mill-paralysis.md).** Audit of archived grok matches: a seat whose stacks sit inside its own territory passed **four turns running** — every row was `home_mill` ("wasted tempo") with `tipDist=0→0`, and `millOmit` withheld the suggestion. Rows from own territory print `edgeDist=a→b`; a step toward the edge is `to_edge`, not `home_mill`. **Shipped 2026-10-30 (#70): passed the P79 gate, interior passes 4 → 0.** |
 | P81 | The heuristic seat finishes matches | web | — | P55, P78, P79 | **[packet](./packets/P81-heuristic-finishes-matches.md).** Defect (human, 2026-11-02): no heuristic-vs-heuristic match has ever ended (6/6 at 400 rounds, 16/16 at 100). There are two symptoms. In late game it sits idle while hoarding (seed 1: 2–4 steps per 40 rounds after round 160, 1,238 heads). Even when active, it never closes out a seat. Diagnose first, among three hypotheses: the beam horizon is shorter than the walk to the edge; the evaluation rewards hoarding; there is no finishing objective. Fix in the heuristic only. Acceptance, predeclared: ≥ 5/6 mirror cells and ≥ 12/16 P78 grid cells end within 200 rounds, and combat share stays ≥ 50 %. The BYOK proxy baselines must be re-measured afterwards. **Shipped 2026-11-02: mirror 6/6 end (rounds 55–95), reach 15/16, combat 78 %.** |
 | P82 | BYOK long game and 3-player check | tooling | — | P79, P81 | **[packet](./packets/P82-byok-long-game-and-three-seats.md).** Measurement on the final combination (main after P72 resolves), proxy model: the 2-player grid at a 150-round cap, which gives rounds-to-win, the human's original BYOK target, measurable since P81; and the 3-player grid (`--players 3`, 9 cells) at K = 20 as a smoke check. It audits play after round 20 for bleeds and missed goals. A bleed or missed goal in ≥ 2 cells is the P76 unpark trigger. Caps: $5.00 + $1.50. **Ran 2026-11-02 ([research](../research/byok-long-game.md)): BYOK lost 6/6 long games (eliminated at r62–116; the cause is production, an opening walk past `tipDist` 17); P76 bleed trigger met; 3-player smoke check passes.** |
+| P83 | BYOK opening: say how far home is, in turns | web | — | P79, P80, P75, P82 | **[packet](./packets/P83-byok-opening-close-near-home.md).** P82: the BYOK seat's opening walks one stack away from home with nothing to close, and loses every long game on production (income 1/4–1/2 at r20 vs the human reference's 2.78). Offer rows ending off own territory print `homeIn=t`, the portion's own turns to land home. The step that carries a portion past a 2-turn horizon is tagged `leaves_horizon`. The 17 sentinel prints as `none`. Each exposed tip shows `ifHome=+L share+S`, the claim of the shortest walk home. Bench: `matches` records each turn's `plan`/`why`. Gated on P82's long grid (income at r20 in ≥ 4/6 cells, plus a win or mean survival ≥ 95.3), with positions and K = 20 as no-regression checks. |
 | P20+ | Deferred follow-ons | — | — | — | **[packet](./packets/P20-deferred-online-followons.md).** Viewers, fork, arena, replay button, Elo, online BYOK, under-18 GIS, admin panel |
 
 ## Dependency graph
@@ -197,6 +198,7 @@ flowchart TD
   P48 --> P77["P77 selection model"]
   P78 --> P81["P81 heuristic finishes"]
   P81 --> P82["P82 long game + 3 seats"]
+P82 --> P83["P83 BYOK opening"]
 ```
 
 ## Build order and why
@@ -286,6 +288,7 @@ the [ledger](../research/byok-benchmark.md).
    or a new offer-row packet is written. **That is the human's call.**
    Measure either one on P82's long grid: rounds-to-win, or rounds survived
    while there are no wins.
+   **Packeted 2026-11-02 as [P83](./packets/P83-byok-opening-close-near-home.md)** (offer rows, not P76).
 2. **P81 follow-ups** in the heuristic seat:
    - the beam still sometimes passes when a step is legal;
    - a cut counts as "quiet", so for a dominant seat a staging walk can

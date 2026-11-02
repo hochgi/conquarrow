@@ -505,3 +505,55 @@ The full write-up is in [`byok-long-game.md`](./byok-long-game.md).
 
 **Budget since the $10 top-up** ($11.01 available): post-P81 baseline $0.62,
 P72 $1.68, P82 $5.13. **Spent $7.43; about $3.58 left.**
+
+### P83 — BYOK opening: gate predeclared (2026-11-02)
+
+[Packet](../design/packets/P83-byok-opening-close-near-home.md). This gate is
+fixed here before any paid P83 run. The arm is main (P80 + P75 + P81) plus
+P83's offer rows: `homeIn=`, `leaves_horizon`, `none` for the 17 sentinel,
+and `ifHome=` on the tips line.
+
+**The main reading is P82's long grid**, so the baseline is P82's `long150`
+results (with the `s3-second` rerun). **It is not re-measured.**
+
+**Improvement** (2 players, cap 150, `grok-4.20-0309-non-reasoning`, 6 cells).
+The arm passes only if both hold:
+
+- **(a)** BYOK income at round 20 is above P82's in at least **4 of 6** cells.
+  P82's per-cell round-20 incomes:
+
+  | cell | P82 income at r20 |
+  |---|---|
+  | s1-first | 1/4 |
+  | s1-second | 1/2 |
+  | s2-first | 1/3 |
+  | s2-second | 1/2 |
+  | s3-first | 1/4 |
+  | s3-second | 7/3 |
+
+- **(b)** At least **1 win**, **or** mean rounds survived ≥ **95.3**. That is
+  P82's mean of 85.3 plus 10; P82's rounds were 70, 108, 70, 86, 62 and 116.
+
+**No-regression checks:**
+- **Positions:** the 12 positions on `grok-4.7`. Interior passes + rewalks +
+  missed closes, summed, must not exceed main's **1**, and no single position
+  may be worse than main on any reading.
+- **Proxy K = 20 grid:** compared against the post-P81 baseline `pbase81`
+  (mean 0.326). The mean must be **≥ 0.326**, with no invalid cell.
+
+**Any invalid cell fails the arm.** A cell is invalid when its fallbacks
+exceed 10 % of its turns after one rerun.
+
+**Money.** The xAI balance is $13.65. P83's total cap is **$8.00**: about
+$5.00 for the long grid, $1.20 for positions and $0.90 for K = 20. Every run
+passes `--max-usd`.
+- The long grid runs at `--concurrency 3 --max-usd 5`, a $1.67 share per
+  worker. One long cell cost up to $1.03 in P82, so no cell should abort on
+  its share.
+- An aborted cell is re-run alone, with a small cap, only if the total stays
+  under $8.00.
+- Any other re-run needs the human's OK.
+
+**Also recorded for the first time:** each BYOK turn's `plan` and `why`, so
+"named in plan" is checkable.
+
