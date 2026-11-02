@@ -38,6 +38,7 @@ import {
 } from './opponent';
 import { edgeDistance } from './botEvaluate';
 import type { Finding } from './findings';
+import type { AdvisorRecord } from './matchLog';
 import { advanceTargetLock, syncTargetLocks, tagOnTarget } from './targets';
 import teachingBody from 'docs/byok-teaching.md?raw';
 
@@ -1250,7 +1251,19 @@ export interface LlmBotTurn extends BotTurn {
   readonly lengthOuts?: number;
   readonly salvageParses?: number;
   readonly maxTokens?: number;
+  /** One per advised completion, in completion order (P72). `[]` when the advisor is off. */
+  readonly advisorRecords: readonly AdvisorRecord[];
+  /** Completions the advisor left unadvised by failing (P72). Not an advisor record. */
+  readonly advisorFailures: number;
+  /** Last advisor failure reason; never contains a key. */
+  readonly advisorLastError: string | undefined;
 }
+
+const ZERO_ADVISOR_STATS = {
+  advisorRecords: [],
+  advisorFailures: 0,
+  advisorLastError: undefined,
+} as const;
 
 const ZERO_TURN_STATS = {
   promptTokens: 0,
@@ -1394,7 +1407,15 @@ export const playLlmBotTurn = async (
   fetchImpl: FetchLike = fetch,
 ): Promise<LlmBotTurn> => {
   if (state.activePlayer !== me || state.winner !== undefined) {
-    return { state, moves: [], llmHits: 0, llmFallbacks: 0, lastError: undefined, ...ZERO_TURN_STATS };
+    return {
+      state,
+      moves: [],
+      llmHits: 0,
+      llmFallbacks: 0,
+      lastError: undefined,
+      ...ZERO_TURN_STATS,
+      ...ZERO_ADVISOR_STATS,
+    };
   }
   if (!isByokReady(config)) {
     const fallback = playBotTurn(geometry, rules, state, me);
@@ -1404,6 +1425,7 @@ export const playLlmBotTurn = async (
       llmFallbacks: 0,
       lastError: 'byok not ready',
       ...ZERO_TURN_STATS,
+      ...ZERO_ADVISOR_STATS,
     };
   }
 
@@ -1477,5 +1499,7 @@ export const playLlmBotTurn = async (
     lengthOuts,
     salvageParses,
     maxTokens: completions > 0 ? liveTurnMaxTokens(config) : 0,
+    // P72 skeleton: phase 3 asks the advisor per completion.
+    ...ZERO_ADVISOR_STATS,
   };
 };

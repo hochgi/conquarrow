@@ -8,9 +8,11 @@
 
 import { mintPlayerId, type PlayerId } from '@conquarrow/contracts';
 import {
+  DEFAULT_ADVISOR,
   DEFAULT_BYOK,
   isByokReady,
   loadByokConfig,
+  type AdvisorConfig,
   type ByokConfig,
 } from './byokConfig';
 
@@ -32,6 +34,8 @@ export interface SeatByokFields {
   /** Local plan→commit runner (tools/byok-turn-runner). */
   readonly useTurnRunner: boolean;
   readonly turnRunnerUrl: string;
+  /** Decision-API advisor (P72). An older save without it parses to DEFAULT_ADVISOR. */
+  readonly advisor: AdvisorConfig;
 }
 
 export interface SeatConfig {
@@ -55,6 +59,7 @@ export const emptyByokFields = (): SeatByokFields => ({
   reasoning: true,
   useTurnRunner: false,
   turnRunnerUrl: '',
+  advisor: DEFAULT_ADVISOR,
 });
 
 export const byokFieldsFromConfig = (config: ByokConfig): SeatByokFields => ({
@@ -65,6 +70,8 @@ export const byokFieldsFromConfig = (config: ByokConfig): SeatByokFields => ({
   reasoning: config.reasoning,
   useTurnRunner: config.useTurnRunner,
   turnRunnerUrl: config.turnRunnerUrl,
+  // P72 skeleton: phase 3 carries config.advisor.
+  advisor: DEFAULT_ADVISOR,
 });
 
 export const byokConfigForSeat = (seat: SeatConfig): ByokConfig => ({
@@ -191,6 +198,8 @@ const parseSeat = (raw: unknown): SeatConfig | undefined => {
       useTurnRunner: byokObj['useTurnRunner'] === true,
       turnRunnerUrl:
         typeof byokObj['turnRunnerUrl'] === 'string' ? byokObj['turnRunnerUrl'] : '',
+      // P72 skeleton: phase 3 parses byokObj['advisor'] with defaults.
+      advisor: DEFAULT_ADVISOR,
     },
   };
 };

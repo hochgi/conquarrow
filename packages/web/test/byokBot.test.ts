@@ -15,6 +15,7 @@ import {
   type FetchLike,
 } from '../src/byokBot';
 import {
+  DEFAULT_ADVISOR,
   DEFAULT_BYOK,
   BYOK_UPSTREAM_HEADER,
   chatCompletionsUrl,
@@ -94,6 +95,7 @@ describe('seatPlan', () => {
         reasoning: true,
         useTurnRunner: false,
         turnRunnerUrl: '',
+        advisor: DEFAULT_ADVISOR,
       },
     });
     expect(seatPlanReady(plan)).toBe(true);

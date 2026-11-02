@@ -55,6 +55,35 @@ export const isAllowedByokUpstream = (urlString: string): boolean => {
   }
 };
 
+/**
+ * Optional decision-API advisor on a BYOK seat (P72, ADR 0006). Persists with
+ * the seat plan, like the seat's own key. Toggling `enabled` never clears the
+ * other fields.
+ */
+export interface AdvisorConfig {
+  readonly enabled: boolean;
+  readonly baseUrl: string;
+  readonly apiKey: string;
+  readonly model: string;
+}
+
+export const DEFAULT_ADVISOR: AdvisorConfig = {
+  enabled: false,
+  baseUrl: 'https://api.typesafe.ai/v1',
+  apiKey: '',
+  model: 'jev-latest',
+};
+
+/** Enabled, with base URL, key and model all non-empty after trimming. */
+export const isAdvisorReady = (_config: AdvisorConfig): boolean => {
+  throw new Error('not implemented: isAdvisorReady (P72)');
+};
+
+/** Normalize so `${base}/systemone` is well-formed. */
+export const systemOneUrl = (_baseUrl: string): string => {
+  throw new Error('not implemented: systemOneUrl (P72)');
+};
+
 export interface ByokConfig {
   readonly enabled: boolean;
   /** OpenAI-compatible base, e.g. `https://api.openai.com/v1` (no trailing slash required). */
@@ -79,6 +108,8 @@ export interface ByokConfig {
   readonly useTurnRunner: boolean;
   /** Empty under Vite → `/__turn`. Otherwise e.g. `http://127.0.0.1:4010`. */
   readonly turnRunnerUrl: string;
+  /** Decision-API advisor (P72). Off by default. */
+  readonly advisor: AdvisorConfig;
 }
 
 export const DEFAULT_BYOK: ByokConfig = {
@@ -90,6 +121,7 @@ export const DEFAULT_BYOK: ByokConfig = {
   reasoning: true,
   useTurnRunner: false,
   turnRunnerUrl: '',
+  advisor: DEFAULT_ADVISOR,
 };
 
 export const isByokReady = (config: ByokConfig): boolean =>
@@ -123,6 +155,7 @@ export const loadByokConfig = (): ByokConfig => {
       reasoning: o['reasoning'] !== false,
       useTurnRunner: o['useTurnRunner'] === true,
       turnRunnerUrl: typeof o['turnRunnerUrl'] === 'string' ? o['turnRunnerUrl'] : '',
+      advisor: DEFAULT_ADVISOR,
     };
   } catch {
     return DEFAULT_BYOK;

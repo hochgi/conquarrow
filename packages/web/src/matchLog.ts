@@ -164,8 +164,34 @@ export const foldMatchSummary = (
   return { steps, endTurns, closes, cuts, firstCloseAt };
 };
 
+/**
+ * What a decision-API advisor said on one advised BYOK completion (P72,
+ * ADR 0006). No key, no prompt.
+ */
+export interface AdvisorRecord {
+  readonly seat: PlayerId;
+  /** Moves the seat had applied this seat-turn before this completion. */
+  readonly turnMoveIndex: number;
+  /** The versioned model that answered (the reply's `model`), else the configured one. */
+  readonly model: string;
+  readonly offerSize: number;
+  readonly top: number;
+  /** Engine order, one per offer row, rounded to 3 decimals. */
+  readonly probabilities: readonly number[];
+  /** The first index of the model's reply batch; null when the reply was unusable or empty. */
+  readonly picked: number | null;
+}
+
+/** An advisor record placed in the match log: `at` indexes `moves`. */
+export interface LoggedAdvisorRecord extends AdvisorRecord {
+  readonly at: number;
+}
+
 /** One-line HUD / review string. */
-export const formatMatchSummary = (summary: MatchSummary): string => {
+export const formatMatchSummary = (
+  summary: MatchSummary,
+  _advisorRecords?: readonly AdvisorRecord[],
+): string => {
   const parts = [
     `${String(summary.steps)} steps`,
     `${String(summary.endTurns)} end-turns`,
@@ -182,6 +208,7 @@ export const formatMatchSummary = (summary: MatchSummary): string => {
 export const matchSummaryLine = (
   over: boolean,
   summary: MatchSummary | undefined,
+  _advisorRecords?: readonly AdvisorRecord[],
 ): string | undefined =>
   over && summary !== undefined ? formatMatchSummary(summary) : undefined;
 
@@ -204,6 +231,8 @@ export interface MatchLog {
   readonly winner: PlayerId | undefined;
   /** Playtest counters; always present on new logs. */
   readonly summary: MatchSummary;
+  /** Advisor records (P72); present only when some record exists. Replay ignores it. */
+  readonly advisorRecords?: readonly LoggedAdvisorRecord[];
 }
 
 export const createMatchLog = (args: {
@@ -293,6 +322,18 @@ export const withByokStats = (
     byokStats: aggregate,
     ...(bySeat === undefined ? {} : { byokStatsBySeat: bySeat }),
   };
+};
+
+/**
+ * Append a BYOK seat-turn's advisor records, each at
+ * `movesBefore + turnMoveIndex`, in completion order. Zero records → `log`.
+ */
+export const withAdvisorRecords = (
+  _log: MatchLog,
+  _records: readonly AdvisorRecord[],
+  _movesBefore: number,
+): MatchLog => {
+  throw new Error('not implemented: withAdvisorRecords (P72)');
 };
 
 export const withWinner = (log: MatchLog, winner: PlayerId | undefined): MatchLog =>
