@@ -125,7 +125,8 @@ round 160. The core scenarios name it `mirror-s1`.
    search as **complete plans**. They compete on the normal score (decision 2)
    and pass the normal gates. A carve:
    - starts at an own group on own territory with
-     `L = min(speed(heads) − spent, MAX_PLAN − 1) ≥ 2`;
+     `L = min(rules.effectiveSpeed(state, from) − spent, MAX_PLAN − 1) ≥ 2`
+     (the group's §3 allowance: `speed(heads)` unless a merge overrode it);
    - follows the grain, never repeats an arrow, takes at most two steps over
      own territory before leaving it, and ends on the first own-territory arrow
      after leaving (the landing);

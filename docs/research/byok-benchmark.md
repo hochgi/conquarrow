@@ -141,6 +141,17 @@ Measured with the same tiers, free only. **Before** is `main` `6e0cee3`
 Ends by round: two seats 52–95, three seats 103–169. Evaporation still kills
 nobody; 4 heads vanished with a lost seat.
 
+**Finding: the beam still passes with a step legal.** The packet keeps
+`chooseMove`'s "never pass while a step is legal" rule and asked for any beam
+breach to be named. The breach is older than P81 and much rarer after it.
+Zero-step seat-turns in the three mirror games fell from 1,236 to 92. Replayed,
+62 of those 92 had a legal step: seed 1 has 5 (a 1-head seat), seed 2 has 47
+(both seats, 1–33 heads, rounds 12–95) and seed 3 has 10. In 60 of the 62 the
+seat is not dominant, so the finisher is off and P53's `swapIdle` /
+`IDLE_SLACK` still lets `[endTurn]` win. The other 2 are seed 3's A at rounds 28
+and 29 (15 and 17 heads, dominant), where no staging walk existed. This is not
+fixed here; a follow-up packet should decide it.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
