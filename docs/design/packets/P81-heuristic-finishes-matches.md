@@ -15,6 +15,12 @@
 > **No rules change.** Any change that wants a rule is a §11 question for the
 > human.
 
+> **Diagnosis (2026-11-02, before the fix):** (a) as stated and (b) do not
+> hold; the stall is **search-budget starvation** plus a **reply-scoring
+> asymmetry** that hands `[endTurn]` a free round of production; once those
+> are fixed, (c) holds. Evidence and the decided fix:
+> [`docs/spec/heuristic-finishes/`](../../spec/heuristic-finishes/heuristic-finishes.md#diagnosis-recorded-before-the-fix-as-the-packet-requires).
+
 ## Two symptoms
 
 Both come from the archived mirror results; a rerun of
