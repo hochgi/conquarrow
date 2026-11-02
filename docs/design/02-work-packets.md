@@ -267,6 +267,43 @@ harness (P24):
 
 One `/spec-to-ship` per packet.
 
+## BYOK improvement delivery: where it stands (2026-11-02)
+
+Every BYOK change is gated on the P79 harness. Gates, numbers and spend are in
+the [ledger](../research/byok-benchmark.md).
+
+- **Shipped:** P79 (harness), P77 (selection model), P80 (interior mill),
+  P75 (re-walking is not advancing), P78 (combat is reachable), P81 (the
+  heuristic finishes matches), P82 (long game and 3-player check).
+- **Parked, each with its branch kept and not merged:** P74 (defensive prose),
+  P72 (the jev advisor: grok copies its top pick 85–92 % of the time), and P76
+  (horizon; no branch).
+
+**Open, none packeted yet:**
+1. **The BYOK opening.** P82's main finding: the BYOK seat loses every long
+   game on production. Its opening walks past the offer's `tipDist` cap of 17
+   with nothing to close. Either P76 is unparked (P82 met its bleed trigger)
+   or a new offer-row packet is written. **That is the human's call.**
+   Measure either one on P82's long grid: rounds-to-win, or rounds survived
+   while there are no wins.
+2. **P81 follow-ups** in the heuristic seat:
+   - the beam still sometimes passes when a step is legal;
+   - a cut counts as "quiet", so for a dominant seat a staging walk can
+     replace a cut;
+   - `packages/mcp/src` keeps a parked copy of the bot that no longer matches
+     web.
+3. **P74 retry**, as tags or row fields rather than prose (grok acts on
+   tags). This would be a new packet; do not merge
+   `parked/p74-byok-defensive-half`.
+4. **`plan` as a list** (one job per stack). This is a JSON-contract change
+   and needs a packet and an ADR.
+5. **A non-grok model check** of the final combination. It needs another
+   provider's key.
+6. **Bench hygiene:**
+   - results do not record the model's `plan`/`why`, which P82's audit needed;
+   - a cell can abort on its worker's spend share (`maxUsd ÷ workers`) well
+     before the run's cap.
+
 ## Open items this plan inherits
 
 Tracked in [`SPEC.md` §11](../../SPEC.md): **two tuning knobs, no remaining
