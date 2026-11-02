@@ -422,3 +422,60 @@ the proxy grid.
 - **Money.** xAI ≤ **$2.50** in total: the positions run plus one proxy run.
   A re-run needs the human's OK. jev ≤ **$0.50**. Every run passes
   `--max-usd` (xAI) and `--advisor-max-usd` (jev).
+
+### P72 — decision-API advisor: **FAIL, parked** (2026-11-02)
+
+Branch `parked/p72-decision-api-advisor`. Measured at `58e5ff3`, which is main
+`a0f1dc2` (P80 + P75 + P81) plus the advisor and the bench's `--advisor jev`
+arm. jev answered as `jev-1.14.0` on every call, with 0 advisor failures in
+222 calls. Cost: xAI **$1.68** ($1.10 positions + $0.58 proxy), jev
+**$0.03**.
+
+**Positions (12, `grok-4.7`, reasoning on): no-regression fails.**
+
+| reading | main (P75 row) | P72 | gate |
+|---|---|---|---|
+| P stall: interior passes | 0 | 0 | ✔ |
+| C cycle: rewalks | 0 | **1** (#43: 0 → 1) | **regression ✘** |
+| O ordinary: rewalks / missed closes | 1 / 0 | 1 / 0 (#25) | ✔ |
+| fallbacks | 0 | 0 | ✔ |
+| sum over the 12 | 1 | **2** | **✘** (must not rise) |
+| prompt tokens per call | 4,632 | 4,740 (+2.3%) | — |
+
+**Proxy (6 cells, `grok-4.20-0309-non-reasoning`, K = 20): improvement fails.**
+
+| | s1-first | s1-second | s2-first | s2-second | s3-first | s3-second | mean |
+|---|---|---|---|---|---|---|---|
+| post-P81 baseline | 0.130 | 0.564 | 0.120 | 0.400 | 0.081 | 0.661 | 0.326 |
+| P72 | **0.462** | 0.385 | **0.566** | 0.200 | **0.512** | 0.188 | **0.385** |
+| ≥ baseline? | ✔ | ✘ | ✔ | ✘ | ✔ | ✘ | 3 of 6 |
+
+- The mean clears the +0.05 bar (0.385 ≥ 0.376), but only **3 of 6** cells
+  reach their baseline, and the gate needs 4. All 6 cells were capped at
+  round 20 with 0 fallbacks, so none is invalid.
+- **The effect splits by seat order.** Advice lifts every first-seat cell by
+  +0.33 to +0.45 and lowers every second-seat cell by −0.18 to −0.47. A mean
+  that hides a seat-order sign flip is not a uniform improvement. One run per
+  arm cannot say whether the split is real or seed noise.
+
+**Copy rate: grok defers to jev rather than weighing it.**
+- **Positions:** grok-4.7 played jev's top pick on **23/25** advised
+  completions (92%).
+- **Proxy:** grok-4.20 did on **167/197** (85%). Per cell it ranged from
+  25/33 to 29/29.
+- The 2026-10-28 A/B measured 37/39. On every reading so far, an advised seat
+  is mostly jev with a chat model's latency.
+- jev's top pick was the offer's **last row** in 75/197 proxy completions and
+  11/25 position completions. At all four C positions it was row 8 of 9. The
+  last-row lean the research note found persists in 1.14.0.
+
+**Why it is parked, not merged.** It fails both checks:
+- **Positions:** a new rewalk at C#43.
+- **Proxy:** 3 of 6 cells.
+
+The copy rate says the annotation format makes grok follow jev rather than
+weigh it, so what the gate measures is jev's play, not advice. A softer
+format, or a decision model that is stronger on its own, would be a new arm.
+It is not a re-run of this one.
+
+**Spend:** P72 used $1.68 of its $2.50 xAI cap and $0.03 of its $0.50 jev cap.

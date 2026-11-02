@@ -1,6 +1,6 @@
 # ADR 0006 — A decision API advises a BYOK seat; it never plays one
 
-**Status:** Accepted as the shape. The build (P72) was parked when its gate failed on 2026-10-28. It is re-gated as an arm on the P79 harness and merges only if it passes ([packet](../design/packets/P72-decision-api-advisor.md))
+**Status:** Accepted as the shape. The build (P72) is **parked**. It failed its gate on 2026-10-28, and again on its P79 re-gate on 2026-11-02. The code is on branch `parked/p72-decision-api-advisor` ([packet](../design/packets/P72-decision-api-advisor.md)).
 **Date:** 2026-10-28
 **Context:** [ADR 0003](./0003-pages-direct-byok.md), [ADR 0007](./0007-invite-only-byok-relay.md), [research note](../research/jev-byok.md), [`CONTEXT.md`](../../CONTEXT.md)
 
@@ -28,6 +28,13 @@ A throwaway prototype comes first. It replays archived BYOK prompts through jev 
 **Gate outcome (2026-10-28).** The agreement check passed: jev's top pick matched grok's move 59–70% of the time, against 11% for chance. A stricter test followed. The human's moves were the standard, and grok was asked plain and advised at 39 replayed human steps. Both matched the human 16/39 times. The advised seat followed jev's top pick 37/39 times, so it deferred to jev rather than weighing it. P72 is parked. More human match logs, or a decision model that alone beats the heuristic seat on that test, would reopen it ([research note](../research/jev-byok.md#human-move-ab-2026-10-28)).
 
 **Re-gate (2026-11-02).** Both arms of that A/B shared a prompt that never explained `force`, and P75 and P80 have changed the offer since. P72 is therefore re-gated as an arm on the P79 harness rather than on the 39 human steps. The gate is predeclared in the [benchmark ledger](../research/byok-benchmark.md) and reports the copy rate whether or not it passes. The build follows this ADR with one choice question in engine order, not the two-order average the research note proposed ([packet](../design/packets/P72-decision-api-advisor.md)).
+
+**Re-gate outcome (2026-11-02): fail.**
+- **Positions:** the 12 targeted positions on grok-4.7 regressed (a new rewalk at C#43).
+- **Proxy:** on the 6-cell proxy grid the mean rose from 0.326 to 0.385, but only 3 of 6 cells reached baseline. Every first-seat cell rose and every second-seat cell fell.
+- **Copy rate:** the advised seat played jev's top pick 23/25 times on positions and 167/197 times on the proxy. That is the 37/39 deference again: with this annotation the seat follows the advisor rather than weighing it.
+
+What would reopen P72 is now a different annotation (one the model weighs rather than obeys) or a decision model that is stronger on its own. A re-run of this arm would not.
 
 ## Considered options
 

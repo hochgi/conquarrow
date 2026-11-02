@@ -1,6 +1,11 @@
 # P72 — Decision-API advisor on a BYOK seat
 
-> **Status:** ready; re-gated on P79. **Depends on:** P15, P32, P79 (the gate).
+> **Status:** **parked: failed the P79 gate 2026-11-02.** Positions regress (C#43
+> rewalk 0 → 1). The proxy mean is 0.385 against 0.326, but only 3 of 6 cells
+> reach baseline. grok copied jev's top pick 23/25 on positions and 167/197 on
+> the proxy ([ledger](../../research/byok-benchmark.md)). Branch
+> `parked/p72-decision-api-advisor`, which carries the spec, code and bench arm.
+> Was: ready; re-gated on P79. **Depends on:** P15, P32, P79 (the gate).
 > **Shape:** [ADR 0006](../../adr/0006-decision-api-advisor.md). **Evidence so far:**
 > [research note](../../research/jev-byok.md): jev's top pick matched grok 59–70%
 > (chance 11%). At 39 replayed human steps, grok matched the human 16/39 both
