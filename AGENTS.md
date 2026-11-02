@@ -237,13 +237,13 @@ of these are near-misses for each other.
 | **vertex** | a pinwheel centre bordered by 3 arrows; where specials live; *never occupied* |
 | **head** | one unit; also one life |
 | **stack** | merged heads on one arrow; stack size **is** lives |
-| **sentry** | heads a player *chose* to leave on a trail; discretionary — one only bleeds a front, two halt it |
+| **sentry** | heads a player *chose* to leave on a trail; discretionary — any one is a firebreak against a cut; its size matters only for contact combat (§6.1, P12) |
 | **trail** | the path a head leaves; a **set** of arrows — no order, no memory, not a tree |
 | **anchor** | what holds a trail live. **Territory grade**: can close and claim, and its heads resist conversion. **Stack grade**: live and drivable, but pays only a land bridge. Also the one head a branch is *required* to leave |
 | **cut** | an enemy crossing your trail |
 | **evaporation** | the destruction a cut causes, running **both** ways from the cut point |
-| **front** | one advancing edge of an evaporation; carries exactly one kill; halts **per arrow**, never per point |
-| **firebreak** | the head a front halts at — the *second* one it meets, since the first is killed |
+| **front** | one advancing edge of an evaporation; destroys trail, **never heads**; halts **per arrow** (the first arrow holding the victim's heads), never per point |
+| **firebreak** | an arrow holding the victim's heads — the front halts there and the stack survives untouched (§6.1, P12) |
 | **region** | trail between two firebreaks, or a firebreak and territory; what one cut destroys |
 | **crossover** | a point one trail runs through more than once; a join followed by a split, **all ins feeding all outs**. Costs an anchor either side |
 | **crossing** | traversing a point another trail passes through |
