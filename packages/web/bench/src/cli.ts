@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import type { FetchLike } from '../../src/byokBot';
 import { createMeter, DEFAULT_PRICES, ZERO_COST, type CostTotals, type Prices } from './budget';
-import { gridCells, selectCells, type Cell } from './grid';
+import { PLAYER_COUNTS, gridCells, selectCells, type Cell, type PlayerCount } from './grid';
 import { REACH_DEFAULT_CAP, reachCells, runReachTier, type ReachRow } from './reachTier';
 import { latestCalibration, resultExists, resultFileName, writeResult } from './results';
 import { BENCH_MODES, ENV_API_KEY, modelAccessFromEnv, type BenchMode, type ModelAccess } from './seat';
@@ -55,6 +55,8 @@ const isFree = (tier: Tier): boolean => tier === 'mirror' || tier === 'reach';
 interface Options {
   readonly tier: Tier;
   readonly cells: readonly string[] | undefined;
+  /** matches only: the grid's player count (P82's 3-player check). */
+  readonly players: PlayerCount;
   /** matches: K. mirror: a safety cap (default 400). reach: the grid's cap (default 100). */
   readonly roundCap: number | undefined;
   readonly mode: BenchMode;
@@ -82,6 +84,8 @@ const USAGE = `usage: pnpm byok-bench <mirror|reach|positions|matches> [options]
   --yes                        allow a tier that calls the model to spend
   --cells s1-first,s2-second   run only these grid cells (default: all 6;
                                reach: all 16, ids like p2-R7-h5-s1)
+  --players 2|3                matches: 2 (default) or the 3-player grid, 9 cells
+                               with ids like p3-s1-third
   --round-cap K                matches: the round cap K (from the mirror run);
                                mirror: safety cap (default 400); reach: cap (default 100)
   --mode reasoning|fast        lobby Reasoning flag (default reasoning)
@@ -111,6 +115,15 @@ const nonNegative = (raw: string | undefined, name: string): number | undefined 
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) throw new Error(`${name} must be a non-negative number`);
   return n;
+};
+
+const playersOf = (raw: string | undefined, tier: Tier): PlayerCount => {
+  if (raw === undefined) return 2;
+  const n = Number(raw);
+  const count = PLAYER_COUNTS.find((c) => c === n);
+  if (count === undefined) throw new Error(`--players must be one of ${PLAYER_COUNTS.join(', ')}`);
+  if (count !== 2 && tier !== 'matches') throw new Error('--players 3 is for the matches tier only');
+  return count;
 };
 
 const list = (raw: string | undefined): readonly string[] | undefined =>
@@ -144,6 +157,7 @@ export const parseOptions = (argv: readonly string[], env: CliIo['env'] = {}): O
     allowNegative: true,
     options: {
       cells: { type: 'string' },
+      players: { type: 'string' },
       'round-cap': { type: 'string' },
       mode: { type: 'string' },
       concurrency: { type: 'string' },
@@ -167,6 +181,7 @@ export const parseOptions = (argv: readonly string[], env: CliIo['env'] = {}): O
   return {
     tier,
     cells: list(values.cells),
+    players: playersOf(values.players, tier),
     roundCap: positiveInt(values['round-cap'], 'round-cap'),
     mode,
     concurrency: positiveInt(values.concurrency, 'concurrency'),
@@ -265,7 +280,7 @@ const finish = (run: Run, startedMs: number, done: Finished): number => {
   return EXIT_BUDGET;
 };
 
-const cellsOf = (opts: Options): readonly Cell[] => selectCells(gridCells(), opts.cells);
+const cellsOf = (opts: Options): readonly Cell[] => selectCells(gridCells(opts.players), opts.cells);
 
 const seedsOf = (cells: readonly Cell[]): number[] => [...new Set(cells.map((c) => c.seed))];
 
