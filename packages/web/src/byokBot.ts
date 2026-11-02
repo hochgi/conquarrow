@@ -24,7 +24,7 @@ import { chooseTurnGreedy } from './botSearch';
 import type { ByokConfig } from './byokConfig';
 import {
   BYOK_CORS_HINT,
-  BYOK_UPSTREAM_HEADER,
+  byokRelayRoute,
   chatCompletionsUrl,
   isByokReady,
   resolveByokProxyUrl,
@@ -1102,14 +1102,12 @@ export const postChatCompletions = (
   body: unknown,
   fetchImpl: FetchLike = fetch,
 ): Promise<Response> => {
-  const upstream = chatCompletionsUrl(config.baseUrl);
-  const proxy = resolveByokProxyUrl(config);
-  const url = proxy.length > 0 ? proxy : upstream;
+  const { url, relayHeaders } = byokRelayRoute(config, chatCompletionsUrl(config.baseUrl));
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${config.apiKey.trim()}`,
+    ...relayHeaders,
   };
-  if (proxy.length > 0) headers[BYOK_UPSTREAM_HEADER] = upstream;
   return fetchImpl(url, {
     method: 'POST',
     headers,
@@ -1398,6 +1396,101 @@ const afterPrefix = (
   return { kind: 'continue', at, lastError: tailError };
 };
 
+/** Running totals for one seat-turn; each completion adds to them. */
+interface TurnTally {
+  completions: number;
+  fellBack: boolean;
+  lastError: string | undefined;
+  promptTokens: number;
+  completionTokens: number;
+  lengthOuts: number;
+  salvageParses: number;
+}
+
+/** One BYOK seat-turn in progress: the seat, its transport, the applied moves and the tally. */
+interface LlmSeatTurn extends SeatTurnCtx {
+  readonly config: ByokConfig;
+  readonly fetchImpl: FetchLike;
+  readonly moves: Move[];
+  readonly tally: TurnTally;
+}
+
+interface CompletionStep {
+  readonly at: GameState;
+  readonly stop: boolean;
+}
+
+/** Give the rest of the seat-turn to greedy-v1, keeping `reason`. */
+const fallBack = (turn: LlmSeatTurn, at: GameState, reason: string): CompletionStep => {
+  turn.tally.lastError = reason;
+  turn.tally.fellBack = true;
+  return { at: greedyRemainder(turn, at, turn.moves), stop: true };
+};
+
+/** Remember the plan, apply the batch's legal prefix, and decide whether the seat-turn goes on. */
+const applyBatch = (
+  turn: LlmSeatTurn,
+  at: GameState,
+  offer: readonly Move[],
+  result: ParsedBatchResult,
+): CompletionStep => {
+  const parsed = result.batch;
+  rememberByokPlan(turn.me, {
+    moves: parsed.indices,
+    endTurn: parsed.endTurn,
+    ...(result.plan !== undefined ? { plan: result.plan } : {}),
+  });
+  const mapped = applyMappedPrefix(turn.rules, at, offer, parsed.indices);
+  commitPrefix(turn, mapped, turn.moves);
+  const decision = afterPrefix(turn, parsed, mapped, turn.moves);
+  if (decision.lastError !== undefined) turn.tally.lastError = decision.lastError;
+  if (decision.kind === 'stop' && decision.fellBack) turn.tally.fellBack = true;
+  return { at: decision.at, stop: decision.kind === 'stop' };
+};
+
+/** This completion's user prompt. */
+const completionPrompt = (turn: LlmSeatTurn, at: GameState, offer: readonly Move[]): string => {
+  const { geometry, rules, me, config } = turn;
+  const targets = syncTargetLocks(geometry, rules, at, me);
+  return buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
+};
+
+/** One completion's reply: tally it, parse it, apply its batch — or fall back. */
+const afterReply = (
+  turn: LlmSeatTurn,
+  at: GameState,
+  offer: readonly Move[],
+  fetched: LlmBatchFetchResult,
+): CompletionStep => {
+  const { tally } = turn;
+  if (!fetched.ok) return fallBack(turn, at, fetched.reason);
+  tally.promptTokens += fetched.promptTokens;
+  tally.completionTokens += fetched.completionTokens;
+  if (fetched.lengthOut) tally.lengthOuts += 1;
+  const result = parseMoveBatchResult(fetched.text);
+  if (result === undefined) return fallBack(turn, at, unusableReplyError(fetched.text));
+  if (result.salvaged) tally.salvageParses += 1;
+  return applyBatch(turn, at, offer, result);
+};
+
+const turnResult = (turn: LlmSeatTurn, at: GameState): LlmBotTurn => {
+  const { tally } = turn;
+  return {
+    state: at,
+    moves: turn.moves,
+    llmHits: tally.fellBack ? 0 : 1,
+    llmFallbacks: tally.fellBack ? 1 : 0,
+    lastError: tally.lastError,
+    promptTokens: tally.promptTokens,
+    completionTokens: tally.completionTokens,
+    lengthOuts: tally.lengthOuts,
+    salvageParses: tally.salvageParses,
+    maxTokens: tally.completions > 0 ? liveTurnMaxTokens(turn.config) : 0,
+    // P72 skeleton: phase 3 asks the advisor per completion.
+    ...ZERO_ADVISOR_STATS,
+  };
+};
+
 export const playLlmBotTurn = async (
   geometry: GeometryPort,
   rules: RulesPort,
@@ -1429,77 +1522,41 @@ export const playLlmBotTurn = async (
     };
   }
 
-  const ctx: SeatTurnCtx = { geometry, rules, me };
-  const moves: Move[] = [];
+  const turn: LlmSeatTurn = {
+    geometry,
+    rules,
+    me,
+    config,
+    fetchImpl,
+    moves: [],
+    tally: {
+      completions: 0,
+      fellBack: false,
+      lastError: undefined,
+      promptTokens: 0,
+      completionTokens: 0,
+      lengthOuts: 0,
+      salvageParses: 0,
+    },
+  };
   let at = state;
-  let completions = 0;
-  let fellBack = false;
-  let lastError: string | undefined;
-  let promptTokens = 0;
-  let completionTokens = 0;
-  let lengthOuts = 0;
-  let salvageParses = 0;
-
   while (at.winner === undefined && at.activePlayer === me) {
     const offer = movesForLlm(rules.legalMoves(at));
-    if (offer.length === 0 || completions >= MAX_COMPLETIONS_PER_TURN) {
-      at = forceEndTurn(ctx, at, moves);
+    if (offer.length === 0 || turn.tally.completions >= MAX_COMPLETIONS_PER_TURN) {
+      at = forceEndTurn(turn, at, turn.moves);
       break;
     }
-    if (completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
-    completions += 1;
-    const targets = syncTargetLocks(geometry, rules, at, me);
-    const prompt = buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
+    if (turn.tally.completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
+    turn.tally.completions += 1;
+    const prompt = completionPrompt(turn, at, offer);
     const fetched = await fetchLlmMoveBatch(config, prompt, me, fetchImpl);
-    if (!fetched.ok) {
-      lastError = fetched.reason;
-      at = greedyRemainder(ctx, at, moves);
-      fellBack = true;
-      break;
-    }
-    promptTokens += fetched.promptTokens;
-    completionTokens += fetched.completionTokens;
-    if (fetched.lengthOut) lengthOuts += 1;
-    const parsedResult = parseMoveBatchResult(fetched.text);
-    if (parsedResult === undefined) {
-      lastError = unusableReplyError(fetched.text);
-      at = greedyRemainder(ctx, at, moves);
-      fellBack = true;
-      break;
-    }
-    if (parsedResult.salvaged) salvageParses += 1;
-    const parsed = parsedResult.batch;
-    rememberByokPlan(me, {
-      moves: parsed.indices,
-      endTurn: parsed.endTurn,
-      ...(parsedResult.plan !== undefined ? { plan: parsedResult.plan } : {}),
-    });
-    const mapped = applyMappedPrefix(rules, at, offer, parsed.indices);
-    at = commitPrefix(ctx, mapped, moves);
-    const decision = afterPrefix(ctx, parsed, mapped, moves);
-    at = decision.at;
-    if (decision.lastError !== undefined) lastError = decision.lastError;
-    if (decision.kind === 'stop') {
-      if (decision.fellBack) fellBack = true;
-      break;
-    }
+    const step = afterReply(turn, at, offer, fetched);
+    at = step.at;
+    if (step.stop) break;
   }
 
   if (at.winner === undefined && at.activePlayer === me) {
-    at = forceEndTurn(ctx, at, moves);
+    at = forceEndTurn(turn, at, turn.moves);
   }
-  return {
-    state: at,
-    moves,
-    llmHits: fellBack ? 0 : 1,
-    llmFallbacks: fellBack ? 1 : 0,
-    lastError,
-    promptTokens,
-    completionTokens,
-    lengthOuts,
-    salvageParses,
-    maxTokens: completions > 0 ? liveTurnMaxTokens(config) : 0,
-    // P72 skeleton: phase 3 asks the advisor per completion.
-    ...ZERO_ADVISOR_STATS,
-  };
+  return turnResult(turn, at);
 };

@@ -203,3 +203,19 @@ export const resolveTurnRunnerUrl = (config: ByokConfig): string => {
 };
 
 export const BYOK_UPSTREAM_HEADER = 'X-Arrows-Byok-Upstream';
+
+/**
+ * Where a BYOK call to `upstream` is POSTed: the seat's relay
+ * ({@link resolveByokProxyUrl}) with the real URL in
+ * {@link BYOK_UPSTREAM_HEADER}, else `upstream` directly. Shared by the chat
+ * call and the advisor (P72), so both take the same route.
+ */
+export const byokRelayRoute = (
+  config: ByokConfig,
+  upstream: string,
+): { readonly url: string; readonly relayHeaders: Readonly<Record<string, string>> } => {
+  const proxy = resolveByokProxyUrl(config);
+  return proxy.length > 0
+    ? { url: proxy, relayHeaders: { [BYOK_UPSTREAM_HEADER]: upstream } }
+    : { url: upstream, relayHeaders: {} };
+};
