@@ -62,7 +62,7 @@ format**, **advisor**, **relay**.
   ```json
   {
     "model": "<advisor model>",
-    "state": "<teaching body>\n\n<user prompt up to, not including, the LEGAL_MOVES block>",
+    "state": "<system prompt (role + teaching body)>\n\n<user prompt up to, not including, the LEGAL_MOVES block>",
     "questions": {
       "move": {
         "type": "choice",
