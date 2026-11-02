@@ -40,6 +40,11 @@ Feature: Edges of homeIn, leaves_horizon, the sentinel, ifHome and the bench rec
 
   Rule: Only the crossing step is tagged
 
+    # A numeric homeIn never falls across a step: the step spends one of this
+    # turn's steps and moves at most one grain step closer. The only fall is
+    # none → 16 at the cap. The `0 | none` row needs a very large stack (speed
+    # ≥ 15); it is a legal construction, not a game position.
+
     Scenario Outline: leaves_horizon fires on 2 to 3 only
       Given a portion of A whose homeIn before the step is <before>
       And a step after which its homeIn is <after>
@@ -52,7 +57,7 @@ Feature: Edges of homeIn, leaves_horizon, the sentinel, ifHome and the bench rec
         | 0      | none  | contain         |
         | 3      | 4     | do not contain  |
         | 2      | 2     | do not contain  |
-        | 3      | 2     | do not contain  |
+        | none   | 16    | do not contain  |
 
   Rule: The sentinel and the tips line
 
