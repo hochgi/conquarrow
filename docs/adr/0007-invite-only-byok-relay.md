@@ -35,3 +35,38 @@ Add a stateless **relay** route to the existing HTTP API. The browser POSTs the 
 - ADR 0002's cost floor holds: the relay is one short Lambda call per completion, with no S3 and no state.
 - Local play that uses the relay needs Google sign-in. Direct calls do not.
 - Opening the relay beyond the invite list is a trigger to revisit host restriction, per-user quotas, and whether API Gateway's JWT authorizer can reject callers before the Lambda bills. That is parked as a follow-up packet.
+
+## Addendum (2026-11-03): long completions, parked
+
+**Status:** open, parked until the relay (P71) is implemented. Nothing below is decided. It records what was found so the choice can be made then.
+
+**The problem.** The 29 s limit above is tighter than it looked:
+- grok-4.7 with reasoning averaged about 80 s per call on the P79 bench ([ledger](../research/byok-benchmark.md));
+- NVIDIA NIM's hosted trial sends no CORS headers to other origins, so it needs this relay to be played from Pages at all ([research note](../research/byok-free-providers.md)). Its reasoning models are likely to run past 29 s.
+
+A relayed reasoning call would therefore often time out and fall back to `greedy-v1`.
+
+**Async modes that providers already offer** (from their own docs, 2026-11-03):
+
+| provider | async mode | result delivery |
+|---|---|---|
+| OpenAI | Responses API, `background: true` | a signed `response.completed` webhook (Standard Webhooks), then `responses.retrieve` — [guide](https://developers.openai.com/api/docs/guides/webhooks) |
+| xAI | chat completions with `deferred: true` → `request_id` | poll `GET /v1/chat/deferred-completion/{request_id}`: 202 while pending, 200 with the body, readable once within 24 h — [guide](https://docs.x.ai/developers/advanced-api-usage/deferred-chat-completions) |
+| NVIDIA | the function layer can answer 202 with a request id | poll `GET https://integrate.api.nvidia.com/v1/status/{requestId}` — [reference](https://docs.api.nvidia.com/nim/reference/google-gemma-3n-e4b-it-statuspolling). Documented per model; unverified for chat LLMs on the free trial |
+| Gemini | Batch API only | minutes to hours; not usable for a live turn |
+
+Only OpenAI calls back. The others are submit-then-poll.
+
+**Options, for when this is decided:**
+1. **A Lambda Function URL instead of the HTTP API route.** It allows 15 min, and response streaming keeps the connection open. The relay stays stateless with one transport change. This is the escape hatch named under Limits.
+2. **Browser-driven polling through the relay.**
+   - For hosts with a deferred or 202 mode, the browser submits through the relay and gets an id.
+   - It then polls the status URL through the relay. Every relay call stays short.
+   - The provider holds the job, so the relay keeps no state.
+   - It needs a per-host dialect in the BYOK adapter.
+3. **Webhook plus push.** The provider calls a second Lambda, which pushes the answer to the tab over the existing WebSocket API (or the tab polls a store).
+   - This is the only zero-polling design.
+   - It needs a provider that calls back (OpenAI today), a public signed webhook route, job state, and WebSocket plumbing.
+   - That breaks this ADR's "no state" property and ADR 0002's cost floor. It is the most moving parts for the least gain.
+
+The P79 bench is unaffected: Node has no request timeout to work around.
