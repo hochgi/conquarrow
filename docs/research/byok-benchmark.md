@@ -554,3 +554,133 @@ The full write-up is in [`byok-long-game.md`](./byok-long-game.md).
 
 **Budget since the $10 top-up** ($11.01 available): post-P81 baseline $0.62,
 P72 $1.68, P82 $5.13. **Spent $7.43; about $3.58 left.**
+
+### P83 — BYOK opening: gate predeclared (2026-11-02)
+
+[Packet](../design/packets/P83-byok-opening-close-near-home.md). This gate is
+fixed here before any paid P83 run. The arm is main (P80 + P75 + P81) plus
+P83's offer rows: `homeIn=`, `leaves_horizon`, `none` for the 17 sentinel,
+and `ifHome=` on the tips line.
+
+**The main reading is P82's long grid**, so the baseline is P82's `long150`
+results (with the `s3-second` rerun). **It is not re-measured.**
+
+**Improvement** (2 players, cap 150, `grok-4.20-0309-non-reasoning`, 6 cells).
+The arm passes only if both hold:
+
+- **(a)** BYOK income at round 20 is above P82's in at least **4 of 6** cells.
+  P82's per-cell round-20 incomes:
+
+  | cell | P82 income at r20 |
+  |---|---|
+  | s1-first | 1/4 |
+  | s1-second | 1/2 |
+  | s2-first | 1/3 |
+  | s2-second | 1/2 |
+  | s3-first | 1/4 |
+  | s3-second | 7/3 |
+
+- **(b)** At least **1 win**, **or** mean rounds survived ≥ **95.3**. That is
+  P82's mean of 85.3 plus 10; P82's rounds were 70, 108, 70, 86, 62 and 116.
+
+**No-regression checks:**
+- **Positions:** the 12 positions on `grok-4.7`. Interior passes + rewalks +
+  missed closes, summed, must not exceed main's **1**, and no single position
+  may be worse than main on any reading.
+- **Proxy K = 20 grid:** compared against the post-P81 baseline `pbase81`
+  (mean 0.326). The mean must be **≥ 0.326**, with no invalid cell.
+
+**Any invalid cell fails the arm.** A cell is invalid when its fallbacks
+exceed 10 % of its turns after one rerun.
+
+**Money.** The xAI balance is $13.65. P83's total cap is **$8.00**: about
+$5.00 for the long grid, $1.20 for positions and $0.90 for K = 20. Every run
+passes `--max-usd`.
+- The long grid runs at `--concurrency 3 --max-usd 5`, a $1.67 share per
+  worker. One long cell cost up to $1.03 in P82, so no cell should abort on
+  its share.
+- An aborted cell is re-run alone, with a small cap, only if the total stays
+  under $8.00.
+- Any other re-run needs the human's OK.
+
+**Also recorded for the first time:** each BYOK turn's `plan` and `why`, so
+"named in plan" is checkable.
+
+### P83 — BYOK opening: **FAIL, parked** (2026-11-02)
+
+Branch `parked/p83-byok-opening`. Measured at `2e486b5`, which is main
+`3eb72a2` (P80 + P75 + P81) plus P83's rows (`homeIn=`, `leaves_horizon`,
+`none`, and `ifHome=` on the tips line). Offer growth was 7.4–8.5 %. Results
+are in `packages/web/bench/results/*-2e486b537cd5-*-p83*.json` in the P83
+worktree (gitignored).
+
+**Improvement: the long grid passes** (2 players, cap 150, proxy, against
+P82's `long150`):
+
+| cell | P82 income at r20 | **P83 income at r20** | above? | P82 rounds | **P83 rounds** | P83 outcome | P82 first own close | **P83 first own close** | P83 cost |
+|---|---|---|---|---:|---:|---|---|---|---:|
+| s1-first | 1/4 | **1/2** | ✔ | 70 | 78 | eliminated | r39 | **r6** | $0.44 |
+| s1-second | 1/2 | **49/36** | ✔ | 108 | ≥ 117 | stopped by budget, alive | r3 | r2 | $1.66 |
+| s2-first | 1/3 | **7/12** | ✔ | 70 | **128** | eliminated | r22 | **r6** | $0.95 |
+| s2-second | 1/2 | **17/12** | ✔ | 86 | ≥ 107 | stopped by budget, alive | r2 | r2 | $1.23 |
+| s3-first | 1/4 | 1/4 | ✘ (equal) | 62 | 64 | eliminated | r40 | **r3** | $0.36 |
+| s3-second | 7/3 | 1/4 | ✘ | 116 | ≥ 100 | stopped by budget, alive | r11 | r50 | $0.72 |
+
+- **(a)** Round-20 income is above P82's in **4 of 6** cells. ✔
+- **(b)** There are 0 wins. Mean rounds survived is **≥ 99.0**, against P82's
+  85.3 and the bar of 95.3. ✔
+  - Three cells hit the run's per-worker spend share while the BYOK seat was
+    still alive. P83's games last longer than P82's, and s1-second alone cost
+    $1.66.
+  - Their rounds are lower bounds. A lower bound is safe for a "≥" bar: the
+    seat survived at least that long.
+  - They were not re-run, because the budget could not cover them.
+- **s3-first was skipped** when the run's cap was reached. It was then run
+  alone under its own cap (`--max-usd 1.3`), as the gate allows.
+- **No invalid cell.** Fallbacks were 0–1 per cell (two failed fetches and
+  one illegal tail), out of 64–128 turns.
+
+**No regression on positions fails** (12 positions, `grok-4.7`, $1.07):
+
+| reading | main | P83 | gate |
+|---|---|---|---|
+| P stall: interior passes | 0 | 0 | ✔ |
+| C cycle: rewalks | 0 | **1** (#43: 0 → 1) | **regression ✘** |
+| O ordinary: rewalks / missed closes | 1 / 0 | 1 / 0 (#25) | ✔ |
+| fallbacks / parse rate | 0 / 1.000 | 0 / 1.000 | ✔ |
+| sum over the 12 | 1 | **2** | **✘** |
+| prompt tokens per call | 4,632 | 4,741 (+2.4 %) | — |
+
+**No regression on the proxy K = 20 grid passes** ($0.51):
+
+| | s1-first | s1-second | s2-first | s2-second | s3-first | s3-second | mean |
+|---|---|---|---|---|---|---|---|
+| `pbase81` | 0.130 | 0.564 | 0.120 | 0.400 | 0.081 | 0.661 | 0.326 |
+| P83 | 0.512 | 0.267 | 0.531 | 0.771 | 0.081 | 0.472 | **0.439** |
+
+All 6 cells were valid, with 0 fallbacks over 208 calls. That clears
+≥ 0.326, but two cells are below their baseline. This check gates on the
+mean, so that does not fail it.
+
+**Verdict: FAIL.** The positions regression at C#43 fails the arm,
+whatever the long grid shows. This is the same position and reading that
+parked P72. The opening improvement is real on the proxy:
+- first own closes moved to r2–r6 in 5 of 6 cells;
+- round-20 income rose in 4 cells;
+- survival rose by at least 14 rounds on average.
+
+It does not merge under this gate.
+
+**What the new `plan`/`why` record shows**:
+- **s1-first:** "expand" for 3 turns, then "close this trail to claim new
+  shares" from turn 4, and a close at r6.
+- **s3-second, the cell that got worse:** "advance the 3-stack outward to
+  claim the spawner at tiling:v:3,-3,down" for most of its opening. The seat
+  followed `advances=` rows outward, and played 5 of the 29 `leaves_horizon`
+  rows offered in rounds 1–20.
+
+**Spend.**
+- P83 used **$6.94** of its $8.00 cap: long grid $5.00, s3-first $0.36,
+  positions $1.07, K = 20 $0.51.
+- The xAI balance was $13.65 before P83, so about **$6.71** is left.
+

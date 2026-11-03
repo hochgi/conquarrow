@@ -113,3 +113,34 @@ Seat order dominates: the third seat averages 0.335, the second 0.103 and the fi
 | **P82 total** | **$5.13** |
 
 The predeclared caps were $5.00 + $1.50.
+
+## P83: the opening arm (2026-11-02)
+
+[P83](../design/packets/P83-byok-opening-close-near-home.md) tested an
+offer-row fix for the opening walk. Every off-territory row prints `homeIn=`,
+this portion's own turns until it can land home. The step that crosses a
+2-turn horizon is tagged `leaves_horizon`. The 17 sentinel prints `none`, and
+each exposed tip shows `ifHome=+L share+S`. It re-ran this grid at the same
+cap. **It failed its gate on the positions no-regression check, so it is
+parked.** On this grid:
+
+| cell | rounds (P82 → P83) | income at r20 (P82 → P83) | first own close (P82 → P83) |
+|---|---|---|---|
+| s1-first | 70 → 78 | 1/4 → **1/2** | r39 → **r6** |
+| s1-second | 108 → ≥ 117 (alive when the budget stopped it) | 1/2 → **49/36** | r3 → r2 |
+| s2-first | 70 → **128** | 1/3 → **7/12** | r22 → **r6** |
+| s2-second | 86 → ≥ 107 (alive when the budget stopped it) | 1/2 → **17/12** | r2 → r2 |
+| s3-first | 62 → 64 | 1/4 → 1/4 | r40 → **r3** |
+| s3-second | 116 → ≥ 100 (alive when the budget stopped it) | 7/3 → 1/4 | r11 → r50 |
+
+- **The walk-away opening is mostly gone.** The three cells whose first own
+  close came at r22–r40 now close by r6, and 5 of 6 cells close by r6.
+- **Income at r20 rose** in 4 cells. Mean survival rose from 85.3 to at
+  least 99.0.
+- **There are still 0 wins.** Eliminations came at r64–r128.
+- **s3-second got worse.** It had been P82's only good opening; now it chased
+  an `advances=` spawner outward for 50 rounds.
+
+Numbers and the gate are in the
+[ledger](./byok-benchmark.md#p83--byok-opening-fail-parked-2026-11-02).
+
