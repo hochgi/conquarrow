@@ -29,6 +29,7 @@ import {
   loadBaselineLog,
   opponentSource,
   passIsBestPosition,
+  planIsLegalSequence,
   planTerminates,
   rules,
   splitSharePosition,
@@ -114,11 +115,14 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     expect(plan.some((m) => m.kind === 'step' && m.exit === openExit)).toBe(true);
   });
 
-  it('endTurn is chosen while steps remain when passing evaluates best', () => {
+  // Superseded by P84 (docs/spec/heuristic-never-idle), decision 1.
+  it('A step is taken even when passing evaluates best', () => {
     const { state, Bot } = passIsBestPosition();
     expect(rules.legalMoves(state).some((m) => m.kind === 'step')).toBe(true);
     const plan = chooseTurnBeam(geometry, rules, state, Bot);
-    expect(plan).toEqual([{ kind: 'endTurn' }]);
+    expect(plan.some((m) => m.kind === 'step')).toBe(true);
+    expect(planIsLegalSequence(state, plan)).toBe(true);
+    expect(planTerminates(state, plan)).toBe(true);
   });
 
   it('After a home-pinwheel mill the bot still leaves', () => {

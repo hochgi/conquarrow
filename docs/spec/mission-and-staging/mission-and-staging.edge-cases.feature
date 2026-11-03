@@ -46,7 +46,8 @@ Feature: Mission and staging — edges
       And every contest complete in the beam is a threatened kite
       And no staging close complete exists in the beam
       When chooseTurnBeam runs
-      Then the plan is the complete with smallest kiteLength then smaller planKey
+      # Amended by P84: when that complete is a pass and a step is legal, the live seat returns the least-kite stepping complete instead.
+      Then the plan is the complete with smallest kiteLength then smaller planKey among the completes that step, when a step is legal
       And the plan is a legal turn the beam already adopted
       And the system does not invent a move
 
@@ -94,13 +95,14 @@ Feature: Mission and staging — edges
       When chooseTurnGreedy plans them
       Then each plan equals the frozen greedy-v1 plan for that position
 
-    Scenario: 3-seat 1-stack pass-is-best still returns endTurn
+    # Superseded by P84 (docs/spec/heuristic-never-idle): these boards now step.
+    Scenario: 3-seat 1-stack pass-is-best boards take a step
       Given the 3-seat passIsBest position whose stacks are all 1-head
       And every one-step terminal evaluates no better than passing
       When chooseTurnBeam runs
-      Then the plan is only endTurn
+      Then the plan contains at least one step
       Given the 3-seat passWithManySteps position whose stacks are all 1-head
       When chooseTurnBeam runs
-      Then the plan is only endTurn
+      Then the plan contains at least one step
       And IDLE_SLACK, SORTIE_SLACK, and evaluate are unchanged
       And packages/web/src/byokBot.ts is not edited by this packet

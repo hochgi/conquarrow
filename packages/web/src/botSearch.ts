@@ -3,7 +3,8 @@
  *
  * `chooseTurnGreedy` is frozen greedy-v1 (today's `chooseMove` loop).
  * `chooseTurnBeam` is beam-v1 with optional one-ply opponent replies (P55)
- * and a return-time home-expedition gate (P56).
+ * and a return-time home-expedition gate (P56). The live seat's return seam
+ * refuses a pass while a step is legal (P84).
  */
 
 import { endTurn, speed } from '@conquarrow/contracts';
@@ -34,6 +35,7 @@ import {
   type MissionContext,
   type OriginFinding,
 } from './botMission';
+import { neverIdle } from './botNeverIdle';
 import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
@@ -1033,6 +1035,39 @@ const seedCarves = (search: Search): void => {
   }
 };
 
+/**
+ * P84 decisions 2–5 — the live seat's return seam. Nested searches are not
+ * live and keep the plan the gates already chose. Choice logic lives in
+ * `neverIdle`; this is the wiring.
+ */
+const liveReturn = (
+  search: Search,
+  ctx: MissionContext | undefined,
+  staged: readonly Move[],
+): readonly Move[] => {
+  // `ctx` is always set when `withReplies` is; the check only narrows the type.
+  if (!search.withReplies || ctx === undefined) return staged;
+  return neverIdle(
+    {
+      geometry: search.geometry,
+      // `inner`, not the apply-capped `rules`: a starved beam must still apply.
+      rules: search.inner,
+      origin: search.origin,
+      me: search.me,
+      completes: search.completes,
+      score: (complete) =>
+        complete.replyScore ??
+        evaluate(search.geometry, complete.state, search.me, search.inner),
+      isThreatenedKite: (complete) => isThreatenedKite(ctx, complete),
+      kiteLength: (complete) =>
+        kiteLength(search.geometry, complete.state, search.me, ctx.originTerritory),
+      planKey,
+      chooseMove,
+    },
+    staged,
+  );
+};
+
 /** P81 decision 6 — the live seat's quiet choice yields to a staging walk, when one exists. */
 const stageIfQuiet = (
   search: Search,
@@ -1069,7 +1104,8 @@ export const chooseTurnBeamWithBudget: (
     runBeam(search, beamShapeOf(budget));
     if (search.withReplies && search.missionCtx !== undefined) applyFinalistReplies(search);
     const chosen = applyMissionGates(search, pickReturnedPlan(search));
-    return stageIfQuiet(search, chosen)?.moves ?? [endTurn()];
+    const staged = stageIfQuiet(search, chosen)?.moves ?? [endTurn()];
+    return liveReturn(search, missionCtx, staged);
   } finally {
     leaveBeamSearch();
   }

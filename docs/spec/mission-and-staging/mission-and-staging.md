@@ -378,6 +378,10 @@ re-litigate them. No SPEC §11 item.
     smallest `kiteLength`, then smaller `planKey`. Never invent a
     move. A stop-short / pass that is already in the beam is
     eligible; do not synthesise one.
+    **Amended by [P84](../heuristic-never-idle/heuristic-never-idle.md)** for the live seat: when that fallback (or any
+    later stage) leaves a pass while a step is legal, the never-idle
+    guard returns a stepping complete instead, preferring a
+    non-threatened one, else the least-kite stepping one.
 
 13. **Live vs nested.** `missionsOf`, the expansion filter, finalist
     replies, and BSSN 12 gates run only for the seat's live
@@ -461,7 +465,9 @@ re-litigate them. No SPEC §11 item.
       `onMissionStep` unchanged. 6-seat `afterFirstHomeMillClose`
       still takes the first arm. 2–3 seat **1-stack** boards
       (`passIsBest` / `passWithManySteps`) still take the evaluate
-      arm — they should still pass.
+      arm — they should still pass. **Superseded by [P84](../heuristic-never-idle/heuristic-never-idle.md):** the
+      gate still keeps the idle choice, and the live seat's never-idle
+      guard then returns a stepping plan.
 
       **P65 reconstruction (CI Given).** `THREE_MATCH`:
       `playerCount: 3`, `R: 7`, `homeOffset: 5`, `dominationN: 5`,
@@ -672,10 +678,11 @@ flowchart TD
     terminating plan that contains a step and departs own territory,
     even on a 2–3 seat board, and that plan shall not be a 0-share
     home mill.
-36. WHEN every own stack has `heads < 2` (or `spent >= speed(heads)`),
+36. ~~WHEN every own stack has `heads < 2` (or `spent >= speed(heads)`),
     a 2–3 seat board whose one-step terminals evaluate no better than
     passing shall still return `[endTurn]` (`passIsBest` /
-    `passWithManySteps`).
+    `passWithManySteps`).~~ **Superseded by [P84](../heuristic-never-idle/heuristic-never-idle.md):** the live seat
+    returns a plan that steps on these boards.
 
 ## What this file deliberately does not decide
 

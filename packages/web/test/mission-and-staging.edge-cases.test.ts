@@ -179,7 +179,8 @@ describe('Mission and staging — edges', () => {
     expect(greedySrc).toMatch(/export const chooseTurnGreedy[\s\S]*chooseMove/);
   }, 120_000);
 
-  it('3-seat 1-stack pass-is-best still returns endTurn', () => {
+  // Superseded by P84 (docs/spec/heuristic-never-idle), decision 1.
+  it('3-seat 1-stack pass-is-best boards take a step', () => {
     const pass = passIsBestPosition();
     expect(specOwnStacksAllSingle(pass.state, pass.Bot)).toBe(true);
     const passEv = evaluate(geometry, rules.apply(pass.state, endTurn()), pass.Bot, rules);
@@ -188,10 +189,16 @@ describe('Mission and staging — edges', () => {
         passEv,
       );
     }
-    expect(chooseTurnBeam(geometry, rules, pass.state, pass.Bot)).toEqual([{ kind: 'endTurn' }]);
+    const passPlan = chooseTurnBeam(geometry, rules, pass.state, pass.Bot);
+    expect(passPlan.some((m) => m.kind === 'step')).toBe(true);
+    expect(planIsLegalSequence(pass.state, passPlan)).toBe(true);
+    expect(planTerminates(pass.state, passPlan)).toBe(true);
     const many = passWithManyStepsPosition();
     expect(specOwnStacksAllSingle(many.state, many.Bot)).toBe(true);
-    expect(chooseTurnBeam(geometry, rules, many.state, many.Bot)).toEqual([{ kind: 'endTurn' }]);
+    const manyPlan = chooseTurnBeam(geometry, rules, many.state, many.Bot);
+    expect(manyPlan.some((m) => m.kind === 'step')).toBe(true);
+    expect(planIsLegalSequence(many.state, manyPlan)).toBe(true);
+    expect(planTerminates(many.state, manyPlan)).toBe(true);
     expect(IDLE_SLACK).toBe(MOBILITY_SCALE);
     expect(SORTIE_SLACK).toBe(MOBILITY_SCALE);
     expect(botEvaluateSource()).not.toContain('hasLumpReady');
