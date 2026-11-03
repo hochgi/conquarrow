@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { endTurn } from '@conquarrow/contracts';
 import { isDominant, stagingWalk } from '../src/botFinish';
+import { neverIdle, type NeverIdleComplete, type NeverIdleSearch } from '../src/botNeverIdle';
 import { hypothesiseChair } from '../src/botReply';
 import {
   BEAM,
@@ -18,6 +19,7 @@ import {
   MAX_APPLIES,
   MAX_PLAN,
   MOBILITY_SCALE,
+  planKey,
   SORTIE_SLACK,
 } from '../src/botSearch';
 import { chooseMove } from '../src/opponent';
@@ -210,5 +212,115 @@ describe('heuristic-never-idle edge cases', () => {
       },
       SEARCH_TIMEOUT,
     );
+  });
+
+  describe("Rule: Decision 3's order picks the replacement", () => {
+    // Direct calls on neverIdle with stubbed readings, so the order is pinned
+    // independently of what the real search happens to keep.
+    type Reading = { readonly score: number; readonly kite: boolean; readonly kiteLength: number };
+    type Fixture = {
+      readonly plans: readonly NeverIdleComplete[];
+      readonly search: (completes: readonly NeverIdleComplete[]) => NeverIdleSearch<NeverIdleComplete>;
+    };
+    const nth = <T,>(items: readonly T[], index: number): T => {
+      const item = items[index];
+      if (item === undefined) throw new Error(`setup: no item ${String(index)}`);
+      return item;
+    };
+    const setup = (readings: readonly Reading[]): Fixture => {
+      const { state, Bot } = passIsBestPosition();
+      const steps = legalSteps(state);
+      const read = new Map<NeverIdleComplete, Reading>();
+      const plans = readings.map((reading, i) => {
+        const plan: NeverIdleComplete = { moves: [nth(steps, i), endTurn()], state };
+        read.set(plan, reading);
+        return plan;
+      });
+      const at = (complete: NeverIdleComplete): Reading => {
+        const reading = read.get(complete);
+        if (reading === undefined) throw new Error('setup: unread complete');
+        return reading;
+      };
+      return {
+        plans,
+        search: (completes) => ({
+          geometry,
+          rules,
+          origin: state,
+          me: Bot,
+          completes,
+          score: (c) => at(c).score,
+          isThreatenedKite: (c) => at(c).kite,
+          kiteLength: (c) => at(c).kiteLength,
+          planKey,
+          chooseMove,
+        }),
+      };
+    };
+    const smallerKey = (plans: readonly NeverIdleComplete[]): NeverIdleComplete =>
+      plans.reduce((a, b) => (planKey(b.moves) < planKey(a.moves) ? b : a));
+    const pass = [endTurn()];
+
+    it('The best-scoring stepping complete that is not a threatened kite wins, in any input order', () => {
+      const { search, plans } = setup([
+        { score: 1, kite: false, kiteLength: 0 },
+        { score: 5, kite: false, kiteLength: 0 },
+        { score: 3, kite: false, kiteLength: 0 },
+      ]);
+      const best = nth(plans, 1).moves;
+      expect(neverIdle(search(plans), pass)).toEqual(best);
+      expect(neverIdle(search([...plans].reverse()), pass)).toEqual(best);
+    });
+
+    it('A score tie goes to the smaller planKey', () => {
+      const { search, plans } = setup([
+        { score: 2, kite: false, kiteLength: 0 },
+        { score: 2, kite: false, kiteLength: 0 },
+      ]);
+      const smaller = smallerKey(plans).moves;
+      expect(neverIdle(search(plans), pass)).toEqual(smaller);
+      expect(neverIdle(search([...plans].reverse()), pass)).toEqual(smaller);
+    });
+
+    it('A stepping complete that is not a threatened kite beats a better-scoring threatened kite', () => {
+      const { search, plans } = setup([
+        { score: 9, kite: true, kiteLength: 1 },
+        { score: 1, kite: false, kiteLength: 4 },
+      ]);
+      expect(neverIdle(search(plans), pass)).toEqual(nth(plans, 1).moves);
+    });
+
+    it('When every stepping complete is a threatened kite, the least kiteLength wins, then the smaller planKey', () => {
+      const least = setup([
+        { score: 9, kite: true, kiteLength: 5 },
+        { score: 1, kite: true, kiteLength: 2 },
+        { score: 5, kite: true, kiteLength: 3 },
+      ]);
+      expect(neverIdle(least.search(least.plans), pass)).toEqual(nth(least.plans, 1).moves);
+
+      const tied = setup([
+        { score: 9, kite: true, kiteLength: 2 },
+        { score: 1, kite: true, kiteLength: 2 },
+      ]);
+      const smaller = smallerKey(tied.plans).moves;
+      expect(neverIdle(tied.search(tied.plans), pass)).toEqual(smaller);
+      expect(neverIdle(tied.search([...tied.plans].reverse()), pass)).toEqual(smaller);
+    });
+
+    it("With no stepping complete, chooseMove's move is played and the turn is ended", () => {
+      const { search } = setup([]);
+      const { state, Bot } = passIsBestPosition();
+      const idle: NeverIdleComplete = { moves: pass, state };
+      expect(neverIdle(search([idle]), pass)).toEqual([chooseMove(geometry, rules, state, Bot), endTurn()]);
+    });
+
+    it('A chosen plan that already steps is returned unchanged', () => {
+      const { search, plans } = setup([
+        { score: 1, kite: false, kiteLength: 0 },
+        { score: 5, kite: false, kiteLength: 0 },
+      ]);
+      const chosen = nth(plans, 0).moves;
+      expect(neverIdle(search(plans), chosen)).toBe(chosen);
+    });
   });
 });

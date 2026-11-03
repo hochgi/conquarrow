@@ -13,7 +13,7 @@ method is added.
 **Features:** [core](./heuristic-never-idle.core.feature) ·
 [edge cases](./heuristic-never-idle.edge-cases.feature)
 
-**Counts:** 15 scenarios (5 core, 10 edge; outlines count once) · 6 invariants · 0 SPEC §11 items.
+**Counts:** 21 scenarios (5 core, 16 edge; outlines count once) · 6 invariants · 0 SPEC §11 items.
 
 ## Purpose
 
@@ -227,6 +227,16 @@ hook is set, and the hook was never set during the run.
 | reach: cells ending ≤ 200 rounds | **15 / 16** (only `p3-R7-h5-s1` capped; wall 1,353 s) | — |
 | reach: combat share of heads lost | **78 %** (1,950 / 2,510; 2 seats 73 %, 3 seats 79 %) | — |
 | playtest positions stepping | 0 / 13 | 13 / 13 |
+
+**After (`dcde77a`, the shipped code):**
+- zero-step seat-turns with a step legal: **0**;
+- mirror: 56 / B, 83 / B, 44 / A, both orders and two reruns identical,
+  97.6 s ÷ 167 = **0.58 s** per turn;
+- reach: **15 / 16** (`p3-R7-h5-s2` capped), combat **79 %** (2,075 / 2,621);
+- playtest: **13 / 13**.
+
+All gates pass. The full table is in the
+[ledger](../../research/byok-benchmark.md#after-p84-2026-11-03-the-seat-never-passes-with-a-step-legal).
 
 ## Acceptance (from the packet; thresholds fixed before the change)
 

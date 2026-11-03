@@ -22,7 +22,7 @@ Feature: Never-idle edges — which stepping plan replaces a pass, the starved b
 
     Scenario: The kite-gate cause where a non-kite stepping complete exists
       Given the committed fixture "playtest-2026-11-02" replayed through move 53, seat A to move
-      And seat A's only mission is contest and every contest complete in the live search is a threatened kite
+      And seat A's only mission is contest, so P59's gate falls back to its least-kite choice and picks [endTurn]
       When chooseTurnBeam plans seat A's turn
       Then the plan contains at least one step
       And the plan is not a threatened kite
@@ -82,6 +82,39 @@ Feature: Never-idle edges — which stepping plan replaces a pass, the starved b
       Then botNeverIdle.ts exports neverIdle
       And botSearch.ts imports neverIdle from botNeverIdle
       And neither module uses Date, Math.random or performance.now
+
+  Rule: Decision 3's order picks the replacement (neverIdle called directly, with stubbed readings)
+
+    Scenario: The best-scoring stepping complete that is not a threatened kite wins, in any input order
+      Given three stepping completes, none a threatened kite, with search scores 1, 5 and 3
+      When neverIdle replaces [endTurn], with the completes in either order
+      Then it returns the complete that scores 5
+
+    Scenario: A score tie goes to the smaller planKey
+      Given two stepping completes, neither a threatened kite, with equal search scores
+      When neverIdle replaces [endTurn], with the completes in either order
+      Then it returns the complete with the smaller planKey
+
+    Scenario: A stepping complete that is not a threatened kite beats a better-scoring threatened kite
+      Given a threatened-kite complete scoring 9 and a non-kite complete scoring 1
+      When neverIdle replaces [endTurn]
+      Then it returns the non-kite complete
+
+    Scenario: When every stepping complete is a threatened kite, the least kiteLength wins, then the smaller planKey
+      Given only threatened-kite stepping completes
+      When neverIdle replaces [endTurn]
+      Then it returns the one with the smallest kiteLength, whatever its score
+      And between equal kiteLengths, the one with the smaller planKey, in either input order
+
+    Scenario: With no stepping complete, chooseMove's move is played and the turn is ended
+      Given the search kept only [endTurn] and a step is legal
+      When neverIdle replaces [endTurn]
+      Then it returns [chooseMove's move, endTurn]
+
+    Scenario: A chosen plan that already steps is returned unchanged
+      Given the chosen plan contains a step
+      When neverIdle is called with it
+      Then it returns that same plan
 
   Rule: Determinism
 

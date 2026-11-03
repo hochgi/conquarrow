@@ -530,7 +530,7 @@ flowchart TD
   Idle -->|no| Chosen["chosen"]
   Stepped --> Chosen
   Chosen --> Home{"trackSortie and chosen is a home mill close?"}
-  Home -->|no| Out["return chosen"]
+  Home -->|no| Out["return chosen (live seat: P84 never-idle guard runs last)"]
   Home -->|yes| Slack{"homeboundScore mill − expedition ≤ SORTIE_SLACK?"}
   Slack -->|yes| Exp["return best expedition"]
   Slack -->|no| Out

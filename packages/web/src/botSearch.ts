@@ -1045,6 +1045,7 @@ const liveReturn = (
   ctx: MissionContext | undefined,
   staged: readonly Move[],
 ): readonly Move[] => {
+  // `ctx` is always set when `withReplies` is; the check only narrows the type.
   if (!search.withReplies || ctx === undefined) return staged;
   return neverIdle(
     {

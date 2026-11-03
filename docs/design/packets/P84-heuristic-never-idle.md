@@ -1,6 +1,8 @@
 # P84 — The heuristic seat never passes while a step is legal
 
-> **Status:** ready. **Depends on:** P53 (beam), P59 (mission gates), P65
+> **Status:** shipped 2026-11-03. All acceptance gates pass ([ledger](../../research/byok-benchmark.md#after-p84-2026-11-03-the-seat-never-passes-with-a-step-legal)):
+> never-idle 124 → 0, playtest 13 / 13, mirror 6 / 6 (rounds 56, 83, 44),
+> reach 15 / 16, combat 79 %, 0.58 s per turn. **Depends on:** P53 (beam), P59 (mission gates), P65
 > (quiet-home pass), P81 (the finisher; `mirror` / `reach` acceptance).
 > Held back until P82 and P83 finished, so P82's BYOK proxy baseline stayed
 > valid. Both are done.
@@ -72,6 +74,10 @@ Baselines were measured on `main` `a16f571`.
 | determinism: two runs of each mirror cell give byte-identical move lists | holds | holds |
 | speed: mirror per-turn wall time (wall ÷ the longest cell's seat-turns, concurrency 6) | 165.9 s ÷ 191 = 0.87 s | ≤ 1.30 s (1.5×) |
 
+**Measured after (`dcde77a`):** 0; 13 / 13; 6 / 6 (56, 83, 44); 15 / 16;
+79 %; holds (leader ≥ 76 steps per full window); holds; 97.6 s ÷ 167 =
+0.58 s. All pass.
+
 Before and after go side by side under "Mirror" in
 `docs/research/byok-benchmark.md`.
 
@@ -103,9 +109,9 @@ Before and after go side by side under "Mirror" in
 
 ## Definition of done
 
-- [ ] Diagnosis recorded before the fix (spec).
-- [ ] `pnpm verify` green.
-- [ ] Acceptance measured and recorded before and after in
+- [x] Diagnosis recorded before the fix (spec).
+- [x] `pnpm verify` green.
+- [x] Acceptance measured and recorded before and after in
       `docs/research/byok-benchmark.md` under "Mirror".
-- [ ] Ledger and PR say that the BYOK proxy baselines predate P84.
-- [ ] MCP drift noted (spec decision 7).
+- [x] Ledger and PR say that the BYOK proxy baselines predate P84.
+- [x] MCP drift noted (spec decision 7).

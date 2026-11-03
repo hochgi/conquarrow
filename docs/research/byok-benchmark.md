@@ -150,7 +150,52 @@ Zero-step seat-turns in the three mirror games fell from 1,236 to 92. Replayed,
 seat is not dominant, so the finisher is off and P53's `swapIdle` /
 `IDLE_SLACK` still lets `[endTurn]` win. The other 2 are seed 3's A at rounds 28
 and 29 (15 and 17 heads, dominant), where no staging walk existed. This is not
-fixed here; a follow-up packet should decide it.
+fixed here; a follow-up packet should decide it. **Resolved by P84**
+(below): the count is now 0.
+
+### After P84 (2026-11-03): the seat never passes with a step legal
+
+[P84](../design/packets/P84-heuristic-never-idle.md) traced the 62 idle turns
+per game to two causes
+([spec](../spec/heuristic-never-idle/heuristic-never-idle.md#diagnosis-recorded-before-the-fix)):
+- P59's threatened-kite fallback picked `[endTurn]` (kite length 0);
+- P53's `IDLE_SLACK` kept the pass.
+
+It adds one never-idle guard at the live seat's return seam.
+
+**Before** is `main` `a16f571`. It reproduces the P81 "after" games move for
+move. **After** is `dcde77a`. Free tiers only, concurrency 6.
+
+| gate (predeclared) | before | after | required |
+|---|---|---|---|
+| zero-step seat-turns with a step legal, 6 mirror cells | 124 | **0** | 0 ✔ |
+| playtest 2026-11-02 positions where `playBotTurn` steps | 0 / 13 | **13 / 13** | 13 / 13 ✔ |
+| mirror cells ending ≤ 200 rounds (rounds / winner s1, s2, s3) | 6 / 6 (55 B, 95 B, 63 A) | **6 / 6 (56 B, 83 B, 44 A)** | ≥ 5 / 6 ✔ |
+| reach grid (`--round-cap 200`) cells ending | 15 / 16 | **15 / 16** (`p3-R7-h5-s2` capped) | ≥ 12 / 16 ✔ |
+| reach combat share of heads lost | 78 % (1,950 / 2,510) | **79 %** (2,075 / 2,621; 2 seats 76 %, 3 seats 80 %) | ≥ 50 % ✔ |
+| late stasis: leader's steps in each full 40-round mirror window | ≥ 45 | **≥ 76** | ≥ 20 ✔ |
+| determinism: two mirror runs, byte-identical move lists | holds | **holds** (6 / 6 cells, plus phase 3's own run) | holds ✔ |
+| mirror per-turn wall (wall ÷ longest cell's seat-turns) | 165.9 s ÷ 191 = 0.87 s | **97.6 s ÷ 167 = 0.58 s** (rerun 0.58 s) | ≤ 1.30 s ✔ |
+
+- **Mirror steps per 40-round window, A / B.** Seed 1: 76/126, then 6/54.
+  Seed 2: 102/109, 88/126, then 4/12. Seed 3: 121/62, then 25/5. The last
+  window of each seed is partial. Seed 2's last window is rounds 81–84,
+  where the leader took 12 steps while closing the match out. The remaining
+  zero-step turns (12 in seed 1, 1 each in seeds 2 and 3) all have no legal
+  step.
+- **Speed.** The 0.87 s baseline shared the machine with the reach baseline.
+  On a quiet machine, phase 3 measured `ab80500` (bot code identical to
+  `a16f571`) at 133.3 s ÷ 191 = **0.70 s**. The guard is cheaper, not dearer:
+  games are shorter, and the guard only rescans completes the search already
+  kept.
+- **Reach.** Ends by round: two seats 51–83, three seats 77–191. Evaporation
+  and vanished heads are both 0. The capped cell changed from `p3-R7-h5-s1`
+  (now ends at r151) to `p3-R7-h5-s2`. Wall 1,097 s.
+
+**The BYOK proxy baselines predate P84.** `pbase81` (K = 20, mean 0.326) and
+P82's `long150` were measured against the pre-P84 heuristic, and are **not**
+re-measured here. Re-baseline before comparing any further BYOK arm. The
+`positions` tier never plays the heuristic and is unaffected.
 
 ## Calibration and cost
 
@@ -353,6 +398,10 @@ spends its surplus and finishes games (see "After P81" under Mirror). Those
 baselines must be **re-measured before any further BYOK arm**; do not compare
 a new arm's proxy score with them. The `positions` tier never plays the
 heuristic and is unaffected.
+
+> **P84 (2026-11-03) changed it again**: the seat no longer passes with a
+> step legal. The post-P81 baselines below (`pbase81`, and P82's `long150`)
+> predate it and were not re-measured. See "After P84" under Mirror.
 
 ### Post-P81 proxy baseline (2026-11-02)
 
