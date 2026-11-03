@@ -154,11 +154,14 @@ describe('Bot turn search — budget, determinism, and frozen greedy-v1', () => 
     expect(planTerminates(state, plan)).toBe(true);
   });
 
-  it('endTurn is considered even when it is not among the BRANCH steps', () => {
+  // Superseded by P84 (docs/spec/heuristic-never-idle), decision 1.
+  it('A step is taken with more than BRANCH legal steps even when passing evaluates best', () => {
     const { state, Bot } = passWithManyStepsPosition();
     expect(legalSteps(state).length).toBeGreaterThan(BRANCH);
     const plan = chooseTurnBeam(geometry, rules, state, Bot);
-    expect(plan).toEqual([{ kind: 'endTurn' }]);
+    expect(plan.some((m) => m.kind === 'step')).toBe(true);
+    expect(planIsLegalSequence(state, plan)).toBe(true);
+    expect(planTerminates(state, plan)).toBe(true);
   });
 
   it('greedy-v1 still never passes while a step exists', () => {

@@ -173,10 +173,14 @@ describe('mission-and-staging invariants', () => {
     expect(botSearchSource().includes('selectBranch')).toBe(true);
   });
 
+  // Superseded by P84 (docs/spec/heuristic-never-idle), decision 1.
   it('The system shall still consider endTurn as a complete for every parent and shall not occupy a beam slot with it.', () => {
     expect(botSearchSource()).toMatch(/considerEnd/);
     const { state, Bot } = passIsBestPosition();
-    expect(chooseTurnBeam(geometry, rules, state, Bot)).toEqual([{ kind: 'endTurn' }]);
+    const plan = chooseTurnBeam(geometry, rules, state, Bot);
+    expect(plan.some((m) => m.kind === 'step')).toBe(true);
+    expect(planIsLegalSequence(state, plan)).toBe(true);
+    expect(planTerminates(state, plan)).toBe(true);
   });
 
   it('The system shall call worstReachableReply / foldEnemyReply only on finalists, and non-finalist completes shall keep replyScore = evaluate.', () => {
@@ -339,16 +343,16 @@ describe('mission-and-staging invariants', () => {
     expect(planTerminates(state, plan)).toBe(true);
   }, 240_000);
 
-  it('WHEN every own stack has heads < 2 (or spent >= speed(heads)), a 2–3 seat board whose one-step terminals evaluate no better than passing shall still return [endTurn] (passIsBest / passWithManySteps).', () => {
-    const pass = passIsBestPosition();
-    expect(pass.state.players.length).toBe(3);
-    expect(specOwnStacksAllSingle(pass.state, pass.Bot)).toBe(true);
-    expect(specHasLumpReady(pass.state, pass.Bot)).toBe(false);
-    expect(chooseTurnBeam(geometry, rules, pass.state, pass.Bot)).toEqual([{ kind: 'endTurn' }]);
-    const many = passWithManyStepsPosition();
-    expect(many.state.players.length).toBe(3);
-    expect(specOwnStacksAllSingle(many.state, many.Bot)).toBe(true);
-    expect(specHasLumpReady(many.state, many.Bot)).toBe(false);
-    expect(chooseTurnBeam(geometry, rules, many.state, many.Bot)).toEqual([{ kind: 'endTurn' }]);
+  // Superseded by P84 (docs/spec/heuristic-never-idle), decision 1.
+  it('WHEN every own stack has heads < 2 (or spent >= speed(heads)), a 2–3 seat board whose one-step terminals evaluate no better than passing shall return a plan that steps (passIsBest / passWithManySteps).', () => {
+    for (const { state, Bot } of [passIsBestPosition(), passWithManyStepsPosition()]) {
+      expect(state.players.length).toBe(3);
+      expect(specOwnStacksAllSingle(state, Bot)).toBe(true);
+      expect(specHasLumpReady(state, Bot)).toBe(false);
+      const plan = chooseTurnBeam(geometry, rules, state, Bot);
+      expect(plan.some((m) => m.kind === 'step')).toBe(true);
+      expect(planIsLegalSequence(state, plan)).toBe(true);
+      expect(planTerminates(state, plan)).toBe(true);
+    }
   });
 });
