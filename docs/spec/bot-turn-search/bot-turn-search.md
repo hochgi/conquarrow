@@ -418,6 +418,12 @@ tip walking onto trail). A pass must beat the best stepped complete by
 more than `IDLE_SLACK` (one `MOBILITY_SCALE`) or the search returns
 that stepped plan.
 
+> **Superseded for the live seat by [P84](../heuristic-never-idle/heuristic-never-idle.md)** (2026-11-03, decision 1). The
+> live `chooseTurnBeam` never returns a plan with no step while a step is
+> legal; when the search's choice is a pass, a never-idle guard swaps in a
+> stepping plan. `swapIdle` and `IDLE_SLACK` are unchanged and still decide
+> the nested reply search (`withReplies: false`).
+
 ## First sortie (normative)
 
 `IDLE_SLACK` only forces *a* step. A sibling mill (3-stack → 2+1 still on
@@ -557,9 +563,11 @@ flowchart TD
 10. When an enemy 1-stack has one open exit and its other exits are the
     bot's territory, and the bot can occupy that open arrow this turn without
     a competing share/close, `beam-v1` shall put a head on that arrow.
-11. When every legal step's terminal `evaluate` is worse than passing by
+11. ~~When every legal step's terminal `evaluate` is worse than passing by
     more than `IDLE_SLACK`, `beam-v1` shall return `[endTurn]` even though
-    steps are legal.
+    steps are legal.~~ **Superseded by [P84](../heuristic-never-idle/heuristic-never-idle.md) for the live seat**: while a
+    step is legal, the live `chooseTurnBeam` returns a plan that steps. The
+    nested search (`withReplies: false`) keeps this clause.
 12. WHILE `greedy-v1`'s `chooseMove` sees a legal step, the system shall not
     return `endTurn` from `chooseMove`.
 13. The system shall not let `bestFindingMove` short-circuit `beam-v1`: a

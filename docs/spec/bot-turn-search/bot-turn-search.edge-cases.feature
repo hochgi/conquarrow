@@ -63,11 +63,12 @@ Feature: Bot turn search — budget, determinism, and frozen greedy-v1
       Then the returned plan has length at most MAX_PLAN
       And it terminates
 
-    Scenario: endTurn is considered even when it is not among the BRANCH steps
+    # Superseded by P84 (docs/spec/heuristic-never-idle): the live seat steps here.
+    Scenario: A step is taken with more than BRANCH legal steps even when passing evaluates best
       Given a position with more than BRANCH legal steps
       And passing evaluates better than any stepped complete by more than IDLE_SLACK
       When chooseTurnBeam runs
-      Then the plan is only endTurn
+      Then the plan contains at least one step
 
   Rule: greedy-v1 stays frozen; findings do not decide the beam
 

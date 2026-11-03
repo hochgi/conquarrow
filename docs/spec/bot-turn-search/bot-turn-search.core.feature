@@ -69,11 +69,12 @@ Feature: Bot turn search — stride by searching a whole turn
       When chooseTurnBeam runs
       Then some step of the plan has exit O
 
-    Scenario: endTurn is chosen while steps remain when passing evaluates best
+    # Superseded by P84 (docs/spec/heuristic-never-idle): the live seat steps here.
+    Scenario: A step is taken even when passing evaluates best
       Given Bot has at least one legal step
       And every stepped complete evaluates worse than endTurn by more than IDLE_SLACK
       When chooseTurnBeam runs
-      Then the plan is only endTurn
+      Then the plan contains at least one step
 
     Scenario: After a home-pinwheel mill the bot still leaves
       Given the 6-seat generated opening
