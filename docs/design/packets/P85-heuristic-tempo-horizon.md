@@ -1,6 +1,8 @@
 # P85 — The heuristic seat counts the race: tempo horizon
 
-> **Status:** packeted 2026-11-03, not started. **Depends on:** P53 (beam),
+> **Status:** in progress 2026-11-03. Phase 1 (spec, diagnosis, predeclared
+> acceptance) and phase 2 (red suite) done; phase 3 runs in OpenCode.
+> **Depends on:** P53 (beam),
 > P55 (one-ply replies), P59 (missions and the threatened-kite gate), P81
 > (the finisher; `mirror` / `reach` acceptance), P84 (never idle).
 >
@@ -17,6 +19,24 @@
 >
 > **SPEC coverage:** none. This is the heuristic seat in `packages/web`.
 > **No rules change**, so nothing is owed to SPEC §11.
+
+> **Diagnosis (2026-11-03, before the fix):** the two lists, recorded in the
+> [spec](../../spec/heuristic-tempo-horizon/heuristic-tempo-horizon.md#diagnosis-recorded-before-the-fix).
+> - **Missed intercepts:** 45 won races over both playtests and the three
+>   mirror games. 6 multi-turn misses, all because no mission refers to an
+>   enemy trail that is not cuttable this turn. 5 more misses had a cut legal
+>   (a P81-dominant seat's finisher ignores it): a different defect, left out.
+> - **Small sorties:** 181 heuristic closes, mean loot 2.73; 43 small sorties
+>   (loot ≤ 3 at W ≥ 4), 37 by non-dominant seats. Traced stage by stage, the
+>   main cause is `evaluate`'s one-turn horizon (the larger sortie is in the
+>   search at 39 of 43 starts and scores below staying home). P59's 12-step
+>   threat test is a second cause (5 starts, every one at W ≥ 4). P55 never
+>   fired.
+> - **Decided:** a half-value sortie credit inside a safe window and a
+>   whole-sortie cap; P59's threat test reads the race; an `intercept`
+>   mission. A throwaway prototype met the land (1.77×) and fixture gates and
+>   **missed two: income (1.23×) and speed (1.51 s per turn)**. The speed
+>   comes from heavier positions in longer games, not from the new readings.
 
 ## Intent
 
@@ -136,29 +156,29 @@ Before choosing the decisions above, replay the two playtest logs
 Pick fixtures from both lists. They become the spec's scenarios and the
 `positions`-style acceptance below.
 
-## Acceptance (predeclare in phase 1, before any code change)
+## Acceptance (predeclared 2026-11-03, before any code change)
 
-Measure every baseline on `main` before the red suite exists, write the
-thresholds into this packet, and do not change them afterwards.
+Baselines were measured on `main` `c7ee34c` (the spec's "Baselines" has the
+detail). The fixture floors are the packet's 80 %, expressed in fixtures.
+No gate is lowered.
 
-| gate | required after P85 |
-|---|---|
-| **Intercepts:** at the missed-intercept fixtures, the live seat's turn moves a stack strictly closer to the enemy trail, or cuts it | ≥ 80 % of fixtures |
-| **Sorties:** at the small-sortie fixtures, the live seat's plan reaches for a larger close, or starts one | ≥ 80 % of fixtures |
-| **Opening land:** mean land per seat at r20 over the 6 `mirror` cells | ≥ 1.5× the baseline |
-| **Opening income:** mean income per seat at r20 over the 6 `mirror` cells | ≥ 1.5× the baseline |
-| never idle (P84): zero-step seat-turns with a legal step, 6 `mirror` cells | 0 |
-| mirror cells that end with a winner within 200 rounds (P81) | ≥ 5 / 6 |
-| reach grid (`--round-cap 200`) cells that end (P81) | ≥ 12 / 16 |
-| combat share of heads lost, reach grid (P81) | ≥ 50 % |
-| no late stasis (P81) | holds |
-| determinism: two runs of each mirror cell give byte-identical move lists | holds |
-| speed: mirror per-turn wall time (wall ÷ the longest cell's seat-turns, concurrency 6) | ≤ 1.5× the baseline (P84 measured 0.58 s) |
+| gate | baseline (`c7ee34c`) | required after P85 |
+|---|---|---|
+| **Intercepts:** at the 6 missed-intercept fixtures, the live seat's turn moves a stack strictly closer to the enemy trail, or cuts it | 0 / 6 | **≥ 5 / 6** |
+| **Sorties:** at the 37 small-sortie fixtures (the turn the logged seat landed), the live seat's plan reaches for a larger close | 4 / 37 | **≥ 30 / 37** |
+| **Opening land:** mean land per seat at r20 over the 6 `mirror` cells | 24.33 | **≥ 36.50** (1.5×) |
+| **Opening income:** mean income per seat at r20 over the 6 `mirror` cells | 3.194 | **≥ 4.791** (1.5×) |
+| never idle (P84): zero-step seat-turns with a legal step, 6 `mirror` cells | 0 | **0** |
+| mirror cells that end with a winner within 200 rounds (P81) | 6 / 6 (56 B, 83 B, 44 A) | **≥ 5 / 6** |
+| reach grid (`--round-cap 200`) cells that end (P81) | 15 / 16 (`p3-R7-h5-s2` capped) | **≥ 12 / 16** |
+| combat share of heads lost, reach grid (P81) | 79 % (2,075 / 2,621) | **≥ 50 %** |
+| no late stasis (P81): the seat ahead on heads takes ≥ 20 steps in every full 40-round mirror window | holds (≥ 76) | **holds** |
+| determinism: two runs of each mirror cell give byte-identical move lists | holds (two runs, 6 / 6 cells) | **holds** |
+| speed: mirror per-turn wall time (wall ÷ the longest cell's seat-turns, concurrency 6) | 99.0 s ÷ 167 = 0.59 s | **≤ 0.89 s** (1.5×) |
 
-The fixture percentages are a floor; phase 1 may raise them after seeing the
-lists. The human reference is not a gate: the human averaged 37–40 land at
-r10 and 66–113 at r20. The human plays P85 after it ships, and the result goes
-into the ledger.
+The human reference is not a gate: the human averaged 37–40 land at r10 and
+66–113 at r20. The human plays P85 after it ships, and the result goes into
+the ledger.
 
 Before and after go side by side under "Mirror" in
 `docs/research/byok-benchmark.md`.
@@ -189,8 +209,8 @@ Before and after go side by side under "Mirror" in
 
 ## Definition of done
 
-- [ ] Diagnosis recorded before the fix (spec).
-- [ ] Acceptance thresholds predeclared from baselines on `main`.
+- [x] Diagnosis recorded before the fix (spec).
+- [x] Acceptance thresholds predeclared from baselines on `main`.
 - [ ] `pnpm verify` green.
 - [ ] Acceptance measured and recorded before and after in
       `docs/research/byok-benchmark.md` under "Mirror".
