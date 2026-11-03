@@ -39,6 +39,7 @@ import {
   sharesOf,
   trailSizeOf,
 } from './bot-turn-search.support';
+import { creditInapplicable, withLongTrail } from './heuristic-tempo-horizon.support';
 
 describe('Closing and spawner value — walk home at a rate', () => {
   it('A 2-turn one-share close beats a 6-turn two-share close', () => {
@@ -97,8 +98,15 @@ describe('Closing and spawner value — walk home at a rate', () => {
     expect(state.territory.get(hit.goal)).toBe(Bot);
   });
 
+  // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12): the
+  // board's trail is lengthened behind the tip so elapsed + L exceeds
+  // SORTIE_TOTAL_CAP and the sortie credit is inapplicable; P54's homeward
+  // close_path is what is tested.
   it('beam-v1 takes the homeward close_path', () => {
-    const { state, Bot, from } = homewardClosePathPosition();
+    const pos = homewardClosePathPosition();
+    const { Bot, from } = pos;
+    const state = withLongTrail(pos.state, Bot, from, 2);
+    expect(creditInapplicable(state, Bot, 2)).toBe(true);
     const findings = collectFindings(
       geometry,
       rules,

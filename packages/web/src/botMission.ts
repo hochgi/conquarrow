@@ -22,6 +22,7 @@ import {
   homewardPath,
 } from './botEvaluate';
 import { DEFAULT_REPLY_DIST_CAP, hypothesiseChair } from './botReply';
+import type { Intercept } from './botTempo';
 
 export type MissionKind = 'bank' | 'cut' | 'contest' | 'deny';
 
@@ -254,6 +255,8 @@ export const missionsOf = (
   state: GameState,
   me: PlayerId,
   originFindings: readonly OriginFinding[],
+  // P85 decision 4: the live seat passes `interceptOf(origin)`. Phase-2 type surface only.
+  _intercept?: Intercept,
 ): readonly MissionKind[] => {
   const V = campaignTarget(geometry, state, me);
   const underFire = trailSize(state, me) > 0 && exposure(geometry, rules, state, me) > 0;

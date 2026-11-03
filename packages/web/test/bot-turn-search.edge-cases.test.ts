@@ -50,6 +50,7 @@ import {
   trailSizeOf,
   withWinner,
 } from './bot-turn-search.support';
+import { creditInapplicable, withLongTrail } from './heuristic-tempo-horizon.support';
 
 describe('Bot turn search — budget, determinism, and frozen greedy-v1', () => {
   it('beam-v1 shuttles under 10 percent of baseline heuristic turns', () => {
@@ -180,8 +181,14 @@ describe('Bot turn search — budget, determinism, and frozen greedy-v1', () => 
     expect(pick).toEqual(guided);
   });
 
+  // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12): the
+  // stride board's trail is lengthened so elapsed + L exceeds
+  // SORTIE_TOTAL_CAP and the sortie credit is inapplicable.
   it('Findings order beam expansion but do not short-circuit it', () => {
-    const { state, Bot, from, first, second } = strideTwoStackPosition();
+    const pos = strideTwoStackPosition();
+    const { Bot, from, first, second } = pos;
+    const state = withLongTrail(pos.state, Bot, from, 2);
+    expect(creditInapplicable(state, Bot, 2)).toBe(true);
     const guided = bestFindingMove(geometry, rules, state, Bot, undefined, playLayout);
     expect(guided).toBeDefined();
     if (guided !== undefined) {

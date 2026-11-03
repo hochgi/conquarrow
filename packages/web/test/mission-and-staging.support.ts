@@ -12,12 +12,14 @@ import type {
   ArrowId,
   GameState,
   Group,
+  MatchConfig,
   Move,
   PlayerId,
   StepMove,
   VertexId,
 } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
+import { parseMove } from '../bench/src/moves';
 import { campaignTarget, exposure } from '../src/botClose';
 import { grainDistance, grainDistanceToAny } from '../src/botEvaluate';
 import { DEFAULT_REPLY_DIST_CAP } from '../src/botReply';
@@ -30,8 +32,9 @@ import {
   type MissionPlan,
   type OriginFinding,
 } from '../src/botMission';
-import { chooseTurnBeam } from '../src/botSearch';
-import { chooseMove, isCutMove } from '../src/opponent';
+// Binds the P55 reply search that `exposure` reads.
+import '../src/botSearch';
+import { isCutMove } from '../src/opponent';
 import { playLayout } from '../src/playLayout';
 import {
   afterFirstHomeMillClose,
@@ -44,12 +47,12 @@ import {
   rules,
   sharesOf,
   SMALL_MATCH,
-  THREE_MATCH,
   territoryOf,
   trailSizeOf,
 } from './bot-turn-search.support';
 import { hypothesiseChair } from './opponent-ply-and-denial.support';
 import { shuffleCloseMaps, specCampaignTarget, stepTowardVertex } from './close-and-spawner-value.support';
+import { specIsSortieThreatened } from './tempo-race.support';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -256,7 +259,17 @@ export const specIsKite = (ctx: MissionContext, plan: MissionPlan): boolean => {
   return len >= KITE_RATIO * Math.max(1, ctx.outbound);
 };
 
+/**
+ * P85 decision 3b (docs/spec/heuristic-tempo-horizon): a kite is threatened
+ * when W over P59's projected trail, at the plan's terminal, is no wider than
+ * the terminal's turns to land L. Replaces P59's "any enemy group within 12
+ * grain steps" in this test only ({@link specIsThreatenedKitePreP85}).
+ */
 export const specIsThreatenedKite = (ctx: MissionContext, plan: MissionPlan): boolean =>
+  specIsKite(ctx, plan) && specIsSortieThreatened(plan.state, ctx.me, specProjectedTrail(ctx, plan));
+
+/** The pre-P85 P59 threat test: a kite with any enemy group within 12 grain steps of its projected trail. */
+export const specIsThreatenedKitePreP85 = (ctx: MissionContext, plan: MissionPlan): boolean =>
   specIsKite(ctx, plan) && specEnemyCanReach(ctx.origin, ctx.me, specProjectedTrail(ctx, plan));
 
 /** 0-share close that drops remainingPath and has a step (Gherkin staging shape). */
@@ -1012,26 +1025,6 @@ export const specOwnStacksAllSingle = (state: GameState, me: PlayerId): boolean 
   return true;
 };
 
-const peelChooseMove = (start: GameState, me: PlayerId): GameState => {
-  let at = start;
-  for (let i = 0; i < 64; i += 1) {
-    if (at.winner !== undefined || at.activePlayer !== me) return at;
-    at = rules.apply(at, chooseMove(geometry, rules, at, me));
-  }
-  if (at.winner === undefined && at.activePlayer === me) {
-    at = rules.apply(at, endTurn());
-  }
-  return at;
-};
-
-const playBeamTurn = (start: GameState, me: PlayerId): GameState => {
-  const plan = chooseTurnBeam(geometry, rules, start, me);
-  if (plan.length === 0) {
-    throw new Error(`setup: chooseTurnBeam returned an empty plan for ${String(me)}`);
-  }
-  return foldPlan(start, plan);
-};
-
 export type QuietHomeLeftoverBoard = {
   readonly state: GameState;
   readonly A: PlayerId;
@@ -1040,40 +1033,33 @@ export type QuietHomeLeftoverBoard = {
 let cachedQuietHome: QuietHomeLeftoverBoard | undefined;
 
 /**
- * P65 reconstruction (BSSN 20 CI Given). THREE_MATCH, A/B = chooseTurnBeam,
- * C = chooseMove peel, until after A's first close and B and C have moved so
- * A is to move again. Does not invent arrows — plays the engine.
+ * P65 reconstruction (BSSN 20 CI Given): THREE_MATCH after A's first close,
+ * once B and C have moved and A is to move again.
+ *
+ * P85 (docs/spec/heuristic-tempo-horizon, decision 12): replayed from the move
+ * list the pre-P85 self-play made (A, B = chooseTurnBeam; C = chooseMove peel),
+ * recorded in `fixtures/three-seat-quiet-home.moves.json`. Self-play no longer
+ * reaches this position once the live seat counts the race.
  */
 export const threeSeatQuietHomeAfterFirstClose = (): QuietHomeLeftoverBoard => {
   if (cachedQuietHome !== undefined) return cachedQuietHome;
-  const opening = makeMatch(THREE_MATCH);
+  const raw = JSON.parse(
+    readFileSync(join(here, 'fixtures', 'three-seat-quiet-home.moves.json'), 'utf8'),
+  ) as { readonly config: MatchConfig; readonly moves: readonly unknown[] };
+  const opening = makeMatch(raw.config);
   const A = opening.players[0];
-  const B = opening.players[1];
-  const C = opening.players[2];
-  if (A === undefined || B === undefined || C === undefined || opening.players.length !== 3) {
-    throw new Error('setup: THREE_MATCH must have seats A, B, C');
+  if (A === undefined || opening.players.length !== 3) {
+    throw new Error('setup: the recorded match must have seats A, B, C');
   }
   const openingTerr = territoryOf(opening, A);
   let state = opening;
-  let aClosed = false;
-  for (let turns = 0; turns < 24; turns += 1) {
-    if (state.winner !== undefined) {
-      throw new Error('setup: match ended before A r3 quiet-home leftover');
-    }
-    if (aClosed && state.activePlayer === A) break;
-    const me = state.activePlayer;
-    if (me === A || me === B) {
-      state = playBeamTurn(state, me);
-    } else if (me === C) {
-      state = peelChooseMove(state, me);
-    } else {
-      throw new Error(`setup: unexpected seat ${String(me)}`);
-    }
-    if (me === A && !aClosed && trailSizeOf(state, A) === 0 && territoryOf(state, A) > openingTerr) {
-      aClosed = true;
-    }
+  for (const [i, m] of raw.moves.entries()) {
+    state = rules.apply(state, parseMove(m, `three-seat-quiet-home move ${String(i)}`));
   }
-  if (!aClosed) {
+  if (state.winner !== undefined) {
+    throw new Error('setup: match ended before A r3 quiet-home leftover');
+  }
+  if (territoryOf(state, A) <= openingTerr) {
     throw new Error('setup: A did not complete a first close on THREE_MATCH');
   }
   if (state.activePlayer !== A) {

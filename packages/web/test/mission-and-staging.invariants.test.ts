@@ -325,6 +325,8 @@ describe('mission-and-staging invariants', () => {
     expect(missionsOf(geometry, rules, state, Bot, findings).includes('deny')).toBe(true);
   });
 
+  // P85 (decision 12): threeSeatQuietHomeAfterFirstClose replays a recorded
+  // move list (fixtures/three-seat-quiet-home.moves.json), not self-play.
   it('WHEN chosen is [endTurn], a contest-advancing complete exists, bank is not listed, and some own stack has heads >= 2 with spent < speed(heads), chooseTurnBeam shall return a legal terminating plan that contains a step and departs own territory, even on a 2–3 seat board, and that plan shall not be a 0-share home mill.', () => {
     const { state, A } = threeSeatQuietHomeAfterFirstClose();
     expect(state.players.length).toBe(3);
