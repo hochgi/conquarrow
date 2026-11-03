@@ -79,7 +79,7 @@ Feature: The live heuristic seat counts the race
 
     Scenario: The opening position starts a close larger than a land bridge
       Given the committed fixture "playtest-2026-11-03" replayed through move 0, seat A to move
-      And no enemy group can reach any arrow within 4 of seat A's turns
+      And no enemy group can reach, within 4 of its own turns, any arrow seat A's groups can step onto this turn
       When chooseTurnBeam plans seat A's turn and the plan is applied
       Then seat A's trail is open at the plan's terminal
       And sortieOf at the terminal has more than 3 arrows

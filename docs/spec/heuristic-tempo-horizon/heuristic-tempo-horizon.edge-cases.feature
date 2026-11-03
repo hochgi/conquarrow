@@ -33,11 +33,13 @@ Feature: Tempo-horizon edges — the race arithmetic, the caps, the threat test,
       When safeWindow reads the set {X} with cap 2
       Then W is 3
 
+    # On the generated tiling every grain walk between two arrows has the same length mod 3,
+    # so a blocked 2-step path detours by 5, 8, … steps (phase 2 checked 3,270 pairs).
     Scenario: An enemy path may not cross my territory
-      Given a terminal where the enemy's only grain path of 2 steps to arrow X crosses an arrow of my territory, and its next path is 6 steps
+      Given a terminal where the enemy's only grain path of 2 steps to arrow X crosses an arrow of my territory, and its shortest path that avoids my territory is 5 steps
       And the enemy group is a 1-stack
       When safeWindow reads the set {X} with cap 8
-      Then W is 6
+      Then W is 5
 
     Scenario: Every enemy seat counts in a 3-player game, the seat in between included
       Given a 3-seat terminal where seat B's nearest group is 4 turns from my projected sortie and seat C's is 2 turns
