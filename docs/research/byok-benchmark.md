@@ -197,6 +197,50 @@ P82's `long150` were measured against the pre-P84 heuristic, and are **not**
 re-measured here. Re-baseline before comparing any further BYOK arm. The
 `positions` tier never plays the heuristic and is unaffected.
 
+### P85 (2026-11-04): tempo horizon, FAIL, parked
+
+[P85](../design/packets/P85-heuristic-tempo-horizon.md) gives the live seat
+race arithmetic:
+- a half-value sortie credit inside the safe window;
+- a race-based P59 threat test;
+- an `intercept` mission.
+
+**Before** is `1d0673f` (bot code identical to `main` `c7ee34c`; it
+reproduces the P84 "after" games move for move). **After** is `462a340`, on
+branch `parked/p85-heuristic-tempo-horizon`. Free tiers only, concurrency 6,
+no model calls.
+
+| gate (predeclared) | before | after | required |
+|---|---|---|---|
+| intercept fixtures (live seat cuts or moves strictly closer) | 0 / 6 | **6 / 6** (phase 3's count; the suite's set gate passed) | ≥ 5 / 6 ✔ |
+| sortie fixtures (live seat reaches for a larger close) | 4 / 37 | **37 / 37** (phase 3's count; the suite's set gate passed) | ≥ 30 / 37 ✔ |
+| r20 land per seat, 6 mirror cells | 24.33 (s1 24 / 24, s2 25 / 26, s3 28 / 19) | **43.00** (s1 53 / 44, s2 38 / 44, s3 40 / 39) | ≥ 36.50 ✔ |
+| r20 income per seat, 6 mirror cells | 3.194 (s1 1.58 / 3.94, s2 2.19 / 4.64, s3 5.14 / 1.67) | **3.935** (s1 3.72 / 3.33, s2 5.33 / 2.97, s3 4.94 / 3.31) | ≥ 4.791 ✘ |
+| zero-step seat-turns with a step legal | 0 | **0** | 0 ✔ |
+| mirror cells ending ≤ 200 rounds (rounds / winner s1, s2, s3) | 6 / 6 (56 B, 83 B, 44 A) | **6 / 6 (85 B, 67 A, 100 B)** | ≥ 5 / 6 ✔ |
+| reach grid (`--round-cap 200`) cells ending | 15 / 16 | **12 / 16** (`p3-R5-h3-s1`, `p3-R7-h3-s1`, `p3-R7-h5-s1`, `p3-R7-h5-s2` capped) | ≥ 12 / 16 ✔ |
+| reach combat share of heads lost | 79 % (2,075 / 2,621) | **82 %** (3,383 / 4,134; 2 seats 66 %, 3 seats 83 %) | ≥ 50 % ✔ |
+| late stasis: leader's steps in each full 40-round mirror window | ≥ 76 | **≥ 105** | ≥ 20 ✔ |
+| determinism: two mirror runs, byte-identical move lists | holds | **holds** (phase 3 and phase 4 runs, 6 / 6 cells) | holds ✔ |
+| mirror per-turn wall (wall ÷ longest cell's seat-turns) | 99.7 s ÷ 167 = 0.60 s | **299.7 s ÷ 201 = 1.49 s** (phase 3: 296.0 s, 1.47 s) | ≤ 0.89 s ✘ |
+
+**Verdict: FAIL.** The income and speed gates fail the packet. It does not
+merge.
+
+- **Land rose but income did not keep pace.** Both seats grow in a mirror,
+  and they contest the same spawners near their homes.
+- **The speed cost is in the games.** Games are longer and later positions
+  cost more to search. Phase 1 found the same positions cost the same with
+  and without P85. Reach wall rose from 1,324 s to 2,211 s.
+- **Reach details.** Two seats end at r62–85, three seats at r143–200.
+  Evaporation is 0. `p3-R5-h5-s1` lost 5 heads to "vanished", where every
+  earlier run had 0. Nothing gates on it.
+
+**The BYOK proxy baselines predate P84 and P85.** `pbase81` (K = 20, mean
+0.326) and P82's `long150` were measured against the pre-P84 heuristic, and
+are **not** re-measured here. P85 is parked, so `main`'s heuristic is still
+P84's. The `positions` tier never plays the heuristic and is unaffected.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
