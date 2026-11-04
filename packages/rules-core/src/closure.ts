@@ -118,8 +118,9 @@ const shieldingOf = (
     if (!trail.has(arrow) || shielding.has(arrow)) continue;
     const land = board.territory.get(arrow);
     if (land === undefined) continue;
-    // Decision 4's "own territory" half. Unreachable: every claim strips its closer's
-    // trail from what it takes (§7), so P's trail never lies on P's own territory.
+    // Decision 4's "own territory" half. Unreachable: a step onto own territory marks
+    // nothing, and every claim strips its closer's trail from what it takes (§7), so
+    // P's trail never lies on P's own territory.
     // Stryker disable next-line ConditionalExpression
     if (land === player) continue;
     const stretch = stretchOf(geometry, trail, arrow);

@@ -39,6 +39,11 @@ through the spec itself.
 
 ## Conflict 1 (decided 2026-11-04): §6.3 wins over the P13 strip
 
+**Shipped by [P87](./P87-raider-survives-claim.md).** The claim keeps a
+territory-grade raider's trail (its shielding stretch), so the raider does
+not convert; SPEC §6.3 and §7 now agree. Both log cases are committed replay
+tests.
+
 **Decision (human):** a raider whose trail still reaches its own territory
 (territory grade) is **not converted** by a closure, even when the closure
 claims the arrow it stands on. The arrows under it become the closer's
@@ -63,8 +68,6 @@ the mark (for example, judge grade on the pre-strip state, or do not strip
 an arrow holding a territory-grade enemy group), and check what the claimed
 arrow under a surviving raider means for fill, accrual and later cuts.
 
-This one can ship first, on its own, through the normal pipeline. If it has
-already shipped when this packet starts, mark it done here.
 
 ## The method
 
@@ -180,7 +183,7 @@ tests), list it.
 
 ## Suggested sessions
 
-1. Conflict 1 on its own (small; decided).
+1. Conflict 1 on its own (small; decided). Done: P87.
 2. Inventory and register (read-heavy; parallel subagents).
 3. One human decision round on the rule conflicts.
 4. The SPEC rewrite and the independent reading.

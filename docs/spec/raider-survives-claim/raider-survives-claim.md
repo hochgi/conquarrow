@@ -72,7 +72,7 @@ shielding stretch is territory grade, so it does not convert.
    stretch is not territory grade, is stripped, and the raider converts.
    That is not capture "by claim alone" of a trail-connected raider: after
    the claim the trail no longer reaches its owner's territory.
-4. **Only stretches that keep a group from conversion are shielded.** A
+4. **Only stretches that keep a group from conversion are shielded** (open as SPEC §11 item 51; this keeps the pre-P87 behaviour until the human rules). A
    group of P on neutral ground, or on its own territory, is not at risk of
    conversion, so a stretch carrying only such groups is stripped as before
    (P13 unchanged there). A stretch is shielding when at least one of its
@@ -146,4 +146,4 @@ flowchart TD
 ## Counts
 
 Core: 7 scenarios. Edge cases: 9 scenarios. Invariants: 8.
-No §11 item opened; the decisions above are BSSN or follow from §6.3.
+§11 item 51 opened (decision 4, for the human). Decisions 1–3 and 5–6 are BSSN or follow from §6.3.
