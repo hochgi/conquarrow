@@ -22,9 +22,9 @@ import {
   homewardPath,
 } from './botEvaluate';
 import { DEFAULT_REPLY_DIST_CAP, hypothesiseChair } from './botReply';
-import type { Intercept } from './botTempo';
+import { interceptDistance, isSortieThreatened, type Intercept } from './botTempo';
 
-export type MissionKind = 'bank' | 'cut' | 'contest' | 'deny';
+export type MissionKind = 'bank' | 'cut' | 'intercept' | 'contest' | 'deny';
 
 export const KITE_RATIO = 2;
 export const CAMPAIGN_DIST_CAP = 12;
@@ -48,6 +48,8 @@ export type MissionContext = {
   readonly originTerritory: ReadonlySet<string>;
   readonly missions: readonly MissionKind[];
   readonly denyExit: ArrowId | undefined;
+  /** P85 decision 4: the origin's won race, when `interceptOf` found one. */
+  readonly intercept?: Intercept;
 };
 
 export type MissionPlan = {
@@ -249,21 +251,35 @@ export const kiteLength = (
   return best;
 };
 
+/**
+ * P85 decision 4: `intercept` follows `cut`, and only when no cut is available,
+ * the seat is not under fire, and a won race was passed in. Like `bank` and
+ * `cut`, its presence keeps `contest` out.
+ */
+const openingMissions = (
+  underFire: boolean,
+  cutOpen: boolean,
+  intercept: Intercept | undefined,
+): MissionKind[] => {
+  const missions: MissionKind[] = [];
+  if (underFire) missions.push('bank');
+  if (cutOpen) missions.push('cut');
+  if (missions.length === 0 && intercept !== undefined) missions.push('intercept');
+  if (missions.length === 0) missions.push('contest');
+  return missions;
+};
+
 export const missionsOf = (
   geometry: GeometryPort,
   rules: RulesPort,
   state: GameState,
   me: PlayerId,
   originFindings: readonly OriginFinding[],
-  // P85 decision 4: the live seat passes `interceptOf(origin)`. Phase-2 type surface only.
-  _intercept?: Intercept,
+  intercept?: Intercept,
 ): readonly MissionKind[] => {
   const V = campaignTarget(geometry, state, me);
   const underFire = trailSize(state, me) > 0 && exposure(geometry, rules, state, me) > 0;
-  const missions: MissionKind[] = [];
-  if (underFire) missions.push('bank');
-  if (cutAvailable(rules, state, originFindings)) missions.push('cut');
-  if (missions.length === 0) missions.push('contest');
+  const missions = openingMissions(underFire, cutAvailable(rules, state, originFindings), intercept);
   if (denyExitOf(rules, state, me) !== undefined && missions.length < 3 && !missions.includes('bank')) {
     missions.push('deny');
   }
@@ -325,8 +341,10 @@ export const isKite = (ctx: MissionContext, plan: MissionPlan): boolean => {
   return len >= KITE_RATIO * Math.max(1, ctx.outbound);
 };
 
+/** P85 decision 3b: the race replaces `enemyCanReach` in this test only. */
 export const isThreatenedKite = (ctx: MissionContext, plan: MissionPlan): boolean =>
-  isKite(ctx, plan) && enemyCanReach(ctx, projectedTrail(ctx, plan));
+  isKite(ctx, plan) &&
+  isSortieThreatened(ctx.geometry, plan.state, ctx.me, projectedTrail(ctx, plan));
 
 export const isStagingClose = (ctx: MissionContext, plan: MissionPlan): boolean => {
   if (countShares(ctx.geometry, plan.state, ctx.me) !== countShares(ctx.geometry, ctx.origin, ctx.me)) {
@@ -428,6 +446,20 @@ const onBankStep = (
   );
 };
 
+/** A cut / attack finding, or a step that lowers the origin field's min steps. */
+const onInterceptStep = (
+  ctx: MissionContext,
+  parent: GameState,
+  step: StepMove,
+  child: GameState,
+  findings: readonly OriginFinding[],
+): boolean => {
+  const intercept = ctx.intercept;
+  if (intercept === undefined) return false;
+  if (findingMatches(findings, ['cut', 'attack'], step)) return true;
+  return interceptDistance(child, ctx.me, intercept) < interceptDistance(parent, ctx.me, intercept);
+};
+
 const onContestStepFull = (
   ctx: MissionContext,
   parent: GameState,
@@ -457,6 +489,7 @@ export const onMissionStep = (
   for (const mission of ctx.missions) {
     if (mission === 'bank' && onBankStep(ctx, parent, step, child, parentFindings)) return true;
     if (mission === 'cut' && findingMatches(parentFindings, ['cut', 'attack'], step)) return true;
+    if (mission === 'intercept' && onInterceptStep(ctx, parent, step, child, parentFindings)) return true;
     if (mission === 'contest' && onContestStepFull(ctx, parent, step, child, parentFindings)) {
       return true;
     }
@@ -481,6 +514,14 @@ const servesCut = (ctx: MissionContext, plan: MissionPlan): boolean => {
     if (trailSize(plan.state, enemy) < trailSize(ctx.origin, enemy)) return true;
   }
   return false;
+};
+
+/** E's trail shrank, or the terminal is strictly closer on the origin's field. */
+const servesIntercept = (ctx: MissionContext, plan: MissionPlan): boolean => {
+  const intercept = ctx.intercept;
+  if (intercept === undefined) return false;
+  if (trailSize(plan.state, intercept.enemy) < trailSize(ctx.origin, intercept.enemy)) return true;
+  return interceptDistance(plan.state, ctx.me, intercept) < interceptDistance(ctx.origin, ctx.me, intercept);
 };
 
 const servesContest = (ctx: MissionContext, plan: MissionPlan): boolean => {
@@ -511,6 +552,8 @@ export const servesMission = (
       return servesBank(ctx, plan);
     case 'cut':
       return servesCut(ctx, plan);
+    case 'intercept':
+      return servesIntercept(ctx, plan);
     case 'contest':
       return servesContest(ctx, plan);
     case 'deny':

@@ -36,6 +36,7 @@ import {
   type OriginFinding,
 } from './botMission';
 import { neverIdle } from './botNeverIdle';
+import { interceptOf, sortieCredit } from './botTempo';
 import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
@@ -209,6 +210,8 @@ type Search = {
   readonly withReplies: boolean;
   replyTurnAppliesLeft: number;
   readonly missionCtx: MissionContext | undefined;
+  /** P85: sortie credit by terminal state, for this call only. */
+  readonly creditMemo: Map<GameState, number>;
   completes: CompletePlan[];
 };
 
@@ -260,10 +263,25 @@ export const pickBetterComplete = (
   return ka <= kb ? a : b;
 };
 
+/**
+ * P85 decision 3a: sortie credit joins `evaluate` only while this search is
+ * the live seat. Nested searches (`withReplies` false) score as before.
+ * Memoised on the search: terminal states are immutable, and the four score
+ * sites reread them. Nothing survives the call.
+ */
+const liveCredit = (search: Search, state: GameState): number => {
+  if (!search.withReplies) return 0;
+  const hit = search.creditMemo.get(state);
+  if (hit !== undefined) return hit;
+  const credit = sortieCredit(search.geometry, state, search.me);
+  search.creditMemo.set(state, credit);
+  return credit;
+};
+
 /** Decision 2 for the live search: {@link finalistReplyScore} on the search's reply budget. */
 const scoreWithReplies = (search: Search, child: CompletePlan): CompletePlan => {
   const terminal = child.state;
-  const unreplied = evaluate(search.geometry, terminal, search.me, search.inner);
+  const unreplied = evaluate(search.geometry, terminal, search.me, search.inner) + liveCredit(search, terminal);
   if (!search.withReplies || terminal.winner !== undefined) {
     return { ...child, replyScore: unreplied };
   }
@@ -504,8 +522,8 @@ const adoptComplete = (search: Search, child: CompletePlan): void => {
 };
 
 const betterByEvaluate = (search: Search, a: CompletePlan, b: CompletePlan): CompletePlan => {
-  const ea = evaluate(search.geometry, a.state, search.me, search.inner);
-  const eb = evaluate(search.geometry, b.state, search.me, search.inner);
+  const ea = evaluate(search.geometry, a.state, search.me, search.inner) + liveCredit(search, a.state);
+  const eb = evaluate(search.geometry, b.state, search.me, search.inner) + liveCredit(search, b.state);
   if (ea !== eb) return ea > eb ? a : b;
   return planKey(a.moves) <= planKey(b.moves) ? a : b;
 };
@@ -547,7 +565,9 @@ const applyFinalistReplies = (search: Search): void => {
     else {
       next.push({
         ...child,
-        replyScore: evaluate(search.geometry, child.state, search.me, search.inner),
+        replyScore:
+          evaluate(search.geometry, child.state, search.me, search.inner) +
+          liveCredit(search, child.state),
       });
     }
   }
@@ -678,6 +698,13 @@ const gateCut = (search: Search, ctx: MissionContext, chosen: CompletePlan): Com
   return bestByScore(search, search.completes, (c) => servesMission(ctx, c, 'cut')) ?? chosen;
 };
 
+/** P85 decision 4: after `gateCut`, before `gateBank`. Keep the chosen plan when none serves. */
+const gateIntercept = (search: Search, ctx: MissionContext, chosen: CompletePlan): CompletePlan => {
+  if (!ctx.missions.includes('intercept')) return chosen;
+  if (servesMission(ctx, chosen, 'intercept')) return chosen;
+  return bestByScore(search, search.completes, (c) => servesMission(ctx, c, 'intercept')) ?? chosen;
+};
+
 const applyMissionGates = (search: Search, chosen: CompletePlan | undefined): CompletePlan | undefined => {
   if (chosen === undefined) return undefined;
   const ctx = search.missionCtx;
@@ -686,7 +713,8 @@ const applyMissionGates = (search: Search, chosen: CompletePlan | undefined): Co
   const afterStaging = gateStagingOverOpenTrail(search, ctx, afterKite);
   const afterDirt = gateSidewaysDirt(search, ctx, afterStaging);
   const afterCut = gateCut(search, ctx, afterDirt);
-  return gateBank(search, ctx, afterCut);
+  const afterIntercept = gateIntercept(search, ctx, afterCut);
+  return gateBank(search, ctx, afterIntercept);
 };
 
 const cutAttackFindings = (rules: RulesPort, state: GameState, me: PlayerId): OriginFinding[] => {
@@ -794,7 +822,7 @@ const orderSteps = (
 const rankIncompletes = (search: Search, plans: readonly Incomplete[]): Incomplete[] => {
   const scored = plans.map((plan) => ({
     plan,
-    score: evaluate(search.geometry, plan.state, search.me, search.rules),
+    score: evaluate(search.geometry, plan.state, search.me, search.rules) + liveCredit(search, plan.state),
     key: planKey(plan.moves),
   }));
   return scored
@@ -949,17 +977,21 @@ const missionContextOf = (
   state: GameState,
   me: PlayerId,
   campaign: VertexId | undefined,
-): MissionContext => ({
-  geometry,
-  rules,
-  origin: state,
-  me,
-  campaign,
-  outbound: remainingPath(geometry, state, me, campaign),
-  originTerritory: originTerritoryOf(state, me),
-  missions: missionsOf(geometry, rules, state, me, cutAttackFindings(rules, state, me)),
-  denyExit: denyExitOf(rules, state, me),
-});
+): MissionContext => {
+  const intercept = interceptOf(geometry, state, me);
+  return {
+    geometry,
+    rules,
+    origin: state,
+    me,
+    campaign,
+    outbound: remainingPath(geometry, state, me, campaign),
+    originTerritory: originTerritoryOf(state, me),
+    missions: missionsOf(geometry, rules, state, me, cutAttackFindings(rules, state, me), intercept),
+    denyExit: denyExitOf(rules, state, me),
+    ...(intercept !== undefined ? { intercept } : {}),
+  };
+};
 
 type SearchSetup = {
   readonly campaign: VertexId | undefined;
@@ -993,6 +1025,7 @@ const newSearch = (
     withReplies: setup.withReplies,
     replyTurnAppliesLeft: REPLY_TURN_APPLIES,
     missionCtx: setup.missionCtx,
+    creditMemo: new Map(),
     completes: [],
   };
   search.rules = capRules(rules, search);
