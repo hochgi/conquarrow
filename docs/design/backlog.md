@@ -58,22 +58,59 @@ Bot turn speed (about 1.5 s per turn since P85) is not a problem in play
 
 ## Agent play (MCP)
 
-- **Decide the direction.** The goal (human, 2026-11-04): play against any
-  agentic tool (Claude Code, Cursor, OpenCode) on any model without the
-  Chrome extension, and test BYOK logic without paying for API calls.
-  `packages/mcp` (P67, 2026-09-24) does neither yet:
-  - it has no human UI; the human plays through chat with an SVG picture;
-  - its heuristic is a frozen copy of greedy-v1, and its observation is a
-    P66-era copy of the findings. Both have drifted from web (no P53–P85);
-  - it does not serve the BYOK offer, so it cannot test BYOK logic.
+- **A remote MCP seat. Grill it before any packet or ADR.** The goal
+  (human, 2026-11-04): play against any agentic tool (Claude Code, Cursor,
+  OpenCode) on any model without the Chrome extension, and test BYOK logic
+  without paying for API calls. The human wants a grilling session on the
+  shape below first ("lots of open questions"); the packets and ADRs come
+  out of it.
 
-  Candidate shape, for the human to confirm:
+  Shape agreed so far (human, 2026-11-04):
+  - a **remote** MCP server served by Lambda, usable by anyone after a
+    Google login, not only the operator;
+  - a new seat kind, `agent`, next to `human` and `heuristic`. The agent
+    joins through the ordinary invite link (`join(invite_link)`), bound to
+    its Google user, like a browser accepting into a human seat;
+  - **at least one human** in every game. An agent cannot create an invite
+    or press Start, so there is no agent-only online play;
+  - the human plays in the normal web UI and gets the usual WebSocket
+    update after the agent moves.
+
+  Leanings from the discussion, for the grilling to test:
+  - login: MCP clients use OAuth and expect to register themselves, which
+    Google does not allow. So a small OAuth server of our own on Lambda
+    delegates sign-in to Google and issues short-lived signed JWTs.
+    Cognito is out (ADR 0002 cost floor);
+  - host `mcp.games.hochgi.com/conquarrow`: a hostname of its own because
+    OAuth discovery lives at the host root, and under `*.games.hochgi.com`
+    per ADR 0002;
+  - stateless Streamable HTTP, one Lambda call per tool call;
+  - tools `join`, `observe` (exactly what the BYOK seat is shown), `move`
+    (a reply in the BYOK reply format), and `wait_for_turn` (returns "call
+    again" after about 25 s, under API Gateway's 30 s);
+  - the cost ceiling of ADR 0007: reserved concurrency, a throttle, a
+    Budgets alert;
   - move the pure bot and BYOK-offer code out of `packages/web` into a
-    shared package that web and mcp both import (ends the drift);
-  - add MCP tools that serve the exact BYOK offer and accept the exact BYOK
-    reply, so an agent on a subscription plays the BYOK seat;
-  - a local bridge so the human plays in the normal web UI against an agent
-    seat.
+    shared package first, so the agent sees the real offer and not a copy;
+  - delete `packages/mcp` (P67: a local stdio server with a frozen
+    greedy-v1 and a P66-era observation) once the remote server ships.
+
+  Open questions to grill (not exhaustive):
+  - ADR 0002 creates online games only with at least two human seats. What
+    replaces that rule, and does an agent seat enter `groupHash`, the
+    library, `my-games`?
+  - One Google user holding both a human seat and an agent seat: how accept
+    tells them apart, and how the seats are labelled;
+  - the OAuth server's details: client registration (dynamic or client ID
+    metadata documents), token lifetime, refresh, revocation;
+  - what each client (Claude Code, Cursor, OpenCode) supports today, and
+    how a 30 s cap meets their tool timeouts. Check current docs first;
+  - what happens when the agent stalls: a turn timeout, the host swapping
+    the seat to `heuristic`, or nothing;
+  - whether the agent's replies are logged, so a game against an agent
+    becomes a BYOK benchmark sample;
+  - the online ADR's "the browser is untrusted" applied to the agent: every
+    move checked by `apply`, the reply format validated server-side.
 
 ## BYOK seat
 
