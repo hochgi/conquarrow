@@ -13,11 +13,7 @@ detailed form of an item; this file is the short list and the order.
 
 ## Next
 
-1. **§6.3 conversion fix** (P86 conflict 1). A territory-grade raider is not
-   converted by a closure that claims the arrow it stands on. Decided by the
-   human 2026-11-04. Concrete case: playtest 2026-11-04 move #345.
-   [P86](./packets/P86-spec-conflict-resolution.md). *In progress.*
-2. **SPEC conflict audit and rewrite.** [P86](./packets/P86-spec-conflict-resolution.md):
+1. **SPEC conflict audit and rewrite.** [P86](./packets/P86-spec-conflict-resolution.md):
    - register every conflict with a concrete case;
    - the human decides the rule conflicts;
    - rewrite SPEC.md with no history in the text;

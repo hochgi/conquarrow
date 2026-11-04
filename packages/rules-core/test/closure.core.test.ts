@@ -311,8 +311,8 @@ describe('a closure moves ground, whoever held it', () => {
   });
 
   it('converts an enemy head standing on a claimed arrow', () => {
-    // **P07.** §7 grants "everything standing on them — enemy heads, converted
-    // (§6.3)". Claiming the tile converts when the stack has no territory-grade trail.
+    // **P07.** §7: enemy heads on claimed tiles "are not granted by the claim …
+    // §6.3 decides whether they convert". This stack has no trail, so it converts.
     const table = onTiling();
     const { home, run } = aRunFromHome(table.geometry, 3);
     const occupied = arrowAt(run, 0);

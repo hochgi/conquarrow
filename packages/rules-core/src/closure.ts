@@ -25,11 +25,16 @@
  * bordering arrows (§7, §11 item 34), so a fill that touched one would be a second
  * copy of a fact it is supposed to derive.
  *
- * **P07 seam (closed):** enclosed enemy heads convert when they lack a
- * territory-grade trail (§6.3) — `convertEncircled` runs after `commit`.
+ * **The strip (P13, P87).** `commit` writes the claim as the closer's territory, then
+ * removes trail from the claimed arrows — except an enemy's **shielding stretch**:
+ * one that is territory grade on the post-claim board and carries that enemy's
+ * group on another player's territory (§7). Removing it would capture a
+ * trail-connected raider by claim alone, which §6.3 forbids. Conversion itself is
+ * not decided here: `convertEncircled` runs after `commit` and reads the grade.
  *
  * @see docs/spec/closure/closure.md
  * @see docs/spec/fill/fill.md
+ * @see docs/spec/raider-survives-claim/raider-survives-claim.md
  */
 
 import { ContractViolation, chord, chordsInterleave } from '@conquarrow/contracts';
@@ -46,11 +51,15 @@ import type {
   StepMove,
 } from '@conquarrow/contracts';
 import { resetAccumulatorsOnCapture } from './economy';
-import { compareArrows } from './order';
+import { compareArrows, comparePlayers } from './order';
+import { stretchGrade, stretchOf } from './stretch';
 
 const reject = (message: string): never => {
   throw new ContractViolation(message);
 };
+
+/** A player with no trail, or none to keep. */
+const NO_TRAIL: ReadonlySet<ArrowId> = new Set<ArrowId>();
 
 /** Rebuild a trail set sorted, so iteration order never rests on insertion luck. */
 const canonical = (arrows: readonly ArrowId[]): ReadonlySet<ArrowId> =>
@@ -72,14 +81,78 @@ export interface ClosureRules {
     player: PlayerId,
   ) => readonly ArrowId[];
   /**
-   * The state after a closure has been committed: territory gains the claim, and the
-   * claiming player's trail loses it (D6, D7).
+   * The state after a closure has been committed: territory gains the claim, and every
+   * trail loses it (D6, D7, P13) except an enemy's shielding stretch (P87).
    *
    * Returns the state unchanged when the step is not a closure, so `apply` can call it
    * unconditionally and the non-closure path stays a single expression.
    */
   readonly commit: (state: GameState, move: Move, mover: PlayerId) => GameState;
 }
+
+/**
+ * P87: the arrows of `player`'s **shielding stretches** on the post-claim board —
+ * stretches that are territory grade and carry one of the player's groups standing
+ * on another player's territory (§6.3, §7). Those groups are exactly the ones
+ * `convertEncircled` would otherwise judge, so keeping the whole stretch (road home
+ * included, decision 2) is what lets the grade check see it.
+ *
+ * Groups are visited in arrow-id order; the answer is a set, so the order is not
+ * observable, but nothing here rests on map insertion order either.
+ */
+const shieldingOf = (
+  geometry: GeometryPort,
+  board: GameState,
+  player: PlayerId,
+  trail: ReadonlySet<ArrowId>,
+): ReadonlySet<ArrowId> => {
+  const shielding = new Set<ArrowId>();
+  // The answer is a set, so visit order is unobservable; the sort only keeps the walk
+  // off map insertion order (the default sort orders the same tuples the same way).
+  // Stryker disable next-line ArrowFunction
+  for (const [arrow, group] of [...board.groups].toSorted(([a], [b]) => compareArrows(a, b))) {
+    // Unreachable for another player's group: stepping onto P's trail cuts it (§2), a
+    // birth onto it cuts it (P40) and a convert wipes it (P33).
+    // Stryker disable next-line ConditionalExpression
+    if (group.owner !== player) continue;
+    if (!trail.has(arrow) || shielding.has(arrow)) continue;
+    const land = board.territory.get(arrow);
+    if (land === undefined) continue;
+    // Decision 4's "own territory" half. Unreachable: a step onto own territory marks
+    // nothing, and every claim strips its closer's trail from what it takes (§7), so
+    // P's trail never lies on P's own territory.
+    // Stryker disable next-line ConditionalExpression
+    if (land === player) continue;
+    const stretch = stretchOf(geometry, trail, arrow);
+    if (stretchGrade(geometry, board, stretch, player) !== 'territory') continue;
+    for (const a of stretch) shielding.add(a);
+  }
+  return shielding;
+};
+
+/**
+ * The trails after a claim (P13, P87): every mark on a claimed arrow is removed,
+ * except another player's marks in a shielding stretch. The closer's own trail on
+ * the claim is always removed — it has just become territory. `board` is the
+ * post-claim board: claimed arrows already the closer's, every trail still in place.
+ */
+const stripClaim = (
+  geometry: GeometryPort,
+  board: GameState,
+  taken: ReadonlySet<ArrowId>,
+  mover: PlayerId,
+): GameState['trails'] => {
+  const trails = new Map<PlayerId, ReadonlySet<ArrowId>>();
+  // Default sort orders `[player, set]` tuples by player as well, so the comparator
+  // mutant is equivalent.
+  // Stryker disable next-line ArrowFunction
+  for (const [player, arrows] of [...board.trails].toSorted(([a], [b]) => comparePlayers(a, b))) {
+    const shielding = player === mover ? NO_TRAIL : shieldingOf(geometry, board, player, arrows);
+    const kept = [...arrows].filter((a) => !taken.has(a) || shielding.has(a));
+    if (kept.length > 0) trails.set(player, canonical(kept));
+  }
+  return trails;
+};
 
 /** The most a window is ever grown before the wall has to be inside it (see below). */
 const radiusCeiling = (wallSize: number): number => 2 * wallSize;
@@ -316,13 +389,8 @@ export const makeClosureRules = (geometry: GeometryPort): ClosureRules => {
       territory.set(arrow, mover);
     }
 
-    const trails = new Map<PlayerId, ReadonlySet<ArrowId>>();
-    // P13: claiming a tile strips *every* trail on it — enemy paint inside a claim
-    // is not a surviving wall; convert alone only scrubbed stacks, not bare trail.
-    for (const [player, arrows] of state.trails) {
-      const kept = [...arrows].filter((a) => !taken.has(a));
-      if (kept.length > 0) trails.set(player, canonical(kept));
-    }
+    // Decision 5: territory first, then the strip reads the post-claim board.
+    const trails = stripClaim(geometry, { ...state, territory }, taken, mover);
 
     const accumulators = resetAccumulatorsOnCapture(state, taken, state.territory, mover);
     return { ...state, territory, trails, accumulators };

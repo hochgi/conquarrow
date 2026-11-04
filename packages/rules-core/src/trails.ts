@@ -40,6 +40,7 @@ import type {
   Traversal,
 } from '@conquarrow/contracts';
 import { compareArrows } from './order';
+import { stretchGrade, stretchOf } from './stretch';
 
 /**
  * Refuse. Local rather than imported for the same reason as in `movement.ts`:
@@ -84,17 +85,6 @@ export const makeTrailRules = (geometry: GeometryPort): TrailRules => {
   /** A set rebuilt in arrow-id order, deduplicated — a trail is a set (§6.1a). */
   const canonical = (arrows: readonly ArrowId[]): ReadonlySet<ArrowId> =>
     new Set([...new Set(arrows)].toSorted(compareArrows));
-
-  /**
-   * Every arrow at a point, in the board's own order.
-   *
-   * All six of them, in and out both: trail connectivity is **undirected** (§6.1,
-   * P05 D7), so an arrow's neighbours are everything sharing one of its two points.
-   */
-  const arrowsAt = (point: PointId): readonly ArrowId[] => [
-    ...geometry.inArrows(point),
-    ...geometry.outArrows(point),
-  ];
 
   // ── marking ────────────────────────────────────────────────────────────────
 
@@ -223,6 +213,7 @@ export const makeTrailRules = (geometry: GeometryPort): TrailRules => {
    *
    * The flood's visit order is not observable: both answers are existence questions
    * over a connected component, and a component does not depend on how it was walked.
+   * The flood and the grading live in `stretch.ts`, shared with the closure strip (P87).
    */
   const anchorGrade = (state: GameState, arrow: ArrowId, player: PlayerId): AnchorGrade => {
     const trail = trailOf(state, player);
@@ -231,28 +222,7 @@ export const makeTrailRules = (geometry: GeometryPort): TrailRules => {
         `${String(arrow)} is not in ${String(player)}'s trail, so it has no anchor grade`,
       );
     }
-    const reached = new Set<ArrowId>([arrow]);
-    const pending: ArrowId[] = [arrow];
-    let departsTerritory = false;
-    let carriesOwnStack = false;
-
-    for (let here = pending.pop(); here !== undefined; here = pending.pop()) {
-      if (state.groups.get(here)?.owner === player) carriesOwnStack = true;
-      const behind = geometry.origin(here);
-      if (geometry.inArrows(behind).some((a) => state.territory.get(a) === player)) {
-        departsTerritory = true;
-      }
-      for (const point of [behind, geometry.target(here)]) {
-        for (const next of arrowsAt(point)) {
-          if (reached.has(next) || !trail.has(next)) continue;
-          reached.add(next);
-          pending.push(next);
-        }
-      }
-    }
-
-    if (departsTerritory) return 'territory';
-    return carriesOwnStack ? 'stack' : 'dormant';
+    return stretchGrade(geometry, state, stretchOf(geometry, trail, arrow), player);
   };
 
   return {
