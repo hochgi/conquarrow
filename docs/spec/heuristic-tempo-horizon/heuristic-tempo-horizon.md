@@ -1,5 +1,12 @@
 # heuristic-tempo-horizon — the heuristic seat counts the race
 
+> **Parked 2026-11-04.** The implementation passed every fixture scenario and
+> invariant, and failed two predeclared acceptance gates (opening income and
+> speed); see the
+> [packet's result](../../design/packets/P85-heuristic-tempo-horizon.md#result-2026-11-04-fail-parked).
+> The tests and code this spec describes are on branch
+> `parked/p85-heuristic-tempo-horizon`, not on `main`.
+
 **Packet:** [P85 — The heuristic seat counts the race: tempo horizon](../../design/packets/P85-heuristic-tempo-horizon.md)
 **Depends on:** P53 (beam), P54 (close value, `loot`), P55 (one-ply replies),
 P57 (campaign), P59 (missions, threatened-kite gate), P81 (finisher,

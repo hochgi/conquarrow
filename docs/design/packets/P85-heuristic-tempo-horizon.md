@@ -1,7 +1,12 @@
 # P85 — The heuristic seat counts the race: tempo horizon
 
-> **Status:** in progress 2026-11-03. Phase 1 (spec, diagnosis, predeclared
-> acceptance) and phase 2 (red suite) done; phase 3 runs in OpenCode.
+> **Status:** **parked 2026-11-04: failed two predeclared gates**, opening
+> income (3.935 against ≥ 4.791) and speed (1.49 s per turn against ≤ 0.89 s).
+> Every other gate held, land included (43.00, 1.77×). See
+> [the result](#result-2026-11-04-fail-parked). The code, spec and tests are on
+> branch `parked/p85-heuristic-tempo-horizon` (`462a340` plus this record),
+> which was reviewed (ship-ready, no blocking findings) and green under
+> `pnpm verify`, and is not merged.
 > **Depends on:** P53 (beam),
 > P55 (one-ply replies), P59 (missions and the threatened-kite gate), P81
 > (the finisher; `mirror` / `reach` acceptance), P84 (never idle).
@@ -211,8 +216,53 @@ Before and after go side by side under "Mirror" in
 
 - [x] Diagnosis recorded before the fix (spec).
 - [x] Acceptance thresholds predeclared from baselines on `main`.
-- [ ] `pnpm verify` green.
-- [ ] Acceptance measured and recorded before and after in
+- [x] `pnpm verify` green (on the parked branch: 3,822 tests).
+- [x] Acceptance measured and recorded before and after in
       `docs/research/byok-benchmark.md` under "Mirror".
-- [ ] Ledger and PR say that the BYOK proxy baselines predate P85.
-- [ ] MCP drift noted.
+- [x] Ledger and PR say that the BYOK proxy baselines predate P85.
+- [x] MCP drift noted (spec decision 11).
+
+## Result (2026-11-04): FAIL, parked
+
+**Before** is `1d0673f` (bot code identical to `main` `c7ee34c`; it
+reproduces the baseline exactly). **After** is `462a340`. Free tiers only,
+concurrency 6, no model calls. The after mirror ran twice (phase 3 and phase
+4) with byte-identical move lists.
+
+| gate (predeclared) | before | after | required |
+|---|---|---|---|
+| intercept fixtures | 0 / 6 | **6 / 6** (phase 3's count; the suite's set gate passed) | ≥ 5 / 6 ✔ |
+| sortie fixtures | 4 / 37 | **37 / 37** (phase 3's count; the suite's set gate passed) | ≥ 30 / 37 ✔ |
+| mirror r20 land per seat | 24.33 | **43.00** (1.77×) | ≥ 36.50 ✔ |
+| mirror r20 income per seat | 3.194 | **3.935** (1.23×) | ≥ 4.791 ✘ |
+| zero-step seat-turns with a step legal | 0 | **0** | 0 ✔ |
+| mirror cells ending ≤ 200 rounds | 6 / 6 (56 B, 83 B, 44 A) | **6 / 6** (85 B, 67 A, 100 B) | ≥ 5 / 6 ✔ |
+| reach cells ending | 15 / 16 | **12 / 16** | ≥ 12 / 16 ✔ |
+| reach combat share | 79 % | **82 %** (3,383 / 4,134) | ≥ 50 % ✔ |
+| late stasis: leader's steps per full 40-round window | ≥ 76 | **≥ 105** | ≥ 20 ✔ |
+| determinism | holds | **holds** | holds ✔ |
+| mirror per-turn wall | 99.7 s ÷ 167 = 0.60 s | **299.7 s ÷ 201 = 1.49 s** (phase 3: 1.47 s) | ≤ 0.89 s ✘ |
+
+**What it means.**
+- **The seat does take bigger sorties.** Land at r20 rose 1.77×, every
+  fixture passed, and the opening closes are no longer land bridges.
+- **Income did not follow land.** Both mirror seats grow, and they contest
+  the same spawners near their homes, so shares per seat rise far less than
+  land (r20 per seat: s1 3.72 / 3.33, s2 5.33 / 2.97, s3 4.94 / 3.31). The
+  phase-1 prototype predicted this (1.13–1.23× in every setting tried).
+- **The speed cost comes from the games, not the readings.** Games run
+  longer (longest cell 201 seat-turns against 167), and later positions
+  cost more to search. In phase 1 the same positions cost the
+  same with and without P85. Reach wall rose from 1,324 s to 2,211 s.
+- **Three-seat games end later.** Reach still met its floor, but only just:
+  four three-seat cells hit the 200-round cap (one before). One cell
+  (`p3-R5-h5-s1`) lost 5 heads to "vanished", where every earlier run had 0.
+  Nothing gates on it; it is recorded for whoever picks this up.
+
+**For a successor packet.** The income gate measures something this design
+does not target: it buys land, not shares. Either the sortie credit should
+weight shares more (P54's `loot` already counts them), or the gate should be
+restated by the human. The speed gate needs the cost of longer games
+separated from per-position cost, for example per-turn wall on fixed
+positions as well as whole games. Neither is decided here.
+
