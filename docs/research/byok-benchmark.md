@@ -197,7 +197,7 @@ P82's `long150` were measured against the pre-P84 heuristic, and are **not**
 re-measured here. Re-baseline before comparing any further BYOK arm. The
 `positions` tier never plays the heuristic and is unaffected.
 
-### P85 (2026-11-04): tempo horizon, FAIL, parked
+### P85 (2026-11-04): tempo horizon, two gates missed, shipped on the human's waiver
 
 [P85](../design/packets/P85-heuristic-tempo-horizon.md) gives the live seat
 race arithmetic:
@@ -207,7 +207,7 @@ race arithmetic:
 
 **Before** is `1d0673f` (bot code identical to `main` `c7ee34c`; it
 reproduces the P84 "after" games move for move). **After** is `462a340`, on
-branch `parked/p85-heuristic-tempo-horizon`. Free tiers only, concurrency 6,
+merged to `main`. Free tiers only, concurrency 6,
 no model calls.
 
 | gate (predeclared) | before | after | required |
@@ -224,8 +224,10 @@ no model calls.
 | determinism: two mirror runs, byte-identical move lists | holds | **holds** (phase 3 and phase 4 runs, 6 / 6 cells) | holds ✔ |
 | mirror per-turn wall (wall ÷ longest cell's seat-turns) | 99.7 s ÷ 167 = 0.60 s | **299.7 s ÷ 201 = 1.49 s** (phase 3: 296.0 s, 1.47 s) | ≤ 0.89 s ✘ |
 
-**Verdict: FAIL.** The income and speed gates fail the packet. It does not
-merge.
+**Verdict: two gates missed, shipped on the human's waiver.** Income and
+speed missed. P85 was parked first; the human then waived both gates for
+this packet (the whole is an improvement, a playtest will judge it, and a
+revert is cheap). The gates are not lowered.
 
 - **Land rose but income did not keep pace.** Both seats grow in a mirror,
   and they contest the same spawners near their homes.
@@ -238,8 +240,8 @@ merge.
 
 **The BYOK proxy baselines predate P84 and P85.** `pbase81` (K = 20, mean
 0.326) and P82's `long150` were measured against the pre-P84 heuristic, and
-are **not** re-measured here. P85 is parked, so `main`'s heuristic is still
-P84's. The `positions` tier never plays the heuristic and is unaffected.
+are **not** re-measured here. Re-baseline before comparing any further
+BYOK arm. The `positions` tier never plays the heuristic and is unaffected.
 
 ## Calibration and cost
 
