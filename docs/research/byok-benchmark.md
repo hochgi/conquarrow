@@ -243,6 +243,30 @@ revert is cheap). The gates are not lowered.
 are **not** re-measured here. Re-baseline before comparing any further
 BYOK arm. The `positions` tier never plays the heuristic and is unaffected.
 
+### P87 (2026-11-04): a territory-grade raider survives a claim
+
+[P87](../design/packets/P87-raider-survives-claim.md) is a rules change:
+a closure no longer strips the trail of an enemy raider that is still
+territory grade, so the raider no longer converts. No gate; free tiers only,
+concurrency 6, no model calls. **Before** is `479c2e2` (`main`), **after** is
+`8f3fbf6` (the phase 3 fix).
+
+| measure | before | after |
+|---|---|---|
+| mirror cells ending ≤ 200 rounds (rounds / winner s1, s2, s3) | 6 / 6 (85 B, 67 A, 100 B) | **6 / 6 (85 B, 67 A, 100 B)** |
+| mirror move lists | — | **identical to before**, all 6 cells |
+| reach grid (`--round-cap 200`) cells ending | 12 / 16 | **12 / 16** (same 4 capped) |
+| reach cells that changed | — | **2 of 16**: `p2-R5-h5-s2` r84 → r76, `p3-R7-h3-s2` r182 → r162 |
+| reach combat share of heads lost | 82 % (3,383 / 4,134) | **82 %** (3,379 / 4,131) |
+| reach heads lost to encirclement | 746 | **746** |
+| wall (mirror / reach) | 294 s / 2,196 s | 380 s / 2,188 s |
+
+**No large shift.** The heuristic seats rarely leave a raider on a
+territory-grade trail where an enemy close claims its arrow, so the change
+touched two reach games and no mirror game. Both changed games ended
+sooner. The mirror wall rose because the after run shared the machine with
+the review phase; the move lists are the same.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).

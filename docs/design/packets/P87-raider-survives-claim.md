@@ -1,6 +1,6 @@
 # P87 — A territory-grade raider survives a claim
 
-> **Status:** in progress (2026-11-04). **Kind:** rules-core fix.
+> **Status:** shipped 2026-11-04 ([spec](../../spec/raider-survives-claim/raider-survives-claim.md), [ledger](../../research/byok-benchmark.md#p87-2026-11-04-a-territory-grade-raider-survives-a-claim)). Opened SPEC §11 item 51 for the human. **Kind:** rules-core fix.
 > **Depends on:** P07 (encirclement), P13 (closure trail strip), P33 (convert
 > wipe). It is Conflict 1 of
 > [P86](./P86-spec-conflict-resolution.md#conflict-1-decided-2026-11-04-63-wins-over-the-p13-strip),
