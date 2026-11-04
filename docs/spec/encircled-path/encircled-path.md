@@ -22,7 +22,8 @@ because a point is all-to-all — not because convert grows a second rule.
 
 In: convert-time trail wipe; both arms of a converted fork; halt at remaining
 victim stacks on neutral; cut-created dormant that no wipe reached; closure
-still stripping trails on newly claimed tiles.
+still stripping trails on newly claimed tiles (except a shielding stretch:
+[raider-survives-claim](../raider-survives-claim/raider-survives-claim.md), P87).
 
 Out: the conversion *predicate* (P07 / P28); combat math; P29 match-over FX;
 a strip that is not wipe.

@@ -4,7 +4,9 @@
 **SPEC:** §6.3, §6.1 (anchor grades), §7 (closure seam), §11 items 9, 28, **40**
 **Features:** [core](./encirclement.core.feature) · [edge cases](./encirclement.edge-cases.feature)
 **Upstream:** [closure](../closure/closure.md) claims tiles; [cuts](../cuts/cuts.md) demote grade;
-[encircled-path](../encircled-path/encircled-path.md) wipes victim trail on convert (P33)
+[encircled-path](../encircled-path/encircled-path.md) wipes victim trail on convert (P33);
+[raider-survives-claim](../raider-survives-claim/raider-survives-claim.md) keeps a
+territory-grade raider's trail through a claim, so the grade check sees it (P87)
 
 ## Purpose
 
