@@ -348,7 +348,18 @@ gate.
       decision 3b instead, and a position whose premise is "threatened"
       must have W ≤ L.
       - `mission-and-staging.core.test.ts`: "Staging close beats a
-        threatened kite";
+        threatened kite". This board is in the first group too (phase 3
+        kickback, 2026-11-04). Its kite is threatened (W ≤ L), but a third
+        plan is a safe sortie that earns credit (L 3, elapsed 2, W 4, credit
+        112.5). It already out-scores staging on `evaluate` (1,390 against
+        1,271), and with the credit in `rankIncompletes` the beam keeps no
+        staging complete. So the seat takes the sortie, which is the P85
+        behaviour and not a threatened kite. The fix uses the first group's
+        rule: make the credit inapplicable on the board, keeping the kite
+        threatened and the staging shape available, so the strict
+        staging assertion still tests P59. A twin on the original board
+        asserts the P85 behaviour: the returned plan is not a threatened
+        kite and earns credit > 0;
       - `heuristic-never-idle.edge-cases.test.ts`: "The kite-gate cause
         where a non-kite stepping complete exists".
     - **Setups or expectations built from pre-P85 self-play.**
