@@ -46,6 +46,7 @@ re-attaches — and those are exactly the decisions AGENTS.md forbids inventing.
 2. `SPEC.md` — the design. It is long but it is the whole product; §11 is the
    live list of what is *not* decided.
 3. `docs/design/02-work-packets.md` — what is being built, in what order.
+   `docs/design/backlog.md` is the short list of what is open and next.
 4. The packet doc for whatever you are working on.
 
 Do not start from the code. There is very little of it yet, and the spec is
@@ -53,16 +54,9 @@ denser than anything the code will tell you.
 
 ## Working with SPEC.md
 
-SPEC.md is a living document, not a frozen artifact — it has already been revised
-many times mid-design, and several sections carry `**resolved**` strikethroughs
-that record how a decision moved. Keep that habit:
-
-- When a §11 item is settled, mark it resolved *in place* and point to the
-  section that now owns it. Do not silently delete it — the trail of what was
-  once open is useful.
-- When you discover a new gap, add it to §11 rather than resolving it yourself.
-- When a decision invalidates earlier prose, fix the prose. Two sections
-  disagreeing is worse than either one being wrong.
+SPEC.md states the current design only, once per rule: no strikethroughs or
+"resolved" notes, history in git, reasoning in ADRs. See "SPEC.md states the
+current design, once" in AGENTS.md.
 
 Spec edits are a normal part of phases 1 and 4, and are out of bounds in phases
 2 and 3 — a test or an implementation that wants the spec changed is a signal to

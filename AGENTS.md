@@ -52,6 +52,29 @@ explicit gap, because it looks like it was designed.
 This applies to every phase, including the coder. "The test needed it" is a
 reason to ask, not a licence to decide.
 
+## SPEC.md states the current design, once
+
+SPEC.md says what the game is **now**. It is not a record of how it got there.
+
+- **No history in the text.** No strikethroughs, no "resolved", "withdrawn",
+  "superseded" or "was …" notes, no old wording kept beside the new. When a
+  decision changes a rule, rewrite the prose to state the new rule and delete
+  the old.
+- **History lives in git.** Anyone who needs an earlier version reads the log.
+- **Reasoning lives in an ADR** (`docs/adr/`) or in the packet that made the
+  change, and only when the *why* is not obvious and would be lost. SPEC.md
+  may link it.
+- **§11 lists only what is open.** When an item is settled, state the rule in
+  the section that owns it and delete the item.
+- **Each rule is stated in one place.** Other sections point to it rather than
+  restating it. When a decision invalidates prose anywhere, fix it everywhere:
+  two sections disagreeing is worse than either one being wrong.
+- New gaps still go to §11 (above).
+
+SPEC.md still carries older strikethroughs and notes until
+[P86](docs/design/packets/P86-spec-conflict-resolution.md) removes them.
+Treat them as stale, and add none.
+
 ## Layout — hexagonal, dependencies pointing inward
 
 - **`packages/contracts`** — ports (interfaces) and domain DTOs. The core depends
@@ -213,6 +236,8 @@ Do not put an `XAI_API_KEY` in the repo.
 4. **reviewer** drives `review-changes` → spec ↔ tests ↔ code coherence,
    boundaries, purity. Then **open the PR** and squash-merge to `hochgi/conquarrow` once CI
    is green — the reviewer phase is the review gate.
+   The same PR updates [`docs/design/backlog.md`](docs/design/backlog.md):
+   it deletes the shipped item and adds what the run turned up.
 
 Do not collapse phases. Do not invent a game rule. Online/infra BSSN is in-bounds
 when documented. Never push `shalevhoch`.
