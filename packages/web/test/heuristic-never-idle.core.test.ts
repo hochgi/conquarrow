@@ -14,9 +14,9 @@ import { chooseMove, playBotTurn } from '../src/opponent';
 import {
   boxedAfterOccupy,
   geometry,
+  guardChangedSteppedTurns,
   hasStep,
   legalSteps,
-  loggedTurn,
   passIsBestPosition,
   passTurnAt,
   planIsLegalSequence,
@@ -24,9 +24,7 @@ import {
   PLAYTEST_PASS_TURNS,
   playtest,
   rules,
-  sameMoves,
   stepIsLegal,
-  turnStarts,
 } from './heuristic-never-idle.support';
 
 /** The r35 beam takes ~6–8 s; the rest ~1–3 s. */
@@ -94,25 +92,16 @@ describe('heuristic-never-idle core', () => {
   });
 
   describe('Rule: A plan that already steps is untouched', () => {
+    // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12): the
+    // live seat's plans now differ from the pre-P85 log by design. P84's
+    // property is that the guard returns a stepping plan unchanged, so it is
+    // read off neverIdle itself at every stepped playtest turn of rounds 1–20.
     it(
-      'Turns that stepped in the playtest are reproduced move for move',
+      'Turns that stepped in the playtest are returned move for move by the guard',
       () => {
-        const replay = playtest();
-        const stepped = turnStarts(replay, ['A', 'B'], 1, 20).filter((t) =>
-          hasStep(loggedTurn(replay, t.index)),
-        );
-        expect(stepped.length).toBeGreaterThan(10);
-
-        const mismatches: string[] = [];
-        for (const t of stepped) {
-          const turn = playBotTurn(geometry, rules, t.state, t.me);
-          const logged = loggedTurn(replay, t.index);
-          if (!sameMoves(turn.moves, logged)) {
-            mismatches.push(`${t.seat} r${String(t.round)} @${String(t.index)}`);
-          }
-        }
-
-        expect(mismatches).toEqual([]);
+        const { checked, changed } = guardChangedSteppedTurns(playtest(), ['A', 'B'], 1, 20);
+        expect(checked).toBeGreaterThan(10);
+        expect(changed).toEqual([]);
       },
       REPLAY_TIMEOUT,
     );

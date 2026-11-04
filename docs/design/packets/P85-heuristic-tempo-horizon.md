@@ -1,12 +1,12 @@
 # P85 — The heuristic seat counts the race: tempo horizon
 
-> **Status:** **parked 2026-11-04: failed two predeclared gates**, opening
-> income (3.935 against ≥ 4.791) and speed (1.49 s per turn against ≤ 0.89 s).
-> Every other gate held, land included (43.00, 1.77×). See
-> [the result](#result-2026-11-04-fail-parked). The code, spec and tests are on
-> branch `parked/p85-heuristic-tempo-horizon` (`462a340` plus this record),
-> which was reviewed (ship-ready, no blocking findings) and green under
-> `pnpm verify`, and is not merged.
+> **Status:** **shipped 2026-11-04 on the human's waiver.** It missed two
+> predeclared gates, opening income (3.935 against ≥ 4.791, still up 1.23×)
+> and speed (1.49 s per turn against ≤ 0.89 s). Every other gate held, land
+> included (43.00, 1.77×). It was parked first, as the rule says. The human
+> then waived both gates: the overall change is an improvement, a playtest
+> will judge it, speed can be optimised later, and a revert is cheap. See
+> [the result](#result-2026-11-04-two-gates-missed-shipped-on-the-humans-waiver).
 > **Depends on:** P53 (beam),
 > P55 (one-ply replies), P59 (missions and the threatened-kite gate), P81
 > (the finisher; `mirror` / `reach` acceptance), P84 (never idle).
@@ -216,13 +216,13 @@ Before and after go side by side under "Mirror" in
 
 - [x] Diagnosis recorded before the fix (spec).
 - [x] Acceptance thresholds predeclared from baselines on `main`.
-- [x] `pnpm verify` green (on the parked branch: 3,822 tests).
+- [x] `pnpm verify` green (3,822 tests).
 - [x] Acceptance measured and recorded before and after in
       `docs/research/byok-benchmark.md` under "Mirror".
 - [x] Ledger and PR say that the BYOK proxy baselines predate P85.
 - [x] MCP drift noted (spec decision 11).
 
-## Result (2026-11-04): FAIL, parked
+## Result (2026-11-04): two gates missed, shipped on the human's waiver
 
 **Before** is `1d0673f` (bot code identical to `main` `c7ee34c`; it
 reproduces the baseline exactly). **After** is `462a340`. Free tiers only,
@@ -258,6 +258,14 @@ concurrency 6, no model calls. The after mirror ran twice (phase 3 and phase
   four three-seat cells hit the 200-round cap (one before). One cell
   (`p3-R5-h5-s1`) lost 5 heads to "vanished", where every earlier run had 0.
   Nothing gates on it; it is recorded for whoever picks this up.
+
+**The waiver (human, 2026-11-04).** The gates are not lowered; they were
+missed and waived for this packet only. Follow-ups:
+- the human playtests P85; the result goes into the ledger;
+- the 5 "vanished" heads in `p3-R5-h5-s1` need their own look. P85 changed
+  no rules code, so this is likely an existing engine edge case that bolder
+  play now reaches;
+- if the per-turn wall feels slow in play, optimisation is its own packet.
 
 **For a successor packet.** The income gate measures something this design
 does not target: it buys land, not shares. Either the sortie credit should

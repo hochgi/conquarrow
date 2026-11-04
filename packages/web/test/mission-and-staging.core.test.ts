@@ -40,13 +40,47 @@ import {
   specStagingShape,
   specMissionsOf,
   specMissionContext,
+  specProjectedTrail,
   specRemainingPath,
   stagingVsThreatenedKitePosition,
+  type StagingKiteBoard,
   stepTowardVertex,
   threeSeatQuietHomeAfterFirstClose,
   unthreatenedShareWalkPosition,
   afterOpeningOpenTrailUnderFire,
 } from './mission-and-staging.support';
+import {
+  creditInapplicable,
+  specSafeWindow,
+  specSortieCredit,
+  specThreatL,
+  withCreditBlocker,
+  withLongTrail,
+} from './heuristic-tempo-horizon.support';
+
+/** The staging and kite plans on the P59 board each take three steps. */
+const STAGING_KITE_PLIES = 3;
+
+/**
+ * The P59 staging-vs-kite board with one enemy group added (P85 decision 12)
+ * so the sortie credit is inapplicable for STAGING_KITE_PLIES steps. The
+ * context, outbound and both plans are recomputed on the new state.
+ */
+const stagingVsThreatenedKiteCreditBlocked = (): StagingKiteBoard => {
+  const base = stagingVsThreatenedKitePosition();
+  const home = base.staging.moves.find((m) => m.kind === 'step')?.from;
+  if (home === undefined) throw new Error('setup: staging plan has no step');
+  const state = withCreditBlocker(base.state, base.Bot, home, STAGING_KITE_PLIES);
+  const ctx = specMissionContext(state, base.Bot);
+  return {
+    ...base,
+    state,
+    ctx,
+    outbound: specRemainingPath(state, base.Bot, base.campaign),
+    staging: { moves: base.staging.moves, state: foldPlan(state, base.staging.moves) },
+    kite: { moves: base.kite.moves, state: foldPlan(state, base.kite.moves) },
+  };
+};
 
 describe('Mission and staging — search only the job, paint only as a step', () => {
   it('Generated opening after a 0-share home close lists contest and still leaves toward V', () => {
@@ -79,16 +113,43 @@ describe('Mission and staging — search only the job, paint only as a step', ()
     }
   }, 30_000);
 
+  // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12):
+  // specIsThreatenedKite follows decision 3b (W over the projected trail ≤
+  // the terminal's turns to land), so "threatened" is that premise here. On
+  // the original board a safe sortie earns credit and wins (see the twin
+  // below), so an enemy group is added that makes the sortie credit
+  // inapplicable for the plan's three steps; P59's staging choice is what is
+  // tested.
   it('Staging close beats a threatened kite', () => {
-    const pos = stagingVsThreatenedKitePosition();
+    const pos = stagingVsThreatenedKiteCreditBlocked();
+    expect(creditInapplicable(pos.state, pos.Bot, STAGING_KITE_PLIES)).toBe(true);
     expect(pos.outbound).toBeGreaterThanOrEqual(1);
     expect(specStagingShape(pos.ctx, pos.staging)).toBe(true);
     expect(specIsThreatenedKite(pos.ctx, pos.kite)).toBe(true);
+    const kiteL = specThreatL(pos.kite.state, pos.Bot);
+    expect(
+      specSafeWindow(pos.kite.state, pos.Bot, specProjectedTrail(pos.ctx, pos.kite), Math.min(kiteL, 8)),
+    ).toBeLessThanOrEqual(kiteL);
     const plan = chooseTurnBeam(geometry, rules, pos.state, pos.Bot);
     const terminal = foldPlan(pos.state, plan);
     const returned = { moves: plan, state: terminal };
     expect(specStagingShape(pos.ctx, returned)).toBe(true);
     expect(specIsThreatenedKite(pos.ctx, returned)).toBe(false);
+  }, 60_000);
+
+  // P85 (decision 12): on the original staging-vs-kite board a third plan, a
+  // safe sortie, earns sortie credit and out-ranks staging. The seat takes
+  // it, and it is not a threatened kite.
+  it('P85: on the staging-vs-kite board the seat takes the safe credited sortie', () => {
+    const pos = stagingVsThreatenedKitePosition();
+    expect(specIsThreatenedKite(pos.ctx, pos.kite)).toBe(true);
+    const plan = chooseTurnBeam(geometry, rules, pos.state, pos.Bot);
+    expect(planIsLegalSequence(pos.state, plan)).toBe(true);
+    expect(planTerminates(pos.state, plan)).toBe(true);
+    const terminal = foldPlan(pos.state, plan);
+    const returned = { moves: plan, state: terminal };
+    expect(specIsThreatenedKite(pos.ctx, returned)).toBe(false);
+    expect(specSortieCredit(terminal, pos.Bot)).toBeGreaterThan(0);
   }, 30_000);
 
   it('Unthreatened share walk may take the kite', () => {
@@ -160,6 +221,8 @@ describe('Mission and staging — search only the job, paint only as a step', ()
     expect(a).toEqual(b);
   });
 
+  // P85 (decision 12): the position is now replayed from a recorded move
+  // list (fixtures/three-seat-quiet-home.moves.json), not reached by self-play.
   it('3-seat quiet-home leftover after the first close still leaves', () => {
     const { state, A } = threeSeatQuietHomeAfterFirstClose();
     expect(state.activePlayer).toBe(A);
@@ -178,8 +241,14 @@ describe('Mission and staging — search only the job, paint only as a step', ()
     expect(again).toEqual(plan);
   }, 240_000);
 
+  // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12): the
+  // stride board's trail is lengthened so elapsed + L exceeds
+  // SORTIE_TOTAL_CAP and the sortie credit is inapplicable.
   it('P53 stride construction still strides and shuttle rate still holds', () => {
-    const { state, Bot, from, first, second } = strideTwoStackPosition();
+    const pos = strideTwoStackPosition();
+    const { Bot, from, first, second } = pos;
+    const state = withLongTrail(pos.state, Bot, from, 2);
+    expect(creditInapplicable(state, Bot, 2)).toBe(true);
     const plan = chooseTurnBeam(geometry, rules, state, Bot);
     const steps = plan.filter((m) => m.kind === 'step');
     expect(steps[0]).toMatchObject({ from, exit: first, count: 2 });

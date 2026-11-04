@@ -3,8 +3,8 @@
  *
  * Table-driven sweeps over the positions the diagnosis found (13 playtest
  * passes, 2 mirror-s3 passes, the P53 pass boards) — this repo has no
- * fast-check. Invariant 5 is the replay layer: every logged heuristic turn
- * that already steps is reproduced move for move.
+ * fast-check. Invariant 5 reads the guard itself at every logged heuristic
+ * turn that already steps (P85 decision 12).
  */
 
 import { describe, expect, it } from 'vitest';
@@ -15,8 +15,8 @@ import { chooseTurnBeam, chooseTurnBeamWithBudget } from '../src/botSearch';
 import {
   boxedAfterOccupy,
   geometry,
+  guardChangedSteppedTurns,
   hasStep,
-  loggedTurn,
   MIRROR_S3_PASS_TURNS,
   mirrorS3,
   passIsBestPosition,
@@ -27,12 +27,8 @@ import {
   PLAYTEST_PASS_TURNS,
   playtest,
   rules,
-  sameMoves,
   shuffleCloseMaps,
   stepIsLegal,
-  turnStarts,
-  type Replay,
-  type SeatLabel,
 } from './heuristic-never-idle.support';
 
 const SWEEP_TIMEOUT = 600_000;
@@ -66,27 +62,6 @@ const exhausted = (state: GameState, me: PlayerId): GameState => {
     groups.set(arrow, group.owner === me ? { ...group, spent: speed(group.heads) } : group);
   }
   return { ...state, groups };
-};
-
-/** Seat-turns that already step in the log: the pre-P84 output (spec "Fixture"). */
-const steppedTurnsMismatch = (
-  replay: Replay,
-  seats: readonly SeatLabel[],
-  from: number,
-  to: number,
-  stride = 1,
-): { readonly checked: number; readonly mismatches: readonly string[] } => {
-  const stepped = turnStarts(replay, seats, from, to)
-    .filter((t) => hasStep(loggedTurn(replay, t.index)))
-    .filter((_, i) => i % stride === 0);
-  const mismatches: string[] = [];
-  for (const t of stepped) {
-    const plan = chooseTurnBeam(geometry, rules, t.state, t.me);
-    if (!sameMoves(plan, loggedTurn(replay, t.index))) {
-      mismatches.push(`${replay.name} ${t.seat} r${String(t.round)} @${String(t.index)}`);
-    }
-  }
-  return { checked: stepped.length, mismatches };
 };
 
 describe('heuristic-never-idle invariants', () => {
@@ -147,16 +122,18 @@ describe('heuristic-never-idle invariants', () => {
     SWEEP_TIMEOUT,
   );
 
+  // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12): the
+  // live seat's plans now differ from pre-P85 logs by design, so invariant 5
+  // is read off the guard itself — neverIdle returns a stepping staged plan
+  // as is — at every stepped heuristic turn of the playtest and of mirror-s3.
   it(
-    "5. If the live search's chosen plan already contains a step, then the system shall return that plan unchanged (replay: every stepped heuristic turn of mirror-s3, a third of playtest rounds 21+).",
+    "5. If the live search's chosen plan already contains a step, then the system shall return that plan unchanged (neverIdle at every stepped heuristic turn of the playtest and of mirror-s3).",
     () => {
-      // Playtest rounds 1–20 are the core scenario; this samples every 3rd of
-      // the rest (late beams cost seconds each) and all of mirror-s3.
-      const late = steppedTurnsMismatch(playtest(), ['A', 'B'], 21, Number.POSITIVE_INFINITY, 3);
-      const mirror = steppedTurnsMismatch(mirrorS3(), ['A', 'B'], 1, Number.POSITIVE_INFINITY);
+      const late = guardChangedSteppedTurns(playtest(), ['A', 'B'], 21, Number.POSITIVE_INFINITY);
+      const mirror = guardChangedSteppedTurns(mirrorS3(), ['A', 'B'], 1, Number.POSITIVE_INFINITY);
       expect(late.checked).toBeGreaterThan(5);
       expect(mirror.checked).toBeGreaterThan(10);
-      expect([...late.mismatches, ...mirror.mismatches]).toEqual([]);
+      expect([...late.changed, ...mirror.changed]).toEqual([]);
     },
     SWEEP_TIMEOUT,
   );

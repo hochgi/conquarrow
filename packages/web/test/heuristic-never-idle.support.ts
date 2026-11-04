@@ -20,7 +20,12 @@ import { movesEqual } from '@conquarrow/contracts';
 import type { GameState, MatchConfig, Move, PlayerId } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import { parseMove } from '../bench/src/moves';
-import { rules } from './bot-turn-search.support';
+import { isThreatenedKite, kiteLength } from '../src/botMission';
+import { neverIdle, type NeverIdleComplete, type NeverIdleSearch } from '../src/botNeverIdle';
+import { evaluate, planKey } from '../src/botSearch';
+import { chooseMove } from '../src/opponent';
+import { foldPlan, geometry, rules } from './bot-turn-search.support';
+import { specMissionContext } from './mission-and-staging.support';
 
 export {
   foldPlan,
@@ -70,7 +75,8 @@ type FixtureJson = {
 
 const cache = new Map<string, Replay>();
 
-const loadReplay = (name: string, file: string): Replay => {
+/** Replays `fixtures/<file>` from `makeMatch(config)`; cached by `name`. Reused by P85's support. */
+export const loadReplay = (name: string, file: string): Replay => {
   const hit = cache.get(name);
   if (hit !== undefined) return hit;
   const raw = JSON.parse(readFileSync(join(here, 'fixtures', file), 'utf8')) as FixtureJson;
@@ -249,3 +255,51 @@ export const MIRROR_S3_PASS_TURNS = [
 export const KITE_GATE_MOVE = 53;
 /** Playtest A r35: the `IDLE_SLACK` cause, gap 147 (spec Diagnosis). */
 export const IDLE_SLACK_MOVE = 404;
+
+// ---------------------------------------------------------------------------
+// P85 decision 12: P84's "a stepping plan is untouched" read off the guard
+// ---------------------------------------------------------------------------
+
+/**
+ * The guard's input at a real position: the live search's readings for one
+ * complete (the logged turn), wired the way `botSearch` wires them. The
+ * restated P84 tests check `neverIdle` returns a stepping `staged` plan as is.
+ */
+export const guardSearchAt = (
+  state: GameState,
+  me: PlayerId,
+  staged: readonly Move[],
+): NeverIdleSearch<NeverIdleComplete> => {
+  const ctx = specMissionContext(state, me);
+  const complete: NeverIdleComplete = { moves: staged, state: foldPlan(state, staged) };
+  return {
+    geometry,
+    rules,
+    origin: state,
+    me,
+    completes: [complete],
+    score: (c) => evaluate(geometry, c.state, me, rules),
+    isThreatenedKite: (c) => isThreatenedKite(ctx, c),
+    kiteLength: (c) => kiteLength(geometry, c.state, me, ctx.originTerritory),
+    planKey,
+    chooseMove,
+  };
+};
+
+/** Stepped logged turns of `seats` in rounds `[from, to]` where `neverIdle` does not return the plan as is. */
+export const guardChangedSteppedTurns = (
+  replay: Replay,
+  seats: readonly SeatLabel[],
+  from: number,
+  to: number,
+): { readonly checked: number; readonly changed: readonly string[] } => {
+  const stepped = turnStarts(replay, seats, from, to).filter((t) => hasStep(loggedTurn(replay, t.index)));
+  const changed: string[] = [];
+  for (const t of stepped) {
+    const logged = loggedTurn(replay, t.index);
+    if (neverIdle(guardSearchAt(t.state, t.me, logged), logged) !== logged) {
+      changed.push(`${replay.name} ${t.seat} r${String(t.round)} @${String(t.index)}`);
+    }
+  }
+  return { checked: stepped.length, changed };
+};

@@ -1,0 +1,114 @@
+{
+ "source": "P85 decision 12: the moves P65's threeSeatQuietHomeAfterFirstClose self-play made on THREE_MATCH before P85 (A, B = chooseTurnBeam; C = chooseMove peel), recorded on packet/P85-heuristic-tempo-horizon 50a716f. Replayed from makeMatch(config), the last state is seat A's turn after A's first close and B's and C's turns.",
+ "config": {
+  "playerCount": 3,
+  "R": 7,
+  "homeOffset": 5,
+  "dominationN": 5,
+  "spawnerSeed": 1
+ },
+ "moves": [
+  {
+   "kind": "step",
+   "from": "tiling:a:5,0,0",
+   "exit": "tiling:a:6,0,2",
+   "count": 2
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:5,0,0",
+   "exit": "tiling:a:6,0,1",
+   "count": 1
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:6,0,2",
+   "exit": "tiling:a:6,-1,1",
+   "count": 2
+  },
+  {
+   "kind": "endTurn"
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:-4,5,1",
+   "exit": "tiling:a:-5,6,0",
+   "count": 2
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:-4,5,1",
+   "exit": "tiling:a:-5,6,2",
+   "count": 1
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:-5,6,0",
+   "exit": "tiling:a:-4,6,2",
+   "count": 2
+  },
+  {
+   "kind": "endTurn"
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:0,-4,2",
+   "exit": "tiling:a:0,-5,0",
+   "count": 1
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:0,-4,2",
+   "exit": "tiling:a:0,-5,0",
+   "count": 1
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:0,-4,2",
+   "exit": "tiling:a:0,-5,0",
+   "count": 1
+  },
+  {
+   "kind": "endTurn"
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:6,-1,1",
+   "exit": "tiling:a:5,0,0",
+   "count": 2
+  },
+  {
+   "kind": "endTurn"
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:-4,6,2",
+   "exit": "tiling:a:-4,5,2",
+   "count": 2
+  },
+  {
+   "kind": "endTurn"
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:0,-5,0",
+   "exit": "tiling:a:1,-5,0",
+   "count": 1
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:0,-5,0",
+   "exit": "tiling:a:1,-5,0",
+   "count": 1
+  },
+  {
+   "kind": "step",
+   "from": "tiling:a:0,-5,0",
+   "exit": "tiling:a:1,-5,0",
+   "count": 1
+  },
+  {
+   "kind": "endTurn"
+  }
+ ]
+}

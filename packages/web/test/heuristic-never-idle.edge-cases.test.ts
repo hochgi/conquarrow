@@ -78,6 +78,9 @@ describe('heuristic-never-idle edge cases', () => {
       SEARCH_TIMEOUT,
     );
 
+    // P85 (docs/spec/heuristic-tempo-horizon, decision 12): specIsThreatenedKite
+    // now mirrors decision 3b (W over the projected trail ≤ turns to land),
+    // not P59's 12-step reach, so the assertion reads the race-based test.
     it(
       'The kite-gate cause where a non-kite stepping complete exists',
       () => {

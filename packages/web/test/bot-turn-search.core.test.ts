@@ -35,6 +35,7 @@ import {
   splitSharePosition,
   strideTwoStackPosition,
 } from './bot-turn-search.support';
+import { creditInapplicable, withCreditBlocker, withLongTrail } from './heuristic-tempo-horizon.support';
 
 describe('Bot turn search — stride by searching a whole turn', () => {
   it('playBotTurn plans with beam-v1', () => {
@@ -68,8 +69,16 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     expect(planned.state).toBe(wrong);
   });
 
+  // Rewritten for P85 (docs/spec/heuristic-tempo-horizon, decision 12): on the
+  // original board no enemy can reach, so the sortie credit may now hold the
+  // trail. The trail is lengthened behind the tip until elapsed + L exceeds
+  // SORTIE_TOTAL_CAP, which makes the credit inapplicable; P53's stride is
+  // what is tested.
   it('A 2-stack strides a two-arrow homeward close', () => {
-    const { state, Bot, from, first, second } = strideTwoStackPosition();
+    const pos = strideTwoStackPosition();
+    const { Bot, from, first, second } = pos;
+    const state = withLongTrail(pos.state, Bot, from, 2);
+    expect(creditInapplicable(state, Bot, 2)).toBe(true);
     const plan = chooseTurnBeam(geometry, rules, state, Bot);
     const steps = plan.filter((m) => m.kind === 'step');
     expect(steps[0]).toMatchObject({ from, exit: first, count: 2 });
@@ -77,8 +86,16 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     expect(isShuttle(plan)).toBe(false);
   });
 
+  // Rewritten for P85 (decision 12): an enemy group placed where every
+  // sortie this turn has W ≤ L makes the sortie credit inapplicable; P53's
+  // three-arrow stride is what is tested.
   it('A 4-stack takes three arrows in one turn', () => {
-    const { state, Bot, run } = fourStackThreeArrowPosition();
+    const pos = fourStackThreeArrowPosition();
+    const { Bot, run } = pos;
+    const start = run[0];
+    if (start === undefined) throw new Error('setup: empty run');
+    const state = withCreditBlocker(pos.state, Bot, start, 3);
+    expect(creditInapplicable(state, Bot, 3)).toBe(true);
     const a0 = run[0];
     const a1 = run[1];
     const a2 = run[2];
@@ -100,8 +117,13 @@ describe('Bot turn search — stride by searching a whole turn', () => {
     expect(steps.slice(0, 3)).toHaveLength(3);
   });
 
+  // Rewritten for P85 (decision 12): an enemy group makes the sortie credit
+  // inapplicable this turn; P53's split is what is tested.
   it('Splitting wins when two destinations beat one deeper advance', () => {
-    const { state, Bot, from } = splitSharePosition();
+    const pos = splitSharePosition();
+    const { Bot, from } = pos;
+    const state = withCreditBlocker(pos.state, Bot, from, 3);
+    expect(creditInapplicable(state, Bot, 3)).toBe(true);
     const plan = chooseTurnBeam(geometry, rules, state, Bot);
     const taken = plan.filter(
       (m): m is StepMove => m.kind === 'step' && m.from === from && m.count === 2,
