@@ -339,3 +339,146 @@ describe('purity', () => {
     expect(snapshot(s0)).toEqual(pictured);
   });
 });
+
+// ── Who a stretch shields (phase 3: the guards the scenarios above leave open) ─
+
+describe('who a stretch shields', () => {
+  it("strips the closer's own trail even when it carries the closer onto enemy land", () => {
+    // §7 / P13 D6: the closer's path becomes territory, so its trail there goes.
+    // Only *enemy* trail is ever shielded (§7, P87) — here A's own fork arm runs onto
+    // B's land with an A head on it, and A's stretch is territory grade.
+    const closing = aClosing();
+    const { table, wall } = closing;
+    const { geometry } = table;
+    const ringPoint = (point: unknown): boolean => closing.ringPoints.has(String(point));
+    const arm = wall
+      .map((w) => geometry.target(w))
+      .filter((point) => point !== closing.closePoint)
+      .flatMap((point) => [...geometry.outArrows(point)].toSorted(byId))
+      .find(
+        (x) =>
+          !isClaimed(closing, x) &&
+          x !== closing.landing &&
+          x !== closing.far &&
+          !ringPoint(geometry.target(x)),
+      );
+    if (arm === undefined) throw new Error('setup: no arm leaves the ring');
+    const base = closing.before({
+      moreA: [{ arrow: arm, owner: A, heads: 1 }],
+      territory: [arm],
+    });
+    const before = { ...base, trails: new Map(base.trails).set(A, new Set([...wall, arm])) };
+    expect(territoryOf(before, arm)).toBe(B);
+
+    const after = table.rules.apply(before, closing.close);
+
+    for (const w of wall) {
+      expect(territoryOf(after, w)).toBe(A);
+      expect(isTrail(after, A, w)).toBe(false);
+    }
+    expect(isTrail(after, A, arm)).toBe(true);
+    expect(ownerOf(after, arm)).toBe(A);
+  });
+
+  it('does not let a head off its own trail shield the stretch beside it', () => {
+    // A stretch *carries* a group only when the group stands on it (§7). B's head on
+    // `p` has no mark there, so B's road through the pocket shields no one: its
+    // claimed part is stripped and the head converts (§6.3).
+    const closing = aClosing();
+    const { table } = closing;
+    const { p, r, road, feeder } = aRoadThroughThePocket(closing);
+    const before = closing.before({
+      groups: [{ arrow: p, owner: B, heads: 1 }],
+      trail: [r, ...road],
+      territory: [feeder],
+    });
+    expect(isTrail(before, B, p)).toBe(false);
+
+    const after = table.rules.apply(before, closing.close);
+
+    expect(isTrail(after, B, r)).toBe(false);
+    expect(ownerOf(after, p)).toBe(A);
+  });
+
+  it('strips a stack-grade stretch past the firebreak that halts the convert wipe', () => {
+    // §6.3: stack grade does not protect, so the claim strips the stretch (§7). B's
+    // raider stands on A's existing land outside the ring; its trail runs through a
+    // B head on neutral ground into the pocket. The convert wipe (P33) halts at that
+    // head and would leave the claimed arrow beyond it marked; the strip removes it.
+    const closing = aClosing();
+    const { table } = closing;
+    const { geometry } = table;
+    const ends = (a: ArrowId): readonly string[] =>
+      [geometry.origin(a), geometry.target(a)].map(String);
+    const outside = (a: ArrowId): boolean =>
+      !isClaimed(closing, a) &&
+      a !== closing.landing &&
+      a !== closing.far &&
+      !ends(a).includes(String(closing.closePoint));
+    const neighbours = (a: ArrowId): readonly ArrowId[] =>
+      [geometry.origin(a), geometry.target(a)]
+        .flatMap((point) => [...geometry.inArrows(point), ...geometry.outArrows(point)])
+        .toSorted(byId);
+    /** Shortest run of outside arrows from one touching `p` to one touching `r`. */
+    const pathBetween = (p: ArrowId, r: ArrowId): readonly ArrowId[] | undefined => {
+      const parent = new Map<ArrowId, ArrowId | undefined>();
+      const queue = neighbours(p).filter((a) => a !== p && outside(a));
+      for (const seed of queue) parent.set(seed, undefined);
+      for (let i = 0; i < queue.length && i < 200; i += 1) {
+        const here = queue[i];
+        if (here === undefined) break;
+        if (touches(geometry, here, r)) {
+          const path: ArrowId[] = [];
+          for (let at: ArrowId | undefined = here; at !== undefined; at = parent.get(at)) {
+            path.unshift(at);
+          }
+          return path;
+        }
+        for (const next of neighbours(here).filter((a) => a !== p && outside(a))) {
+          if (parent.has(next)) continue;
+          parent.set(next, here);
+          queue.push(next);
+        }
+      }
+      return undefined;
+    };
+    const near = [...geometry.window(geometry.origin(closing.landing), 3).arrows]
+      .filter(outside)
+      .toSorted(byId);
+    const found = near
+      .flatMap((p) =>
+        closing.interior
+          .filter((r) => !touches(geometry, p, r))
+          .flatMap((r) => {
+            const path = pathBetween(p, r);
+            const n = path?.[0];
+            if (path === undefined || n === undefined) return [];
+            const before = closing.before({
+              groups: [
+                { arrow: p, owner: B, heads: 1 },
+                { arrow: n, owner: B, heads: 1 },
+              ],
+              trail: [p, ...path, r],
+              alsoA: [p],
+            });
+            return [{ p, r, n, before }];
+          }),
+      )
+      .find(
+        ({ r, n, before }) =>
+          table.rules.anchorGrade(before, r, B) === 'stack' &&
+          !table.rules.crossesTrail(before, via(closing.tip, closing.landing), B) &&
+          territoryOf(before, n) === undefined,
+      );
+    if (found === undefined) throw new Error('setup: no stack-grade raider reaches the pocket past a firebreak');
+    const { p, r, n, before } = found;
+
+    const after = table.rules.apply(before, closing.close);
+
+    expect(territoryOf(after, r)).toBe(A);
+    expect(ownerOf(after, p)).toBe(A);
+    expect(ownerOf(after, n)).toBe(B);
+    expect(isTrail(after, B, n)).toBe(true);
+    expect(isTrail(after, B, r)).toBe(false);
+  });
+});

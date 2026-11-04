@@ -128,7 +128,7 @@ describe('the backward walk takes every merge in-arrow and stops at its root', (
   });
 });
 
-describe('commit writes territory and strips every trail on claimed arrows', () => {
+describe('commit writes territory and strips bare trail on claimed arrows (P13; P87 keeps shielding stretches)', () => {
   it('removes claimed arrows from the mover’s and the enemy’s trails', () => {
     const table = onTiling();
     const { home, run } = aRunFromHome(table.geometry, 2);
