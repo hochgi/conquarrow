@@ -46,8 +46,9 @@ Read and follow `.claude/skills/review-changes/SKILL.md`. Also
 
 You are one of the two phases allowed to edit SPEC.md. Check that:
 
-- §11 items the packet closed are marked resolved in place, pointing to the
-  section that now owns them — not deleted.
+- §11 items the packet closed are deleted from §11, and the rule is stated in
+  the section that owns it. No strikethroughs, "resolved" or "withdrawn" notes
+  were added anywhere (AGENTS.md, "SPEC.md states the current design, once").
 - Gaps discovered during the run were added to §11 rather than silently decided.
 - No two sections of SPEC.md now contradict each other. This document has been
   revised many times; a change that invalidates earlier prose must fix the prose.

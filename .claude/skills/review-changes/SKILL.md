@@ -72,9 +72,10 @@ I/O-edge tool (see `component-testing`).
 
 ## Spec hygiene — you are one of two phases that may edit SPEC.md
 
-- §11 items this packet closed are marked **resolved in place**, pointing at the
-  section that now owns them. Not deleted — the record of what was once open is
-  useful, and SPEC.md already uses this convention.
+- §11 items this packet closed are **deleted** from §11, and the rule is stated
+  in the section that owns it. No strikethroughs, "resolved" or "withdrawn"
+  notes were added (AGENTS.md, "SPEC.md states the current design, once").
+  History is git's job; a non-obvious *why* goes in an ADR or the packet.
 - Gaps found during the run were **added** to §11, not quietly decided.
 - No two sections now contradict each other. This document has been revised many
   times and a change that invalidates earlier prose must fix the prose. Two

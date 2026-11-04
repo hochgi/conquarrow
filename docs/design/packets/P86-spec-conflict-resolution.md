@@ -123,16 +123,13 @@ usual and are left open.
 Apply every resolution. Each rule is stated in one normative place; other
 sections point to it rather than restating it.
 
-**Open question for the human before rewriting:** how to keep history.
-CLAUDE.md asks for in-place strikethroughs and **resolved** markers, and
-that convention is part of how the stale sentences survive. Options:
-- keep it as is, and only fix the stale sentences;
-- keep the normative text clean, and move superseded wording into a
-  "Decision history" appendix, linked from where it applied, keeping §11's
-  resolved trail as it is.
-
-Do not pick one without asking. If the human picks the second, update
-CLAUDE.md's "Working with SPEC.md" to match.
+**History (decided by the human, 2026-11-04):** SPEC.md keeps no history in
+its text. Remove every strikethrough and every "resolved", "withdrawn",
+"superseded", "corrected" or "dissolved" note, and state only the current
+rule. Git keeps earlier versions. Where a removed note carries a *why* that
+is not obvious and still matters, make sure an ADR or the deciding packet
+records it before deleting it; most will not need one. §11 keeps only open
+items. The rule is in AGENTS.md ("SPEC.md states the current design, once").
 
 A second, independent reading closes the step: a fresh `reviewer` agent
 given only SPEC.md looks for statements that still disagree. Anything it
@@ -163,7 +160,6 @@ tests), list it.
 
 - Every rule conflict (step 2). Loop the human in on game mechanics only;
   decide prose, tests and code structure yourself.
-- The history question in step 3.
 - A resolution that changes how the game plays in a way a playtest would
   notice: say so when asking.
 
@@ -186,6 +182,6 @@ tests), list it.
 
 1. Conflict 1 on its own (small; decided).
 2. Inventory and register (read-heavy; parallel subagents).
-3. One human decision round on the rule conflicts and the history question.
+3. One human decision round on the rule conflicts.
 4. The SPEC rewrite and the independent reading.
 5. Alignment packets through spec-to-ship.

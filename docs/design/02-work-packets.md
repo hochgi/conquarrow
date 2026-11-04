@@ -287,37 +287,7 @@ the [ledger](../research/byok-benchmark.md).
   (the opening's `homeIn`/`leaves_horizon` rows: the opening improved on the
   proxy, but C#43 regressed on positions), and P76 (horizon; no branch).
 
-**Open, none packeted yet:**
-1. **The BYOK opening.** P82's main finding: the BYOK seat loses every long
-   game on production. Its opening walks past the offer's `tipDist` cap of 17
-   with nothing to close. Either P76 is unparked (P82 met its bleed trigger)
-   or a new offer-row packet is written. **That is the human's call.**
-   Measure either one on P82's long grid: rounds-to-win, or rounds survived
-   while there are no wins.
-   **Packeted 2026-11-02 as [P83](./packets/P83-byok-opening-close-near-home.md)** (offer rows, not P76). **Parked the same day**: it improved the opening on the proxy, but it failed the positions no-regression check at C#43.
-2. **P81 follow-ups** in the heuristic seat:
-   - ~~the beam still sometimes passes when a step is legal;~~ **packeted
-     as [P84](./packets/P84-heuristic-never-idle.md);**
-   - a cut counts as "quiet", so for a dominant seat a staging walk can
-     replace a cut;
-   - the seat's horizon is one turn, so it neither intercepts a long enemy
-     trail nor takes a big first close (playtest 2026-11-03): **packeted as
-     [P85](./packets/P85-heuristic-tempo-horizon.md), shipped 2026-11-04**
-     on the human's waiver (land 1.77× at r20; income 1.23× and speed
-     1.49 s/turn missed their gates);
-   - `packages/mcp/src` keeps a parked copy of the bot that no longer matches
-     web.
-3. **P74 retry**, as tags or row fields rather than prose (grok acts on
-   tags). This would be a new packet; do not merge
-   `parked/p74-byok-defensive-half`.
-4. **`plan` as a list** (one job per stack). This is a JSON-contract change
-   and needs a packet and an ADR.
-5. **A non-grok model check** of the final combination. It needs another
-   provider's key.
-6. **Bench hygiene:**
-   - results do not record the model's `plan`/`why`, which P82's audit needed;
-   - a cell can abort on its worker's spend share (`maxUsd ÷ workers`) well
-     before the run's cap.
+**Open work is tracked in the [backlog](./backlog.md).**
 
 ## Open items this plan inherits
 
