@@ -13,12 +13,16 @@ detailed form of an item; this file is the short list and the order.
 
 ## Next
 
-1. **SPEC conflict audit and rewrite.** [P86](./packets/P86-spec-conflict-resolution.md):
-   - register every conflict with a concrete case;
-   - the human decides the rule conflicts (conflict 2, §11 item 51, is
-     decided: a claim does not demote an uncut trail);
-   - rewrite SPEC.md with no history in the text;
-   - align rules-core and its tests.
+1. **SPEC conflict audit and rewrite.** [P86](./packets/P86-spec-conflict-resolution.md).
+   The [register](../research/spec-conflicts.md) is written. Next:
+   - the human decides R1 (combat on the defender's own land), R2 (a claim
+     that takes the raider's anchor territory) and R3 (does a repelled
+     attack cut);
+   - rewrite SPEC.md with no history in the text, applying the stale-prose
+     rows S1–S41, then run a fresh reviewer reading;
+   - align rules-core and its tests: C2, D1 (the convert wipe misses trail
+     beyond a claim), D2 (an enemy-marked feeder still anchors), and
+     whatever R1–R3 decide.
 
 ## Heuristic seat
 
