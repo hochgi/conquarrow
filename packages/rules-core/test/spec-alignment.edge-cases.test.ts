@@ -15,17 +15,27 @@ import {
   B,
   MINIMAL_DIAMETER,
   byId,
+  anArrow,
+  anExitFrom,
   anInterleaving,
   headsOn,
   isTrail,
   onBoard,
+  onTiling,
   ownerOf,
   stateOf,
   territoryOf,
   via,
 } from './support';
 import { aClosing, firstShielded } from './raider-survives-claim.support';
-import { aFeeding, aLongRoad, anAsideArm, longRoads, marksOf } from './spec-alignment.support';
+import {
+  aFeeding,
+  aLongRoad,
+  anAnchorRing,
+  anAsideArm,
+  longRoads,
+  marksOf,
+} from './spec-alignment.support';
 
 // ── Rule: Landing decides the cut (R3) ────────────────────────────────────────
 
@@ -241,5 +251,53 @@ describe('the clean-feeder predicate is shared (D2)', () => {
     expect(isTrail(before, A, feeder)).toBe(false);
 
     expect(table.rules.anchorGrade(before, out, B)).toBe('territory');
+  });
+});
+
+// ── Rule: A step that does not land claims nothing (R3, review B2) ────────────
+
+describe('a step that does not land claims nothing (R3)', () => {
+  it('does not close when an attack from trail onto own territory is repelled', () => {
+    // Scenario: A repelled attack from trail onto the attacker's own territory does not close
+    const { geometry, rules } = onBoard();
+    const from = anArrow(geometry);
+    const exit = anExitFrom(geometry, from);
+    const before = stateOf(
+      [
+        { arrow: from, owner: A, heads: 2 },
+        { arrow: exit, owner: B, heads: 2 },
+      ],
+      A,
+      { trail: { A: [from], B: [exit] }, territory: [{ arrow: exit, owner: A }] },
+    );
+    expect(rules.closureOf(before, step(from, exit, 1), A)).toBeDefined();
+
+    const after = rules.apply(before, step(from, exit, 1));
+
+    // A is repelled (1 v 2): its stay-behind is still on its trail tip, unclaimed.
+    expect(headsOn(after, from)).toBe(1);
+    expect(territoryOf(after, from)).toBeUndefined();
+    expect(isTrail(after, A, from)).toBe(true);
+  });
+});
+
+// ── Rule: Only a clean feeder taken is a cut (R2, review B1) ──────────────────
+
+describe('only a clean feeder taken is a cut (R2)', () => {
+  it('does not cut when the claimed anchor was already in an enemy trail', () => {
+    // Scenario: A claim that takes a feeder already in an enemy trail is not a cut
+    const table = onTiling();
+    const { ring, road } = anAnchorRing(table);
+    const { e1, e2 } = road;
+    const base = ring.before({ groups: [{ arrow: e2, owner: B, heads: 1 }], trail: [e1, e2] });
+    const trailA = new Set([...(base.trails.get(A) ?? []), ring.f]);
+    const before = { ...base, trails: new Map([...base.trails, [A, trailA]]) };
+    expect(table.rules.anchorGrade(before, e2, B)).toBe('stack');
+
+    const after = table.rules.apply(before, ring.close);
+
+    expect(territoryOf(after, ring.f)).toBe(A);
+    expect(isTrail(after, B, e1)).toBe(true);
+    expect(isTrail(after, B, e2)).toBe(true);
   });
 });

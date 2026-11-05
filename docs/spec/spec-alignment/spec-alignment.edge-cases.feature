@@ -72,3 +72,22 @@ Feature: rules-core follows the P86 rulings — edge cases
       Given player B's trail leaves P0 over "out", and player B's only territory feeding P0 is "feeder"
       And no other player's trail holds "feeder"
       Then player B's anchor grade on "out" is territory
+
+  Rule: A step that does not land claims nothing (R3)
+
+    Scenario: A repelled attack from trail onto the attacker's own territory does not close
+      Given player A x2 stands on its trail arrow "from", and "exit" is player A's territory
+      And player B x2 stands on "exit"
+      When player A steps 1 head from "from" to "exit"
+      Then player A x1 stays on "from"
+      And "from" is not player A's territory
+      And "from" is in player A's trail
+
+  Rule: Only a clean feeder taken is a cut (R2)
+
+    Scenario: A claim that takes a feeder already in an enemy trail is not a cut
+      Given the anchor ring, with f already in player A's trail
+      And player B's trail leaves P0 over a bare arrow e1 to e2, with player B x1 on e2
+      When player A completes the closure
+      Then f is player A's territory
+      And e1 and e2 are in player B's trail

@@ -122,7 +122,7 @@ close with loot ≤ 3 arrows of new land and W ≥ 4.
 | closes with loot ≤ 3 | 19 | 22 | 28 | 56 | 23 | **148 (82 %)** |
 | **small sorties** (loot ≤ 3, W ≥ 4) | 8 | 7 | 9 | 13 | 6 | **43** |
 | … by a P81-dominant seat (finisher carves) | 0 | 0 | 0 | 5 | 1 | 6 |
-| … **fixtures** (non-dominant) | 8 | 7 | 9 | 8 | 5 | **37** |
+| … **fixtures** (non-dominant) | 8 | 7 | 9 | 8 | 5 | **37** (36 in tests: S15 is past the cut of the 2026-11-03 log) |
 
 The human, for comparison, closed 28 times for 356 land (≈ 12.7 per close).
 The opening sorties have W = 7–8 and loot 2–3.
@@ -432,7 +432,7 @@ cuts nor moves closer.
 | I5 | playtest-2026-11-03 | 154 | A → C | 15 | 3 | 3 | 5 |
 | I6 | mirror s1 | 153 | A → B | 24 | 2 | 2 | 2 |
 
-**Sortie fixtures** — the 37 non-dominant small sorties of list 2, taken at
+**Sortie fixtures** — the 37 non-dominant small sorties (S15 is not tested: the 2026-11-03 log is cut at move 265) of list 2, taken at
 the **turn the logged seat landed** (index), with the sortie's start for
 reference. *Logged loot* is the land that close took. *Baseline* and
 *prototype* are the live seat's plan at that position: land gained this turn

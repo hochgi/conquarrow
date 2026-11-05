@@ -22,9 +22,11 @@ ordinary cut runs.
 
 1. **R3. A cut needs a successful crossing.** An enemy step crosses a trail
    only when it lands. A repelled attack (*A* = 0) did not cross and causes
-   no evaporation of the defender's trail (§6.1, §6.2). An attack that wipes
-   the defender (*D* = 0) lands and cuts, even when the attacker is wiped in
-   the same battle.
+   no evaporation of the defender's trail (§6.1, §6.2), and it claims
+   nothing either: closure needs a landing (§7). An attack that wipes the
+   defender (*D* = 0) lands and cuts. When both sides are wiped, the engine
+   today counts the step as landed. SPEC §11 item 5 leaves that open, so this
+   packet pins today's behaviour and does not decide it.
 2. **D1. The convert wipe runs from every converted arrow.** After a stack
    converts, the victim's trail evaporates from that arrow under the
    halt-at-first rule (§6.3). Converted stacks are not firebreaks.
@@ -74,10 +76,12 @@ Out:
 
 1. **One step order, two guards.** `applyStep` keeps its order: combat →
    mark → crossing cut → territory-root cuts after a mark → closure commit →
-   **claim root cuts (new)** → conversion and convert wipe. The crossing cut
-   now runs only when the step landed, like the mark and the mark's root
-   cuts already do. A mutual wipe (*A* and *D* both 0) counts as landed: SPEC
-   §6.2 lands the attacker whenever *D* = 0, and the engine already marks.
+   **claim root cuts (new)** → conversion and convert wipe. The crossing cut,
+   the closure commit and the claim root cuts now run only when the step
+   landed, as the mark and the mark's root cuts already do. A repelled step
+   goes straight to the conversion check, which reads state on every step
+   (§6.3). A mutual wipe (*A* and *D* both 0) is treated as landed, which is
+   today's behaviour, pinned until SPEC §11 item 5 is decided.
 2. **The strip leaves marks under enemy stacks (D1).** `stripClaim` removes
    bare enemy marks from claimed arrows, **except an arrow holding a group
    of that mark's owner**. Such a group is either on a shielding stretch (and
@@ -96,7 +100,8 @@ Out:
 4. **Claim root cuts are computed against the board before the claim and
    fire on the board after it (R2).** For each player V other than the
    closer, in player order, and each point P0 in point order: if some claimed
-   arrow was an in-arrow of P0 and V's territory before the claim, V's trail
+   arrow was a **clean feeder** of P0 for V before the claim (V's territory
+   and in no other player's trail), V's trail
    (after the strip) has an out-arrow at P0, and P0 has no clean feeder for V
    after the claim, then evaporate V's trail from P0 (`cuts.evaporateFrom`).
    They run after the strip and before conversion, so conversion reads the
@@ -123,7 +128,7 @@ flowchart TD
   M --> X["crossing cut (chord test)"]
   X --> T["territory-root cut after a mark"]
   T --> K["closure commit: claim, strip bare marks #59; keep shielding stretches and marks under enemy stacks"]
-  R --> K
+  R --> V
   K --> Q["claim root cuts: anchor land taken #59; evaporate from P0"]
   Q --> V["convert stacks on enemy land with no lifeline"]
   V --> W["convert wipe from each converted arrow"]
@@ -143,7 +148,7 @@ flowchart TD
    that is territory grade on the post-claim board and carries one of its
    owner's stacks.
 5. When a closure takes the last clean feeder of a root point of another
-   player's trail, the system shall evaporate that trail from the root point
+   player's trail (a feeder that was clean before the claim), the system shall evaporate that trail from the root point
    under the halt-at-first rule.
 6. The system shall report territory grade for a trail arrow only when its
    stretch leaves a point with a clean feeder for its owner.
@@ -165,4 +170,4 @@ The register's cases, as phase 2 builds them:
 
 ## Counts
 
-Core: 11 scenarios. Edge cases: 8 scenarios. Invariants: 7. No §11 item.
+Core: 11 scenarios. Edge cases: 10 scenarios. Invariants: 7. No §11 item.

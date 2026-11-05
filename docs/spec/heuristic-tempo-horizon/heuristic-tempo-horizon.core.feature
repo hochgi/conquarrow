@@ -32,7 +32,6 @@ Feature: The live heuristic seat counts the race
 
   Rule: A wide safe window lets the seat reach for a larger close
 
-    # P88: S15 (playtest-2026-11-03 @330) dropped — that log diverges at move 265 under the P86 rulings, so the position is unreachable.
     Scenario: The 36 sortie fixtures pass as a set at the predeclared floor
       Given the sortie fixtures, each replayed from makeMatch of its log's config through its move index (the turn the logged seat landed):
         | id  | log                 | index | seat | loot |
