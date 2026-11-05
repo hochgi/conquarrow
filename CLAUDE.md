@@ -16,7 +16,8 @@ conventions above.
   pipeline, then opens a PR and squash-merges once CI is green. **No human
   gate between phases.** Escalate only for unexpected cost, a big behavioral
   shift, or a SPEC.md game-rule gap. Phase 1 runs in the main thread; phases
-  2–4 are delegated via the Agent tool.
+  2 and 4 are delegated via the Agent tool; phase 3 is a handoff prompt the
+  human runs in OpenCode on grok (see below).
 - **Subagents** (`.claude/agents/`): `spec-author`, `test-author`, `coder`,
   `reviewer`.
 - **Skills** (`.claude/skills/`): `spec-to-ship`, `write-spec`,
@@ -39,6 +40,23 @@ No phase here is a cheap-tier phase. In particular phase 3 is not: in this
 codebase "make the test pass" routinely conceals a design call — whether a
 crossing interleaves, whether an accumulator carries, whether a fragment
 re-attaches — and those are exactly the decisions AGENTS.md forbids inventing.
+
+## Save Claude tokens: hand mechanical work to OpenCode
+
+The human keeps Claude (Opus) for reasoning: specs, design calls, test
+derivation, review. Work that is execution rather than judgement goes to
+OpenCode on `xai/grok-4.7` (SuperGrok subscription, see `OPENCODE.md`) as a
+fully detailed handoff prompt:
+
+- **Phase 3 of `/spec-to-ship`, always** (unless the human says otherwise).
+  The prompt's sections are in `.claude/commands/spec-to-ship.md`.
+- Other long mechanical runs when they would cost many Claude tokens, such as a
+  large rename or a bulk fixture rewrite. Ask the human first.
+
+Write the prompt to `archive/handoffs/` (never committed), show it in full,
+then stop. The human pastes back grok's report. Check it against the branch
+before trusting it. grok gets the same rules: no invented game rule, kick back
+instead.
 
 ## Reading order for a cold start
 
