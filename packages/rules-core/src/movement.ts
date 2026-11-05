@@ -2,7 +2,8 @@
  * The movement engine — allowance, splitting, merging and the turn loop.
  *
  * SPEC §3 (speed, merge cost, spending), §4 (turn structure), §2 (movement
- * follows the grain), §11 items 19–22 and 33. P04 decisions D1–D9.
+ * follows the grain), §6.2 (contact outcomes), §7 (the round boundary),
+ * §11 items 19–22 and 33. P04 decisions D1–D9.
  *
  * Pure: every function here is a function of `(state, move)` and the board it was
  * built over. No clock, no randomness, no I/O, and no mutation of an input state
@@ -112,9 +113,10 @@ interface LandedStep {
  * Cuts, closure and conversion after occupancy is written (§6.1–§6.3, §7).
  *
  * A crossing cut, a mark's territory-root cut, the closure and the claim-root
- * cuts run only when the step landed. A repelled attack did not cross and
- * claims nothing. Conversion still reads every step. A claim is computed once
- * and handed to both the write and the root cuts.
+ * cuts run only when the step landed. A step that did not land — a repelled
+ * attack, or a mutual wipe — crossed nothing and claims nothing. Conversion
+ * still reads every step. A claim is computed once and handed to both the
+ * write and the root cuts.
  */
 const resolveAfterLanding = (step: LandedStep, ports: StepPorts): GameState => {
   let next = step.state;
@@ -137,6 +139,94 @@ const resolveAfterLanding = (step: LandedStep, ports: StepPorts): GameState => {
     }
   }
   return convertEncircled(next, ports.anchorGrade, ports.cuts.evaporateFromArrow);
+};
+
+/**
+ * §6.2 / item 38: an attack may not empty `from` — stay-behind ≥ 1. A lone
+ * head therefore cannot attack. Refuse rather than silently capping.
+ */
+const requireStayBehind = (movers: Group, move: StepMove, contact: Group): void => {
+  if (movers.heads < 2 || move.count > movers.heads - 1) {
+    reject(
+      `attack from ${String(move.from)} onto ${String(contact.owner)} on ${String(move.exit)} must leave at least one head behind (heads=${String(movers.heads)}, count=${String(move.count)})`,
+    );
+  }
+};
+
+/**
+ * Write the split remainder on `from` after `count` heads leave (or die).
+ *
+ * Mutates the step's occupancy copy, never the input state's map.
+ */
+const leaveRemainder = (
+  groups: Map<ArrowId, Group>,
+  from: ArrowId,
+  movers: Group,
+  count: number,
+): void => {
+  const remainder = movers.heads - count;
+  if (remainder === 0) {
+    groups.delete(from);
+  } else {
+    groups.set(from, asGroup(movers.owner, remainder, movers.spent, movers.speedOverride));
+  }
+};
+
+/** The occupancy copy a contact step writes, plus the wipes it records. */
+interface ContactStep {
+  readonly groups: Map<ArrowId, Group>;
+  readonly move: StepMove;
+  readonly movers: Group;
+  readonly contact: Group;
+  readonly wiped: EmptiedArrow[];
+}
+
+/**
+ * Contact on the destination (§6.2). Writes the occupancy copy and records
+ * wipes; the mark, the crossing cut and the claim follow from whether the
+ * attacker landed.
+ *
+ * Both wiped is the *A* = 0 outcome: the defender's stack is wiped and the
+ * arrow is left empty, but the attacker never stood there, so the attacker
+ * does not land and no wipe of the attacker's trail is recorded. *D* = 0 with
+ * *A* > 0 lands. A repelled attack (*A* = 0, *D* > 0) leaves the defender.
+ */
+const resolveContact = ({ groups, move, movers, contact, wiped }: ContactStep): boolean => {
+  requireStayBehind(movers, move, contact);
+  const { aRem, dRem } = resolveBattle(move.count, contact.heads);
+  leaveRemainder(groups, move.from, movers, move.count);
+  if (dRem === 0) {
+    wiped.push({ owner: contact.owner, arrow: move.exit });
+    if (aRem === 0) {
+      groups.delete(move.exit);
+      return false;
+    }
+    groups.set(move.exit, asGroup(movers.owner, aRem, movers.spent + 1, movers.speedOverride));
+    return true;
+  }
+  groups.set(move.exit, asGroup(contact.owner, dRem, contact.spent, contact.speedOverride));
+  return false;
+};
+
+/** What a closed round still has to ask. Kept off `makeRules` so that factory does not grow. */
+interface RoundBoundary {
+  readonly geometry: GeometryPort;
+  readonly evaporateFromArrow: CutRules['evaporateFromArrow'];
+  readonly anchorGrade: TrailRules['anchorGrade'];
+}
+
+/**
+ * A full round has closed (§7, §9).
+ *
+ * Births and birth-cuts, then conversion, then the starvation tick. A
+ * conversion changes heads, and §9 reads that board. Converted stacks take
+ * `spent = speed(heads)` from {@link convertEncircled} — nothing extra is set
+ * here (ADR 0005).
+ */
+const endRound = (handed: GameState, boundary: RoundBoundary): GameState => {
+  const accrued = accrueRound(handed, boundary.geometry, boundary.evaporateFromArrow);
+  const converted = convertEncircled(accrued, boundary.anchorGrade, boundary.evaporateFromArrow);
+  return tickStarvation(converted, boundary.geometry);
 };
 
 /**
@@ -276,40 +366,11 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
   };
 
   /**
-   * §6.2 / item 38: an attack may not empty `from` — stay-behind ≥ 1. A lone
-   * head therefore cannot attack. Refuse rather than silently capping.
-   */
-  const requireStayBehind = (movers: Group, move: StepMove, contact: Group): void => {
-    if (movers.heads < 2 || move.count > movers.heads - 1) {
-      reject(
-        `attack from ${String(move.from)} onto ${String(contact.owner)} on ${String(move.exit)} must leave at least one head behind (heads=${String(movers.heads)}, count=${String(move.count)})`,
-      );
-    }
-  };
-
-  /**
-   * Write the split remainder on `from` after `count` heads leave (or die).
-   */
-  const leaveRemainder = (
-    groups: Map<ArrowId, Group>,
-    from: ArrowId,
-    movers: Group,
-    count: number,
-  ): void => {
-    const remainder = movers.heads - count;
-    if (remainder === 0) {
-      groups.delete(from);
-    } else {
-      groups.set(from, asGroup(movers.owner, remainder, movers.spent, movers.speedOverride));
-    }
-  };
-
-  /**
    * A step: occupancy (ordinary or contact combat), then the mark it leaves,
    * then cuts, closure and conversion ({@link resolveAfterLanding}).
    *
    * P06 D6: combat (when contact) first. A crossing cut and a closure run only
-   * when the step landed (§6.2).
+   * when the step landed (§6.2). A mutual wipe does not land.
    */
   const applyStep = (state: GameState, move: StepMove): GameState => {
     const movers = moversFor(state, move);
@@ -318,34 +379,14 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
     const contact =
       standing !== undefined && standing.owner !== movers.owner ? standing : undefined;
 
-    /** Arrows whose occupant was wiped to 0 this step — evaporate after mark. */
-    const wiped: { readonly owner: PlayerId; readonly arrow: ArrowId }[] = [];
-
+    /** Arrows whose occupant was wiped to 0 this step — evaporate after the write. */
+    const wiped: EmptiedArrow[] = [];
     let landed = true;
-    if (contact !== undefined) {
-      requireStayBehind(movers, move, contact);
-      const { aRem, dRem } = resolveBattle(move.count, contact.heads);
-      leaveRemainder(groups, move.from, movers, move.count);
-      if (dRem === 0) {
-        wiped.push({ owner: contact.owner, arrow: move.exit });
-        landed = true;
-        if (aRem === 0) {
-          wiped.push({ owner: movers.owner, arrow: move.exit });
-          groups.delete(move.exit);
-        } else {
-          groups.set(move.exit, asGroup(movers.owner, aRem, movers.spent + 1, movers.speedOverride));
-        }
-      } else {
-        landed = false;
-        groups.set(move.exit, asGroup(contact.owner, dRem, contact.spent, contact.speedOverride));
-        if (aRem === 0) {
-          // Attackers on the destination are gone; stay-behind remains on from.
-          // No destination wipe of attacker trail — they never marked exit.
-        }
-      }
-    } else {
+    if (contact === undefined) {
       leaveRemainder(groups, move.from, movers, move.count);
       groups.set(move.exit, landing(movers, move.count, standing));
+    } else {
+      landed = resolveContact({ groups, move, movers, contact, wiped });
     }
 
     const stepped: GameState = {
@@ -368,16 +409,13 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
    * counter is zeroed and every merge override is dropped (§3, §11 item 20).
    * Ending with allowance unspent is ordinary play, so no exhaustion is required.
    *
-   * P08: when the next seat is `players[0]`, a full round has closed and every
-   * spawner accrues one round-robin step (§7 / §11 item 41). P40: a birth onto
-   * another player's open trail cuts that trail from the birth arrow.
-   *
-   * P36: that same boundary is where the starvation clocks advance, and P37 left
-   * the order intact — accrue, advance the clocks, and then `apply`'s tail
-   * resolves the losses. A streak counts *rounds*, so the tick stays here even
-   * though the resolution no longer does. `players[0]` is the marker whether or
-   * not that seat is still playing; there is no *first living player* reading of
-   * the boundary (§9).
+   * When the next seat is `players[0]`, a full round has closed (§7). Accrual,
+   * birth-cuts, conversion and the starvation tick run there and nowhere else
+   * in `endTurn` — a turn that does not close a round changes no ownership.
+   * Losses still resolve on `apply`'s tail, after this returns (P37). A streak
+   * counts *rounds*, so the tick stays on the boundary even though the
+   * resolution no longer does. `players[0]` is the marker whether or not that
+   * seat is still playing; there is no *first living player* reading (§9).
    */
   const applyEndTurn = (state: GameState): GameState => {
     const next = nextPlayer(state);
@@ -390,13 +428,14 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
     };
     const roundStart = handed.players[0];
     if (roundStart === undefined || next !== roundStart) return handed;
-    // Full round (§9 / P36): accrue, then tick starvation. Losses resolve on the
-    // tail of `apply` (P37), which is *after* this returns, so the boundary order
-    // accrue -> tick -> resolve is preserved without stating it twice.
     // Tick-before-resolve is load-bearing: a seat is lost on the round its streak
     // reaches dominationN, not the round after. Accrue-first cannot rescue a lost
     // or destitute seat — they own no share (share theorem).
-    return tickStarvation(accrueRound(handed, geometry, cuts.evaporateFromArrow), geometry);
+    return endRound(handed, {
+      geometry,
+      evaporateFromArrow: cuts.evaporateFromArrow,
+      anchorGrade: trails.anchorGrade,
+    });
   };
 
   /**
