@@ -1,6 +1,6 @@
 # language: en
 # Overview: docs/spec/chord-test/chord-test.md
-# SPEC §2 (chord test), §7 (self-crossing and even-odd fill), §11 item 1
+# SPEC §2 (chord test), §7 (self-crossing; fill is reachability — item 36), §11 item 1
 
 Feature: The chord test — totality, symmetry and the cases that unify
   As the rules core
@@ -101,12 +101,11 @@ Feature: The chord test — totality, symmetry and the cases that unify
 
   Rule: One predicate, and §7 asks the narrower half of it
 
-    The enemy cut (§6.1) and combat location (§6.2) both want the full verdict:
-    interleave OR coincide. Even-odd fill (§7) wants interleave alone, because
-    coincidence cannot invert anything — fill reads the trail's arrow set
-    (§6.1a), and re-traversing an arrow the trail already holds leaves that set
-    unchanged. So the predicate is shared and one caller reads only part of it.
+    The enemy cut (§6.1) wants the full verdict: interleave OR coincide. Combat
+    reads no chord: it resolves on the destination arrow (SPEC §6.2, item 37).
+    Fill reads no chord: it is reachability, not parity (SPEC §7, item 36).
 
+    # Superseded by item 37 in part: only the cut caller reads the verdict; combat resolves on the destination arrow (SPEC §6.2).
     Scenario Outline: The full verdict serves the cut and combat callers
       Given two chords that <relation>
       When the cut check in §6.1 applies the chord test
@@ -118,6 +117,7 @@ Feature: The chord test — totality, symmetry and the cases that unify
         | coincide      | crossing    |
         | turn aside    | no crossing |
 
+    # Superseded by item 36: fill is reachability, not parity, and reads no chord (SPEC §7).
     Scenario Outline: Even-odd fill inverts on interleave alone
       Given two chords of one player's own trail that <relation>
       When §7 asks whether the lobes invert

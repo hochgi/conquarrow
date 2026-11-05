@@ -90,6 +90,7 @@ Feature: A seat that can never claim again is out, and it vanishes
       Then A holds one head
       And A is not lost
 
+    # Superseded by P37: a headless seat is offered only the pass (endTurn), not no move at all (SPEC §9).
     Scenario: A headless seat takes no action while it waits
       Given A owns a spawner share and no heads
       When it is A's turn

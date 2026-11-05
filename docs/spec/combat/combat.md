@@ -73,7 +73,9 @@ positive integer *A*, *D*; the loop states the HoMM intent if the table is retun
 - When *A* remaining is 0, the system shall not land the attacker and shall not
   mark the destination.
 - The system shall spend one step of the attacker's allowance for the whole battle.
-- When combat and a cut both apply, the system shall resolve combat before the cut.
+- When combat and a cut both apply, the system shall resolve combat before the cut,
+  and shall cut only when the attacker lands: a repelled attack does not cut
+  (R3, 2026-11-05; SPEC §6.1, §6.2).
 - The system shall compel no step: declining is always legal, and it is the
   absence of a move rather than a move (P51).
 - The system shall not mutate the input state, and shall return equal outputs for

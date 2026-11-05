@@ -106,3 +106,5 @@ Feature: Contact combat — stepping onto an enemy-occupied arrow
       Then combat losses are applied first
       And then player B's trail evaporates from the cut
       # Trail is independent of heads (§6.1a).
+      # R3 (2026-11-05): the cut follows only when the attacker lands; a repelled
+      # attack does not cut (SPEC §6.1, §6.2).

@@ -13,16 +13,17 @@ detailed form of an item; this file is the short list and the order.
 
 ## Next
 
-1. **SPEC conflict audit and rewrite.** [P86](./packets/P86-spec-conflict-resolution.md).
-   The [register](../research/spec-conflicts.md) is written. Next:
-   - the human decides R1 (combat on the defender's own land), R2 (a claim
-     that takes the raider's anchor territory) and R3 (does a repelled
-     attack cut);
-   - rewrite SPEC.md with no history in the text, applying the stale-prose
-     rows S1–S41, then run a fresh reviewer reading;
-   - align rules-core and its tests: C2, D1 (the convert wipe misses trail
-     beyond a claim), D2 (an enemy-marked feeder still anchors), and
-     whatever R1–R3 decide.
+1. **Align rules-core with the P86 rulings.** P88 (packet in progress):
+   C2, R2, R3, D1 and D2 from the [register](../research/spec-conflicts.md),
+   each with its own tests, through spec-to-ship.
+2. **Two open rules for the human** (SPEC §11 items 5 and 6, found by the
+   P86 fresh reading): both sides wiped in one battle, and conversion after a
+   birth-cut at the round boundary.
+3. **P86 leftovers.** Bot modules and test oracles that restate a rule
+   (register, last table): the claim estimate in `findings.ts` /
+   `botClose.ts`, "any trail drop is a cut" in `findings.ts` and
+   `fx/events.ts`, and coincide-only cut tags in `byokBot.ts`. Suspected
+   rows U1–U4.
 
 ## Heuristic seat
 

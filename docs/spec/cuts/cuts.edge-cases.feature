@@ -47,6 +47,8 @@ Feature: Cuts — firebreak sieges, headless trail, and seams
       Then contact combat is applied first
       And then the cut evaporates against the trail set
       # Trail is independent of heads (§6.1a). Order settled for P06.
+      # R3 (2026-11-05): the cut follows only when the attacker lands; a repelled
+      # attack does not cut (SPEC §6.1, §6.2).
 
   Rule: A cut on one arm still respects firebreaks on the other (P47)
 

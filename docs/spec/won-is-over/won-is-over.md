@@ -161,6 +161,8 @@ The transition is what carries the meaning.
 
 ## A cut can never be the deciding move
 
+Superseded by SPEC §6.3: a cut that demotes a raider inside enemy land converts it, so a cut can move heads, and the argument below that no cut reaches a losing row does not hold.
+
 Worth recording, because it looks like it should be able to and a test was written
 on the assumption that it could. Evaporation destroys **trail** and nothing else —
 `cuts.ts` opens with *"fronts destroy trail until they would enter an occupied

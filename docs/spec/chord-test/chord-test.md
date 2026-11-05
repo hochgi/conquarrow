@@ -66,12 +66,11 @@ decision, not a tripwire. Three behaviours emerge with no extra design:
 - Two trails can **race in parallel** through the same corridor, mutually aware
   and mutually unobligated — until one of them turns.
 
-Enemy cut (§6.1) and where combat resolves (§6.2) both take the full verdict.
-**Even-odd fill (§7) takes the interleave half alone**, because coincidence
-cannot invert anything: fill reads the trail's arrow set (§6.1a), and
-re-traversing an arrow the trail already holds leaves that set unchanged. So the
-port exposes both `chordsInterleave` and `chordsCross`, and the relationship
-between them is itself an invariant rather than two independent tests.
+Enemy cut (§6.1) takes the full verdict. Combat reads no chord: it resolves on the
+destination arrow (SPEC §6.2, item 37). Fill reads no chord either: it is
+reachability, not parity (SPEC §7, item 36). The port still exposes both
+`chordsInterleave` and `chordsCross`, and the relationship between them is itself
+an invariant rather than two independent tests.
 
 ## One point can present several chords — and that is the caller's problem
 

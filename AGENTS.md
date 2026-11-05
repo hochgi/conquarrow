@@ -264,7 +264,7 @@ of these are near-misses for each other.
 | **stack** | merged heads on one arrow; stack size **is** lives |
 | **sentry** | heads a player *chose* to leave on a trail; discretionary — any one is a firebreak against a cut; its size matters only for contact combat (§6.1, P12) |
 | **trail** | the path a head leaves; a **set** of arrows — no order, no memory, not a tree |
-| **anchor** | what holds a trail live. **Territory grade**: can close and claim, and its heads resist conversion. **Stack grade**: live and drivable, but pays only a land bridge. Also the one head a branch is *required* to leave |
+| **anchor** | what holds a trail live. **Territory grade**: the stretch leaves a point a clean territory feeder feeds; its heads resist conversion and may step onto enemy land. **Stack grade**: live and drivable, and still claims when driven home (§7), but protects nobody from conversion |
 | **cut** | an enemy crossing your trail |
 | **evaporation** | the destruction a cut causes, running **both** ways from the cut point |
 | **front** | one advancing edge of an evaporation; destroys trail, **never heads**; halts **per arrow** (the first arrow holding the victim's heads), never per point |

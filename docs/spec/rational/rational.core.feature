@@ -1,10 +1,11 @@
 # language: en
 # Overview: docs/spec/rational/rational.md
-# SPEC §3 (harmonic speed, banking), §7 (accumulators, carry)
+# SPEC §7 (accumulators, carry). Movement allowance is whole steps with nothing
+# banked (item 20, SPEC §3), so it reads no rational.
 
 Feature: Exact rational arithmetic
   As the rules core
-  I want allowance and accrual computed exactly
+  I want accrual computed exactly
   So that the spawner rhythm a player can work out in their head is the one the
   engine actually produces
 
@@ -62,6 +63,7 @@ Feature: Exact rational arithmetic
     SPEC §7 is explicit that nothing is wasted, which matters precisely because
     two spawners feeding one arrow overshoot routinely.
 
+    # Superseded by item 20: allowance is 1 + floor(log2 N) whole steps and nothing is banked (SPEC §3).
     Scenario: A whole step is spent and the fraction is kept
       Given an allowance of exactly 3/2
       When one whole step is spent

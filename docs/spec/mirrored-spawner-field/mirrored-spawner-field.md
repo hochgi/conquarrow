@@ -39,8 +39,8 @@ tolerance.
 
 ## What fairness means here, precisely
 
-Travel is anisotropic: 1 step per unit with the grain, 2 against, because
-`N + SE + SW = 0`. That prices three separate journeys — out to the contested
+Travel is anisotropic: 1 step per unit with the grain, 2 against, because the
+three out-directions, at world 0°/120°/240°, sum to zero (SPEC §2). That prices three separate journeys — out to the contested
 centre, home again, and the closure around what was taken. A claim is **not** a
 closed walk (§7 closure departs territory and lands back on it at a different
 arrow, with the owned boundary closing the loop), so the balance property of
@@ -95,5 +95,5 @@ every directed path length at once.
   feel, and is for playtest rather than for a test.
 - **Nothing about 4-player M-invariance of the finished field.** Four-player
   homes are not a union of M-orbits; the home override (unchanged) can punch a
-  hole. Thinning itself is still M-invariant at every player count. MVP is 2
-  seats (§4).
+  hole. Thinning itself is still M-invariant at every player count. The engine
+  takes 2–8 seats, and the field is exactly fair for 2, 3 and 6 (SPEC §8).

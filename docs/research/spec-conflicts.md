@@ -34,11 +34,35 @@ test in the alignment step.
 
 | Kind | Rows |
 |---|---|
-| Rule conflict | 3 open (R1–R3), 2 decided before this audit (C1, C2) |
-| Code divergence | 2 confirmed (D1, D2); D3 if R3 goes (a); plus C2's code change |
-| Stale prose | 41 (S1–S41) |
-| Suspected | 2 (U1–U2) |
+| Rule conflict | 3 (R1–R3), all ruled 2026-11-05; 2 decided before this audit (C1, C2) |
+| Code divergence | 3 (D1–D3), plus the code changes for C2 and R2 |
+| Stale prose | 44 (S1–S44) |
+| Suspected | 4 (U1–U4) |
 | Gap (to §11) | 0 new |
+
+## Rulings (the human, 2026-11-05)
+
+- **R1: (a).** A stack on its owner's land can be attacked. The attacker
+  needs a lifeline: it steps from its own territory (a trail of length 0) or
+  from a territory-grade trail. That is the existing self-convert gate (§6.3),
+  so the engine needs no change. §5:346 and §4:260 are rewritten.
+- **R2: taking the anchor land is a cut.** The human asked for a case first;
+  it exists (see R2 below). The ruling, from the human's own words:
+  - When a claim takes a trail's anchoring land (the last clean territory
+    feeder into its root point), evaporation runs from the anchor up to the
+    nearest firebreak, the owner's stack. This is §6.1's territory-root cut,
+    triggered by a claim rather than a mark.
+  - A stack the claim did not enclose converts only by the ordinary §6.3
+    rule: "A stack standing on enemy land with no life line to its own
+    territory is converted to the same seat as the land it stands on."
+  - "If multiple firebreaks exist on that trail, evaporation should start
+    from converted stack outwards until it reaches the next firebreak standing
+    on a neutral tile." That is the existing convert wipe (§6.3:533), and the
+    alignment step fixes D1 so the engine does it.
+- **R3: (a).** "To cross a trail and cause evaporation the crossing must
+  succeed. So if a smaller stack tries to attack a bigger enemy stack and
+  fails, it did not cross. This should not cause evaporation." D3 is a code
+  fix.
 
 ## Decided before this audit
 
@@ -135,6 +159,17 @@ test in the alignment step.
     converts only after a cut. Taking land never captures a trail-connected
     raider by itself; only cuts do. This is the same as C1 and C2 applied to
     the anchor as well as the road.
+  - **The case the human asked for** (generated tiling). A's ring is
+    `tiling:a:` `0,0,0 → 1,0,0 → 2,0,1 → 1,1,1 → 0,2,2 → 0,1,2`. The first
+    three arrows are A's land already and the last three are A's trail; A
+    closes from `0,1,2` onto `0,0,0`. B's land `f` = `1,1,2` is inside the
+    ring. B ×1 stands on `e` = `1,0,2`, which leaves `f`'s head point (a
+    point of A's land) outward. B's trail is `{e}`, territory grade through
+    `f`. A's closure does not cross B's trail.
+    - `e` neutral: today B keeps the stack and its trail drops to stack grade.
+    - `e` on A's land: today B's stack converts to A.
+    So a claim can take the anchor with no cut and without enclosing the
+    stack.
   - If (b): what anchors the surviving stretch afterwards? It reaches no B
     territory any more, so it would be stack grade after the move. That
     means it converts at the next state check: the same bug one move later
@@ -280,6 +315,14 @@ as the SPEC rewrite, or in the alignment packet that touches that spec.
 | S40 | Every packet spec below. Each restates a rule a later decision changed, and each is fixed in the SPEC rewrite PR as a one-line correction or an "(superseded by …)" pointer at the top of the file:<br>- `closure.md:36-37, 140, 141-142, 154-158`; `closure.core.feature:144-160`: unqualified strip, "leave every other trail unchanged", enemy head "keeps standing", "no accumulators yet". Superseded by P07, P08, P87<br>- `closure.edge-cases.feature:91-98`: branch-anchor refusal. Superseded by P22<br>- `cuts.core.feature:113`: "they keep standing here". Superseded by P07<br>- `chord-test.md:69-74`; `chord-test.edge-cases.feature:104-130`: combat and fill read chords. Superseded by items 36, 37<br>- `crossings.md:83, 132-133`; `crossings.core.feature:120-121`: lobe inversion; 1:1 at the point. Superseded by items 36, 37<br>- `move.md:32, 96-97`; `move.edge-cases.feature:99-102`: branch toll; pair garrison. Superseded by P12, P22<br>- `movement.md:27-28, 100, 113-114`; `movement.edge-cases.feature:41-47`: a step onto an enemy is refused. Superseded by P06<br>- `rational.core.feature:3, 65-68`; `rational.edge-cases.feature:72-82`: harmonic banking. Superseded by item 20<br>- `geometry-port.md:141-142, 160-161`; `geometry-port.core.feature:21-22, 104`: even-odd; combat at points; the self-trap reason. Superseded by items 36, 37, and §6.1a:473<br>- `immediate-loss.md:215-222`; `immediate-loss.core.feature:24-28`: item 46 "open". Superseded by P38<br>- `losing-conditions.md:148-153`: loss evaluated only at the boundary. Superseded by P37<br>- `losing-conditions.core.feature:93-97`; `losing-conditions.md:233-234`: "no legal move". Superseded by P37 (the pass is offered)<br>- `won-is-over.md:162-173`: "no cut can move any seat into a losing row". Superseded by §6.3:529 (a cut that demotes a raider inside enemy land converts it) | — | — |
 | S41 | `mirrored-spawner-field.md:43, 99`: "{N, SE, SW}", "MVP is 2 seats" | S10, S11 | As S10, S11 |
 
+### Found during the SPEC rewrite
+
+| # | Stale sentence | Superseded by | Fix |
+|---|---|---|---|
+| S42 | AGENTS.md vocabulary, **anchor**: "Territory grade: can close and claim … Stack grade: … pays only a land bridge" | P42, §6.1 (grade does not govern closing) | Rewritten in the SPEC rewrite PR |
+| S43 | S10's own fix said the field is "exactly fair for 2, 3, 6" | `geometry-tiling/src/setup.ts` thins at the reflection-orbit representative only, so the field is exact for 2 seats | §7 states the 2-seat mirror; 3 and 6 stay open in §11 |
+| S44 | §1, §5, §9 "You can only be hurt while you are growing" | R1 (a home stack can be attacked) | "cut" instead of "hurt" |
+
 ## Suspected
 
 - **U1.** `birth-cut.edge-cases.feature:26-32` pins "a friendly birth onto
@@ -291,6 +334,15 @@ as the SPEC rewrite, or in the alignment packet that touches that spec.
   every-seat-lost state. `immediate-loss.md:160-161` (invariant 11) says
   `winner` is never unset there. Both agree the state is unreachable. Check
   which assertion the committed tests make, and keep one.
+- **U3.** `closure.edge-cases.feature:82-89` pins "A closure onto an arrow
+  the enemy occupies is refused", calling contact "P06" and the arrow
+  unenterable. After R1 a stack on its owner's land can be attacked, so the
+  Given may only be refused by the stay-behind rule. Check the test's
+  reason in the alignment step.
+- **U4.** Leftovers in packet specs, not in S40: `move.md:56` (the turn
+  "ends" when no step is left, S12); `crossings.md:78` (a heading that
+  assumes a narrower §7 predicate); P87's `raider-survives-claim.md` restates
+  decision 4 in its terms and invariants (P88 flips the tests).
 
 ## Removing trail without a cut or a wipe
 
@@ -345,3 +397,24 @@ the rewrite keeps each as present-tense reasoning or moves it to an ADR:
 - the birth-cut order (item 47 at §11:1122), which is a **rule** and moves to
   §6.1;
 - the P02 fixture floor and the finiteness argument (item 29).
+
+## The fresh reading (step 3's closing check, 2026-11-05)
+
+A fresh `reviewer` agent read only the rewritten SPEC.md. It found 7
+rule-level items, 11 wording items, 5 cross-references and 4 history
+leftovers. All were fixed in the same PR, except two gaps that no recorded
+decision settles. Those are open in §11 for the human:
+
+| # | Gap | Engine today |
+|---|---|---|
+| G1 | **Both sides wiped in one battle** (§11 item 5). 2 v 3: weights 9∶10, the defender loses 3, the attacker 2.7 capped at 2. "*D* = 0: lands" and "*A* = 0: does not land" both apply | Treated as a landing: it marks, both stacks are wiped, and the crossing cuts |
+| G2 | **Conversion after a birth-cut at the round boundary** (§11 item 6). A birth on seat Y's own `endTurn` cuts Y's trail and demotes a Y raider on X's land. "Conversion triggers on state" against "a turn in which nothing stepped converts nothing" (P51) | Nothing converts at the boundary; the raider converts after the next step anyone takes |
+
+The other rule-level items were stated more than one way and settled by
+existing packets or the engine:
+- the entry test for enemy land is the P28 predicate;
+- a winning attack onto your own territory marks nothing (§5) and closes from
+  a trail (§7);
+- a stub coincide is a crossing (P05 crossings);
+- a runner keeps its shares until carved;
+- a repelled step cuts no trail, a third player's included (R3).

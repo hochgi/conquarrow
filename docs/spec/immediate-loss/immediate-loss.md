@@ -212,13 +212,9 @@ instead, where the board can be authored for it.
 - §11 item 45 (flicker-then-fade when a seat vanishes) — **resolved by P39.**
   Adapter-only; this packet's engine half (clear, do not evaporate) stands.
   See `docs/spec/seat-vanish-fx/seat-vanish-fx.md`.
-- §11 item 46 (must `legalMoves` and `apply` refuse once `winner` is set?)
-  — **opened by this packet, not answered by it.** `legalMoves` never consults
-  `winner`, so a seat that wins mid-turn keeps its remaining allowance. Under P36
-  that window sat between turns where only the adapter saw it; resolving on the
-  move opens it inside a turn, which is what surfaced the question. No adapter
-  reaches it (`App.tsx` locks input on `winner !== undefined`), so it is a
-  totality gap rather than a live defect — and the two candidate answers differ
-  in whether a replay past the win throws, which makes it a rule decision.
+- §11 item 46 (must `legalMoves` and `apply` refuse once `winner` is set?) —
+  opened by this packet and **resolved by P38** (SPEC §9): a state with a winner
+  offers no move and `apply` refuses every move. See
+  `docs/spec/won-is-over/won-is-over.md`.
 - Retuning `dominationN`.
 - Any change to closure, cuts, conversion, accrual, or the four-case table.

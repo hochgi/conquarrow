@@ -38,13 +38,15 @@ Feature: Movement — refusals, merge barring and purity
       When player A tries to step count 1 from a1 to e1
       Then the step is refused with a contract violation
 
+    # Superseded by P06: a step onto an enemy-occupied arrow is an attack (SPEC §6.2).
     Scenario: A step onto an opponent-occupied arrow is refused
       Given arrow a1 holds 1 head belonging to player A
       And arrow e1 holds 1 head belonging to player B
       And e1 is an out-arrow of the target of a1
       When player A tries to step count 1 from a1 to e1
       Then the step is refused with a contract violation
-      # Combat on contact is P06. P04 refuses; it does not resolve.
+      # This step is still refused, but by the stay-behind rule: a lone head
+      # cannot attack (SPEC §6.2).
 
     Scenario: A step with no allowance left is refused
       Given arrow a1 holds 1 head belonging to player A

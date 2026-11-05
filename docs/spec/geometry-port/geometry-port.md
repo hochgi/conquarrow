@@ -138,8 +138,8 @@ look like nice-to-haves are load-bearing and worth naming:
 **Strong connectivity** is what allows movement to be forward-only with no
 backwards escape hatch and no reachability special case. It follows from
 3-in/3-out: a balanced, weakly connected digraph is Eulerian, therefore strongly
-connected. The same degree condition independently makes self-trap impossible
-(§6.1a) — balance pays twice.
+connected. Self-trap is impossible for a different reason: stepping onto your own
+trail is legal, so a head always has an out-arrow (SPEC §6.1a, invariant 2).
 
 **Girth 3 enclosing exactly one vertex** means the atomic unit of conquest and
 the atomic unit of value are the same object. The smallest territory the board
@@ -157,8 +157,8 @@ on ℤ/7, unique up to isomorphism), and a fixture you can read is the entire po
 
 ## Stable ordering is a determinism requirement
 
-The last invariant is not tidiness. Even-odd fill (§7) sweeps a region of the
-board through this port, and combat resolution walks a point's arrows. A port that
+The last invariant is not tidiness. Fill, a reachability test (SPEC §7), sweeps a
+region of the board through this port, and the crossing test walks a point's arrows. A port that
 returns adjacency in a different order on two calls — a `Set` iterated, a `sort`
 with a partial comparator — produces a rules engine that passes every unit test and
 drifts in replay. ADR 0001 names this as the realistic purity failure, not

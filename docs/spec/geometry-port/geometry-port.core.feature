@@ -18,8 +18,8 @@ Feature: GeometryPort conformance — the arrow graph
   Rule: Points are 3-in / 3-out
 
     The load-bearing property of the whole design. It buys strong connectivity,
-    so no head is ever stranded, and it independently makes self-trap impossible
-    (SPEC §6.1a). Balance pays twice.
+    so no head is ever stranded. Self-trap is impossible for a different reason:
+    stepping onto your own trail is legal (SPEC §6.1a, invariant 2).
 
     Scenario: Every point has exactly three in-arrows and three out-arrows
       When I enumerate every point on the board
@@ -101,7 +101,7 @@ Feature: GeometryPort conformance — the arrow graph
 
   Rule: Enumeration is bounded and duplicate-free
 
-    Even-odd fill sweeps a region of the board through this port and must not
+    Fill (reachability, SPEC §7) sweeps a region of the board through this port and must not
     know how the board is represented. On an unbounded board the region has to be
     asked for explicitly, which is what a window is.
 
