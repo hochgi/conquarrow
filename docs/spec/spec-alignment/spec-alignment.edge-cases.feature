@@ -13,6 +13,7 @@ Feature: rules-core follows the P86 rulings — edge cases
 
   Rule: Landing decides the cut (R3)
 
+    # Superseded by P89: a mutual wipe is the A = 0 outcome — no landing, no cut (SPEC §6.2).
     Scenario: A mutual wipe lands and cuts
       Given player B's trail runs through point P and player B x3 stands on "exit"
       And player A x3 stands on "from", and the step "from" to "exit" interleaves B's chord at P
