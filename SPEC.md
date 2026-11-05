@@ -482,10 +482,10 @@ Each **round** uses the threat-weighted floor rule; rounds repeat until *A* or *
 
 **Outcomes**
 
-- *D* = 0: the attacker **lands** on the destination with remaining *A* (ordinary occupancy). The destination is marked as any step's destination is (§5): trail, unless it is already the attacker's territory, where a step from trail is a closure (§7). The stay-behind remains on `from` and may later merge.
-- *A* = 0: the attacker **does not land** and **does not mark** the destination. The stay-behind stays on `from`; if `from` is trail, it is the trail's tip. The defender keeps remaining *D* on the arrow.
+- *D* = 0 and *A* > 0: the attacker **lands** on the destination with remaining *A* (ordinary occupancy). The destination is marked as any step's destination is (§5): trail, unless it is already the attacker's territory, where a step from trail is a closure (§7). The stay-behind remains on `from` and may later merge.
+- *A* = 0: the attacker **does not land** and **does not mark** the destination. The stay-behind stays on `from`; if `from` is trail, it is the trail's tip. The defender keeps any remaining *D* on the arrow.
 
-A round can wipe both sides at once (for example 2 v 3: weights 9∶10, the defender loses 3 and the attacker 2.7, capped to 2). What that outcome is, is open (§11).
+- **Both wiped** (*A* = 0 and *D* = 0 in the same round, for example 2 v 3: weights 9∶10, the defender loses 3 and the attacker 2.7, capped to 2): no attacker reached the arrow, so this is the *A* = 0 outcome — the attacker does not land, does not mark, and the step crosses nothing (§6.1). The arrow is left empty. The defender's stack is still wiped, so the defender's trail evaporates from that arrow as for any combat wipe (§6.1).
 
 Under the current magnitude step, a single round always wipes at least one side for positive integer *A*, *D*; the loop states the HoMM intent if the table is ever retuned.
 
@@ -513,7 +513,7 @@ Conversion triggers on **state, not on event**:
 
 A **life line** is a territory-grade stretch under the stack (§6.1). Stack grade and dormant do not protect, and a stack with no trail has none. Closing a shape around enemy heads is the common case, not a separate rule: the closure puts them on your territory, and those with no life line convert. A stack the claim did not enclose converts only through this same rule. **Stacks convert intact:** encircle a 3-stack and you gain a 3-stack, not three singles and not a token survivor.
 
-**Entering enemy territory.** A step onto another player's territory is legal only when `from` is the mover's own territory, or `from` is in the mover's trail and that stretch is territory grade (§6.1). Any other step onto another player's territory is **illegal** (§4); it is refused, so it never converts its own mover. Conversion follows another player's move — a claim, or a cut that demotes a raider already inside; when conversion is judged after a birth-cut at the round boundary is open (§11).
+**Entering enemy territory.** A step onto another player's territory is legal only when `from` is the mover's own territory, or `from` is in the mover's trail and that stretch is territory grade (§6.1). Any other step onto another player's territory is **illegal** (§4); it is refused, so it never converts its own mover. Conversion is judged after every step and at every round boundary, after that boundary's births and birth-cuts (§7) and before its starvation tick (§9). It follows another player's move — a claim, or a cut that demotes a raider already inside — or a birth-cut at the boundary, which can fall on the raider's owner's own pass.
 
 A group with a life line is **not** encircled. You cannot capture a trail-connected raider by claim alone, even when the closure claims the arrow it stands on or the road it came by: the arrows become your territory, and the raider and its trail stay on them (§7). Only evaporation drops the grade (§6.1) — a cut or a wipe, including the territory-root cut a claim causes when it takes the stretch's last clean feeder. Conversion is judged on the board the move leaves: after the claim and any cut it causes.
 
@@ -623,7 +623,7 @@ Three things follow:
 ### Spawner logic
 
 - A spawner has a **force** *f*, a rational fraction ≤ 1/3. **1/3 is a very rare maximum**; typical values are **1/9 or 1/12**. Total output is *f* heads per **full round** (every seat has taken a turn).
-- **Each full round, one adjacent arrow gains *f***, cycling round-robin. Post-MVP, other distributions per spawner type. Accrual runs when `endTurn` returns the active seat to `players[0]` — not on every `endTurn`. Births happen at that tick.
+- **Each full round, one adjacent arrow gains *f***, cycling round-robin. Post-MVP, other distributions per spawner type. Accrual runs when `endTurn` returns the active seat to `players[0]` — not on every `endTurn`. Births happen at that tick, then birth-cuts (§6.1), then conversion (§6.3), then the starvation tick (§9).
 - Each **accumulator belongs to the arrow, not the player.** When one reaches 1, a head appears on that arrow — merging into any stack already there — and the accumulator **carries the remainder** rather than resetting to zero. Nothing is wasted, which matters once two spawners feed one arrow and overshoot is routine. **This is the only place in the game that banks anything** — §3 deliberately does not, since tempo you did not spend is tempo you gave away, whereas a spawner's trickle has to accumulate to be worth anything at all.
 - **Spawned heads do not pay the §3 merge override.** A birth is not a spent move; merging into a friendly stack leaves `spent` and the merge override as they were.
 - **A share arrow nobody owns accrues nothing.** The round-robin still lands on it; the fraction is lost, no head appears, and no accumulator is kept for it.
@@ -893,19 +893,14 @@ What SPEC.md does not decide yet. A behaviour this document does not state is an
 3. **Starvation *N*.** Default 5 full rounds (§9).
 4. **Minimum attacker loss.** The floor can give the attacker zero loss in a round (e.g. 5v3); whether to add a minimum of 1 (§6.2).
 
-**Open rules**
-
-5. **Both sides wiped in one battle.** A round can reduce *A* and *D* to 0 together (§6.2, e.g. 2 v 3). Both outcomes then apply as written — *D* = 0 (land and mark) and *A* = 0 (do not land) — and SPEC does not say which wins. Today the engine treats it as a landing: it marks the destination, wipes both stacks (both wipes evaporate), and the crossing cuts.
-6. **Conversion after a boundary birth-cut.** Conversion triggers on state (§6.3), but the engine judges it only inside a step. A birth at the round boundary — on seat Y's own pass — can cut Y's trail (§6.1) and demote a Y raider standing on X's land. Today no conversion runs at the boundary, so that raider converts after the next step anyone takes. SPEC does not say whether it converts at the boundary, at the next step, or only on a later move of X's.
-
 **Parked — decided for MVP, to revisit after playtest**
 
-7. **Territory combat modifiers.** On the defender's territory, contact might cost the defender heads only and mark the arrow in the invader's trail. No rule until revisited (§6.2).
-8. **Retreat between combat rounds.** Combat fights to a wipe inside one step (§6.2).
-9. **Branch toll.** Branching is free (§5); a per-branch head toll is parked.
-10. **Upkeep.** Each special sustaining some number of heads, a shortfall costing heads. Not needed by any rule (§9).
-11. **Fair fields for 3 and 6 seats.** The field is mirror-symmetric, which is exact for 2 seats (§7). Exact fairness for 3 and 6 seats needs the 120° rotation and the full *D*₃ group (§2) in the thinning.
-12. **Seat counts other than 2, 3 and 6, and kingmaking with 3+ seats.** 4 seats take four corners with one opposite pair free; 5, 7 and 8 take an equal angular span, best effort (§8). None is shown fair. Kingmaking is accepted for hot-seat playtest.
+5. **Territory combat modifiers.** On the defender's territory, contact might cost the defender heads only and mark the arrow in the invader's trail. No rule until revisited (§6.2).
+6. **Retreat between combat rounds.** Combat fights to a wipe inside one step (§6.2).
+7. **Branch toll.** Branching is free (§5); a per-branch head toll is parked.
+8. **Upkeep.** Each special sustaining some number of heads, a shortfall costing heads. Not needed by any rule (§9).
+9. **Fair fields for 3 and 6 seats.** The field is mirror-symmetric, which is exact for 2 seats (§7). Exact fairness for 3 and 6 seats needs the 120° rotation and the full *D*₃ group (§2) in the thinning.
+10. **Seat counts other than 2, 3 and 6, and kingmaking with 3+ seats.** 4 seats take four corners with one opposite pair free; 5, 7 and 8 take an equal angular span, best effort (§8). None is shown fair. Kingmaking is accepted for hot-seat playtest.
 
 ---
 

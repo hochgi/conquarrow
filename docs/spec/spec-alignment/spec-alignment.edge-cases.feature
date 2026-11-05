@@ -13,13 +13,14 @@ Feature: rules-core follows the P86 rulings — edge cases
 
   Rule: Landing decides the cut (R3)
 
-    Scenario: A mutual wipe lands and cuts
+    Scenario: A mutual wipe neither cuts nor marks
       Given player B's trail runs through point P and player B x3 stands on "exit"
       And player A x3 stands on "from", and the step "from" to "exit" interleaves B's chord at P
       And a battle of 2 attackers against 3 defenders wipes both sides
       When player A steps 2 heads from "from" to "exit"
       Then no group stands on "exit"
-      And "trailOut" is not in player B's trail
+      And "exit" is not in player A's trail
+      And "trailOut" is still in player B's trail
 
     Scenario: A repelled attack onto the defender's trail arrow leaves the other arms
       Given player B x2 stands on its trail arrow "exit", and B's trail has another arm through target("from")

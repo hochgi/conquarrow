@@ -267,7 +267,7 @@ describe('opponent-caused conversion unchanged', () => {
     );
     const pictured = snapshot(before);
 
-    // Conversion is resolved inside a step; nothing stepped this turn.
+    // This end of turn closes no round and nothing stepped, so nothing converts.
     const after = table.rules.apply(before, endTurn());
 
     expect(snapshot(after).groups).toEqual(pictured.groups);

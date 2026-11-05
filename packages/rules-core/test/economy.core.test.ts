@@ -134,11 +134,14 @@ describe('enemy blockade', () => {
     const seed = anArrow(table.geometry);
     const { vertex, borders } = aSpawnerOn(table.geometry, seed);
     const feed = borders[0];
-    const bLand = borders[1];
-    if (feed === undefined || bLand === undefined) throw new Error("setup: empty borders");
+    if (feed === undefined) throw new Error("setup: empty borders");
+    // The blockader needs a life line or it converts at the round boundary (§6.3,
+    // P89): B's land feeds the point its trail leaves. That land is also B's share,
+    // or the boundary vanishes the blockade (P36). This case is about halt.
+    const bLand = borders.find((b) => table.geometry.target(b) === table.geometry.origin(feed));
+    if (bLand === undefined) throw new Error('setup: no border feeds the feed arrow');
     const before = stateOf([{ arrow: feed, owner: B, heads: 1 }], A, {
-      // B needs a share of their own or the boundary vanishes the blockade
-      // (P36: heads and no territory is a loss). This case is about halt, not losing.
+      trail: { B: [feed] },
       territory: [...owned([feed], A), ...owned([bLand], B)],
       accumulators: [[feed, rational(1, 3)]],
       spawners: [[vertex, { force: rational(1, 3), phase: 0 }]],

@@ -24,9 +24,9 @@ ordinary cut runs.
    only when it lands. A repelled attack (*A* = 0) did not cross and causes
    no evaporation of the defender's trail (§6.1, §6.2), and it claims
    nothing either: closure needs a landing (§7). An attack that wipes the
-   defender (*D* = 0) lands and cuts. When both sides are wiped, the engine
-   today counts the step as landed. SPEC §11 item 5 leaves that open, so this
-   packet pins today's behaviour and does not decide it.
+   defender (*D* = 0) with an attacker left lands and cuts. When both sides
+   are wiped, no attacker reached the arrow: that is the *A* = 0 outcome, so
+   it neither cuts nor claims (§6.2).
 2. **D1. The convert wipe runs from every converted arrow.** After a stack
    converts, the victim's trail evaporates from that arrow under the
    halt-at-first rule (§6.3). Converted stacks are not firebreaks.
@@ -80,8 +80,7 @@ Out:
    the closure commit and the claim root cuts now run only when the step
    landed, as the mark and the mark's root cuts already do. A repelled step
    goes straight to the conversion check, which reads state on every step
-   (§6.3). A mutual wipe (*A* and *D* both 0) is treated as landed, which is
-   today's behaviour, pinned until SPEC §11 item 5 is decided.
+   (§6.3). A mutual wipe (*A* and *D* both 0) did not land (§6.2).
 2. **The strip leaves marks under enemy stacks (D1).** `stripClaim` removes
    bare enemy marks from claimed arrows, **except an arrow holding a group
    of that mark's owner**. Such a group is either on a shielding stretch (and

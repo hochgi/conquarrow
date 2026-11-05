@@ -480,18 +480,25 @@ describe('the boundary order cannot remove a seat that was about to be paid', ()
     const ground = aBoard();
     const feed = shareArrow(ground, 0);
     const phase = ground.shares.indexOf(feed);
+    // P37: the blockader has to be a *legal* seat, or it is removed on the first
+    // move and un-blockades the share by vanishing. P89: it also needs a life line,
+    // or it converts at the round boundary (§6.3) — B's land feeds the point B's
+    // trail on `feed` leaves.
+    const used = new Set([feed, shareArrow(ground, 1)].map(String));
+    const bLand = ground.geometry
+      .inArrows(ground.geometry.origin(feed))
+      .find((a) => !used.has(String(a)));
+    if (bLand === undefined) throw new Error('setup: no free feeder of the feed arrow');
     const before = seatState({
       players: THREE,
       groups: [
         { arrow: feed, owner: B, heads: 1 },
         { arrow: shareArrow(ground, 1), owner: C, heads: 1 },
       ],
+      trails: [[B, [feed]]],
       territory: [
         { arrow: feed, owner: A },
-        // P37: the blockader has to be a *legal* seat, or it is removed on the
-        // first move and un-blockades the share by vanishing. One bare arrow is
-        // the minimum §8 asks for.
-        { arrow: bareArrow(ground, 0), owner: B },
+        { arrow: bLand, owner: B },
         { arrow: shareArrow(ground, 1), owner: C },
       ],
       accumulators: [[feed, rational(1, 3)]],

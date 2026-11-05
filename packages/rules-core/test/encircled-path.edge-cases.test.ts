@@ -222,8 +222,8 @@ describe('closure strip and convert bookkeeping still hold', () => {
       },
     );
 
-    // Conversion is resolved inside a step (P33). A turn in which nothing stepped
-    // is a turn in which nothing converted — declining is the absence of a move.
+    // This end of turn closes no round, so it converts nothing (§6.3): declining
+    // is the absence of a move.
     const after = table.rules.apply(before, endTurn());
 
     expect(snapshot(after).groups).toEqual(snapshot(before).groups);
