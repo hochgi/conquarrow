@@ -221,7 +221,9 @@ occupation (P13: no kill); a front that *reaches* a point is all-to-all, so a
 cut on one fork arm floods every arm (P47); the cutter is not a firebreak;
 territory is a wall; survivors demote to stack grade. Conversion is P07.
 
-When the same step is both contact and a cut: **combat first, then cut**.
+When the same step is both contact and a cut: **combat first, then cut** — and
+the cut happens only if the attacker lands; a repelled attack does not cut (R3;
+SPEC §6.1, §6.2).
 
 ## What is deliberately not here
 

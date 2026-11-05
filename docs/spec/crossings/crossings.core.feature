@@ -107,9 +107,8 @@ Feature: A trail's chords at a point, and who crossed whom
       And exit e1 is the out-arrow player A's own trail already uses at P
       When I ask whether stepping onto e1 self-crosses player A
       Then it does not
-      # Coincidence cannot invert anything: the arrow is already in the set, so
-      # re-traversing leaves the set unchanged (§6.1a) and §7's even-odd has
-      # nothing to flip.
+      # The arrow is already in the set, so re-traversing leaves the set
+      # unchanged (§6.1a).
 
     Scenario: Looping back through your own point does self-cross
       Given player A's trail passes through point P on one in-arrow and one out-arrow
@@ -117,8 +116,8 @@ Feature: A trail's chords at a point, and who crossed whom
       And exit e1 is an out-arrow of P whose chord interleaves with player A's own
       When I ask whether stepping onto e1 self-crosses player A
       Then it does
-      # §7: crossing your own trail flips which lobes count as enclosed when the
-      # path eventually lands. What it flips is P05b's; that it happened is here.
+      # A self-crossing has no fill meaning: when the path lands, fill is
+      # reachability, not parity (SPEC §7, item 36). That it happened is here.
 
     Scenario: The same traversal can cross an enemy and not self-cross
       Given point P carries both players' trails

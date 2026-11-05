@@ -110,4 +110,5 @@ Feature: Cuts — evaporating a trail from a crossing
       When the cut resolves
       Then the far fragment remains in player B's trail
       And its anchor grade is stack
-      # §6.1 / item 28. Conversion of heads on it is P07 — they keep standing here.
+      # §6.1 / item 28. Heads on it keep standing on neutral ground; on enemy
+      # territory the demotion converts them (P07, SPEC §6.3).

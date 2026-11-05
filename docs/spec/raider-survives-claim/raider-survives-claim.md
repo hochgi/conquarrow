@@ -66,13 +66,15 @@ shielding stretch is territory grade, so it does not convert.
    would demote the raider and convert it by claim alone, which §6.3
    forbids. "Bare enemy trail is still stripped" (the human's ruling)
    therefore means trail that shields no one.
-3. **Grade is judged on the post-claim board.** Conversion is a state
+3. *Superseded in mechanism by R2 (the human, 2026-11-05): a claim that takes the anchoring land is a territory-root cut, and evaporation runs from the anchor to the nearest firebreak — SPEC §6.1 states the current rule. The outcome for a raider inside the claim is unchanged: it converts (SPEC §6.3).*
+   **Grade is judged on the post-claim board.** Conversion is a state
    predicate (§6.3, "state, not event"). A closure that carves out the
    raider's own anchoring territory has taken the anchor itself, so the
    stretch is not territory grade, is stripped, and the raider converts.
    That is not capture "by claim alone" of a trail-connected raider: after
    the claim the trail no longer reaches its owner's territory.
-4. **Only stretches that keep a group from conversion are shielded** (open as SPEC §11 item 51; this keeps the pre-P87 behaviour until the human rules). A
+4. *Superseded by C2 (the human, 2026-11-05): a claim alone never removes a territory-grade stretch that carries one of its owner's stacks, wherever the stack stands — SPEC §7 states the current rule. A later packet flips the pinned scenario.*
+   **Only stretches that keep a group from conversion are shielded** (open as SPEC §11 item 51; this keeps the pre-P87 behaviour until the human rules). A
    group of P on neutral ground, or on its own territory, is not at risk of
    conversion, so a stretch carrying only such groups is stripped as before
    (P13 unchanged there). A stretch is shielding when at least one of its

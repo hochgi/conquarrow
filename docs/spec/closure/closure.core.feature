@@ -148,7 +148,10 @@ Feature: Closure — coming home, and what that takes with you
       Then x1 is player A's territory
       And x1 is not in player B's trail
       # P13: claim clears enemy paint on the tile; convert alone missed bare trail.
+      # P87: except a territory-grade stretch carrying one of its owner's stacks,
+      # which a claim alone never removes (SPEC §7).
 
+    # Superseded by P07, P87: an enemy stack on a claimed arrow converts unless its trail is territory grade (SPEC §6.3).
     Scenario: An enemy head on a claimed arrow keeps standing
       Given a stack of player B's stands on arrow x1
       And player A closes a loop that encircles x1

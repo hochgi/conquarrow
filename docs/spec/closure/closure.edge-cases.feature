@@ -88,6 +88,7 @@ Feature: Closure — the pincer, the degenerate claims, and the seams
       # P04's rule survives closure: contact is combat (P06), and owning the ground
       # does not make an occupied arrow enterable.
 
+    # Superseded by P22: branching is free and no head is required at a join, so the closure is legal (SPEC §5).
     Scenario: A closure that would strip a branch anchor is refused
       Given point P is a join in player A's trail
       And the closing head is the only head on an in-arrow of P

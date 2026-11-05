@@ -24,8 +24,8 @@ player alternation, `legalMoves` / `apply`.
 
 Out: trails and branch anchors (P05); crossings, cuts, combat (P06); territory,
 fill, encirclement (P05/P07); spawners (P08); match setup and victory (P09).
-Stepping onto an opponent-occupied arrow is **refused** here — that seam is
-combat, not movement.
+Stepping onto an opponent-occupied arrow is an **attack**, resolved by contact
+combat (P06, SPEC §6.2) — combat, not movement.
 
 Tests hand-author occupancy over the P02 fixture boards (`minimal`, `spacious`).
 There is no match-setup constructor.
@@ -97,7 +97,8 @@ throws), so this ⊆ still holds. See
   turn, rather than leaving it on the arrow the merge happened on (§11 item 33).
 - The system shall merge two of the same player's groups on the same arrow
   automatically, with no extra move.
-- The system shall refuse a step onto an opponent-occupied arrow.
+- The system shall treat a step onto an opponent-occupied arrow as an attack,
+  resolved by contact combat (P06, SPEC §6.2).
 - The system shall compel no step: a group the player leaves alone is named by
   no move, and `endTurn` is always legal (P51).
 - When no owned group has a whole step left, the system shall offer only
@@ -110,8 +111,8 @@ throws), so this ⊆ still holds. See
 
 ## What this packet deliberately does not decide
 
-- Whether a step *onto* an enemy is a 1:1 attack — P06 (§6.2). Here it is simply
-  illegal.
+- How a step *onto* an enemy resolves — P06 (SPEC §6.2): it is an attack, and
+  combat decides it.
 - Whether stepping lays trail — P05 (§5). Occupancy moves; the trail set does not
   appear in state.
 - Match setup, spawn-at-boundary merges, victory — P09 / P08.

@@ -21,11 +21,8 @@ Feature: A loss resolves on the move that causes it
       When A takes that step
       Then the winner is A
       And the resolution itself applies no move
-      # "And no further move is applied" stood here and was a stronger claim than
-      # the engine makes: `legalMoves` never consults `winner`, so a crowned seat
-      # keeps its remaining allowance and `apply` accepts the steps. No adapter
-      # reaches it — `App.tsx` locks input on `winner !== undefined` — but the core
-      # is not total on it. Opened as SPEC §11 item 46 rather than decided here.
+      # That no further move is applied is P38's (SPEC §9): a state with a winner
+      # offers no move and `apply` refuses every move. See won-is-over.
 
     Scenario: The losing seat's pieces are gone in the state that step returns
       Given A is one step from taking C's last territory

@@ -29,7 +29,7 @@ this feature would bind the DTO to rules that have not been built.
 |---|---|
 | **head** | one unit; also one life |
 | **stack** | merged heads on one arrow; stack size **is** lives |
-| **sentry** | heads left behind on a trail; a name, not a kind of unit. Discretionary, except for the anchor §5 charges at a join or a split — a legality rule, not a DTO one |
+| **sentry** | heads left behind on a trail; a name, not a kind of unit. Discretionary: branching is free and the rules require none (P22, SPEC §5) |
 | **count** | how many of a source arrow's heads a step takes |
 | **declining** | a stack staying put; the absence of a move, not a move (P51) |
 
@@ -93,8 +93,7 @@ budgets rather than beside the accumulator arithmetic.
 Two properties are worth more than the table of values. `speed(N) ≤ N` is §3's
 founding constraint — stacking must never beat splitting — and it holds with
 equality only at 1 and 2, which is what makes **the pair free** and therefore the
-game's natural atom — the same size §6.1 makes the smallest garrison that halts a
-front. Neither rule was written for the other.
+game's natural atom. Any garrison halts a front, one head included (P12, SPEC §6.1).
 
 `Math.log2` is float arithmetic. An implementation that rounds it is a
 determinism bug of exactly the kind ADR 0001 calls the realistic one: it passes

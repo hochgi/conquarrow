@@ -48,6 +48,7 @@ Feature: A territory-grade raider survives a claim — stretches, carve-outs and
 
   Rule: Only a stretch keeping a group from conversion is spared (decision 4)
 
+    # Superseded by C2: a claim alone never removes a territory-grade stretch carrying its owner's stack, wherever the stack stands, so r stays in B's trail (SPEC §7).
     Scenario: A raider on neutral ground loses the part of its trail the claim takes
       Given player B stands on neutral arrow n, which A's closure does not claim
       And B's territory-grade trail through n runs over arrow r, which A's closure claims

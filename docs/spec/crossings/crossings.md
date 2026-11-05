@@ -80,7 +80,7 @@ trail's, so no traversal exists that is not testing against the trail's own arro
 | against | predicate | why |
 |---|---|---|
 | an **enemy** trail | `chordsCross` — interleave **or** coincide | both real cases: threading between two of their arrows, and landing directly on one (§2) |
-| the **mover's own** trail | `chordsInterleave` only | coincidence cannot invert anything — re-traversing an arrow already in the set leaves the set unchanged (§6.1a), so there is nothing for §7's even-odd to flip |
+| the **mover's own** trail | `chordsInterleave` only | re-traversing an arrow already in the set leaves the set unchanged (§6.1a). A self-crossing has no fill meaning: fill is reachability, not parity (SPEC §7, item 36) |
 
 The relationship is itself an invariant, not two independent tests: `chordsCross`
 is `chordsInterleave` widened by coincidence (chord-test spec).
@@ -129,8 +129,9 @@ forced, so adjacency never compels a fight. What an enemy denies you is passage
 
 ## What this file deliberately does not decide
 
-- **What a crossing costs.** Evaporation, its fronts and its kills are P06 (§6.1);
-  the 1:1 exchange at the point is P06 (§6.2).
+- **What a crossing costs.** Evaporation and its fronts are §6.1; a front kills no
+  heads (P12). Combat resolves on the destination arrow when it is enemy-occupied,
+  not at the point (SPEC §6.2, item 37).
 - **What a self-crossing claims.** What the loop rings once the path is claimed is
   P05b's (§7, §11 item 36 — reachability, so there is no lobe inversion to report).
   Here the crossing is reported and nothing more.

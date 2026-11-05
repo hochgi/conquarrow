@@ -142,6 +142,8 @@ or not that seat is still playing, and `nextPlayer` never skips. There is no
 
 ## The flow
 
+Superseded in part by P37: a loss resolves on the move that causes it, and only starvation fires at the round boundary — SPEC §9 states the current rule (see `docs/spec/immediate-loss/immediate-loss.md`).
+
 ```mermaid
 stateDiagram-v2
   [*] --> playing
@@ -230,8 +232,8 @@ must not care — but they must be written on a board that can exist.
 13. The system shall advance streaks before resolving losses, so that a seat is
     lost on the round its streak reaches `dominationN` and not the round after.
 14. The system shall never remove a player from `state.players`, nor reorder it.
-15. Where the active player has no legal move, the system shall pass that seat's
-    turn without applying anything.
+15. Where the active player has no step to take, the system shall offer that seat
+    only the pass (`endTurn`), and shall skip no seat (P37, SPEC §9).
 16. While exactly one player is not lost, the system shall set `winner` to that
     player.
 17. While two or more players are not lost, the system shall leave `winner` unset.

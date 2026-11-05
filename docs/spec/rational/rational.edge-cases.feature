@@ -1,6 +1,6 @@
 # language: en
 # Overview: docs/spec/rational/rational.md
-# SPEC §3 (banking), §7 (force bounds, stacked spawners, reset-on-capture)
+# SPEC §3 (allowance is whole steps, nothing banked — item 20), §7 (force bounds, stacked spawners, reset-on-capture)
 
 Feature: Exact rational arithmetic — boundaries and destructive cases
   As the rules core
@@ -69,12 +69,14 @@ Feature: Exact rational arithmetic — boundaries and destructive cases
         | 0/7   |
         | 0/36  |
 
+    # Superseded by item 20: allowance is 1 + floor(log2 N) whole steps and nothing is banked (SPEC §3).
     Scenario: A whole allowance leaves no bank
       Given an allowance of exactly 1/1
       When one whole step is spent
       Then the remaining allowance is exactly 0
       And no fraction is banked
 
+    # Superseded by item 20: allowance is whole steps, never a fraction (SPEC §3).
     Scenario: An allowance below one affords no step
       Given an allowance of exactly 5/6
       When I ask how many whole steps it affords

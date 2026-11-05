@@ -32,13 +32,15 @@ In: the closure trigger, the backward walk, the claim, the land bridge, the pinc
 (as two ordinary landings), the carve-out of enemy ground, and what leaves the trail.
 
 Out: **the interior** — [fill](../fill/fill.md) owns reachability and the pockets.
-**Conversion** — §7 grants the enclosed tiles *and everything standing on them*, and
-this packet claims the tiles and leaves the heads standing (P07). **Evaporation** —
-an enemy trail on a claimed arrow is **stripped** (P13). Convert then **wipes**
+**Conversion** — this packet claims the tiles; whether an enemy head on them
+converts is P07's and P87's rule (SPEC §6.3). **Evaporation** —
+an enemy trail on a claimed arrow is **stripped** (P13), except a territory-grade
+stretch carrying one of its owner's stacks, which a claim alone never removes (P87;
+SPEC §7). Convert then **wipes**
 the victim's remaining trail from converted stacks (P33), so a chord between
 encircled stacks does not survive on the claim.
-**Accumulators** — an arrow changing hands is P08's hook, and there is nothing to
-reset yet. **Vertices** — nothing here enumerates one (§11 item 34).
+**Accumulators** — an arrow changing hands resets its accumulator; that is P08's
+(SPEC §7). **Vertices** — nothing here enumerates one (§11 item 34).
 
 Tests run against the **generated tiling**, not a fixture. That is not a preference:
 a finite board has no infinity to fail to reach, so no fixture can host [fill](../fill/fill.md),
@@ -137,9 +139,10 @@ the claim being made: *nothing was added for it.*
 - The system shall claim a walked or enclosed arrow whichever player held it before,
   and shall record exactly one owner per arrow.
 - The system shall remove every claimed arrow from the claiming player's trail.
-- The system shall leave every other player's trail unchanged by a closure.
-- The system shall leave every head standing where it stood, including a head of
-  another player on a claimed arrow.
+- The system shall change another player's trail only as the claim strip (P13, P87;
+  SPEC §7) and the convert wipe (P33; SPEC §6.3) say.
+- The system shall leave every head standing where it stood, except that an enemy
+  stack converts where SPEC §6.3 says it does (P07, P87).
 - When the departed arrow is not in the mover's trail, the system shall claim nothing.
 - When the destination belongs to another player, the system shall not treat the step
   as a closure.
@@ -151,10 +154,9 @@ the claim being made: *nothing was added for it.*
 
 - **What the enclosed region is** — [fill](../fill/fill.md). This file says *that*
   the interior is claimed and never *which* tiles it contains.
-- **Whether an enclosed enemy head converts** — P07 (§6.3). Here it keeps standing on
-  ground that is now someone else's, which is a legal state and a stated seam, not a
-  rule about heads surviving.
-- **Whether a claimed arrow's production resets** — P08 (§7). An arrow changing hands
-  is the event that will reset an accumulator, and there are no accumulators yet.
+- **Whether an enclosed enemy head converts** — P07 and P87 (SPEC §6.3): a stack-grade
+  enemy stack on the claim converts; a territory-grade raider does not.
+- **Whether a claimed arrow's production resets** — P08 (SPEC §7): an arrow changing
+  hands resets its accumulator.
 - **Who owns a special** — a reading of `territory` through `borderArrows`, and P08's
   (§11 item 34). Nothing here writes or counts a vertex.
