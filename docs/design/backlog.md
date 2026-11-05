@@ -15,7 +15,8 @@ detailed form of an item; this file is the short list and the order.
 
 1. **SPEC conflict audit and rewrite.** [P86](./packets/P86-spec-conflict-resolution.md):
    - register every conflict with a concrete case;
-   - the human decides the rule conflicts;
+   - the human decides the rule conflicts (conflict 2, §11 item 51, is
+     decided: a claim does not demote an uncut trail);
    - rewrite SPEC.md with no history in the text;
    - align rules-core and its tests.
 
