@@ -68,6 +68,29 @@ the mark (for example, judge grade on the pre-strip state, or do not strip
 an arrow holding a territory-grade enemy group), and check what the claimed
 arrow under a surviving raider means for fill, accrual and later cuts.
 
+## Conflict 2 (decided 2026-11-05): a claim does not demote an uncut trail
+
+SPEC §11 item 51, opened by P87. B's raider stands on a neutral arrow; its
+territory-grade trail runs home over arrow `r`, which A's closure claims. §7
+spares a stretch only when it carries a stack standing on another player's
+territory, so today the claim strips `r` and the raider drops to stack grade.
+A raider one arrow deeper keeps the same road.
+
+**Decided by the human:** spare it. The principle, in the human's words: "If
+the trail isn't cut, there shouldn't be any evaporation." A claim alone never
+demotes a territory-grade trail that carries the owner's stack, wherever the
+stack stands. Case: `raider-survives-claim.edge-cases.feature`, "A raider on
+neutral ground loses the part of its trail the claim takes" (pins today's
+behaviour; flip it). Rewrite §7, delete item 51.
+
+**Use the same principle in the audit.** Any path that removes trail without
+a cut or a wipe (§6.1) is a suspected conflict. One to check first, found
+2026-11-05 and not yet run: `movement.ts` `applyStep` runs the crossing cut
+(`cuts.evaporate`) even when the attacker is repelled (`landed = false`),
+while §6.1 cuts only "if the crossing succeeds". Build the case (a repelled
+attack whose step crosses another arm of the defender's trail at the point)
+and see whether the defender's trail evaporates.
+
 
 ## The method
 
