@@ -6,9 +6,10 @@
  * arrow under halt-at-first (`evaporateFromArrow`). Do not pre-strip those
  * arrows — a prior strip would no-op the wipe and leave the encircled path.
  *
- * P87: the closure strip that runs before this keeps an enemy's territory-grade
- * stretch on the claimed arrows when it carries a group on foreign land, so a
- * trail-connected raider reads territory grade here and is not converted.
+ * P88: the closure strip that runs before this keeps an enemy's territory-grade
+ * stretch when it carries a group of its owner, wherever that group stands, so a
+ * trail-connected raider reads territory grade here and is not converted. A
+ * converting stack's arrow is left marked so the wipe below can start from it.
  *
  * @see docs/spec/encirclement/encirclement.md
  * @see docs/spec/encircled-path/encircled-path.md

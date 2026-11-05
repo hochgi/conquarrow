@@ -40,6 +40,11 @@ test in the alignment step.
 | Suspected | 4 (U1–U4) |
 | Gap (to §11) | 0 new |
 
+## Status
+
+C2, R2, R3, D1 and D2 are fixed in the engine by
+[P88](../design/packets/P88-spec-alignment.md). R1 is pinned by a P88 test.
+
 ## Rulings (the human, 2026-11-05)
 
 - **R1: (a).** A stack on its owner's land can be attacked. The attacker

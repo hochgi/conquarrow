@@ -157,10 +157,16 @@ describe('grade is judged on the board the claim leaves (decision 3)', () => {
 });
 
 // ── Rule: Only a stretch keeping a group from conversion is spared (decision 4)
+//
+// Superseded by C2 (the human, 2026-11-05; SPEC §7, P88): a claim alone never
+// removes a territory-grade stretch carrying its owner's stack, wherever the stack
+// stands. The pinned outcome flips: r stays in B's trail.
 
-describe('only a stretch keeping a group from conversion is spared (decision 4)', () => {
-  it('takes the claimed part of the trail of a raider on neutral ground', () => {
+describe('only a stretch keeping a group from conversion is spared (decision 4, superseded by C2)', () => {
+  it('keeps the claimed part of the trail of a raider on neutral ground', () => {
     // Scenario: A raider on neutral ground loses the part of its trail the claim takes
+    // (superseded by C2 — see spec-alignment.core.feature, "A raider on neutral ground
+    // keeps the part of its trail the claim takes")
     const closing = aClosing();
     const { table } = closing;
     const { geometry } = table;
@@ -204,7 +210,7 @@ describe('only a stretch keeping a group from conversion is spared (decision 4)'
     const after = table.rules.apply(before, closing.close);
 
     expect(territoryOf(after, r)).toBe(A);
-    expect(isTrail(after, B, r)).toBe(false);
+    expect(isTrail(after, B, r)).toBe(true);
     expect(ownerOf(after, n)).toBe(B);
   });
 });

@@ -18,7 +18,7 @@
  * them.
  */
 
-import type { ArrowId, PlayerId, VertexId } from '@conquarrow/contracts';
+import type { ArrowId, PlayerId, PointId, VertexId } from '@conquarrow/contracts';
 
 /**
  * Opaque ids compared as strings. Returns exactly -1, 0, or 1 so a mutant that
@@ -38,6 +38,10 @@ export const compareArrows = (left: ArrowId, right: ArrowId): number =>
 
 /** Same total order for seats (P40 birth-cut victim order). */
 export const comparePlayers = (left: PlayerId, right: PlayerId): number =>
+  compareOpaque(left, right);
+
+/** Same total order for points (P88 claim-root cut order). */
+export const comparePoints = (left: PointId, right: PointId): number =>
   compareOpaque(left, right);
 
 /** Same total order for spawner vertices (P08 round-robin / tick order). */

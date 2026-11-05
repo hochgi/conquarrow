@@ -16,7 +16,7 @@
  */
 
 export { makeRules } from './movement';
-export { compareArrows, comparePlayers, compareVertices } from './order';
+export { compareArrows, comparePlayers, comparePoints, compareVertices } from './order';
 export {
   headsOf,
   isLost,

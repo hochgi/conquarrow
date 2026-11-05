@@ -202,8 +202,8 @@ export const makeTrailRules = (geometry: GeometryPort): TrailRules => {
    * same from the other side — a deep cut takes "the region touching the victim's
    * territory" and everything beyond it survives with "the territory anchor gone",
    * which is only a demotion if the anchor was the departure. So a stretch is
-   * territory grade when some arrow of it leaves a point one of the player's own
-   * territory arrows feeds, and re-attachment (§6.1) is the ordinary case of that:
+   * territory grade only while some arrow of it leaves a point a clean feeder
+   * feeds (§6.1), and re-attachment (§6.1) is the ordinary case of that:
    * lay a road from home to the fragment and the whole component is promoted.
    *
    * A trail that merely *runs into* territory it never left is **stack grade** —

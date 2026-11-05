@@ -42,7 +42,7 @@ import {
 
 /** Six playBotTurn calls on mid-game boards. */
 const INTERCEPT_TIMEOUT = 600_000;
-/** 37 chooseTurnBeam calls: ~1–2 min. */
+/** 36 chooseTurnBeam calls: ~1–2 min. */
 const SORTIE_TIMEOUT = 900_000;
 const SEARCH_TIMEOUT = 120_000;
 
@@ -78,7 +78,7 @@ describe('heuristic-tempo-horizon core', () => {
 
   describe('Rule: A wide safe window lets the seat reach for a larger close', () => {
     it(
-      'The 37 sortie fixtures pass as a set at the predeclared floor',
+      'The 36 sortie fixtures pass as a set at the predeclared floor',
       () => {
         const failing: string[] = [];
         const illegal: string[] = [];

@@ -6,7 +6,8 @@
  * ring's pocket as the raider's arrow, and every shape of B's side the overview
  * distinguishes — a shielded raider, the same raider on ground already the closer's,
  * a stack-grade raider, a trail-less head, a raider whose anchoring territory the
- * claim carves out, and a territory-grade stretch with nobody on it.
+ * claim carves out, a territory-grade stretch with nobody on it, and (C2, P88) the
+ * same stretch with its stack off the claim on neutral ground.
  *
  * The expected outcome is never hard-coded per shape. It is read from two oracles in
  * the support file that only ask the port: the post-claim board (claimed arrows
@@ -26,7 +27,14 @@ import {
 } from './raider-survives-claim.support';
 import type { Closing } from './raider-survives-claim.support';
 
-type Shape = 'shielded' | 'alreadyA' | 'stack' | 'noTrail' | 'carveOut' | 'bareGraded';
+type Shape =
+  | 'shielded'
+  | 'alreadyA'
+  | 'stack'
+  | 'noTrail'
+  | 'carveOut'
+  | 'bareGraded'
+  | 'neutralRaider';
 
 interface Case {
   readonly name: string;
@@ -52,6 +60,12 @@ const casesFor = (closing: Closing): readonly Case[] => {
       add('shielded', p, closing.before({ ...side, groups: raider }));
       add('alreadyA', p, closing.before({ ...side, groups: raider, alsoA: [p] }));
       add('bareGraded', p, closing.before(side));
+      // C2 (SPEC §7, P88): the stack on the first road arrow, off the claim on
+      // neutral ground — its stretch through p is shielding all the same.
+      const off = shielded.road[0];
+      if (off !== undefined) {
+        add('neutralRaider', p, closing.before({ ...side, groups: [{ arrow: off, owner: B, heads: 1 }] }));
+      }
     }
     const carve = closing.interior.find(
       (f) => f !== p && geometry.target(f) === geometry.origin(p),
@@ -95,6 +109,7 @@ describe('the family is not vacuous', () => {
     expect(family.filter((c) => c.shape === 'stack').length).toBeGreaterThan(1);
     expect(family.filter((c) => c.shape === 'carveOut').length).toBeGreaterThan(0);
     expect(family.filter((c) => shieldingOf(c).size > 0).length).toBeGreaterThan(1);
+    expect(family.filter((c) => c.shape === 'neutralRaider').length).toBeGreaterThan(0);
   });
 });
 
