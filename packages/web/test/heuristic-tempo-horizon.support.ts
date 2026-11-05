@@ -103,7 +103,16 @@ const FILES: Readonly<Record<LogName, string>> = {
   'mirror-p85-s3': 'mirror-p85-s3.moves.json',
 };
 
-export const replayOf = (log: LogName): Replay => loadReplay(log, FILES[log]);
+/**
+ * Logs recorded under rules that have since changed, cut at their first move the
+ * current rules refuse. playtest-2026-11-03 predates P88 (SPEC §6.1, §7 after P86):
+ * from move 265 on it no longer replays. Every fixture index here is below the cut.
+ */
+const UNTIL: Readonly<Partial<Record<LogName, number>>> = {
+  'playtest-2026-11-03': 265,
+};
+
+export const replayOf = (log: LogName): Replay => loadReplay(log, FILES[log], UNTIL[log]);
 
 // ---------------------------------------------------------------------------
 // The fixture tables (spec "Fixtures")
@@ -140,7 +149,7 @@ export type SortieFixture = {
   readonly loot: number;
 };
 
-/** Spec "Sortie fixtures" — the 37 non-dominant small sorties, at the turn the logged seat landed. */
+/** Spec "Sortie fixtures" — the 36 non-dominant small sorties (S15 dropped by P88: its log diverges at move 265), at the turn the logged seat landed. */
 export const SORTIE_FIXTURES: readonly SortieFixture[] = [
   { id: 'S1', log: 'playtest-2026-11-02', index: 12, seat: 'A', loot: 2 },
   { id: 'S2', log: 'playtest-2026-11-02', index: 43, seat: 'A', loot: 3 },
@@ -156,7 +165,6 @@ export const SORTIE_FIXTURES: readonly SortieFixture[] = [
   { id: 'S12', log: 'playtest-2026-11-03', index: 89, seat: 'A', loot: 3 },
   { id: 'S13', log: 'playtest-2026-11-03', index: 93, seat: 'B', loot: 2 },
   { id: 'S14', log: 'playtest-2026-11-03', index: 137, seat: 'B', loot: 2 },
-  { id: 'S15', log: 'playtest-2026-11-03', index: 330, seat: 'B', loot: 1 },
   { id: 'S16', log: 'mirror-p85-s1', index: 8, seat: 'B', loot: 3 },
   { id: 'S17', log: 'mirror-p85-s1', index: 29, seat: 'B', loot: 3 },
   { id: 'S18', log: 'mirror-p85-s1', index: 33, seat: 'A', loot: 3 },
@@ -181,7 +189,7 @@ export const SORTIE_FIXTURES: readonly SortieFixture[] = [
   { id: 'S37', log: 'mirror-p85-s3', index: 158, seat: 'B', loot: 1 },
 ];
 
-/** Spec acceptance: ≥ 30 of 37 sortie fixtures reach for a larger close. */
+/** Spec acceptance: ≥ 30 of 36 sortie fixtures reach for a larger close. */
 export const SORTIE_FLOOR = 30;
 
 /** Spec "Baselines": the pre-P85 live seat reaches for a larger close at exactly these. */

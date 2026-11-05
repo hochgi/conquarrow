@@ -76,11 +76,15 @@ type FixtureJson = {
 const cache = new Map<string, Replay>();
 
 /** Replays `fixtures/<file>` from `makeMatch(config)`; cached by `name`. Reused by P85's support. */
-export const loadReplay = (name: string, file: string): Replay => {
+export const loadReplay = (name: string, file: string, until?: number): Replay => {
   const hit = cache.get(name);
   if (hit !== undefined) return hit;
   const raw = JSON.parse(readFileSync(join(here, 'fixtures', file), 'utf8')) as FixtureJson;
-  const moves = raw.moves.map((m, i) => parseMove(m, `${name} move ${String(i)}`));
+  // `until` keeps the prefix of a log recorded under older rules: its first move the
+  // current rules refuse, and everything after, is dropped. Any refusal before it throws.
+  const moves = raw.moves
+    .slice(0, until)
+    .map((m, i) => parseMove(m, `${name} move ${String(i)}`));
   const states: GameState[] = [makeMatch(raw.config)];
   let at = states[0];
   for (const [i, move] of moves.entries()) {

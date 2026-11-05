@@ -32,7 +32,8 @@ Feature: The live heuristic seat counts the race
 
   Rule: A wide safe window lets the seat reach for a larger close
 
-    Scenario: The 37 sortie fixtures pass as a set at the predeclared floor
+    # P88: S15 (playtest-2026-11-03 @330) dropped — that log diverges at move 265 under the P86 rulings, so the position is unreachable.
+    Scenario: The 36 sortie fixtures pass as a set at the predeclared floor
       Given the sortie fixtures, each replayed from makeMatch of its log's config through its move index (the turn the logged seat landed):
         | id  | log                 | index | seat | loot |
         | S1  | playtest-2026-11-02 | 12    | A    | 2    |
@@ -49,7 +50,6 @@ Feature: The live heuristic seat counts the race
         | S12 | playtest-2026-11-03 | 89    | A    | 3    |
         | S13 | playtest-2026-11-03 | 93    | B    | 2    |
         | S14 | playtest-2026-11-03 | 137   | B    | 2    |
-        | S15 | playtest-2026-11-03 | 330   | B    | 1    |
         | S16 | mirror-p85-s1       | 8     | B    | 3    |
         | S17 | mirror-p85-s1       | 29    | B    | 3    |
         | S18 | mirror-p85-s1       | 33    | A    | 3    |
@@ -74,7 +74,7 @@ Feature: The live heuristic seat counts the race
         | S37 | mirror-p85-s3       | 158   | B    | 1    |
       When chooseTurnBeam plans <seat>'s turn at each fixture and the plan is applied
       Then a fixture reaches for a larger close when the land <seat> gains this turn is greater than <loot>, or sortieOf at the plan's terminal has more than <loot> arrows
-      And at least 30 of the 37 fixtures reach for a larger close
+      And at least 30 of the 36 fixtures reach for a larger close
       And every plan is a legal sequence that ends <seat>'s turn or the match
 
     Scenario: The opening position starts a close larger than a land bridge

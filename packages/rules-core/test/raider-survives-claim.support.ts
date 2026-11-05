@@ -353,7 +353,9 @@ export const stretchOf = (
 
 /**
  * The arrows of `player`'s shielding stretches: territory grade on the post-claim
- * board and carrying one of the player's groups on another player's territory.
+ * board and carrying one of the player's groups, **wherever it stands** (SPEC §7;
+ * C2, the human 2026-11-05, P88). P87 decision 4's "on another player's territory"
+ * is superseded.
  */
 export const shieldingArrows = (
   table: Table,
@@ -366,8 +368,6 @@ export const shieldingArrows = (
   const shielding = new Set<ArrowId>();
   for (const [arrow, group] of board.groups) {
     if (group.owner !== player) continue;
-    const land = board.territory.get(arrow);
-    if (land === undefined || land === player) continue;
     if (board.trails.get(player)?.has(arrow) !== true) continue;
     if (table.rules.anchorGrade(board, arrow, player) !== 'territory') continue;
     for (const a of stretchOf(table.geometry, board, player, arrow)) shielding.add(a);

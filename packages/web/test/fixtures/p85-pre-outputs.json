@@ -482,27 +482,6 @@
    "evaluate": -5668
   },
   {
-   "id": "S15",
-   "nested": [
-    {
-     "kind": "step",
-     "from": "tiling:a:-3,2,0",
-     "exit": "tiling:a:-2,2,1",
-     "count": 2
-    },
-    {
-     "kind": "endTurn"
-    }
-   ],
-   "chooseMove": {
-    "kind": "step",
-    "from": "tiling:a:-3,2,0",
-    "exit": "tiling:a:-2,2,1",
-    "count": 1
-   },
-   "evaluate": -9930
-  },
-  {
    "id": "S16",
    "nested": [
     {
