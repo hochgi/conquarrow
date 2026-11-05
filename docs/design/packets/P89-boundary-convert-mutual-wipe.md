@@ -1,6 +1,6 @@
 # P89 — Conversion at the round boundary; a mutual wipe does not land
 
-> **Status:** in progress. **Kind:** rules-core fix. **Depends on:** P88.
+> **Status:** shipped 2026-11-05. **Kind:** rules-core fix. **Depends on:** P88.
 >
 > **Evidence:** SPEC §11 items 5 and 6, found by P86's fresh reading of
 > SPEC.md and decided by the human on 2026-11-05.

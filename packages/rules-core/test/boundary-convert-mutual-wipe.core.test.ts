@@ -140,6 +140,13 @@ describe('conversion at the round boundary', () => {
     expect(ownerOf(after, raid.raider)).toBe(A);
     expect(headsOn(after, raid.raider)).toBe(2);
     expect(isTrail(after, B, raid.raider)).toBe(false);
+    // Its new owner moves first in the new round, and a converted stack is spent
+    // for that turn (ADR 0005).
+    expect(
+      table.rules
+        .legalMoves(after)
+        .some((move) => move.kind === 'step' && move.from === raid.raider),
+    ).toBe(false);
   });
 
   it('converts nothing when an endTurn does not close a round', () => {

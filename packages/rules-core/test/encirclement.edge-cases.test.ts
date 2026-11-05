@@ -230,7 +230,7 @@ describe('order and seams', () => {
       },
     );
 
-    // Conversion is resolved inside a step. Nothing stepped, so nothing converted.
+    // This end of turn closes no round and nothing stepped, so nothing converts.
     const after = table.rules.apply(before, endTurn());
 
     expect(snapshot(after).groups).toEqual(snapshot(before).groups);

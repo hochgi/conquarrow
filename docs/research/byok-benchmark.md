@@ -313,6 +313,44 @@ The reach cells that changed:
   raider's road home survives a claim, and a cut root or a taken anchor now
   demotes a raider that the heuristic seat then converts.
 
+### P89 (2026-11-05): conversion at the round boundary; a mutual wipe does not land
+
+[P89](../design/packets/P89-boundary-convert-mutual-wipe.md) is a rules change
+with two parts:
+- a mutual wipe is the A = 0 outcome: no landing, no mark, no cut, no claim;
+- conversion also runs at the round boundary, after births and birth-cuts and
+  before the starvation tick.
+
+No gate; free tiers only, concurrency 6, no model calls. **Before** is
+`c7bd647` (same `src` as `main` `a24cfd3`, and it reproduces P88's after
+numbers), **after** is `c032277`.
+
+| measure | before | after |
+|---|---|---|
+| mirror cells ending ≤ 400 rounds (rounds / winner s1, s2, s3) | 6 / 6 (104 B, 85 A, 130 A) | **6 / 6 (104 B, 85 A, 119 A)** |
+| mirror pairs identical | yes | **yes** |
+| mirror median rounds / seat bias (first ∶ second) | 104 / 2∶1 | **104 / 2∶1** |
+| reach grid (`--round-cap 200`) cells ending | 12 / 16 | **12 / 16** (not the same four capped) |
+| reach cells whose rounds or winner changed | — | **7 of 16** |
+| reach heads lost: combat / encirclement / all | 3,718 / 1,090 / 4,819 | **3,543 / 1,115 / 4,664** |
+| reach combat share of heads lost | 77 % | **76 %** |
+| wall (mirror / reach) | 397 s / 2,562 s | 388 s / 2,207 s |
+
+The reach cells that changed:
+- `p2-R5-h3-s1` r52 → r74;
+- `p2-R7-h3-s1` r52 → r67;
+- `p2-R5-h5-s2` r76 → r77;
+- `p3-R5-h3-s1` capped → C r170;
+- `p3-R5-h3-s2` r194 → r180;
+- `p3-R5-h5-s1` r156 → r198;
+- `p3-R7-h3-s2` C r188 → capped.
+
+**A small shift.** No winner changed in any cell that ended both times. One
+mirror seed is 11 rounds shorter. Combat losses fall 5 %, as a mutual wipe now
+costs only the defender. Encirclement losses rise 2 %, from boundary
+conversion. A vitest process held about one core during both runs, so the walls
+compare with each other only.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).

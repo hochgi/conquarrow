@@ -120,8 +120,9 @@ player-facing string.
 - When an opponent's apply claims a tile under an unprotected group, or cuts
   that group's last territory-grade path while they stand on foreign territory,
   the system shall still convert that group intact (§6.3).
-- The system shall convert only inside a step: a turn in which nothing stepped
-  converts nothing (P51).
+- When a turn ends without closing a round, the system shall convert nothing
+  at that end of turn: a turn in which nothing stepped converts nothing (P51).
+  Conversion also runs at the round boundary (§6.3, §7).
 - The system shall refuse a self-convert step before combat, so a contact fight
   cannot land and then convert the attacker.
 - Everything `legalMoves` offers, `apply` shall accept.

@@ -32,12 +32,16 @@ detailed form of an item; this file is the short list and the order.
      feeder of seat B. B's group then keeps a mark on the closer's land that
      was not territory grade on the post-claim board (SPEC §7).
    - Both need a fixture first.
+4. **P89 review: the boundary order has one untested step.** Nothing pins
+   conversion running before the starvation tick at the round boundary
+   (SPEC §7); swapping the two calls in `endRound` would likely pass. Needs a
+   fixture where the tick and a conversion touch the same seat.
 
 ## Combat
 
 - **No battle should wipe both sides.** The human, 2026-11-05: "not allow
   mutual destruction battles". Today 2 v 3, 3 v 4, 4 v 6, 5 v 7, … wipe both
-  sides, and P89 treats that as a repelled attack. Revisit the §6.2 loss
+  sides, and P89 treats that as the A = 0 outcome (the defender is still wiped). Revisit the §6.2 loss
   rule, for example the magnitude or cap step, so that one side always
   survives. This is a rules decision for the human.
 

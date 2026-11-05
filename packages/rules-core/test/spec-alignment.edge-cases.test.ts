@@ -41,9 +41,7 @@ import {
 
 describe('landing decides the cut (R3)', () => {
   it('neither cuts nor marks when a mutual wipe does not land', () => {
-    // Scenario: A mutual wipe lands and cuts
-    // Superseded by P89: both wiped is the A = 0 outcome (SPEC §6.2) — no landing,
-    // no mark, no crossing cut. See boundary-convert-mutual-wipe.core.feature.
+    // Scenario: A mutual wipe neither cuts nor marks
     const table = onBoard();
     const { trailIn, trailOut, ourIn: from, ourExit: exit } = anInterleaving(
       table.geometry,
