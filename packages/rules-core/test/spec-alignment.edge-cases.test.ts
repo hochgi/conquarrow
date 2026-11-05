@@ -40,8 +40,10 @@ import {
 // ── Rule: Landing decides the cut (R3) ────────────────────────────────────────
 
 describe('landing decides the cut (R3)', () => {
-  it('cuts when a mutual wipe lands', () => {
+  it('neither cuts nor marks when a mutual wipe does not land', () => {
     // Scenario: A mutual wipe lands and cuts
+    // Superseded by P89: both wiped is the A = 0 outcome (SPEC §6.2) — no landing,
+    // no mark, no crossing cut. See boundary-convert-mutual-wipe.core.feature.
     const table = onBoard();
     const { trailIn, trailOut, ourIn: from, ourExit: exit } = anInterleaving(
       table.geometry,
@@ -55,7 +57,9 @@ describe('landing decides the cut (R3)', () => {
       ],
       A,
       {
-        trail: { A: [from], B: [trailIn, trailOut, exit] },
+        // `exit` is off B's trail, so B's combat wipe there evaporates nothing
+        // and only a crossing cut could take `trailOut`.
+        trail: { B: [trailIn, trailOut] },
         territory: [{ arrow: trailIn, owner: B }],
       },
     );
@@ -64,7 +68,9 @@ describe('landing decides the cut (R3)', () => {
     const after = table.rules.apply(before, step(from, exit, 2));
 
     expect(ownerOf(after, exit)).toBeUndefined();
-    expect(isTrail(after, B, trailOut)).toBe(false);
+    expect(isTrail(after, B, trailOut)).toBe(true);
+    expect(isTrail(after, A, exit)).toBe(false);
+    expect(headsOn(after, from)).toBe(1);
   });
 
   it("leaves the defender's other arms when an attack onto its trail arrow is repelled", () => {

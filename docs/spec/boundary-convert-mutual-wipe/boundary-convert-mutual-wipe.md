@@ -30,7 +30,13 @@
    round-boundary accrual and nowhere else in `endTurn`. The P51 scenarios
    ("a turn in which nothing stepped converts nothing") end a turn that
    does not close a round, and they stay true.
-3. **Conversion runs before the starvation tick.** A conversion changes
+3. **A boundary conversion spends the stack as any conversion does.** ADR 0005
+   sets `spent = speed(heads)` on every convert, so a stack converted at the
+   boundary cannot step in the turn that follows. That matters only when its
+   new owner is `players[0]`, whose turn comes next. Every other turn ends
+   with `spent` cleared as usual. This is no new rule: ADR 0005 applied where
+   the conversion happens.
+4. **Conversion runs before the starvation tick.** A conversion changes
    heads, and §9 resolves losses at that tick on the board it reads.
 
 ## Invariants (EARS)
