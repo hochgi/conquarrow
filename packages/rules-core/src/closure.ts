@@ -90,6 +90,11 @@ export interface ClosureRules {
    * unconditionally and the non-closure path stays a single expression.
    */
   readonly commit: (state: GameState, move: Move, mover: PlayerId) => GameState;
+  /**
+   * Commit a claim already computed by `closureOf`. The fill sweep runs in
+   * `closureOf`; this only writes it, so a closing step pays for the sweep once.
+   */
+  readonly commitClaim: (state: GameState, claim: Claim, mover: PlayerId) => GameState;
 }
 
 /**
@@ -152,6 +157,26 @@ const stripClaim = (
     if (kept.length > 0) trails.set(player, canonical(kept));
   }
   return trails;
+};
+
+/**
+ * Write an already-computed claim: territory first, then the strip reads the
+ * post-claim board. The fill that found the claim is not repeated here.
+ */
+const writeClaim = (
+  geometry: GeometryPort,
+  state: GameState,
+  claim: Claim,
+  mover: PlayerId,
+): GameState => {
+  const taken = new Set<ArrowId>([...claim.path, ...claim.enclosed]);
+  const territory = new Map(state.territory);
+  for (const arrow of [...taken].toSorted(compareArrows)) {
+    territory.set(arrow, mover);
+  }
+  const trails = stripClaim(geometry, { ...state, territory }, taken, mover);
+  const accumulators = resetAccumulatorsOnCapture(state, taken, state.territory, mover);
+  return { ...state, territory, trails, accumulators };
 };
 
 /** The most a window is ever grown before the wall has to be inside it (see below). */
@@ -378,23 +403,13 @@ export const makeClosureRules = (geometry: GeometryPort): ClosureRules => {
     return { path, enclosed: enclosedBy(ground, mover) };
   };
 
+  const commitClaim = (state: GameState, claim: Claim, mover: PlayerId): GameState =>
+    writeClaim(geometry, state, claim, mover);
+
   const commit = (state: GameState, move: Move, mover: PlayerId): GameState => {
     const claim = closureOf(state, move, mover);
-    if (claim === undefined) return state;
-
-    const taken = new Set<ArrowId>([...claim.path, ...claim.enclosed]);
-
-    const territory = new Map(state.territory);
-    for (const arrow of [...taken].toSorted(compareArrows)) {
-      territory.set(arrow, mover);
-    }
-
-    // Decision 5: territory first, then the strip reads the post-claim board.
-    const trails = stripClaim(geometry, { ...state, territory }, taken, mover);
-
-    const accumulators = resetAccumulatorsOnCapture(state, taken, state.territory, mover);
-    return { ...state, territory, trails, accumulators };
+    return claim === undefined ? state : commitClaim(state, claim, mover);
   };
 
-  return { closureOf, enclosedBy, commit };
+  return { closureOf, enclosedBy, commit, commitClaim };
 };

@@ -111,9 +111,10 @@ interface LandedStep {
 /**
  * Cuts, closure and conversion after occupancy is written (§6.1–§6.3, §7).
  *
- * A crossing cut and a mark's territory-root cut run only when the step landed.
- * A repelled attack did not cross. A claim that takes a trail's anchoring land
- * then cuts from that root, and conversion reads the board those cuts leave.
+ * A crossing cut, a mark's territory-root cut, the closure and the claim-root
+ * cuts run only when the step landed. A repelled attack did not cross and
+ * claims nothing. Conversion still reads every step. A claim is computed once
+ * and handed to both the write and the root cuts.
  */
 const resolveAfterLanding = (step: LandedStep, ports: StepPorts): GameState => {
   let next = step.state;
@@ -123,20 +124,19 @@ const resolveAfterLanding = (step: LandedStep, ports: StepPorts): GameState => {
   if (step.landed) {
     next = ports.cuts.evaporate(next, step.move, step.mover);
     next = ports.cuts.territoryRootCuts(next, step.mover, step.move.exit);
+    const claim = ports.closure.closureOf(next, step.move, step.mover);
+    if (claim !== undefined) {
+      const beforeClaim = next;
+      next = ports.closure.commitClaim(beforeClaim, claim, step.mover);
+      next = ports.cuts.claimRootCuts(
+        next,
+        beforeClaim,
+        new Set<ArrowId>([...claim.path, ...claim.enclosed]),
+        step.mover,
+      );
+    }
   }
-  const beforeClaim = next;
-  const afterClosure = ports.closure.commit(beforeClaim, step.move, step.mover);
-  const claim = ports.closure.closureOf(beforeClaim, step.move, step.mover);
-  const afterClaim =
-    claim === undefined
-      ? afterClosure
-      : ports.cuts.claimRootCuts(
-          afterClosure,
-          beforeClaim.territory,
-          new Set<ArrowId>([...claim.path, ...claim.enclosed]),
-          step.mover,
-        );
-  return convertEncircled(afterClaim, ports.anchorGrade, ports.cuts.evaporateFromArrow);
+  return convertEncircled(next, ports.anchorGrade, ports.cuts.evaporateFromArrow);
 };
 
 /**
@@ -308,8 +308,8 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
    * A step: occupancy (ordinary or contact combat), then the mark it leaves,
    * then cuts, closure and conversion ({@link resolveAfterLanding}).
    *
-   * P06 D6: combat (when contact) first. A crossing cut runs only when the
-   * step landed (§6.2).
+   * P06 D6: combat (when contact) first. A crossing cut and a closure run only
+   * when the step landed (§6.2).
    */
   const applyStep = (state: GameState, move: StepMove): GameState => {
     const movers = moversFor(state, move);
