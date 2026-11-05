@@ -22,7 +22,8 @@ import type {
   PointId,
   Traversal,
 } from '@conquarrow/contracts';
-import { compareArrows } from './order';
+import { compareArrows, comparePlayers } from './order';
+import { isCleanFeeder } from './stretch';
 
 export interface CutRules {
   /**
@@ -60,6 +61,18 @@ export interface CutRules {
     mover: PlayerId,
     marked: ArrowId,
   ) => GameState;
+
+  /**
+   * After a claim, evaporate each other player's trail from every root point
+   * whose anchoring land the claim took (§6.1). `beforeTerritory` is the map
+   * from before the claim; `state` is the board after the strip.
+   */
+  readonly claimRootCuts: (
+    state: GameState,
+    beforeTerritory: ReadonlyMap<ArrowId, PlayerId>,
+    claimed: ReadonlySet<ArrowId>,
+    mover: PlayerId,
+  ) => GameState;
 }
 
 type Direction = 'forward' | 'backward';
@@ -71,6 +84,62 @@ interface Front {
 
 const canonical = (arrows: readonly ArrowId[]): ReadonlySet<ArrowId> =>
   new Set([...new Set(arrows)].toSorted(compareArrows));
+
+/** Total order on points: the id string, never insertion order. */
+const comparePoints = (left: PointId, right: PointId): number => {
+  const a = String(left);
+  const b = String(right);
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+};
+
+/**
+ * Points P0 where some claimed arrow was an in-arrow and `victim`'s territory
+ * before the claim. Sorted by point id.
+ */
+const rootsTaken = (
+  geometry: GeometryPort,
+  claimed: ReadonlySet<ArrowId>,
+  beforeTerritory: ReadonlyMap<ArrowId, PlayerId>,
+  victim: PlayerId,
+): readonly PointId[] => {
+  const points = new Set<PointId>();
+  for (const arrow of [...claimed].toSorted(compareArrows)) {
+    if (beforeTerritory.get(arrow) !== victim) continue;
+    const p0 = geometry.target(arrow);
+    if (geometry.inArrows(p0).includes(arrow)) points.add(p0);
+  }
+  return [...points].toSorted(comparePoints);
+};
+
+/**
+ * Claim root cuts (§6.1, P88). For each other player, in player order, and each
+ * root the claim took, in point order: if that player's trail still leaves the
+ * point and no clean feeder remains, evaporate from the point.
+ */
+const makeClaimRootCuts = (
+  geometry: GeometryPort,
+  evaporateFrom: CutRules['evaporateFrom'],
+): CutRules['claimRootCuts'] => {
+  return (state, beforeTerritory, claimed, mover) => {
+    let next = state;
+    const victims = state.players
+      .filter((player) => player !== mover)
+      .toSorted(comparePlayers);
+    for (const victim of victims) {
+      for (const p0 of rootsTaken(geometry, claimed, beforeTerritory, victim)) {
+        const trail = next.trails.get(victim);
+        if (trail === undefined || !geometry.outArrows(p0).some((arrow) => trail.has(arrow))) {
+          continue;
+        }
+        if (geometry.inArrows(p0).some((feeder) => isCleanFeeder(next, feeder, victim))) continue;
+        next = evaporateFrom(next, victim, p0);
+      }
+    }
+    return next;
+  };
+};
 
 const trailArrowsAt = (
   geometry: GeometryPort,
@@ -220,14 +289,6 @@ export const makeCutRules = (
     return next;
   };
 
-  const enemyMarks = (state: GameState, owner: PlayerId, arrow: ArrowId): boolean => {
-    for (const [player, trail] of state.trails) {
-      if (player === owner) continue;
-      if (trail.has(arrow)) return true;
-    }
-    return false;
-  };
-
   const territoryRootCuts = (
     state: GameState,
     mover: PlayerId,
@@ -251,9 +312,8 @@ export const makeCutRules = (
     const outs = trailOuts(p0, ownerTrail);
     if (outs.length === 0) return state;
 
-    const clean = feeders.filter((a) => !enemyMarks(state, owner, a));
-    // This step just marked `marked`; if it was the last clean feeder, cut.
-    if (clean.length > 0) return state;
+    // This step just marked `marked`; if a clean feeder remains, no cut.
+    if (feeders.some((arrow) => isCleanFeeder(state, arrow, owner))) return state;
     return evaporateFrom(state, owner, p0);
   };
 
@@ -262,5 +322,6 @@ export const makeCutRules = (
     evaporateFrom,
     evaporateFromArrow,
     territoryRootCuts,
+    claimRootCuts: makeClaimRootCuts(geometry, evaporateFrom),
   };
 };

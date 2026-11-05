@@ -25,11 +25,12 @@
  * bordering arrows (§7, §11 item 34), so a fill that touched one would be a second
  * copy of a fact it is supposed to derive.
  *
- * **The strip (P13, P87).** `commit` writes the claim as the closer's territory, then
- * removes trail from the claimed arrows — except an enemy's **shielding stretch**:
- * one that is territory grade on the post-claim board and carries that enemy's
- * group on another player's territory (§7). Removing it would capture a
- * trail-connected raider by claim alone, which §6.3 forbids. Conversion itself is
+ * **The strip (P13, P87, P88).** `commit` writes the claim as the closer's territory,
+ * then removes trail from the claimed arrows — except an enemy's **shielding
+ * stretch**: one that is territory grade on the post-claim board and carries that
+ * enemy's group, wherever the group stands (§7). A claimed arrow that holds a
+ * group of the mark's owner keeps that mark even when the stretch is not
+ * shielding, so the convert wipe can start there (§6.3). Conversion itself is
  * not decided here: `convertEncircled` runs after `commit` and reads the grade.
  *
  * @see docs/spec/closure/closure.md
@@ -82,7 +83,8 @@ export interface ClosureRules {
   ) => readonly ArrowId[];
   /**
    * The state after a closure has been committed: territory gains the claim, and every
-   * trail loses it (D6, D7, P13) except an enemy's shielding stretch (P87).
+   * trail loses it (D6, D7, P13) except an enemy's shielding stretch (P87, P88)
+   * and a mark under that enemy's group (P88).
    *
    * Returns the state unchanged when the step is not a closure, so `apply` can call it
    * unconditionally and the non-closure path stays a single expression.
@@ -91,11 +93,10 @@ export interface ClosureRules {
 }
 
 /**
- * P87: the arrows of `player`'s **shielding stretches** on the post-claim board —
- * stretches that are territory grade and carry one of the player's groups standing
- * on another player's territory (§6.3, §7). Those groups are exactly the ones
- * `convertEncircled` would otherwise judge, so keeping the whole stretch (road home
- * included, decision 2) is what lets the grade check see it.
+ * The arrows of `player`'s **shielding stretches** on the post-claim board —
+ * stretches that are territory grade and carry at least one group of `player`,
+ * wherever that group stands (§7). Keeping the whole stretch is what lets the
+ * grade check see a trail-connected raider and spare it from conversion.
  *
  * Groups are visited in arrow-id order; the answer is a set, so the order is not
  * observable, but nothing here rests on map insertion order either.
@@ -116,13 +117,6 @@ const shieldingOf = (
     // Stryker disable next-line ConditionalExpression
     if (group.owner !== player) continue;
     if (!trail.has(arrow) || shielding.has(arrow)) continue;
-    const land = board.territory.get(arrow);
-    if (land === undefined) continue;
-    // Decision 4's "own territory" half. Unreachable: a step onto own territory marks
-    // nothing, and every claim strips its closer's trail from what it takes (§7), so
-    // P's trail never lies on P's own territory.
-    // Stryker disable next-line ConditionalExpression
-    if (land === player) continue;
     const stretch = stretchOf(geometry, trail, arrow);
     if (stretchGrade(geometry, board, stretch, player) !== 'territory') continue;
     for (const a of stretch) shielding.add(a);
@@ -131,10 +125,11 @@ const shieldingOf = (
 };
 
 /**
- * The trails after a claim (P13, P87): every mark on a claimed arrow is removed,
- * except another player's marks in a shielding stretch. The closer's own trail on
- * the claim is always removed — it has just become territory. `board` is the
- * post-claim board: claimed arrows already the closer's, every trail still in place.
+ * The trails after a claim (P13, P87, P88): every mark on a claimed arrow is
+ * removed, except another player's marks in a shielding stretch and a mark under
+ * that player's group. The closer's own trail on the claim is always removed —
+ * it has just become territory. `board` is the post-claim board: claimed arrows
+ * already the closer's, every trail still in place.
  */
 const stripClaim = (
   geometry: GeometryPort,
@@ -148,7 +143,12 @@ const stripClaim = (
   // Stryker disable next-line ArrowFunction
   for (const [player, arrows] of [...board.trails].toSorted(([a], [b]) => comparePlayers(a, b))) {
     const shielding = player === mover ? NO_TRAIL : shieldingOf(geometry, board, player, arrows);
-    const kept = [...arrows].filter((a) => !taken.has(a) || shielding.has(a));
+    const kept = [...arrows].filter((arrow) => {
+      if (!taken.has(arrow)) return true;
+      if (player === mover) return false;
+      // D1: leave the mark under a converting stack so the wipe can start there.
+      return shielding.has(arrow) || board.groups.get(arrow)?.owner === player;
+    });
     if (kept.length > 0) trails.set(player, canonical(kept));
   }
   return trails;

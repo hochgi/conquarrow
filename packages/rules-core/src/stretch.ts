@@ -16,6 +16,25 @@ import type { AnchorGrade, ArrowId, GameState, GeometryPort, PlayerId } from '@c
 import { compareArrows } from './order';
 
 /**
+ * A clean feeder for `player` (§6.1): `feeder` is that player's territory and is
+ * not present in any other player's trail.
+ *
+ * Incidence is the caller's fact — a root point's in-arrow, not checked here.
+ * The one predicate `stretchGrade`, territory-root cuts and claim root cuts share.
+ */
+export const isCleanFeeder = (
+  state: GameState,
+  feeder: ArrowId,
+  player: PlayerId,
+): boolean => {
+  if (state.territory.get(feeder) !== player) return false;
+  for (const [other, trail] of state.trails) {
+    if (other !== player && trail.has(feeder)) return false;
+  }
+  return true;
+};
+
+/**
  * The stretch of `trail` holding `seed`: every trail arrow reachable through arrows
  * sharing a point, **either direction** (§6.1, P05 D7). Sorted by arrow id.
  *
@@ -45,8 +64,8 @@ export const stretchOf = (
 
 /**
  * The grade of one stretch (§6.1): **territory** when some arrow of it departs a
- * point one of the player's own territory arrows feeds; otherwise **stack** when it
- * carries one of the player's groups; otherwise **dormant**.
+ * point a clean feeder feeds; otherwise **stack** when it carries one of the
+ * player's groups; otherwise **dormant**.
  *
  * Both are existence questions over the component, so the order it is read in is
  * not observable. `anchorGrade` in trails.ts carries the reasoning for why the
@@ -58,11 +77,9 @@ export const stretchGrade = (
   stretch: readonly ArrowId[],
   player: PlayerId,
 ): AnchorGrade => {
-  const departsTerritory = stretch.some((arrow) =>
-    geometry
-      .inArrows(geometry.origin(arrow))
-      .some((feeder) => state.territory.get(feeder) === player),
+  const departsClean = stretch.some((arrow) =>
+    geometry.inArrows(geometry.origin(arrow)).some((feeder) => isCleanFeeder(state, feeder, player)),
   );
-  if (departsTerritory) return 'territory';
+  if (departsClean) return 'territory';
   return stretch.some((arrow) => state.groups.get(arrow)?.owner === player) ? 'stack' : 'dormant';
 };

@@ -29,13 +29,13 @@ import type {
   StepMove,
 } from '@conquarrow/contracts';
 import { makeCombatRules, resolveBattle } from './combat';
-import { makeClosureRules } from './closure';
-import { makeCutRules } from './cuts';
+import { makeClosureRules, type ClosureRules } from './closure';
+import { makeCutRules, type CutRules } from './cuts';
 import { convertEncircled } from './encirclement';
 import { accrueRound } from './economy';
 import { compareArrows } from './order';
 import { isSelfConvertStep, SELF_CONVERT_MESSAGE } from './selfConvert';
-import { makeTrailRules } from './trails';
+import { makeTrailRules, type TrailRules } from './trails';
 import { resolveLosses, tickStarvation } from './victory';
 
 /**
@@ -87,6 +87,57 @@ const matchOver = (winner: PlayerId): string =>
  */
 const unknownMove = (move: never): string =>
   `no such move kind: ${String((move as { readonly kind?: unknown }).kind)}`;
+
+interface EmptiedArrow {
+  readonly owner: PlayerId;
+  readonly arrow: ArrowId;
+}
+
+/** The ports a landed step still has to ask. Kept off `makeRules` so that factory does not grow. */
+interface StepPorts {
+  readonly cuts: CutRules;
+  readonly closure: ClosureRules;
+  readonly anchorGrade: TrailRules['anchorGrade'];
+}
+
+interface LandedStep {
+  readonly state: GameState;
+  readonly move: StepMove;
+  readonly mover: PlayerId;
+  readonly landed: boolean;
+  readonly wiped: readonly EmptiedArrow[];
+}
+
+/**
+ * Cuts, closure and conversion after occupancy is written (§6.1–§6.3, §7).
+ *
+ * A crossing cut and a mark's territory-root cut run only when the step landed.
+ * A repelled attack did not cross. A claim that takes a trail's anchoring land
+ * then cuts from that root, and conversion reads the board those cuts leave.
+ */
+const resolveAfterLanding = (step: LandedStep, ports: StepPorts): GameState => {
+  let next = step.state;
+  for (const { owner, arrow } of step.wiped) {
+    next = ports.cuts.evaporateFromArrow(next, owner, arrow);
+  }
+  if (step.landed) {
+    next = ports.cuts.evaporate(next, step.move, step.mover);
+    next = ports.cuts.territoryRootCuts(next, step.mover, step.move.exit);
+  }
+  const beforeClaim = next;
+  const afterClosure = ports.closure.commit(beforeClaim, step.move, step.mover);
+  const claim = ports.closure.closureOf(beforeClaim, step.move, step.mover);
+  const afterClaim =
+    claim === undefined
+      ? afterClosure
+      : ports.cuts.claimRootCuts(
+          afterClosure,
+          beforeClaim.territory,
+          new Set<ArrowId>([...claim.path, ...claim.enclosed]),
+          step.mover,
+        );
+  return convertEncircled(afterClaim, ports.anchorGrade, ports.cuts.evaporateFromArrow);
+};
 
 /**
  * The offer list of a won match: nothing, not even the pass.
@@ -255,10 +306,10 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
 
   /**
    * A step: occupancy (ordinary or contact combat), then the mark it leaves,
-   * then cut evaporation, then closure, then conversion.
+   * then cuts, closure and conversion ({@link resolveAfterLanding}).
    *
-   * P06 D6: combat (when contact) first, then cut against the trail set, then
-   * closure. `evaporate` / `commit` are no-ops when the step is neither.
+   * P06 D6: combat (when contact) first. A crossing cut runs only when the
+   * step landed (§6.2).
    */
   const applyStep = (state: GameState, move: StepMove): GameState => {
     const movers = moversFor(state, move);
@@ -297,34 +348,19 @@ export const makeRules = (geometry: GeometryPort): RulesPort => {
       groups.set(move.exit, landing(movers, move.count, standing));
     }
 
-    let stepped: GameState = {
+    const stepped: GameState = {
       ...state,
       groups,
       trails: landed ? trails.markStep(state, move, movers.owner) : state.trails,
     };
 
-    // Combat wipes evaporate trail from emptied arrows (P12).
-    for (const { owner, arrow } of wiped) {
-      stepped = cuts.evaporateFromArrow(stepped, owner, arrow);
-    }
-
-    // Crossing cuts, then territory-root feeder cuts on the marked arrow.
-    let afterCut = cuts.evaporate(stepped, move, movers.owner);
-    if (landed) {
-      afterCut = cuts.territoryRootCuts(afterCut, movers.owner, move.exit);
-    }
-
-    const afterClosure = closure.commit(afterCut, move, movers.owner);
-    // P33: flip, then wipe victim trail from converted arrows (halt-at-first).
-    const afterConvert = convertEncircled(
-      afterClosure,
-      trails.anchorGrade,
-      cuts.evaporateFromArrow,
-    );
     // P36: no loss is evaluated inside a step or a convert — the round
     // boundary owns it (§9, invariants 11-12). A turn stays atomic with respect
     // to removals.
-    return afterConvert;
+    return resolveAfterLanding(
+      { state: stepped, move, mover: movers.owner, landed, wiped },
+      { cuts, closure, anchorGrade: trails.anchorGrade },
+    );
   };
 
   /**
