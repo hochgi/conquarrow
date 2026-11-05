@@ -14,7 +14,9 @@ because plausible-looking-but-wrong code is the dominant failure mode in
 agent-driven development. The loop kills it by forcing the design conversation
 before tests, tests before code, and a coherence check after.
 
-There is **no human gate** between phases. The human is reached only for a
+There is **no human gate** between phases, except that phase 3 is handed to
+OpenCode/grok (below) and the human relays its report. The human is reached
+only for a
 **substantial unexpected cost**, a **big behavioral shift** versus SPEC.md / ADR
 0002 / a shipped packet, or a **SPEC.md game-rule gap**. Online/infra BSSN:
 decide, write it down, continue.
@@ -44,7 +46,7 @@ Online packets live in ADR 0002; reason those yourself.
     skill: write-spec
   PHASE 2 — FAILING TESTS    test-author
     one component test per scenario, property tests, skeletons — red
-  PHASE 3 — CODE TO GREEN    coder
+  PHASE 3 — CODE TO GREEN    coder (OpenCode, xai/grok-4.7, via handoff)
     implement behind the ports, refactor within budget, keep the core pure
   PHASE 4 — REVIEW           reviewer
     spec↔tests↔code, purity, boundaries
@@ -53,6 +55,12 @@ Online packets live in ADR 0002; reason those yourself.
 ```
 
 Do not collapse phases. Do not wait for a thumbs-up between them.
+
+**Phase 3 runs outside Claude, to save Claude tokens.** The orchestrator writes
+a self-contained handoff prompt to `archive/handoffs/<Pnn>-phase3-prompt.md`
+(never committed), stops, and resumes when the human pastes back grok's report.
+The prompt's required sections are in `.claude/commands/spec-to-ship.md`.
+Use a `coder` subagent only when the human asks.
 
 ## Context is handed off through artifacts, not chat
 
