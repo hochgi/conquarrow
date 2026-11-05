@@ -13,17 +13,28 @@ detailed form of an item; this file is the short list and the order.
 
 ## Next
 
-1. **Align rules-core with the P86 rulings.** P88 (packet in progress):
-   C2, R2, R3, D1 and D2 from the [register](../research/spec-conflicts.md),
-   each with its own tests, through spec-to-ship.
-2. **Two open rules for the human** (SPEC §11 items 5 and 6, found by the
+1. **Two open rules for the human** (SPEC §11 items 5 and 6, found by the
    P86 fresh reading): both sides wiped in one battle, and conversion after a
    birth-cut at the round boundary.
-3. **P86 leftovers.** Bot modules and test oracles that restate a rule
+2. **P86 leftovers.** Bot modules and test oracles that restate a rule
    (register, last table): the claim estimate in `findings.ts` /
    `botClose.ts`, "any trail drop is a cut" in `findings.ts` and
    `fx/events.ts`, and coincide-only cut tags in `byokBot.ts`. Suspected
    rows U1–U4.
+3. **P88 shifted the bot games.** Mirror median 85 → 104 rounds; three
+   3-player reach winners changed; encirclement losses +46 %
+   ([ledger](../research/byok-benchmark.md)). Expected from the rulings. Worth
+   a look when the heuristic seat's income work starts.
+4. **Root-cut corners from the P88 review.**
+   - **A re-mark of a dirty feeder.** `cuts.territoryRootCuts` cuts again
+     when an enemy step re-marks a feeder that was already dirty, with no
+     clean feeder left. This predates P88: the post-mark state cannot tell
+     whether the feeder was clean before.
+   - **A third seat's root cut can restore a grade.** With 3 or more seats,
+     a claim root cut on seat C, which runs before conversion, can re-clean a
+     feeder of seat B. B's group then keeps a mark on the closer's land that
+     was not territory grade on the post-claim board (SPEC §7).
+   - Both need a fixture first.
 
 ## Heuristic seat
 

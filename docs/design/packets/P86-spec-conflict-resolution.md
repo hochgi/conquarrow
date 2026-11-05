@@ -1,6 +1,6 @@
 # P86 — SPEC conflict resolution and code alignment
 
-> **Status:** not started. Written 2026-11-04 for a fresh session.
+> **Status:** shipped 2026-11-05: the [register](../../research/spec-conflicts.md) (hochgi/conquarrow#96), the SPEC rewrite (hochgi/conquarrow#97) and the alignment, [P88](./P88-spec-alignment.md). Written 2026-11-04.
 > **Kind:** spec audit, then rules-core alignment. **Depends on:** nothing
 > open. Every shipped rules packet (P02–P70) is input.
 >

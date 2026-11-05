@@ -1,6 +1,6 @@
 # P88 — Align rules-core with the P86 rulings
 
-> **Status:** in progress. **Kind:** rules-core fix (several small fixes, one
+> **Status:** shipped 2026-11-05. **Kind:** rules-core fix (several small fixes, one
 > packet; each keeps its own tests). **Depends on:** P86's register and SPEC
 > rewrite; P12, P13, P33, P47, P87.
 >

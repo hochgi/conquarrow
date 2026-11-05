@@ -267,6 +267,52 @@ touched two reach games and no mirror game. Both changed games ended
 sooner. The mirror wall rose because the after run shared the machine with
 the review phase; the move lists are the same.
 
+### P88 (2026-11-05): rules-core follows the P86 rulings
+
+[P88](../design/packets/P88-spec-alignment.md) is a rules change with five parts:
+- a repelled attack neither cuts nor claims;
+- the convert wipe runs from a converted arrow the claim took;
+- a claim spares a territory-grade trail carrying its stack, wherever the
+  stack stands;
+- a claim that takes a trail's last clean feeder is a root cut;
+- only a clean feeder anchors.
+
+No gate; free tiers only, concurrency 6, no model calls. **Before** is
+`29c7530` (same `src` as `main` `e28732a`), **after** is `30e0ff3` (phase 3
+with the review fixes).
+
+| measure | before | after |
+|---|---|---|
+| mirror cells ending ≤ 400 rounds (rounds / winner s1, s2, s3) | 6 / 6 (85 B, 67 A, 100 B) | **6 / 6 (104 B, 85 A, 130 A)** |
+| mirror move lists | — | **all 6 cells changed**; each mirror pair still identical |
+| mirror median rounds / seat bias (first ∶ second) | 85 / 1∶2 | **104 / 2∶1** |
+| reach grid (`--round-cap 200`) cells ending | 12 / 16 | **12 / 16** (the same 4 capped) |
+| reach cells whose rounds or winner changed | — | **11 of 16** |
+| reach heads lost: combat / encirclement / all | 3,379 / 746 / 4,131 | **3,718 / 1,090 / 4,819** |
+| reach combat share of heads lost | 82 % | **77 %** |
+| reach cuts / attacks | 641 / 1,755 | 737 / 1,906 |
+| wall (mirror / reach) | 287 s / 2,198 s | 391 s / 2,487 s |
+
+The reach cells that changed:
+- `p2-R5-h3-s1` r68 → r52;
+- `p2-R7-h3-s1` r68 → r52;
+- `p2-R7-h3-s2` r62 → r132;
+- `p2-R7-h5-s1` r85 → r104;
+- `p2-R7-h5-s2` r67 → r85;
+- `p3-R5-h3-s2` B r143 → C r194;
+- `p3-R5-h5-s2` B r174 → A r173;
+- `p3-R7-h3-s2` B r162 → C r188;
+- small round changes in three more.
+
+**A noticeable shift, reported to the human.**
+- Games run longer: the mirror median rises from 85 to 104 rounds.
+- Conversion matters more: encirclement losses rise 46 %.
+- Winners changed in one mirror seed and in three 3-player reach cells.
+- No 2-player cell stalls, and no new cell caps.
+- This is what the rulings predict. A losing attack no longer burns trail, a
+  raider's road home survives a claim, and a cut root or a taken anchor now
+  demotes a raider that the heuristic seat then converts.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).
