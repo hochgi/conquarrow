@@ -43,33 +43,41 @@ The walk ends where it starts, re-walking its own trail changes nothing, and
 no claim follows. A's land sat at 29–30 from r20 to r40 while its income
 stayed at 1.42.
 
-So the turn is a pass in disguise. The likely mechanism, to confirm in the
-packet's diagnosis:
-- P84's never-idle seam forbids a pass while a step is legal;
-- `isShuttle` (`botSearch.ts`) only catches two `count = 1` steps over the
-  same arrow pair, so a 3-step ring of a ×4 stack is not caught;
-- and nothing makes the seat drive the stack home, which would close a
-  12-arrow trail.
+That the ring happens to end on its start arrow is incidental: a ×2 or ×3
+stack has a different speed, would end each turn on a different arrow of the
+ring, and would be just as stuck (the human, 2026-11-06). So "ends where it
+started" is not the defect, and scoring it as a pass is not the fix.
 
-A plan whose end state equals its start state (apart from `spent`) is a pass,
-and should be scored as one. The open question is why the beam never prefers
-the close home.
+The defect is the choice: the seat retraces its own trail instead of driving
+the stack home to close a 12-arrow trail. The packet starts with a diagnosis
+of why the beam never prefers that close. Candidates to test, not
+conclusions:
+- the close home scores worse than staying out (reply damage, a threatened
+  kite, or the evaluation of the claim);
+- the close home is longer than the beam's plan horizon, so no plan reaches
+  it, and P84's never-idle seam then takes any legal step.
 
-### 2. The phone froze: a late bot turn takes seconds, on the main thread
+### 2. The phone froze at move 580, and slow turns do not explain it
 
-Replaying the last saved position, one heuristic turn for seat A
-(`chooseTurnBeam`) took **6.5 s on a desktop Mac**. A phone is several times
-slower, and two bot seats move back to back. The planner runs on the page's
-main thread (no Web Worker), so the page cannot repaint, take input, or
-download the log while it thinks. The stack size (14 heads) is not the cause
-by itself: the cost grows with the beam's search over a large board with long
-trails. P85 already missed its speed gate (1.49 s per turn against ≤ 0.89 s).
+The human left the frozen page for **several hours**, hoping to save the log.
+The turn before took a few seconds. Slow turns cannot explain a turn that
+never ends, so this is most likely a hang: a loop in the planner (or in the
+page) that does not terminate on that position. That log is lost, so the
+hang has no reproduction yet.
 
-Two fixes, independent:
-- run the heuristic seat in a Web Worker, so the page stays responsive and
-  "Download log" always works;
-- bound the per-turn time (P85's speed gate), and measure on a phone-class
-  budget.
+What is known:
+- replaying the last saved position of the second game, one heuristic turn
+  for seat A (`chooseTurnBeam`) took **6.5 s on a desktop Mac**; a phone is
+  several times slower, and two bot seats move back to back;
+- the planner runs on the page's main thread (no Web Worker), so while it
+  runs the page cannot repaint, take input or download the log;
+- the beam has an apply budget (`MAX_APPLIES`), but other parts of the turn
+  (P84's never-idle fallback, the staging walk, the P85 missions) may not be
+  bounded the same way.
+
+Next steps: autosave (finding 3) keeps the log of the next freeze; a Web
+Worker keeps the page usable during one; then reproduce from that log, and
+add a hard bound to each turn.
 
 ### 3. A back swipe or a refresh loses a local game
 

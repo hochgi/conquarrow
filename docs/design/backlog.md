@@ -50,11 +50,10 @@ detailed form of an item; this file is the short list and the order.
 - **The loop of doom.** Playtest 2026-11-06: from move 209 to 529 (about
   rounds 17–43) A's ×4 stack walked the same 3-arrow ring of its own trail
   every turn, at the tip of a 12-arrow sortie, and never drove home to close.
-  A's land sat at 30 for twenty rounds. The walk ends where it starts, so it
-  is a pass that P84's never-idle seam lets through; `isShuttle` only catches
-  two `count = 1` steps. Diagnose why the beam never prefers the close home,
-  and score a plan whose end state equals its start as a pass. Replay
-  fixture: the log, moves 209–529. Source:
+  A's land sat at 30 for twenty rounds. Ending on the start arrow is
+  incidental (a ×2 or ×3 stack would end elsewhere and be just as stuck), so
+  do not score it as a pass. Diagnose why the seat retraces its trail instead
+  of closing home. Replay fixture: the log, moves 209–529. Source:
   [findings](../research/playtest-2026-11-06/FINDINGS.md).
 - **Income, not land, is the gap.** Playtest 2026-11-04: at r30 the human's
   income was 10.92 against the bots' 2.56; P85 missed its income gate
@@ -76,13 +75,13 @@ detailed form of an item; this file is the short list and the order.
   - the P85 spec's Module table says "nothing else is public" but
     `botTempo.ts` also exports the types `Sortie` and `Intercept`.
 
-- **Bot turns freeze a phone.** Playtest 2026-11-06: the page froze at move
-  580 and the log could not be saved. A late turn of the 11-06 log takes
-  6.5 s on a desktop Mac, and the planner runs on the main thread. Run the
-  heuristic seat in a Web Worker so the page stays responsive, then bound the
-  per-turn time on a phone-class budget (P85 missed its ≤ 0.89 s gate).
-  This replaces the 2026-11-04 note that speed was no problem: that was on a
-  desktop. Source: [findings](../research/playtest-2026-11-06/FINDINGS.md).
+- **A bot turn hung the page.** Playtest 2026-11-06: at move 580 a bot turn
+  did not finish in several hours, though the turn before took seconds, so
+  it is likely a non-terminating loop, not only slowness. The log was lost.
+  Autosave (UX) keeps the next one; then reproduce it, bound every part of
+  the turn, and run the heuristic seat in a Web Worker so the page stays
+  usable. Late turns are also slow (6.5 s on a desktop Mac), which replaces
+  the 2026-11-04 note that speed was no problem: that was on a desktop. Source: [findings](../research/playtest-2026-11-06/FINDINGS.md).
 
 ## UX
 
