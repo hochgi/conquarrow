@@ -47,6 +47,15 @@ detailed form of an item; this file is the short list and the order.
 
 ## Heuristic seat
 
+- **The loop of doom.** Playtest 2026-11-06: from move 209 to 529 (about
+  rounds 17–43) A's ×4 stack walked the same 3-arrow ring of its own trail
+  every turn, at the tip of a 12-arrow sortie, and never drove home to close.
+  A's land sat at 30 for twenty rounds. The walk ends where it starts, so it
+  is a pass that P84's never-idle seam lets through; `isShuttle` only catches
+  two `count = 1` steps. Diagnose why the beam never prefers the close home,
+  and score a plan whose end state equals its start as a pass. Replay
+  fixture: the log, moves 209–529. Source:
+  [findings](../research/playtest-2026-11-06/FINDINGS.md).
 - **Income, not land, is the gap.** Playtest 2026-11-04: at r30 the human's
   income was 10.92 against the bots' 2.56; P85 missed its income gate
   (1.23×). The seat should value spawner shares, and close again after its
@@ -67,11 +76,22 @@ detailed form of an item; this file is the short list and the order.
   - the P85 spec's Module table says "nothing else is public" but
     `botTempo.ts` also exports the types `Sortie` and `Intercept`.
 
-Bot turn speed (about 1.5 s per turn since P85) is not a problem in play
-(human, 2026-11-04). Nothing to do.
+- **Bot turns freeze a phone.** Playtest 2026-11-06: the page froze at move
+  580 and the log could not be saved. A late turn of the 11-06 log takes
+  6.5 s on a desktop Mac, and the planner runs on the main thread. Run the
+  heuristic seat in a Web Worker so the page stays responsive, then bound the
+  per-turn time on a phone-class budget (P85 missed its ≤ 0.89 s gate).
+  This replaces the 2026-11-04 note that speed was no problem: that was on a
+  desktop. Source: [findings](../research/playtest-2026-11-06/FINDINGS.md).
 
 ## UX
 
+- **A back swipe or a refresh loses a local game.** Playtest 2026-11-06: an
+  edge swipe on a phone navigated back, and the match was gone. Autosave the
+  match (config and moves) to browser storage after every move and offer
+  Resume in the lobby; catch the back gesture inside the page and ask before
+  leaving; add a `beforeunload` prompt. Source:
+  [findings](../research/playtest-2026-11-06/FINDINGS.md).
 - **Post-P72 UX regressions.** Changes made when an agent played as the human
   seat through the Chrome extension suited the agent and cost a human more
   clicks. Research first: list the clicks and steps per turn today, find
