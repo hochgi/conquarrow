@@ -13,7 +13,7 @@ import type { MatchConfig } from '@conquarrow/contracts';
 import { rules } from './board';
 import { CORPUS_NAMES, corpusLog } from './corpus';
 import type { Cell } from './grid';
-import { parseMove } from './moves';
+import { parseMove } from '../../src/moves';
 import { scoreMatch, type ReachReport } from './reach';
 import type { RunJobs } from './tiers';
 

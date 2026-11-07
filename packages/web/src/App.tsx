@@ -26,6 +26,7 @@ import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
 import { pointerUpIntent, type PointerUpIntent } from './input/pointer';
 import { Lobby } from './Lobby';
+import type { LobbyResume } from './Lobby';
 import {
   advanceCursor,
   emptyRecency,
@@ -54,6 +55,22 @@ import {
   withByokStats,
   withWinner,
 } from './matchLog';
+import {
+  LOCAL_RESUME_MODE,
+  browserResumeBacking,
+  createResumeStore,
+  downloadRawText,
+  liveResumeMode,
+  parseResumeLog,
+  persistResume,
+  replayResumeLog,
+  resumeOffer,
+  seatPlanFromLog,
+  seatRuntimeFromPlan,
+  shouldGuardLeave,
+} from './resume';
+import type { ResumeOffer } from './resume';
+import { useResumeLeaveGuard } from './resumeLeave';
 import { clearByokPlans, playLlmBotTurn } from './byokBot';
 import { isByokReady } from './byokConfig';
 import { clearTargetLocks } from './targets';
@@ -312,6 +329,38 @@ const reportDivergence = (
   if (report !== undefined) console.error(report);
 };
 
+/**
+ * Lobby buttons for a stored local match. Empty means nothing was saved.
+ * A parse failure still offers download; Resume is only the replayable case.
+ */
+const guardingLeave = (
+  state: GameState | undefined,
+  log: MatchLog | undefined,
+  tutorial: boolean,
+  online: boolean,
+): boolean =>
+  state !== undefined &&
+  log !== undefined &&
+  shouldGuardLeave({
+    mode: liveResumeMode({ tutorial, online }),
+    winner: state.winner,
+  });
+
+const lobbyResume = (
+  offer: ResumeOffer,
+  fault: string | undefined,
+  onResume: () => void,
+  onDownload: () => void,
+): LobbyResume | undefined => {
+  if (offer.kind === 'empty') return undefined;
+  const error = offer.kind === 'error' ? offer.error : fault;
+  return {
+    onDownload,
+    ...(offer.kind === 'offer' ? { description: offer.description, onResume } : {}),
+    ...(error === undefined ? {} : { error }),
+  };
+};
+
 export const App = (): ReactElement => {
   const { host, gen, refresh } = usePagesHost();
   const hostRef = useRef(host);
@@ -336,6 +385,8 @@ export const App = (): ReactElement => {
   };
   const [state, setState] = useState<GameState | undefined>(undefined);
   const [log, setLog] = useState<MatchLog | undefined>(undefined);
+  const [resumeStore] = useState(() => createResumeStore(browserResumeBacking()));
+  const [resumeFault, setResumeFault] = useState<string | undefined>(undefined);
   const [snap, setSnap] = useState<InputSnapshot>(idleSnap);
   const [viewport, setViewport] = useState<Viewport>(() => createViewport(800, 600));
   const [hover, setHover] = useState<
@@ -569,6 +620,14 @@ export const App = (): ReactElement => {
         let updated = withWinner(base, nextState.winner);
         if (byokDelta !== undefined) updated = withByokStats(updated, byokDelta, byokSeat);
         saveMatchLog(updated);
+        persistResume(
+          resumeStore,
+          updated,
+          liveResumeMode({
+            tutorial: tutorialRef.current !== undefined,
+            online: onlinePlayRef.current,
+          }),
+        );
         return updated;
       });
     },
@@ -1466,6 +1525,7 @@ export const App = (): ReactElement => {
     stateRef.current = undefined;
     resetCursorState();
     setLog(undefined);
+    setResumeFault(undefined);
     aiSeatsRef.current = new Set();
     seatConfigsRef.current = new Map();
     setBotBusy(false);
@@ -1592,6 +1652,46 @@ export const App = (): ReactElement => {
     bumpTutorial();
   };
 
+  const downloadSaved = (): void => {
+    const raw = resumeStore.readRaw();
+    if (raw === undefined) return;
+    const parsed = parseResumeLog(raw);
+    if (parsed.ok) {
+      downloadMatchLog(parsed.log);
+      return;
+    }
+    downloadRawText('conquarrow-resume.json', raw);
+  };
+
+  const resumeSaved = (): void => {
+    const offer = resumeOffer(resumeStore.readRaw());
+    if (offer.kind !== 'offer') return;
+    const replayed = replayResumeLog(offer.log);
+    if (!replayed.ok) {
+      setResumeFault(replayed.error);
+      return;
+    }
+    const plan = seatPlanFromLog(replayed.log);
+    const runtime = seatRuntimeFromPlan(plan, replayed.state.players);
+    onlinePlayRef.current = false;
+    setTutorial(undefined);
+    demoKeyRef.current = undefined;
+    aiSeatsRef.current = runtime.aiKeys;
+    seatConfigsRef.current = runtime.configs;
+    clearTargetLocks();
+    clearByokPlans();
+    saveMatchLog(replayed.log);
+    setLog(replayed.log);
+    setManualPause(false);
+    setByokStatus(undefined);
+    setResumeFault(undefined);
+    resetCursorState();
+    stateRef.current = replayed.state;
+    setState(replayed.state);
+    setSnap(mode.reset());
+    softLockKey.current = null;
+  };
+
   const startMatch = (plan: SeatPlan): void => {
     if (!seatPlanReady(plan)) return;
     onlinePlayRef.current = false;
@@ -1634,7 +1734,9 @@ export const App = (): ReactElement => {
       botSeat: bots[0],
     });
     saveMatchLog(nextLog);
+    persistResume(resumeStore, nextLog, LOCAL_RESUME_MODE);
     setLog(nextLog);
+    setResumeFault(undefined);
     setManualPause(false);
     setByokStatus(hasByokSeat(plan) ? 'BYOK seat(s) armed' : undefined);
     resetCursorState();
@@ -1644,10 +1746,21 @@ export const App = (): ReactElement => {
     softLockKey.current = null;
   };
 
+  useResumeLeaveGuard(
+    guardingLeave(state, log, tutorial !== undefined, onlinePlayRef.current),
+    returnToLobby,
+  );
+
   if (state === undefined || log === undefined) {
     const signedIn =
       typeof sessionStorage !== 'undefined' &&
       sessionStorage.getItem(GOOGLE_ID_TOKEN_SESSION_KEY) !== null;
+    const resume = lobbyResume(
+      resumeOffer(resumeStore.readRaw()),
+      resumeFault,
+      resumeSaved,
+      downloadSaved,
+    );
     return (
       <Lobby
         plan={seatPlan}
@@ -1723,6 +1836,7 @@ export const App = (): ReactElement => {
                 userHash: host.adapter().userHash(),
               },
             })}
+        {...(resume === undefined ? {} : { resume })}
       />
     );
   }

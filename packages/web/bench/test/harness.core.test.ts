@@ -16,7 +16,7 @@ import { landOf, totalLand } from '../src/metrics';
 import { scoreOutcome } from '../src/score';
 import { createByokSeat, playByokSeatTurn } from '../src/seat';
 import { inProcessJobs, runMatchesTier, runMirrorTier } from '../src/tiers';
-import { parseMove } from '../src/moves';
+import { parseMove } from '../../src/moves';
 import { mintArrowId } from '@conquarrow/contracts';
 import {
   access,

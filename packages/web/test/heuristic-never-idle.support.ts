@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { movesEqual } from '@conquarrow/contracts';
 import type { GameState, MatchConfig, Move, PlayerId } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
-import { parseMove } from '../bench/src/moves';
+import { parseMove } from '../src/moves';
 import { isThreatenedKite, kiteLength } from '../src/botMission';
 import { neverIdle, type NeverIdleComplete, type NeverIdleSearch } from '../src/botNeverIdle';
 import { evaluate, planKey } from '../src/botSearch';

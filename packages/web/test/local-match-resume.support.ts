@@ -19,7 +19,7 @@ import {
 import type { GameState, MatchConfig, PlayerId } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
-import { parseMove } from '../bench/src/moves';
+import { parseMove } from '../src/moves';
 import {
   appendMoves,
   createMatchLog,

@@ -53,6 +53,13 @@ export interface LobbyOnline {
   readonly userHash: string | undefined;
 }
 
+export interface LobbyResume {
+  readonly description?: string;
+  readonly error?: string;
+  readonly onResume?: () => void;
+  readonly onDownload: () => void;
+}
+
 export interface LobbyProps {
   readonly plan: SeatPlan;
   readonly onPlan: (next: SeatPlan) => void;
@@ -62,6 +69,8 @@ export interface LobbyProps {
   readonly onLearn?: () => void;
   readonly learnCardVisible?: boolean;
   readonly onDismissLearnCard?: () => void;
+  /** A local save waiting in the lobby. Omitted when there is nothing stored. */
+  readonly resume?: LobbyResume;
 }
 
 const PLACEMENT_BLURB: Record<PlaytestPlayerCount, string> = {
@@ -75,6 +84,25 @@ const KIND_OPTIONS: readonly { value: SeatKind; label: string }[] = [
   { value: 'byok', label: 'BYOK LLM' },
 ];
 
+const ResumeSave = ({ resume }: { readonly resume: LobbyResume }): ReactElement => (
+  <div className="lobby-resume">
+    <div className="lobby-byok-actions">
+      {resume.onResume === undefined ? null : (
+        <button type="button" className="lobby-start" onClick={resume.onResume}>
+          Resume
+        </button>
+      )}
+      <button type="button" className="lobby-byok-test" onClick={resume.onDownload}>
+        Download saved log
+      </button>
+    </div>
+    {resume.description === undefined ? null : (
+      <p className="lobby-byok-note">{resume.description}</p>
+    )}
+    {resume.error === undefined ? null : <p className="lobby-byok-warn">{resume.error}</p>}
+  </div>
+);
+
 export const Lobby = ({
   plan,
   onPlan,
@@ -83,6 +111,7 @@ export const Lobby = ({
   onLearn,
   learnCardVisible,
   onDismissLearnCard,
+  resume,
 }: LobbyProps): ReactElement => {
   const incomplete = !seatPlanReady(plan);
   const onlineMode = online?.offered === true && online.mode === 'online';
@@ -414,6 +443,8 @@ export const Lobby = ({
             Start is enabled when every Player seat is filled — waiting chairs must bind.
           </p>
         ) : null}
+
+        {resume === undefined ? null : <ResumeSave resume={resume} />}
 
         <button type="button" className="lobby-start" disabled={startDisabled} onClick={onStart}>
           Start match
