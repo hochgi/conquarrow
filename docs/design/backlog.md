@@ -85,12 +85,8 @@ detailed form of an item; this file is the short list and the order.
 
 ## UX
 
-- **A back swipe or a refresh loses a local game.** Playtest 2026-11-06: an
-  edge swipe on a phone navigated back, and the match was gone. Autosave the
-  match (config and moves) to browser storage after every move and offer
-  Resume in the lobby; catch the back gesture inside the page and ask before
-  leaving; add a `beforeunload` prompt. Source:
-  [findings](../research/playtest-2026-11-06/FINDINGS.md).
+- **A back swipe or a refresh loses a local game.** In progress as
+  [P90](./packets/P90-local-match-resume.md).
 - **Post-P72 UX regressions.** Changes made when an agent played as the human
   seat through the Chrome extension suited the agent and cost a human more
   clicks. Research first: list the clicks and steps per turn today, find
