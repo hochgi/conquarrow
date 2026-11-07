@@ -19,7 +19,7 @@ import type {
   VertexId,
 } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
-import { parseMove } from '../bench/src/moves';
+import { parseMove } from '../src/moves';
 import { campaignTarget, exposure } from '../src/botClose';
 import { grainDistance, grainDistanceToAny } from '../src/botEvaluate';
 import { DEFAULT_REPLY_DIST_CAP } from '../src/botReply';

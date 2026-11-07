@@ -29,7 +29,7 @@ import type {
   StepMove,
 } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
-import { parseMove } from '../bench/src/moves';
+import { parseMove } from '../src/moves';
 import { foldEnemyReply, hypothesiseChair, REPLY_MAX_APPLIES, type ReplySearchFn } from '../src/botReply';
 import {
   chooseTurnBeamWithBudget,

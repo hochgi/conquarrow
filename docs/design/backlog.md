@@ -85,12 +85,15 @@ detailed form of an item; this file is the short list and the order.
 
 ## UX
 
-- **A back swipe or a refresh loses a local game.** Playtest 2026-11-06: an
-  edge swipe on a phone navigated back, and the match was gone. Autosave the
-  match (config and moves) to browser storage after every move and offer
-  Resume in the lobby; catch the back gesture inside the page and ask before
-  leaving; add a `beforeunload` prompt. Source:
-  [findings](../research/playtest-2026-11-06/FINDINGS.md).
+- **Check P90 on a phone.** Resume after a back swipe, a refresh and a
+  frozen tab; Back from the lobby leaves the app at once. The web package has
+  no jsdom, so the history and unload hook is untested in CI.
+- **P90 review tidy-ups.** `guardingLeave` and `lobbyResume` belong in
+  `resume.ts`, not `App.tsx`; `resumeSaved` repeats `startMatch`'s seat setup
+  (share `seatRuntimeFromPlan`); `downloadRawText` copies
+  `downloadMatchLog`'s body; `ResumeMode.spectated` / `.replayed` are never
+  set in production, so drop them; the doc comment at `App.tsx` ~331 sits
+  above the wrong function.
 - **Post-P72 UX regressions.** Changes made when an agent played as the human
   seat through the Chrome extension suited the agent and cost a human more
   clicks. Research first: list the clicks and steps per turn today, find

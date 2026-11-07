@@ -18,7 +18,7 @@ import { geometry, rules } from './board';
 import { cellConfig, seatIndexOf, type Cell } from './grid';
 import { ZERO_COST, type CostTotals } from './budget';
 import { formatRational, headsOf, incomeRate, landOf, maxRational, totalLand } from './metrics';
-import { serializeMove, type SerializedMove } from './moves';
+import { serializeMove, type SerializedMove } from '../../src/moves';
 import type { Outcome } from './score';
 import { playByokSeatTurn, type ByokSeat } from './seat';
 

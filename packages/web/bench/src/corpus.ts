@@ -20,7 +20,7 @@ import { makeMatch } from '@conquarrow/geometry-tiling';
 import { hasLegalStep } from '../../src/autoEndTurn';
 import { emptyMatchSummary, foldMatchSummary, type MatchSummary } from '../../src/matchLog';
 import { rules } from './board';
-import { parseMove } from './moves';
+import { parseMove } from '../../src/moves';
 
 const benchDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(benchDir, '../../..');
