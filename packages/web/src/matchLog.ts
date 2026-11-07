@@ -300,10 +300,14 @@ export const withWinner = (log: MatchLog, winner: PlayerId | undefined): MatchLo
 
 export const serializeMatchLog = (log: MatchLog): string => `${JSON.stringify(log, null, 2)}\n`;
 
-/** Persist for post-game review. No-ops outside a browser. */
+/** Persist for post-game review. No-ops outside a browser, or when storage refuses (private window, full quota). */
 export const saveMatchLog = (log: MatchLog): void => {
   if (typeof localStorage === 'undefined') return;
-  localStorage.setItem(LAST_MATCH_STORAGE_KEY, serializeMatchLog(log));
+  try {
+    localStorage.setItem(LAST_MATCH_STORAGE_KEY, serializeMatchLog(log));
+  } catch {
+    // A refused write must not break the move that triggered it.
+  }
 };
 
 export const loadLastMatchLog = (): MatchLog | undefined => {

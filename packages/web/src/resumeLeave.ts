@@ -11,28 +11,29 @@ import { LEAVE_MATCH_CONFIRM } from './resume';
 
 const ENTRY = { conquarrowLocal: true };
 
+const onOurEntry = (): boolean =>
+  (window.history.state as { conquarrowLocal?: unknown } | null)?.conquarrowLocal === true;
+
 /**
  * While `active`, one history entry sits above the lobby. Back asks; Cancel
  * pushes the entry again; OK calls `onLeave`. Refresh and close ask via
  * `beforeunload` — the browser supplies that copy.
  *
- * The pushed flag survives Strict Mode's extra effect pass, so dev does not
- * stack two entries for one match.
+ * The entry is pushed only when the current one is not already ours, and it is
+ * taken off again when the guard turns off while it is on top (the Lobby
+ * button, or a winner). So entries never pile up, and Back from the lobby
+ * leaves the app as it did before P90.
  */
 export const useResumeLeaveGuard = (active: boolean, onLeave: () => void): void => {
   const leaveRef = useRef(onLeave);
   leaveRef.current = onLeave;
-  const pushed = useRef(false);
 
   useEffect(() => {
     if (!active) {
-      pushed.current = false;
+      if (onOurEntry()) window.history.back();
       return;
     }
-    if (!pushed.current) {
-      window.history.pushState(ENTRY, '');
-      pushed.current = true;
-    }
+    if (!onOurEntry()) window.history.pushState(ENTRY, '');
     const onPop = (): void => {
       if (window.confirm(LEAVE_MATCH_CONFIRM)) {
         leaveRef.current();

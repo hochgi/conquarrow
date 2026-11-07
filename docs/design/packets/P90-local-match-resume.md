@@ -1,6 +1,6 @@
 # P90 — Resume a local match after back, refresh or a frozen tab
 
-> **Status:** in progress. **Kind:** web adapter (UX). **Depends on:** P10
+> **Status:** shipped 2026-11-07. **Kind:** web adapter (UX). **Depends on:** P10
 > (match log), P48 (prefs seam).
 >
 > **Evidence:** [playtest 2026-11-06](../../research/playtest-2026-11-06/FINDINGS.md),
@@ -26,8 +26,9 @@
 
 1. **A separate resume save.** Key `conquarrow:resume`, holding the same
    `MatchLog` JSON. It is written after every applied move of a **local**
-   match only: not the tutorial, not online play, not a spectated or replayed
-   board. `conquarrow:last-match` keeps its current behaviour.
+   match only: not the tutorial, and not online play (which covers online
+   spectating and the online replay viewer). The camera following a local
+   heuristic seat is the local match itself, and it saves. `conquarrow:last-match` keeps its current behaviour.
 2. **Which matches resume.** Only matches whose logged seats are all `human`
    or `heuristic`. A match with a `byok` seat is still saved (so it can be
    downloaded) but is not offered for resume: the API key is not in the log,
