@@ -3,11 +3,12 @@
  * after turn instead of driving the stack home, although home is within one
  * turn's reach (docs/design/backlog.md, "The loop of doom").
  *
- * The premise tests run today: the fixtures replay, the close home from the
- * ring is legal, in reach and claims land. The behaviour tests are skipped
- * until the fix lands; unskip them in that packet. Before the fix they fail
- * for the reason they name: the land stays flat while the stack walks the
- * ring.
+ * The premise tests check the fixtures: they replay, and the close home from
+ * the ring is legal, in reach and claims land. The behaviour tests are the
+ * core outline of docs/spec/heuristic-loop-of-doom/heuristic-loop-of-doom.core.feature
+ * (P91: the live sortie credit pays only a sortie that grew). Without P91
+ * they fail for the reason they name: the land stays flat while the stack
+ * walks the ring.
  *
  * What these tests do not demand: that the stack ends a turn off the ring, or
  * on another arrow. Ending where it started is incidental (a ×2 on the same
@@ -42,13 +43,13 @@ describe.each(LOOP_FIXTURES)('loop of doom $id ($log, seat $seat)', (f) => {
     }
   }, 60_000);
 
-  it.skip('replayed position: the seat claims land within three of its turns', () => {
+  it('replayed position: the seat claims land within three of its turns', () => {
     const start = replayed(f);
     const land = landPerTurn(chooseTurnBeam, start, TURNS);
     expect(Math.max(...land)).toBeGreaterThan(landOf(start.state, start.me));
   }, 120_000);
 
-  it.skip('minimal position: the seat claims land within three of its turns', () => {
+  it('minimal position: the seat claims land within three of its turns', () => {
     const start = minimal(f);
     const land = landPerTurn(chooseTurnBeam, start, TURNS);
     expect(Math.max(...land)).toBeGreaterThan(landOf(start.state, start.me));

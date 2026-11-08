@@ -177,3 +177,114 @@ export const closeHomeFromRing = (
   }
   return { before, after: at, steps: path.distance };
 };
+
+// ---------------------------------------------------------------------------
+// P91 unit positions (docs/spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md,
+// "Fixtures"). Every premise a test states is checked here and throws `setup:`.
+// ---------------------------------------------------------------------------
+
+const step = (from: string, exit: string, count: number): Move => ({
+  kind: 'step',
+  from: arrow(`tiling:a:${from}`),
+  exit: arrow(`tiling:a:${exit}`),
+  count,
+});
+
+/** Spec Fixtures, T₂: the ring turn from O₁, `3,0,0 → 4,0,2 → 4,-1,1 → 3,0,0` ×4. */
+export const L1_RING_TURN: readonly Move[] = [
+  step('3,0,0', '4,0,2', 4),
+  step('4,0,2', '4,-1,1', 4),
+  step('4,-1,1', '3,0,0', 4),
+  endTurn(),
+];
+
+/** Spec Fixtures: the nested plan main `229892d` returns at L1's minimal O₁. */
+export const L1_NESTED_PLAN_AT_O1: readonly Move[] = [
+  step('3,0,0', '4,0,0', 2),
+  step('3,0,0', '4,0,2', 2),
+  step('4,0,0', '5,0,0', 2),
+  endTurn(),
+];
+
+const fixture = (id: string): LoopFixture => {
+  const f = LOOP_FIXTURES.find((x) => x.id === id);
+  if (f === undefined) throw new Error(`setup: no loop fixture ${id}`);
+  return f;
+};
+
+/** O₀ (the turn into the ring begins), T₁ (after it), O₁ (the others passed). */
+export type RingStart = {
+  readonly me: PlayerId;
+  readonly o0: GameState;
+  readonly t1: GameState;
+  readonly o1: GameState;
+};
+
+export const ringStart = (f: LoopFixture, start: LoopPosition): RingStart => {
+  const t1 = fold(start.state, turnIntoRing(f));
+  const o1 = othersPass(t1, start.me);
+  if (o1.activePlayer !== start.me || o1.winner !== undefined) {
+    throw new Error(`setup: ${f.id} after the turn into the ring, ${f.seat} is not to move`);
+  }
+  return { me: start.me, o0: start.state, t1, o1 };
+};
+
+export type L1Units = RingStart & { readonly t2: GameState };
+
+/**
+ * L1's minimal unit positions with the spec's premises checked: O₀ trail 9;
+ * T₁ trail 12, `sortieCredit` > 0; O₁ A ×4 alone on `3,0,0`, trail 12; T₂
+ * trail 12, `sortieCredit` > 0.
+ */
+export const l1Units = (credit: (state: GameState, me: PlayerId) => number): L1Units => {
+  const start = ringStart(fixture('L1'), minimal(fixture('L1')));
+  const { me, o0, t1, o1 } = start;
+  if (trailSizeOf(o0, me) !== 9) throw new Error('setup: L1 O₀ trail is not 9');
+  if (trailSizeOf(t1, me) !== 12) throw new Error('setup: L1 T₁ trail is not 12');
+  if (!(credit(t1, me) > 0)) throw new Error('setup: L1 sortieCredit(T₁) is not > 0');
+  const own = [...o1.groups].filter(([, g]) => g.owner === me);
+  const [only] = own;
+  if (own.length !== 1 || only?.[0] !== arrow('tiling:a:3,0,0') || only[1].heads !== 4) {
+    throw new Error('setup: L1 O₁ is not A ×4 alone on 3,0,0');
+  }
+  if (trailSizeOf(o1, me) !== 12) throw new Error('setup: L1 O₁ trail is not 12');
+  const t2 = fold(o1, L1_RING_TURN);
+  if (trailSizeOf(t2, me) !== 12) throw new Error('setup: L1 T₂ trail is not 12');
+  if (!(credit(t2, me) > 0)) throw new Error('setup: L1 sortieCredit(T₂) is not > 0');
+  return { ...start, t2 };
+};
+
+/** `n` arrow ids for a hand-made trail; `tag` keeps two seats' sets apart. */
+export const syntheticTrail = (n: number, tag: number): ReadonlySet<ArrowId> =>
+  new Set(Array.from({ length: n }, (_, k) => arrow(`tiling:a:${String(tag)},${String(k)},0`)));
+
+/** A shallow copy of `base` with only `trails` replaced. */
+export const withTrails = (
+  base: GameState,
+  trails: ReadonlyMap<PlayerId, ReadonlySet<ArrowId>>,
+): GameState => ({ ...base, trails });
+
+/** A seat of `state` other than `me`. */
+export const otherSeat = (state: GameState, me: PlayerId): PlayerId => {
+  const other = state.players.find((p) => p !== me);
+  if (other === undefined) throw new Error('setup: no other seat');
+  return other;
+};
+
+/**
+ * Terminals of complete plans from `origin`: the pass, every legal single step
+ * then `endTurn`, and each of `plans`. Labelled for failure messages.
+ */
+export const completesFrom = (
+  origin: GameState,
+  plans: readonly (readonly Move[])[],
+): readonly { readonly label: string; readonly terminal: GameState }[] => {
+  const singles = rules
+    .legalMoves(origin)
+    .filter((m) => m.kind === 'step')
+    .map((m): readonly Move[] => [m, endTurn()]);
+  return [[endTurn()], ...singles, ...plans].map((plan) => ({
+    label: plan.map((m) => (m.kind === 'step' ? `${String(m.from)}>${String(m.exit)}×${String(m.count)}` : 'endTurn')).join(', '),
+    terminal: fold(origin, plan),
+  }));
+};

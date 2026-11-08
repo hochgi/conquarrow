@@ -351,6 +351,69 @@ costs only the defender. Encirclement losses rise 2 %, from boundary
 conversion. A vitest process held about one core during both runs, so the walls
 compare with each other only.
 
+### P91 (2026-11-08): the live sortie credit pays only a sortie that grew
+
+[P91](../design/packets/P91-heuristic-loop-of-doom.md) is the heuristic seat
+only. The live sortie credit is paid only when the seat's trail grew this
+turn. No game rule, and no constant changed
+([spec](../spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md)).
+
+Free tiers only, concurrency 6, no model calls. **Before** is `229892d`
+(`main`). Bot and rules `src` are P89's. This run reproduces P89's mirror
+outcomes (104 B, 85 A, 119 A), the reach rounds the ledger names, and the
+reach loss totals (3,543 / 1,115 / 4,664). **After** is `e305644`.
+
+| gate | before | after | required |
+|---|---|---|---|
+| zero-step seat-turns with a step legal, 6 mirror cells | 0 | **0** | 0 ✔ |
+| mirror cells ending (rounds / winner s1, s2, s3) | 6 / 6 (104 B, 85 A, 119 A) | **6 / 6 (78 A, 71 A, 71 A)** | ≥ 5 / 6 ✔ |
+
+**A large shift, reported, not tuned.** Mirror rounds and several reach cells
+moved by more than 25 %. Constants were not changed.
+
+- **Mirror rounds.** Median 104 → 71 (−32 %). Seed 1 is 104 B → 78 A (−25 %,
+  winner flipped). Seed 2 is 85 A → 71 A (−16 %). Seed 3 is 119 A → 71 A
+  (−40 %). Seat bias 2∶1 → 3∶0. Pairs still identical.
+- **Opening, replayed to the end of round 20.** Mean land per seat 43.00 →
+  **44.50** (+3 %; s1 53 / 44 → 56 / 52, s2 38 / 44 → 36 / 50, s3 40 / 39 →
+  32 / 41). Mean income 3.935 → **4.301** (+9 %; s1 3.72 / 3.33 → 4.69 / 3.89,
+  s2 5.33 / 2.97 → 5.00 / 3.53, s3 4.94 / 3.31 → 3.44 / 5.25). The means did
+  not move 25 %. One seat did: s3's first-seat income 4.94 → 3.44 (−30 %).
+  The r20 baseline is P85's recorded after. P88 and P89 did not move it, and
+  `229892d` reproduced it on this machine.
+- **Reach** (`--round-cap 200`): still **12 / 16** ending. The capped set
+  changed. Combat share 76 % (3,543 / 4,664) → **78 %** (3,399 / 4,364).
+  Encirclement 1,115 → 962 (−14 %). Evaporation 0. Vanished 6 → 3.
+- **Speed, this machine, concurrency 6.** Mirror per-turn wall (wall ÷ the
+  longest cell's seat-turns): before 287.6 s ÷ 239 = **1.20 s**, after
+  149.2 s ÷ 157 = **0.95 s**. The ledger's P89 wall (388 s) was a different
+  load. Reach walls were 6,355 s before and 1,729 s after; total rounds are
+  almost the same (2,205 vs 2,155), so those walls are not a speed reading.
+- **Stasis.** The leader's steps in each full 40-round mirror window are
+  ≥ 124 (before ≥ 104). Each after game ends inside its second window, so
+  only one window is full. The remaining zero-step turns (9, 10 and 2 per
+  cell in seeds 1–3) have no legal step.
+
+The reach cells that changed (14 of 16):
+
+- `p2-R5-h3-s1` A r74 → B r105 (+42 %);
+- `p2-R5-h3-s2` B r64 → B r70;
+- `p2-R5-h5-s1` A r81 → B r152 (+88 %);
+- `p2-R5-h5-s2` A r77 → A r68;
+- `p2-R7-h3-s1` A r67 → A r118 (+76 %);
+- `p2-R7-h3-s2` B r132 → B r71 (−46 %);
+- `p2-R7-h5-s1` B r104 → A r78 (−25 %);
+- `p2-R7-h5-s2` A r85 → A r71;
+- `p3-R5-h3-s1` C r170 → A r153;
+- `p3-R5-h3-s2` C r180 → A r143;
+- `p3-R5-h5-s1` C r198 → capped;
+- `p3-R5-h5-s2` A r173 → capped;
+- `p3-R7-h3-s1` capped → A r155;
+- `p3-R7-h3-s2` capped → A r171.
+
+`p3-R7-h5-s1` and `p3-R7-h5-s2` stayed capped. Four cells moved by more than
+25 %, and four swapped ending for the cap.
+
 ## Calibration and cost
 
 Measured on 2026-10-30 against xAI `grok-4.7`, at main + P79 (`1fba075`).

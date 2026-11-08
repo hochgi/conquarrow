@@ -237,6 +237,25 @@ export const sortieCredit = (
   return SORTIE_CREDIT * loot(sortie.shares, sortie.arrows);
 };
 
+/**
+ * P91 decision 1 (docs/spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md):
+ * `me`'s trail at `terminal` holds strictly more arrows than at `origin`. A
+ * trail absent from the map counts as 0. Reads only `me`'s two trail sizes.
+ */
+export const sortieGrew = (origin: GameState, terminal: GameState, me: PlayerId): boolean =>
+  (terminal.trails.get(me)?.size ?? 0) > (origin.trails.get(me)?.size ?? 0);
+
+/**
+ * P91 decision 2: the live seat's sortie credit — `sortieCredit(geometry,
+ * terminal, me)` when {@link sortieGrew} holds from `origin`, else 0.
+ */
+export const liveSortieCredit = (
+  geometry: GeometryPort,
+  origin: GameState,
+  terminal: GameState,
+  me: PlayerId,
+): number => (sortieGrew(origin, terminal, me) ? sortieCredit(geometry, terminal, me) : 0);
+
 /** Decision 3b's L: 1 with no open trail or no tip, else the terminal's turns to land. */
 const threatTurns = (geometry: GeometryPort, state: GameState, me: PlayerId): number =>
   sortieOf(geometry, state, me)?.turnsToLand ?? 1;
