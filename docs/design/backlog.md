@@ -50,37 +50,19 @@ detailed form of an item; this file is the short list and the order.
 
 ## Heuristic seat
 
-- **Fix the loop of doom; make its tests pass.** Playtest 2026-11-06: A's ×4
-  walked a 3-arrow ring of its own trail every turn from move 209 to 529
-  (rounds 17–43) and never drove home; its land sat at 30 for twenty rounds.
-  Playtest 2026-11-07: B's ×2 did the same on another 3-arrow ring from move
-  102 to 691, ending on a different arrow each turn, so where the stack ends
-  is not the defect and must not be scored as a pass.
-  - **Tests, skipped until the fix:**
-    [`heuristic-loop-of-doom.replay.test.ts`](../../packages/web/test/heuristic-loop-of-doom.replay.test.ts),
-    fixtures L1 (11-06, move 208, A) and L2 (11-07, move 101, B). Each runs
-    the replayed position and a minimal one (only the looping stack, its
-    trail and land; enemy stacks and trails removed, enemy land and spawners
-    kept). Done means: unskip all four and they pass (the seat claims land
-    within three of its turns), with the premise tests and the rest of
-    `pnpm verify` still green.
-  - **What is already known** (diagnosed 2026-11-08 on `main` `17d454f`):
-    - The loop reproduces exactly on today's bot, and in the minimal
-      position, with every other seat passing. No enemy is needed.
-    - Home is 2–3 steps from every ring arrow, within one turn (×4 speed 3,
-      ×2 speed 2), so the plan horizon is not the cause.
-    - The close is legal and big: L1 land 30 → 45, L2 15 → 24, trail to 0.
-      `evaluate` prefers it by far (L1 1125 against −571 for the ring turn,
-      L2 −1201 against −2240), so the evaluation is not the cause either.
-    - `chooseTurnBeamWithBudget(…, { withReplies: false })` closes home in
-      both; `chooseTurnBeam` (`withReplies: true`, the live seat) walks the
-      ring. The close is lost in the reply-aware path:
-      `missionContextOf`, `applyFinalistReplies`, `applyMissionGates` or
-      `liveReturn` in `botSearch.ts`. It is lost even with no enemy heads on
-      the board, so look for a gate that fires without a real reply.
-  - Run it as a spec-to-ship packet (web heuristic, no game rule touched).
-    Sources: [11-06 findings](../research/playtest-2026-11-06/FINDINGS.md),
-    [11-07 findings](../research/playtest-2026-11-07/FINDINGS.md).
+- **Fix the loop of doom: [P91](packets/P91-heuristic-loop-of-doom.md).**
+  Specified 2026-11-08; phases 2–4 are open on the spec PR. Done means the
+  four skipped tests in
+  [`heuristic-loop-of-doom.replay.test.ts`](../../packages/web/test/heuristic-loop-of-doom.replay.test.ts)
+  are unskipped and pass. Cause and fix:
+  [spec](../spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md).
+- **The sortie credit can outweigh the close it prices.** P85 credits an
+  open sortie at half its projected loot, on the premise that a pending
+  close is worth less than a banked one. In the loop fixtures it is worth
+  more: L1's credit is 3475 while the close adds 1696 to `evaluate`. P91
+  stops it trapping the seat; resize it (or price it from the close's real
+  gain) after P91 ships, then re-run `mirror` and `reach`. Source:
+  [P91 spec](../spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md#diagnosis).
 - **Income, not land, is the gap.** Playtest 2026-11-04: at r30 the human's
   income was 10.92 against the bots' 2.56; P85 missed its income gate
   (1.23×). The seat should value spawner shares, and close again after its
