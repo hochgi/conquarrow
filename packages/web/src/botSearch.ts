@@ -36,7 +36,7 @@ import {
   type OriginFinding,
 } from './botMission';
 import { neverIdle } from './botNeverIdle';
-import { interceptOf, sortieCredit } from './botTempo';
+import { interceptOf, liveSortieCredit } from './botTempo';
 import {
   bindReplySearch,
   DEFAULT_REPLY_DIST_CAP,
@@ -265,7 +265,8 @@ export const pickBetterComplete = (
 
 /**
  * P85 decision 3a: sortie credit joins `evaluate` only while this search is
- * the live seat. Nested searches (`withReplies` false) score as before.
+ * the live seat. Nested searches (`withReplies` false) score as before. P91:
+ * only a terminal whose trail grew since the origin earns it.
  * Memoised on the search: terminal states are immutable, and the four score
  * sites reread them. Nothing survives the call.
  */
@@ -273,7 +274,7 @@ const liveCredit = (search: Search, state: GameState): number => {
   if (!search.withReplies) return 0;
   const hit = search.creditMemo.get(state);
   if (hit !== undefined) return hit;
-  const credit = sortieCredit(search.geometry, state, search.me);
+  const credit = liveSortieCredit(search.geometry, search.origin, state, search.me);
   search.creditMemo.set(state, credit);
   return credit;
 };
