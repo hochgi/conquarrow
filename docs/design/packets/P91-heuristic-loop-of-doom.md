@@ -1,6 +1,6 @@
 # P91 — The heuristic seat stops walking a ring of its own trail
 
-> **Status:** specified 2026-11-08 (phase 1). **Kind:** web heuristic seat.
+> **Status:** shipped 2026-11-08 ([ledger](../../research/byok-benchmark.md#p91-2026-11-08-the-live-sortie-credit-pays-only-a-sortie-that-grew)). **Kind:** web heuristic seat.
 > **Depends on:** P85 (sortie credit), P84 (never idle).
 >
 > **Evidence:**

@@ -50,18 +50,19 @@ detailed form of an item; this file is the short list and the order.
 
 ## Heuristic seat
 
-- **Fix the loop of doom: [P91](packets/P91-heuristic-loop-of-doom.md).**
-  Specified 2026-11-08; phases 2–4 are open on the spec PR. Done means the
-  four skipped tests in
-  [`heuristic-loop-of-doom.replay.test.ts`](../../packages/web/test/heuristic-loop-of-doom.replay.test.ts)
-  are unskipped and pass. Cause and fix:
-  [spec](../spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md).
+- **P91 shortened the heuristic's mirror games.** Median rounds 104 → 71;
+  seed 1's winner flipped B → A; four reach cells moved by more than 25 %
+  and four swapped ending for the cap (still 12/16 ending). Gates held
+  (never idle 0, mirror 6/6). Not tuned. A playtest should say whether the
+  seat now closes too soon. Source:
+  [ledger](../research/byok-benchmark.md#p91-2026-11-08-the-live-sortie-credit-pays-only-a-sortie-that-grew).
 - **The sortie credit can outweigh the close it prices.** P85 credits an
   open sortie at half its projected loot, on the premise that a pending
   close is worth less than a banked one. In the loop fixtures it is worth
   more: L1's credit is 3475 while the close adds 1696 to `evaluate`. P91
   stops it trapping the seat; resize it (or price it from the close's real
-  gain) after P91 ships, then re-run `mirror` and `reach`. Source:
+  gain), then re-run `mirror` and `reach` against the P91 ledger, not P89.
+  Source:
   [P91 spec](../spec/heuristic-loop-of-doom/heuristic-loop-of-doom.md#diagnosis).
 - **Income, not land, is the gap.** Playtest 2026-11-04: at r30 the human's
   income was 10.92 against the bots' 2.56; P85 missed its income gate
