@@ -45,14 +45,14 @@ P85's sortie credit:
 
 | terminal | land | trail | `evaluate` | sortie credit | score |
 |---|---|---|---|---|---|
-| L1 ring turn | 30 | 12 | −571 | 3475 | **2904** |
+| L1 ring turn (the live seat's own plan from O₁: `4,0,2 ×2`, `4,0,2 ×2`) | 30 | 12 | −571 | 3475 | **2904** |
 | L1 close home (the shortest path) | 45 | 0 | 1125 | 0 | 1125 |
 | L1 best closing complete in the beam (the `contest` finalist) | | | | | 1534 |
 | L2 ring turn | 15 | 8 | −2240 | 1512.5 | **−727.5** |
 | L2 pass | 15 | 8 | −2240 | 1512.5 | −727.5 |
 | L2 close | 24 | 0 | −1201 | 0 | −1105 |
 
-(In L2 the pass ties the ring turn and wins on `planKey`; P53's `swapIdle`
+(T₂ under "Fixtures" is a different ring turn, the whole ×4 round the ring, so its credit is 3462.5. In L2 the pass ties the ring turn and wins on `planKey`; P53's `swapIdle`
 then swaps it for the ring turn, the best stepped complete.)
 
 P85 decision 3a rests on two premises, and a walk on its own trail breaks
