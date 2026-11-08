@@ -57,6 +57,11 @@ conclusions:
 - the close home is longer than the beam's plan horizon, so no plan reaches
   it, and P84's never-idle seam then takes any legal step.
 
+Update 2026-11-08: both candidates are ruled out. Home is within one turn of
+the ring and `evaluate` prefers the close; the close is lost in the beam's
+reply-aware path. The diagnosis and the skipped tests are in the backlog item
+"Fix the loop of doom; make its tests pass".
+
 ### 2. The phone froze at move 580, and slow turns do not explain it
 
 The human left the frozen page for **several hours**, hoping to save the log.
