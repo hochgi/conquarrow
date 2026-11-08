@@ -13,7 +13,10 @@ detailed form of an item; this file is the short list and the order.
 
 ## Next
 
-1. **P86 leftovers.** Bot modules and test oracles that restate a rule
+1. **P86 leftovers.** (Also check playtest 2026-11-07 move 333: A landed on
+   C's empty trail arrow, a clean cut, but the human read the screen as a
+   repelled attack; see whether `fx/events.ts` showed a battle.) Bot modules
+   and test oracles that restate a rule
    (register, last table): the claim estimate in `findings.ts` /
    `botClose.ts`, "any trail drop is a cut" in `findings.ts` and
    `fx/events.ts`, and coincide-only cut tags in `byokBot.ts`. Suspected
@@ -53,7 +56,10 @@ detailed form of an item; this file is the short list and the order.
   A's land sat at 30 for twenty rounds. Ending on the start arrow is
   incidental (a ×2 or ×3 stack would end elsewhere and be just as stuck), so
   do not score it as a pass. Diagnose why the seat retraces its trail instead
-  of closing home. Replay fixture: the log, moves 209–529. Source:
+  of closing home. Replay fixtures: the 2026-11-06 log, moves 209–529
+  (A ×4); the 2026-11-07 log, moves 102–691 (B ×2 on a 3-arrow ring, ending
+  on a different arrow each turn,
+  [findings](../research/playtest-2026-11-07/FINDINGS.md)). Source:
   [findings](../research/playtest-2026-11-06/FINDINGS.md).
 - **Income, not land, is the gap.** Playtest 2026-11-04: at r30 the human's
   income was 10.92 against the bots' 2.56; P85 missed its income gate
