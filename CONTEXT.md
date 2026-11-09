@@ -13,8 +13,16 @@ The count and the kind of each seat, named before the match starts. Not which hu
 _Avoid_: lobby, OpenCode seat
 
 **human**:
-A seat whose moves are submitted from outside the server. The server does not choose them. A second submitter on another seat is still human. A seat the tool caller plays is still human.
-_Avoid_: the tool caller, BYOK, heuristic, OpenCode seat, controlled-by-you
+A seat whose moves are submitted from outside the server. The server does not choose them. A second submitter on another seat is still human. The local stdio MCP plays a human seat; P92 deletes that package.
+_Avoid_: the tool caller, BYOK, heuristic, agent seat, OpenCode seat, controlled-by-you
+
+**agent seat**:
+A seat kind next to human and heuristic. A remote MCP client occupies it, bound to a Google userHash through the invite. It cannot create an invite or press Start. It does not enter groupHash. The server does not choose its moves.
+_Avoid_: bot seat, AI player, MCP player, a tool caller playing a human seat
+
+**remote MCP**:
+The hosted Streamable HTTP door at `mcp.games.hochgi.com/conquarrow`. One Lambda call per tool call, writing the same S3 match the browser uses. Not a script the IDE runs.
+_Avoid_: a second game server, a Lambda chain, wait_for_turn
 
 **board picture**:
 A rendering of the match window from state, for looking. Not a screenshot, and not a legal-move offer. A shape in it does not make a step legal.

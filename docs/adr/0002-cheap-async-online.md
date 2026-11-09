@@ -10,6 +10,7 @@
 **Amended:** 2026-08-14 (P27 spec) — Create-invite pending copy; Local→Online coerces seats 0–1 to human; GIS `offerChooser` after One Tap dismiss.
 **Amended:** 2026-08-27 (P45 spec) — `GET /my-games` started rows carry caller-relative `status` (`your-turn` \| `waiting` \| `won` \| `lost`). Persist stamps `players` / `activePlayer` / `lostPlayers` on game `meta.json`. No new AWS.
 **Amended:** 2026-08-27 (P46 spec) — library rows add ordered `seats` (labels, `you`), `seatIndex`, optional `startedAt`. Display names from GIS `given_name`/`name` on `users/<userHash>/profile.json`. No email/sub. No new AWS.
+**Amended:** 2026-11-09 ([ADR 0009](./0009-remote-agent-mcp-seat.md), P92) — an online game may have one human seat when an `agent` seat is in the plan. Agent seats do not enter `groupHash`. One human plus heuristics and no agent stays in the browser. Agent moves use the MCP door, not `POST /moves`.
 **Context:** [`SPEC.md`](../../SPEC.md) §1 (delivery shape), [ADR 0001](./0001-pure-core-and-pluggable-geometry.md), packets [P14](../design/packets/P14-online-adr.md)–[P20](../design/packets/P20-deferred-online-followons.md)
 
 ## Context
@@ -34,7 +35,7 @@ The core stays pure. Adapters may use clocks and CSPRNG (invite tokens, JWT `exp
 
 ### 2. Who is allowed to cost money
 
-**AWS group/game objects exist only when a lobby has ≥2 human seats, all bound.** One human plus heuristic AI, and all-AI, stay in the browser — today's local lobby — and **must not** create a group or game. An **invite** object may exist in S3 as soon as create succeeds, provided the *plan* has ≥2 human seats; only the creator is bound until others accept.
+**AWS group/game objects exist only when a lobby has ≥1 human seat, all bound, and — if the plan has any — every agent seat bound.** One human plus heuristic AI and no agent seat, and all-AI, stay in the browser — today's local lobby — and **must not** create a group or game. An **invite** object may exist in S3 as soon as create succeeds, provided the *plan* has ≥1 human seat and, if it has an agent seat, is the [ADR 0009](./0009-remote-agent-mcp-seat.md) shape; only the creator is bound until others accept. Agent user hashes do not enter `groupHash`.
 
 ### 3. Identity, groups, games
 
@@ -60,7 +61,7 @@ Opaque token URL (not a short PIN). **No TTL.**
 
 The **creator** is the Google user who `POST /invites`. They occupy one **human** seat at create, named by `hostSeatIndex` (index into the seats array). Default: the first human seat (ADR's original "first human chair" behaviour). The named seat must be `kind: human`. Invitees `POST …/accept` and take the next unbound human seat (lowest index). Full → 409, no viewers. Same user accepting twice is idempotent (same seat).
 
-**Revoke:** only the creator. **Start:** any human already bound on that invite, and only when every human seat is bound (and therefore ≥2). After Start, and after revoke, the token is **410** with `reason` `started` or `revoked`. A `started` 410 also includes `groupHash` and `gameNumber` when the invite record has them (P26, additive). Revoke stays `{ "reason": "revoked" }`. Started games never expire.
+**Revoke:** only the creator. **Start:** any human already bound on that invite, and only when every human seat and every agent seat is bound (and therefore ≥1 human). An agent cannot Start. After Start, and after revoke, the token is **410** with `reason` `started` or `revoked`. A `started` 410 also includes `groupHash` and `gameNumber` when the invite record has them (P26, additive). Revoke stays `{ "reason": "revoked" }`. Started games never expire.
 
 `GET /invites/:token` is **unauthenticated** while the invite is open (seat plan and which chairs are bound — `userHash` only, never Google `sub`). After revoke/Start it returns the same 410 + `reason` (and started ids when known).
 
@@ -91,7 +92,7 @@ WebSocket: `wss://ws.games.hochgi.com/conquarrow?access_token=<Google ID token>`
 
 `state.json` (conditional put) is the **commit pointer** for If-Match and GET. `log.jsonl` and `meta.winner` follow; S3 cannot transaction two keys. A crash between them can leave a short log; GET still serves the committed version, and a client retry of that version is 412.
 
-Pages (P19): Google Identity Services. ID token in `sessionStorage` (`conquarrow:google-id-token`). Hash routes `#/invite/<token>` and `#/g/<groupHash>/<gameNumber>`. One lobby with Local | Online (Online hides BYOK, requires ≥2 human seats). WS open while signed in. After POST 200 or 412 the tab GETs; 412 **drops** the in-flight move. No optimistic local `apply` for online moves. Sign-out clears the session key and closes the socket. P27: Local→Online sets seats 0 and 1 to `human` (leftover `byok` → `heuristic`); `POST /invites` in flight reports `createInvitePending` and the creating copy; Sign-In click is GIS `offerChooser` (`renderButton`); auto unsigned-invite / 401 stays One Tap `prompt()` with `cancel_on_tap_outside: false`.
+Pages (P19): Google Identity Services. ID token in `sessionStorage` (`conquarrow:google-id-token`). Hash routes `#/invite/<token>` and `#/g/<groupHash>/<gameNumber>`. One lobby with Local | Online (Online hides BYOK; the ≥2-human floor is amended by [ADR 0009](./0009-remote-agent-mcp-seat.md)). WS open while signed in. After POST 200 or 412 the tab GETs; 412 **drops** the in-flight move. No optimistic local `apply` for online moves. Sign-out clears the session key and closes the socket. P27: Local→Online sets seats 0 and 1 to `human` (leftover `byok` → `heuristic`); `POST /invites` in flight reports `createInvitePending` and the creating copy; Sign-In click is GIS `offerChooser` (`renderButton`); auto unsigned-invite / 401 stays One Tap `prompt()` with `cancel_on_tap_outside: false`.
 
 Move Lambda: **60 s timeout, 1024 MB**. Worst burst: 4 consecutive heuristic seats (6-player, two humans on opposite corners).
 
@@ -125,7 +126,7 @@ flowchart TB
 
 ### 8. Authz for a move
 
-`POST /games/{groupHash}/{gameNumber}/moves` succeeds only if the bearer maps to the **active** human seat. GET of that path is any **bound** human (including finished games). Heuristic seats never present a Google token. Stale quoted `If-Match` → 412. Missing → 428. Illegal move → 422. Finished → 409. No write on those paths. Accept uses server-side `If-Match` retry so two clients cannot bind the same chair.
+`POST /games/{groupHash}/{gameNumber}/moves` succeeds only if the bearer maps to the **active** human seat. An agent seat does not use this route ([ADR 0009](./0009-remote-agent-mcp-seat.md)). GET of that path is any **bound** human (including finished games). Heuristic seats never present a Google token. Stale quoted `If-Match` → 412. Missing → 428. Illegal move → 422. Finished → 409. No write on those paths. Accept uses server-side `If-Match` retry so two clients cannot bind the same chair.
 
 ### 9. Reading the move log (P49)
 
@@ -148,7 +149,7 @@ Detail: [docs/spec/online-move-log-replay](../spec/online-move-log-replay/online
 
 - Same `apply` on both sides: desync is a bug in bundling, not a second ruleset.
 - Rematches cannot clobber history.
-- One-human vs AI costs nothing on AWS.
+- One-human vs heuristic AI costs nothing on AWS. One human vs an agent seat does not ([ADR 0009](./0009-remote-agent-mcp-seat.md)).
 - Shared `api.games` / `ws.games` hostnames leave room for other hobby games.
 
 ### Costs
@@ -166,7 +167,7 @@ Detail: [docs/spec/online-move-log-replay](../spec/online-move-log-replay/online
 - **Go/Rust Lambdas.** Would fork `rules-core`. Language cost is noise next to S3.
 - **Content-address including seat plan.** Same two people in 3p vs 6p would be different groups; the library would split.
 - **Concatenated `${hash}_${counter}` as the only id.** Same identity, worse listing; path segments already do this.
-- **1-human online.** Would bill AWS for what the browser already does.
+- **1-human online against heuristics.** Would bill AWS for what the browser already does. An agent seat is the exception ([ADR 0009](./0009-remote-agent-mcp-seat.md)): the browser cannot play that chair.
 - **Invite TTL.** Abandoned lobby objects are tiny; host revoke is enough.
 - **Viewers, arena, Elo, online BYOK, auto-replay.** [P20+](../design/packets/P20-deferred-online-followons.md).
 
