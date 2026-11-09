@@ -50,12 +50,12 @@ detailed form of an item; this file is the short list and the order.
 
 ## Heuristic seat
 
-- **P91 shortened the heuristic's mirror games.** Median rounds 104 → 71;
-  seed 1's winner flipped B → A; four reach cells moved by more than 25 %
-  and four swapped ending for the cap (still 12/16 ending). Gates held
-  (never idle 0, mirror 6/6). Not tuned. A playtest should say whether the
-  seat now closes too soon. Source:
-  [ledger](../research/byok-benchmark.md#p91-2026-11-08-the-live-sortie-credit-pays-only-a-sortie-that-grew).
+- **P91's mirror games got shorter; the playtest did not show a new loop.**
+  Median 104 → 71, not tuned
+  ([ledger](../research/byok-benchmark.md#p91-2026-11-08-the-live-sortie-credit-pays-only-a-sortie-that-grew)).
+  [Playtest 2026-11-08](../research/playtest-2026-11-08/FINDINGS.md): the
+  human (seat A) won at r39, sorties grew and closed, and the seat did not
+  close too soon. No follow-up unless a later game rings.
 - **The sortie credit can outweigh the close it prices.** P85 credits an
   open sortie at half its projected loot, on the premise that a pending
   close is worth less than a banked one. In the loop fixtures it is worth
@@ -68,8 +68,11 @@ detailed form of an item; this file is the short list and the order.
   income was 10.92 against the bots' 2.56; P85 missed its income gate
   (1.23×). The seat should value spawner shares, and close again after its
   opening sortie (9–10 closes in 42 rounds against the human's 38).
-  Source: [findings](../research/playtest-2026-11-04/FINDINGS.md). Do after
-  P86, then playtest.
+  Confirmed 2026-11-08, human as A: r20 income 7.81 against 3.50 and 2.67;
+  bots closed on 8 and 6 turns against 22. No pass while a step was legal.
+  Source: [11-04](../research/playtest-2026-11-04/FINDINGS.md),
+  [11-08](../research/playtest-2026-11-08/FINDINGS.md). Do after P86, then
+  playtest.
 - **Cut-legal misses.** A P81-dominant seat sometimes ignores a cut that is
   legal this turn (5 races in mirror s2, seat B with 34–143 heads). Source:
   [P85 diagnosis](../spec/heuristic-tempo-horizon/heuristic-tempo-horizon.md).

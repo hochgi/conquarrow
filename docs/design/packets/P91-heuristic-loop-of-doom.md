@@ -13,6 +13,8 @@
 > - The skipped tests
 >   [`heuristic-loop-of-doom.replay.test.ts`](../../../packages/web/test/heuristic-loop-of-doom.replay.test.ts)
 >   (fixtures L1 and L2, merged in #104).
+> - [Playtest 2026-11-08](../../research/playtest-2026-11-08/FINDINGS.md):
+>   the ring did not recur. Human as A won at round 39.
 >
 > **SPEC coverage:** none. No game rule is touched; this is the heuristic
 > seat in `packages/web`. Nothing is owed to SPEC §11.
