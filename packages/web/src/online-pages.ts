@@ -45,7 +45,7 @@ import { logPath, parseLogWindow, planFromWake } from './online-replay';
 import { clearSessionToken, readSessionToken, writeSessionToken } from './online-session';
 
 const LOCAL_SEAT_KINDS: readonly PlannedSeatKind[] = ['human', 'heuristic', 'byok'];
-const ONLINE_SEAT_KINDS: readonly PlannedSeatKind[] = ['human', 'heuristic'];
+const ONLINE_SEAT_KINDS: readonly PlannedSeatKind[] = ['human', 'heuristic', 'agent'];
 
 interface AdapterState {
   mode: PagesLobbyMode;
@@ -96,6 +96,14 @@ const emptyState = (): AdapterState => ({
 
 const humanCount = (plan: readonly PlannedSeatKind[]): number =>
   plan.filter((kind) => kind === 'human').length;
+
+const agentCount = (plan: readonly PlannedSeatKind[]): number =>
+  plan.filter((kind) => kind === 'agent').length;
+
+const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean => {
+  const humans = humanCount(plan);
+  return humans >= 2 || (humans >= 1 && agentCount(plan) >= 1);
+};
 
 const joinApi = (apiBase: string, path: string): string => {
   const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
@@ -319,7 +327,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   };
 
   const createInvite = async (): Promise<void> => {
-    if (!onlineReady() || state.mode !== 'online' || humanCount(state.seatPlan) < 2) {
+    if (!onlineReady() || state.mode !== 'online' || !onlinePlanCreatable(state.seatPlan)) {
       return;
     }
     const res = await request('POST', '/invites', { body: { seats: state.seatPlan } });
@@ -525,8 +533,13 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     onlineModeOffered: () => onlineReady(),
     seatKindOptions: () =>
       state.mode === 'online' && onlineReady() ? ONLINE_SEAT_KINDS : LOCAL_SEAT_KINDS,
+    seatKindOptionsFor: (seatIndex) => {
+      const kinds = state.mode === 'online' && onlineReady() ? ONLINE_SEAT_KINDS : LOCAL_SEAT_KINDS;
+      if (state.mode === 'online' && seatIndex === 0) return kinds.filter((kind) => kind !== 'agent');
+      return kinds;
+    },
     createOffered: () =>
-      state.mode === 'online' && onlineReady() && humanCount(state.seatPlan) >= 2,
+      state.mode === 'online' && onlineReady() && onlinePlanCreatable(state.seatPlan),
     localMatchStarted: () => state.localStarted,
     copiedInviteUrl: () => state.copiedUrl,
     board: () => state.board,

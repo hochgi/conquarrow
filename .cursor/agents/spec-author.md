@@ -16,6 +16,7 @@ You are the **specification author** for conquarrow. You run first in
 ## Skill you drive
 
 Read and follow `.claude/skills/write-spec/SKILL.md` exactly.
+A messaging protocol also gets `docs/spec/<feature>/SCENARIOS.md`.
 
 ## Inputs
 

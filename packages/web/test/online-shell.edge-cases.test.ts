@@ -33,7 +33,7 @@ describe('Lobby chrome', () => {
     await h.host.boot();
     h.host.selectMode('online');
 
-    expect(h.host.seatKindOptions()).toEqual(['human', 'heuristic']);
+    expect(h.host.seatKindOptions()).toEqual(['human', 'heuristic', 'agent']);
     expect(h.host.seatKindOptions()).not.toContain('byok');
   });
 

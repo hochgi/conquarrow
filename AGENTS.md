@@ -202,7 +202,7 @@ A fourth layer, also committed, probes the **I/O edges**: `@hochgi/test-kit` (co
 `@hochgi/test-kit-s3` (`createProbedS3Adapter` — a real `S3Client` over an
 in-memory backing) and `@hochgi/test-kit-mock` (`createProbedMock<T>`). Public
 npm, MIT. Use them **only at I/O edges** — `packages/online-api` today, as
-devDependencies only; `packages/mcp` / `packages/web` only if they grow an
+devDependencies only; `packages/web` only if it grows an
 injected I/O boundary. **Never** in `packages/contracts`, `packages/rules-core`
 or `packages/geometry-*`: the core has no I/O to probe, and ESLint plus the P68
 invariants test enforce it. Kit tests are ordinary committed Vitest with the
@@ -226,11 +226,14 @@ subscription via `/connect` → xAI → SuperGrok Subscription. See `OPENCODE.md
 Do not put an `XAI_API_KEY` in the repo.
 
 1. **spec-author** drives `write-spec` → Gherkin `.feature` + mermaid (escape `;`
-   as `#59;`) + EARS invariants. Escalate only for a SPEC.md game-rule gap, a
-   substantial unexpected cost, or a big behavioral shift; otherwise decide BSSN
-   and write it into the spec / ADR.
+   as `#59;`) + EARS invariants. A messaging protocol also gets
+   `docs/spec/<feature>/SCENARIOS.md` (one sequence diagram per flow). Escalate
+   only for a SPEC.md game-rule gap, a substantial unexpected cost, or a big
+   behavioral shift; otherwise decide BSSN and write it into the spec / ADR.
 2. **test-author** drives `write-failing-tests` → one failing test per scenario
-   plus compiling skeletons, red for the right reason.
+   plus compiling skeletons, red for the right reason. Each `SCENARIOS.md` path
+   is a `@hochgi/test-kit` component test at the Goldilocks seam. Leaf
+   interfaces only.
 3. **coder** drives `code-to-green` → red → green → refactor within budget,
    incremental Stryker, CRAP glance on touched files.
 4. **reviewer** drives `review-changes` → spec ↔ tests ↔ code coherence,

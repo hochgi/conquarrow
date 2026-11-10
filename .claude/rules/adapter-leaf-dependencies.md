@@ -1,10 +1,9 @@
 ---
 paths:
   - "packages/online-api/src/**/*.ts"
-  - "packages/mcp/src/**/*.ts"
   - "packages/web/src/**/*.{ts,tsx}"
-description: Composite adapters vs thin injected I/O leaves in online-api, mcp and web
-globs: packages/online-api/src/**/*.ts,packages/mcp/src/**/*.ts,packages/web/src/**/*.ts,packages/web/src/**/*.tsx
+description: Composite adapters vs thin injected I/O leaves in online-api and web
+globs: packages/online-api/src/**/*.ts,packages/web/src/**/*.ts,packages/web/src/**/*.tsx
 alwaysApply: false
 ---
 

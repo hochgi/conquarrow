@@ -20,7 +20,7 @@ export const SEAT_PLAN_STORAGE_KEY = 'conquarrow:seat-plan';
 export const PLAYTEST_PLAYER_COUNTS = [3, 6] as const;
 export type PlaytestPlayerCount = (typeof PLAYTEST_PLAYER_COUNTS)[number];
 
-export type SeatKind = 'human' | 'heuristic' | 'byok';
+export type SeatKind = 'human' | 'heuristic' | 'byok' | 'agent';
 
 export interface SeatByokFields {
   readonly baseUrl: string;
@@ -85,11 +85,13 @@ export const defaultSeatPlan = (playerCount: PlaytestPlayerCount = 3): SeatPlan 
   return { playerCount, seats };
 };
 
-/** Local → Online: seats 0 and 1 become `human`; leftover `byok` becomes `heuristic`. */
+const hasAgentChair = (plan: SeatPlan): boolean => plan.seats.some((seat) => seat.kind === 'agent');
+
+/** Local → Online: seats 0 and 1 become `human` unless an agent chair is already there. */
 export const coerceOnlineSeatPlan = (plan: SeatPlan): SeatPlan => ({
   playerCount: plan.playerCount,
   seats: plan.seats.map((seat, index) => {
-    if (index === 0 || index === 1) return { ...seat, kind: 'human' };
+    if (!hasAgentChair(plan) && (index === 0 || index === 1)) return { ...seat, kind: 'human' };
     if (seat.kind === 'byok') return { ...seat, kind: 'heuristic' };
     return seat;
   }),
@@ -102,8 +104,13 @@ export const onlineSeatKindAllowed = (
   nextKind: SeatKind,
 ): boolean => {
   const current = plan.seats[index];
-  if (current?.kind === 'human' && nextKind === 'heuristic') {
-    return plan.seats.filter((seat) => seat.kind === 'human').length >= 3;
+  if (index === 0 && nextKind === 'agent') return false;
+  if (current?.kind === 'human' && nextKind !== 'human') {
+    const humans = plan.seats.filter((seat) => seat.kind === 'human').length;
+    const agents = plan.seats.filter((seat) => seat.kind === 'agent').length;
+    const nextHumans = humans - 1;
+    const nextAgents = agents + (nextKind === 'agent' ? 1 : 0);
+    return nextHumans >= 1 && (nextAgents >= 1 || nextHumans >= 2);
   }
   return true;
 };

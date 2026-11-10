@@ -18,6 +18,15 @@ Parameters:
     Type: String
     Default: ''
     Description: ACM cert ARN in eu-central-1 for ws.games.hochgi.com. Empty skips custom domain.
+  McpCertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM cert ARN in eu-central-1 for mcp.games.hochgi.com. Empty skips custom domain.
+  McpJwtSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: HS256 secret for MCP access tokens. Not committed.
   GoogleClientIds:
     Type: String
     Default: ''
@@ -26,6 +35,7 @@ Parameters:
 Conditions:
   HasHttpCert: !Not [!Equals [!Ref HttpCertificateArn, '']]
   HasWsCert: !Not [!Equals [!Ref WsCertificateArn, '']]
+  HasMcpCert: !Not [!Equals [!Ref McpCertificateArn, '']]
 
 Resources:
   MatchBucket:
@@ -284,6 +294,57 @@ Resources:
       ApiId: !Ref WsApi
       Stage: prod
       ApiMappingKey: conquarrow
+
+  McpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 5
+        ThrottlingBurstLimit: 10
+
+  McpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: mcp-http.handler
+      CodeUri: ../packages/online-api/src
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          MCP_JWT_SECRET: !Ref McpJwtSecret
+          MATCH_BUCKET: !Ref MatchBucket
+      Events:
+        McpPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /conquarrow
+            Method: POST
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: cjs
+        Target: es2022
+        Sourcemap: false
+        EntryPoints:
+          - mcp-http.ts
+
+  McpDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasMcpCert
+    Properties:
+      DomainName: mcp.games.hochgi.com
+      DomainNameConfigurations:
+        - EndpointType: REGIONAL
+          CertificateArn: !Ref McpCertificateArn
+
+  McpMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasMcpCert
+    Properties:
+      DomainName: !Ref McpDomain
+      ApiId: !Ref McpApi
+      Stage: $default
 
 Outputs:
   HealthUrl:

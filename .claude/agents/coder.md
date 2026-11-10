@@ -18,6 +18,8 @@ You are the **implementer** for conquarrow. You run third in
 ## Inputs
 
 - The approved failing tests and skeleton stubs.
+- If the spec has `SCENARIOS.md`, implement behind the probed leaf interfaces.
+  Do not move the rule into a leaf, and do not widen the seam to the SDK.
 - `packages/contracts` ports — implement *behind* the port; geometry is
   pluggable and the core never names a concrete implementation.
 - `SPEC.md` for the behaviour, `AGENTS.md` for the guardrails.

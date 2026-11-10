@@ -9,8 +9,9 @@ import {
   padGameNumber,
 } from './hashing';
 import {
-  allHumanSeatsBound,
+  allBindableSeatsBound,
   asRecord,
+  boundAgentHashes,
   boundHumanHashes,
   indexOfBoundUser,
   nextUnboundHumanIndex,
@@ -309,7 +310,7 @@ const finishStart = async (
   groupHash: string,
   gameNumber: string,
 ): Promise<void> => {
-  const hashes = boundHumanHashes(invite.seats);
+  const hashes = [...boundHumanHashes(invite.seats), ...boundAgentHashes(invite.seats)];
   const next = Number.parseInt(gameNumber, 10) + 1;
   await writeGroupNext(s3, groupHash, next);
   await writeMembership(s3, groupHash, hashes);
@@ -368,7 +369,7 @@ export const handleStart = async (
     const closedResult = closed(invite);
     if (closedResult !== undefined) return closedResult;
     if (indexOfBoundUser(invite.seats, user.userHash) < 0) return forbidden();
-    if (!allHumanSeatsBound(invite.seats)) return conflict();
+    if (!allBindableSeatsBound(invite.seats)) return conflict();
     try {
       const started = await materialiseGame(deps.s3, token, invite, raw, deps.clock);
       return jsonResult(200, started);

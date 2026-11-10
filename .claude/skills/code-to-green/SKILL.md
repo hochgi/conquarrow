@@ -24,6 +24,14 @@ right reason. Your job is to make them pass without changing what they mean.
    file to silence a warning you did not cause.
 6. Repeat until green, clean, and stable.
 
+## Messaging packets
+
+If the spec has `SCENARIOS.md`, implement behind the leaf interfaces the tests
+already probe. The handler keeps the rule. Do not move join, the burst, the
+offer check, or the ping decision into a leaf to make a probe pass, and do
+not widen the seam to the SDK. A message the diagram does not show is a
+phase-1 kickback, not a convenience.
+
 ## What you may not do
 
 - **Change the spec.** Phases 1 and 4 own `SPEC.md`. If the implementation wants

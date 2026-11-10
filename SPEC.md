@@ -18,7 +18,7 @@ The first playable is a **stateless, client-only, hot-seat** game: players alter
 
 This is a **delivery decision, not a rules decision**. It removes netcode and persistence from MVP scope without touching a mechanic. Its one structural consequence is that *what a move is* has to be concrete — see §4.
 
-The engine takes 2–8 seats (§8). The web lobby offers 3 or 6, which is an adapter choice. **Async online multiplayer is not specified in this document.** It is [ADR 0002](docs/adr/0002-cheap-async-online.md): Lambda re-`apply`s the same engine, S3 holds state, ≥2 humans before any AWS write. Do not read HTTP, invites, or WebSockets into the rules chapters below.
+The engine takes 2–8 seats (§8). The web lobby offers 3 or 6, which is an adapter choice. **Async online multiplayer is not specified in this document.** It is [ADR 0002](docs/adr/0002-cheap-async-online.md), amended by [ADR 0009](docs/adr/0009-remote-agent-mcp-seat.md): Lambda re-applies the same engine, S3 holds state. A lobby with no agent seat still needs at least two humans before any AWS game object; a lobby with an agent seat needs at least one human. Do not read HTTP, invites, or WebSockets into the rules chapters below.
 
 A **non-normative** BYOK teaching summary lives at [the BYOK teaching file](docs/byok-teaching.md); the teaching file must not add a game rule.
 

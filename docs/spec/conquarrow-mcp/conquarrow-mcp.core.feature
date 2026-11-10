@@ -12,6 +12,7 @@ Feature: Tools over legalMoves and apply, not a scrape
 
   Rule: Opening match is a seat-scoped view
 
+    @superseded-P92
     Scenario: new_match seed 1 R=7 three seats returns the locked opening
       When the caller invokes new_match with:
         | playerCount  | 3                         |
@@ -29,6 +30,7 @@ Feature: Tools over legalMoves and apply, not a scrape
       And observation.shareCounts.C is 3
       And the payload has no spawners array of length 58
 
+    @superseded-P92
     Scenario: legal_moves for A's opening home stack is the BYOK row shape
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes legal_moves with seat A
@@ -38,6 +40,7 @@ Feature: Tools over legalMoves and apply, not a scrape
       And a row with unmoved heads on from greater than count contains leave=
       And no row is invented beyond legalMoves for activePlayer
 
+    @superseded-P92
     Scenario: apply_steps of one legal opening step then refuses the same index
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       And legal_moves for seat A has been called
@@ -49,12 +52,14 @@ Feature: Tools over legalMoves and apply, not a scrape
       And observation.activePlayer is still A
       And observation.exposedTips matches the post-first-apply view
 
+    @superseded-P92
     Scenario: end_turn on the active human seat advances activePlayer
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes end_turn with seat A
       Then observation.activePlayer is B
       And observation.winner is null
 
+    @superseded-P92
     Scenario: observe after a dirt-shaped close does not invent share+N
       Given a live 3-seat match reconstructed or fixtured so a human seat has a legal closes row with no share+N
       When the caller invokes apply_steps of that closes row
@@ -63,6 +68,7 @@ Feature: Tools over legalMoves and apply, not a scrape
       And observation.shareCounts for that seat equals the pre-apply shareCounts
       And observation.threatLine contains "closes without share+N (dirt)" when the current offer's closes rows all lack share+N
 
+    @superseded-P92
     Scenario: play_heuristic_turn on the active heuristic seat plays greedy-v1
       Given a live match from new_match seed 1 R=7 with seats heuristic, human, human
       When the caller invokes play_heuristic_turn with seat A
@@ -71,6 +77,7 @@ Feature: Tools over legalMoves and apply, not a scrape
       And observation.activePlayer is B
       And a second play_heuristic_turn for seat A is refused
 
+    @superseded-P92
     Scenario: findings list only kinds whose move is a legal step for me
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes observe with seat A
@@ -80,6 +87,7 @@ Feature: Tools over legalMoves and apply, not a scrape
       When the caller invokes observe with seat B
       Then findings is empty
 
+    @superseded-P92
     Scenario: no JSON tool returns the full 58-spawner array
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes observe with seat A
@@ -89,6 +97,7 @@ Feature: Tools over legalMoves and apply, not a scrape
       Then the SVG may contain data-spawner marks inside the R-window
       And the JSON tools still have no full spawner array
 
+    @superseded-P92
     Scenario: see_board returns SVG, identical for the same state and seat
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes see_board with seat A twice

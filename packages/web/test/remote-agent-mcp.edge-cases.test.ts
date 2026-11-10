@@ -1,0 +1,64 @@
+/**
+ * Lobby and in-game roster scenarios. Ordinary Vitest — not message flows.
+ *
+ * @see docs/spec/remote-agent-mcp/remote-agent-mcp.edge-cases.feature
+ */
+
+import { describe, expect, it } from 'vitest';
+import type { InviteSeat } from '@conquarrow/contracts';
+import { DEFAULT_MATCH_CONFIG } from '@conquarrow/contracts';
+import { makeMatch } from '@conquarrow/geometry-tiling';
+import { inGameRosterSummary, logFromOnlineBoard, pickerKindOptions } from '../src/online-shell-ui';
+import { coerceOnlineSeatPlan, defaultSeat, type SeatPlan } from '../src/seatPlan';
+import { makePagesHarness } from './online-web.support';
+
+const planOf = (kinds: readonly ('human' | 'heuristic' | 'agent')[]): SeatPlan => ({
+  playerCount: 3,
+  seats: kinds.map((kind) => defaultSeat(kind)),
+});
+
+describe('The lobby and the library tell the truth about the chair', () => {
+  it('The online picker offers agent and the local picker does not', async () => {
+    const online = makePagesHarness({ sessionToken: 'alice-token' });
+    await online.adapter.boot();
+    online.adapter.selectMode('online');
+
+    expect(online.adapter.seatKindOptions()).toContain('agent');
+    expect(online.adapter.seatKindOptionsFor(0)).not.toContain('agent');
+    expect(pickerKindOptions('online', 1)).toContain('agent');
+    expect(pickerKindOptions('online', 0)).not.toContain('agent');
+
+    online.adapter.selectMode('local');
+    expect(online.adapter.seatKindOptions()).not.toContain('agent');
+    expect(pickerKindOptions('local', 1)).not.toContain('agent');
+  });
+
+  it('Local to Online keeps an agent chair and does not force a second human', () => {
+    const online = coerceOnlineSeatPlan(planOf(['human', 'agent', 'heuristic']));
+
+    expect(online.seats[1]?.kind).toBe('agent');
+    expect(online.seats.filter((seat) => seat.kind === 'human')).toHaveLength(1);
+  });
+
+  it('Local to Online with no agent chair still forces two humans', () => {
+    const online = coerceOnlineSeatPlan(planOf(['human', 'heuristic', 'heuristic']));
+
+    expect(online.seats[0]?.kind).toBe('human');
+    expect(online.seats[1]?.kind).toBe('human');
+  });
+
+  it('The in-game summary does not call an agent seat Player', () => {
+    const game = makeMatch({ ...DEFAULT_MATCH_CONFIG, playerCount: 3 });
+    const seats: readonly InviteSeat[] = [
+      { kind: 'human', userHash: 'a' },
+      { kind: 'agent', userHash: 'c' },
+      { kind: 'heuristic' },
+    ];
+
+    const summary = inGameRosterSummary(game, seats, [undefined, 'Ada', undefined]);
+    const log = logFromOnlineBoard(game, seats);
+
+    expect(summary).toContain('Agent (Ada)');
+    expect(log.seats[1]?.kind).not.toBe('human');
+  });
+});

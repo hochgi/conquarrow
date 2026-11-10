@@ -117,6 +117,13 @@ detailed form of an item; this file is the short list and the order.
 - **Score logged agent replies.** [P92](packets/P92-remote-agent-mcp.md)
   records the reply on the match log. A harness that treats those records
   as free BYOK samples, and gates a prompt change on them, is not written.
+- **Move the offer builder out of web.** P92 installs the web prompt into
+  `@conquarrow/byok-offer` so there is one copy, but the MCP door still
+  imports `packages/web` to install it. Move the pure builder so the Lambda
+  does not.
+- **Wire `mcp-http.handler` before the first deploy.** The template names
+  the entry. The composition root (S3, Google code exchange, HS256 signer,
+  PostToConnection, clock) is not written. The wizard covers the human steps.
 
 ## BYOK seat
 

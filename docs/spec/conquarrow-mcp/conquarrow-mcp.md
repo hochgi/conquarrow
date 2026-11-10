@@ -1,5 +1,12 @@
 # conquarrow-mcp — stdio tools over rules-core, not a scrape
 
+> **Superseded by P92.** The stdio server, its frozen greedy-v1, and its
+> observation are deleted. Every scenario below is `@superseded-P92`. Do not
+> write a test for one. The remote door is
+> [remote-agent-mcp](../remote-agent-mcp/remote-agent-mcp.md). No half of this
+> surface survives: the offer text the remote door returns is the web BYOK
+> offer, not this package's observation.
+
 **Packet:** [P67 — Conquarrow MCP](../../design/packets/P67-conquarrow-mcp.md)
 **ADR:** [0004 — board picture is SVG](../../adr/0004-mcp-board-picture-is-svg.md),
 [0003 — Pages-direct BYOK](../../adr/0003-pages-direct-byok.md) (untouched)

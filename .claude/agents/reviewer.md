@@ -32,7 +32,8 @@ You are the **final reviewer** for conquarrow. You run last in
    defect this pipeline exists to catch — flag it even when it looks obviously
    correct, and *especially* when it does.
 3. **Spec ↔ tests coherence.** Every scenario has a test; every EARS invariant
-   has an assertion, preferably a property test.
+   has an assertion, preferably a property test. Every `SCENARIOS.md` path has
+   a test-kit component test, and the messages match the diagram.
 4. **Hexagonal boundaries.** The core depends only on `contracts`. No concrete
    geometry, renderer, or storage type crosses the seam. A second geometry
    implementation would still satisfy the tests.

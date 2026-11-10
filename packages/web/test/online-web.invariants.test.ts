@@ -77,7 +77,7 @@ describe('online-web invariants', () => {
     const h = makePagesHarness({ sessionToken: ALICE.bearer });
     await h.adapter.boot();
     h.adapter.selectMode('online');
-    expect(h.adapter.seatKindOptions()).toEqual(['human', 'heuristic']);
+    expect(h.adapter.seatKindOptions()).toEqual(['human', 'heuristic', 'agent']);
     expect(h.adapter.seatKindOptions().includes('byok')).toBe(false);
   });
 

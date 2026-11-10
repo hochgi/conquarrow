@@ -12,7 +12,7 @@ probe. Here it lives only at I/O edges, because the rules engine has none.
 ## Where it may be used
 
 - `packages/online-api` — the only consumer today, **devDependencies only**.
-- `packages/mcp`, `packages/web` — only once they grow an injected I/O boundary.
+- `packages/web` — only once it grows an injected I/O boundary.
 - **Never** `packages/contracts`, `packages/rules-core`, `packages/geometry-*`
   — not in `src`, not in `test`. ESLint `no-restricted-imports` and
   `online-edge-probes.invariants.test.ts` ([CORE-CLEAN], [DEV-ONLY]) enforce it.
@@ -49,6 +49,14 @@ pnpm --filter @conquarrow/online-api add -D @hochgi/test-kit @hochgi/test-kit-s3
   `.replay.test.ts` — with the rig factory in `<feature>.support.ts`. No `.kit`
   marker. Model: `packages/online-api/test/online-edge-probes.*`.
 - One test per Gherkin scenario, as everywhere (`write-failing-tests`).
+
+## Message flows
+
+When `docs/spec/<feature>/SCENARIOS.md` exists, each diagram path is a
+component test. The diagram's participants name the leaves. Probe those
+leaves. The handler stays the component. Phase 2 may add the leaf interface
+and must not implement it. Phase 3 implements behind that interface and does
+not widen the seam to make the probe easier.
 
 ## Choose the seam (Goldilocks)
 

@@ -11,29 +11,33 @@ const connectionIdOf = (key: string, prefix: string): string | undefined => {
   return rest;
 };
 
-const otherHumanHashes = (
+const humanHashes = (
   seats: readonly InviteSeat[],
-  callerUserHash: string,
+  exceptUserHash: string | undefined,
 ): readonly string[] => {
   const hashes: string[] = [];
   for (const seat of seats) {
     if (seat.kind !== 'human') continue;
     const hash = seat.userHash;
-    if (hash === undefined || hash === callerUserHash) continue;
+    if (hash === undefined || hash === exceptUserHash) continue;
     hashes.push(hash);
   }
   return hashes.sort(compareStrings);
 };
 
-export const notifyOthers = async (
+export const notifyHumans = async (
   s3: ObjectStore,
   postToConnection: PostToConnection | undefined,
   seats: readonly InviteSeat[],
-  callerUserHash: string,
   payload: StateChangedPayload,
+  exceptUserHash?: string,
+  alsoUserHash?: string,
 ): Promise<void> => {
   if (postToConnection === undefined) return;
-  for (const userHash of otherHumanHashes(seats, callerUserHash)) {
+  const hashes = [...humanHashes(seats, exceptUserHash)];
+  if (alsoUserHash !== undefined && !hashes.includes(alsoUserHash)) hashes.push(alsoUserHash);
+  hashes.sort(compareStrings);
+  for (const userHash of hashes) {
     const prefix = connectionsPrefix(userHash);
     const ids = (await listObjects(s3, prefix))
       .map((key) => connectionIdOf(key, prefix))
@@ -52,3 +56,12 @@ export const notifyOthers = async (
     }
   }
 };
+
+/** Browser door: skip the caller so a POST does not echo. */
+export const notifyOthers = async (
+  s3: ObjectStore,
+  postToConnection: PostToConnection | undefined,
+  seats: readonly InviteSeat[],
+  callerUserHash: string,
+  payload: StateChangedPayload,
+): Promise<void> => notifyHumans(s3, postToConnection, seats, payload, callerUserHash);

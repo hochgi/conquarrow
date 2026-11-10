@@ -5,9 +5,5 @@
     "outDir": "./dist"
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
-  "references": [
-    { "path": "../contracts" },
-    { "path": "../geometry-tiling" },
-    { "path": "../rules-core" }
-  ]
+  "references": [{ "path": "../contracts" }]
 }

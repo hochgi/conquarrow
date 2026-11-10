@@ -38,6 +38,8 @@ export const parseLogLine = (raw: string): LogLine | undefined => {
   const rec = asRecord(value);
   if (rec === undefined) return undefined;
   const move = rec['move'];
+  // A playtest record is not a move. Skipping it keeps the version window intact.
+  if (move === undefined && rec['agentReply'] !== undefined) return undefined;
   // Pre-P49: the line *is* the move, with no envelope around it.
   if (move === undefined) return { move: value as Move };
   const inner = asRecord(move);

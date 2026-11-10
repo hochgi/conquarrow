@@ -19,7 +19,7 @@ export const asRecord = (value: unknown): Record<string, unknown> | undefined =>
 export const parseKinds = (seats: readonly unknown[]): PlannedSeatKind[] | undefined => {
   const kinds: PlannedSeatKind[] = [];
   for (const seat of seats) {
-    if (seat !== 'human' && seat !== 'heuristic' && seat !== 'byok') {
+    if (seat !== 'human' && seat !== 'heuristic' && seat !== 'byok' && seat !== 'agent') {
       return undefined;
     }
     kinds.push(seat);
@@ -40,11 +40,14 @@ export const validatePlan = (
 ): { readonly host: number } | undefined => {
   if (kinds.length !== 3 && kinds.length !== 6) return undefined;
   let humans = 0;
+  let agents = 0;
   for (const kind of kinds) {
     if (kind === 'byok') return undefined;
     if (kind === 'human') humans += 1;
+    if (kind === 'agent') agents += 1;
   }
-  if (humans < 2) return undefined;
+  if (humans < 1) return undefined;
+  if (agents === 0 && humans < 2) return undefined;
   const host = hostSeatIndex ?? firstHumanIndex(kinds);
   if (kinds[host] !== 'human') return undefined;
   return { host };
@@ -57,6 +60,7 @@ export const seatsFromPlan = (
 ): InviteSeat[] =>
   kinds.map((kind, index) => {
     if (kind === 'heuristic') return { kind: 'heuristic' };
+    if (kind === 'agent') return { kind: 'agent' };
     if (index === host) return { kind: 'human', userHash };
     return { kind: 'human' };
   });
@@ -66,6 +70,11 @@ const parseSeat = (value: unknown): InviteSeat | undefined => {
   if (rec === undefined) return undefined;
   const kind = rec['kind'];
   if (kind === 'heuristic') return { kind: 'heuristic' };
+  if (kind === 'agent') {
+    const userHash = rec['userHash'];
+    if (typeof userHash === 'string') return { kind: 'agent', userHash };
+    return { kind: 'agent' };
+  }
   if (kind !== 'human') return undefined;
   const userHash = rec['userHash'];
   if (typeof userHash === 'string') return { kind: 'human', userHash };
@@ -117,10 +126,15 @@ export const serializeInvite = (invite: InviteRecord): string => {
     status: invite.status,
     creatorUserHash: invite.creatorUserHash,
     seats: invite.seats.map((seat) => {
-      if (seat.kind === 'heuristic') return { kind: 'heuristic' };
+      if (seat.kind === 'heuristic') return { kind: 'heuristic' as const };
+      if (seat.kind === 'agent') {
+        const userHash = seat.userHash;
+        if (userHash === undefined) return { kind: 'agent' as const };
+        return { kind: 'agent' as const, userHash };
+      }
       const userHash = seat.userHash;
-      if (userHash === undefined) return { kind: 'human' };
-      return { kind: 'human', userHash };
+      if (userHash === undefined) return { kind: 'human' as const };
+      return { kind: 'human' as const, userHash };
     }),
   };
   if (invite.gameNumber !== undefined) {
@@ -169,6 +183,54 @@ export const boundHumanHashes = (seats: readonly InviteSeat[]): string[] => {
   return hashes;
 };
 
+export const boundAgentUserHash = (seat: InviteSeat): string | undefined =>
+  seat.kind === 'agent' ? seat.userHash : undefined;
+
+export const indexOfBoundAgent = (seats: readonly InviteSeat[], userHash: string): number => {
+  for (let i = 0; i < seats.length; i += 1) {
+    const seat = seats[i];
+    if (seat !== undefined && boundAgentUserHash(seat) === userHash) return i;
+  }
+  return -1;
+};
+
+export const nextUnboundAgentIndex = (seats: readonly InviteSeat[]): number => {
+  for (let i = 0; i < seats.length; i += 1) {
+    const seat = seats[i];
+    if (seat !== undefined && seat.kind === 'agent' && seat.userHash === undefined) return i;
+  }
+  return -1;
+};
+
+export const allAgentSeatsBound = (seats: readonly InviteSeat[]): boolean => {
+  for (const seat of seats) {
+    if (seat.kind === 'agent' && seat.userHash === undefined) return false;
+  }
+  return true;
+};
+
+export const allBindableSeatsBound = (seats: readonly InviteSeat[]): boolean =>
+  allHumanSeatsBound(seats) && allAgentSeatsBound(seats);
+
+export const boundAgentHashes = (seats: readonly InviteSeat[]): string[] => {
+  const hashes: string[] = [];
+  for (const seat of seats) {
+    const hash = boundAgentUserHash(seat);
+    if (hash !== undefined) hashes.push(hash);
+  }
+  return hashes;
+};
+
+/** Human chair if the caller has one, otherwise the agent chair. */
+export const indexOfCallerSeat = (seats: readonly InviteSeat[], userHash: string): number => {
+  const human = indexOfBoundUser(seats, userHash);
+  if (human >= 0) return human;
+  return indexOfBoundAgent(seats, userHash);
+};
+
+export const isBoundMember = (seats: readonly InviteSeat[], userHash: string): boolean =>
+  indexOfCallerSeat(seats, userHash) >= 0;
+
 export const seatsEqual = (
   left: readonly InviteSeat[] | undefined,
   right: readonly InviteSeat[],
@@ -180,6 +242,7 @@ export const seatsEqual = (
     if (a === undefined || b === undefined) return false;
     if (a.kind !== b.kind) return false;
     if (a.kind === 'human' && b.kind === 'human' && a.userHash !== b.userHash) return false;
+    if (a.kind === 'agent' && b.kind === 'agent' && a.userHash !== b.userHash) return false;
   }
   return true;
 };

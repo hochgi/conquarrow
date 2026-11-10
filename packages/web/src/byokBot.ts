@@ -18,7 +18,10 @@ import type {
   StepMove,
   VertexId,
 } from '@conquarrow/contracts';
+import { installOfferRenderer } from '@conquarrow/byok-offer';
 import { endTurn, movesEqual, speed } from '@conquarrow/contracts';
+import { makeTiling } from '@conquarrow/geometry-tiling';
+import { makeRules } from '@conquarrow/rules-core';
 import { compareArrows, compareVertices } from '@conquarrow/rules-core';
 import { chooseTurnGreedy } from './botSearch';
 import type { ByokConfig } from './byokConfig';
@@ -215,6 +218,11 @@ export const snapshotForPrompt = (
     const key = String(owner);
     territoryCounts[key] = (territoryCounts[key] ?? 0) + 1;
   }
+  const orderedCounts: Record<string, number> = {};
+  for (const key of Object.keys(territoryCounts).sort()) {
+    const count = territoryCounts[key];
+    if (count !== undefined) orderedCounts[key] = count;
+  }
 
   const shareCounts: Record<string, number> = {};
   for (const p of state.players) shareCounts[String(p)] = 0;
@@ -232,7 +240,7 @@ export const snapshotForPrompt = (
     dominationN: state.dominationN,
     groups,
     trails,
-    territoryCounts,
+    territoryCounts: orderedCounts,
     shareCounts,
     spawnerCount: state.spawners.size,
     spawnersShown: interestingSpawners.length,
@@ -878,6 +886,12 @@ export const buildUserPrompt = (
     'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short","plan":"short"}',
   ].join('\n');
 };
+
+installOfferRenderer((state, seat) => {
+  const tiling = makeTiling();
+  const rules = makeRules(tiling);
+  return buildUserPrompt(tiling, state, seat, rules.legalMoves(state), false, rules);
+});
 export interface ParsedMoveBatch {
   readonly indices: readonly number[];
   readonly endTurn: boolean;

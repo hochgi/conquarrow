@@ -7,7 +7,8 @@
     "./health": "./src/health.ts",
     "./ws": "./src/ws.ts",
     "./api": "./src/create-online-api.ts",
-    "./http": "./src/http.ts"
+    "./http": "./src/http.ts",
+    "./mcp": "./src/mcp-http.ts"
   },
   "scripts": {
     "typecheck": "tsc --build --force"
@@ -15,6 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1109.0",
     "@aws-sdk/client-s3": "^3.1109.0",
+    "@conquarrow/byok-offer": "workspace:*",
     "@conquarrow/contracts": "workspace:*",
     "@conquarrow/geometry-tiling": "workspace:*",
     "@conquarrow/rules-core": "workspace:*"

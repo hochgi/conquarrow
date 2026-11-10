@@ -11,6 +11,7 @@
     "icons": "node scripts/favicon.mjs"
   },
   "dependencies": {
+    "@conquarrow/byok-offer": "workspace:*",
     "@conquarrow/contracts": "workspace:*",
     "@conquarrow/geometry-tiling": "workspace:*",
     "@conquarrow/rules-core": "workspace:*",

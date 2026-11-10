@@ -440,7 +440,7 @@ export const seatRuntimeFromPlan = (
     const player = players[i];
     if (seat === undefined || player === undefined) continue;
     configs.set(String(player), seat);
-    if (seat.kind !== 'human') aiKeys.add(String(player));
+    if (seat.kind === 'heuristic' || seat.kind === 'byok') aiKeys.add(String(player));
   }
   return { configs, aiKeys };
 };

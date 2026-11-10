@@ -13,7 +13,7 @@ import {
 } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { createMatchLog, type MatchLog, type SeatDriverLog } from './matchLog';
-import { seatPlayerId, type SeatPlan } from './seatPlan';
+import { seatPlayerId, type SeatKind, type SeatPlan } from './seatPlan';
 
 export { libraryVsLine } from '@conquarrow/contracts';
 
@@ -81,10 +81,47 @@ export const kindsForHost = (
 ): readonly PlannedSeatKind[] =>
   plan.seats.map((seat) => (online && seat.kind === 'byok' ? 'heuristic' : seat.kind));
 
-/** HUD / roster labels — API kinds stay `human` | `heuristic`. */
-export const displaySeatKind = (kind: 'human' | 'heuristic' | 'byok'): string => {
+/**
+ * Kind control the lobby dropdown shows. Current lists — agent is not offered.
+ * Phase 3 teaches the online list `agent` except on seat 0, and keeps it off local.
+ */
+export const pickerKindOptions = (
+  mode: PagesLobbyMode,
+  seatIndex: number,
+): readonly PlannedSeatKind[] => {
+  if (mode === 'online') {
+    const kinds: readonly PlannedSeatKind[] = ['human', 'heuristic', 'agent'];
+    return seatIndex === 0 ? kinds.filter((kind) => kind !== 'agent') : kinds;
+  }
+  return ['human', 'heuristic', 'byok'];
+};
+
+/**
+ * In-game roster line. An agent chair is `Agent (name)` or `Agent`.
+ */
+export const inGameRosterSummary = (
+  game: GameState,
+  seats: readonly InviteSeat[] | undefined,
+  names: readonly (string | undefined)[],
+): string =>
+  game.players
+    .map((player, index) => {
+      const seat = seats?.[index];
+      if (seat?.kind === 'agent') {
+        const name = names[index];
+        const label = name === undefined || name === '' ? 'Agent' : `Agent (${name})`;
+        return `${String(player)}=${label}`;
+      }
+      const kind = seat?.kind === 'heuristic' ? 'heuristic' : 'human';
+      return `${String(player)}=${displaySeatKind(kind)}`;
+    })
+    .join(' · ');
+
+/** HUD / roster labels. */
+export const displaySeatKind = (kind: SeatKind): string => {
   if (kind === 'heuristic') return 'AI';
   if (kind === 'byok') return 'BYOK';
+  if (kind === 'agent') return 'Agent';
   return 'Player';
 };
 
@@ -114,7 +151,7 @@ export const logFromOnlineBoard = (
   const playerCount = game.players.length === 6 ? 6 : 3;
   const seatLogs: SeatDriverLog[] = game.players.map((player, index) => {
     const seat = seats?.[index];
-    const kind = seat?.kind === 'heuristic' ? 'heuristic' : 'human';
+    const kind = seat?.kind === 'heuristic' || seat?.kind === 'agent' ? seat.kind : 'human';
     return { player, kind };
   });
   const firstPlayer = game.players[0];
