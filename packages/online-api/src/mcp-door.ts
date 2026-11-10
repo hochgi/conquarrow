@@ -384,6 +384,43 @@ export const handleMcpHttp = async (
   return rpc(deps, request, claims);
 };
 
+const parseHttpUrl = (value: string): URL | undefined => {
+  try {
+    return new URL(value);
+  } catch {
+    return undefined;
+  }
+};
+
+const isLoopbackHost = (hostname: string): boolean => {
+  const host = hostname.toLowerCase();
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1';
+};
+
+/**
+ * Exact match, or the same loopback scheme, host, and path with another port.
+ * IDEs bind an ephemeral port. RFC 8252 §7.3 requires the server to allow it.
+ */
+const redirectListed = (listed: readonly unknown[], requested: string): boolean => {
+  if (listed.includes(requested)) return true;
+  const asked = parseHttpUrl(requested);
+  if (asked === undefined || !isLoopbackHost(asked.hostname)) return false;
+  for (const entry of listed) {
+    if (typeof entry !== 'string') continue;
+    const allowed = parseHttpUrl(entry);
+    if (allowed === undefined || !isLoopbackHost(allowed.hostname)) continue;
+    if (
+      allowed.protocol === asked.protocol &&
+      allowed.hostname === asked.hostname &&
+      allowed.pathname === asked.pathname &&
+      allowed.search === asked.search
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
 const authorize = async (deps: McpHttpDeps, request: McpHttpRequest): Promise<McpHttpResult> => {
   const clientId = httpsClientId(request.query?.['client_id']);
   if (clientId === undefined) return json(400, { error: 'invalid_client' });
@@ -404,7 +441,7 @@ const authorize = async (deps: McpHttpDeps, request: McpHttpRequest): Promise<Mc
   const rec = asRecord(doc);
   const listed = rec?.['redirect_uris'];
   const declared = rec?.['client_id'];
-  if (declared !== clientId.toString() || !Array.isArray(listed) || !listed.includes(redirect)) {
+  if (declared !== clientId.toString() || !Array.isArray(listed) || !redirectListed(listed, redirect)) {
     return json(400, { error: 'invalid_redirect' });
   }
   const ticket = bytesToHex(deps.randomBytes(16));

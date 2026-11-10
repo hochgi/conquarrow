@@ -234,6 +234,12 @@ Feature: Remote agent seat boundaries
       Then the response is a refusal
       And no authorization code is stored
 
+    Scenario: A loopback redirect may use an ephemeral port
+      Given a client-id metadata document that lists http://127.0.0.1/callback
+      When authorize is requested with redirect_uri http://127.0.0.1:61762/callback
+      Then the response is the consent page
+      And the response is not a redirect to Google
+
     Scenario: The consent page names the redirect host and does not send the browser to Google yet
       When GET /authorize for a localhost redirect
       Then the response is 200

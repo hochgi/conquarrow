@@ -335,6 +335,7 @@ handle, the token, or the bearer.
 | 2 consent page, then Google | edge: consent page |
 | 2 non-https client_id | edge: non-https client_id |
 | 2 redirect not in the document | edge: redirect not in the metadata document |
+| 2 loopback ephemeral port | edge: loopback redirect may use an ephemeral port |
 | 3 rotation | edge: rotated refresh token |
 | 4 create stored | core: create stores a lobby |
 | 4 create refused | edge outline: create refuses |
