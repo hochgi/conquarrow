@@ -267,8 +267,11 @@ existing bucket, and deleted on use.
 `client_id` must be an `https` URL with a path. Anything else is refused
 before fetch. Loopback, private, and link-local metadata hosts are refused.
 The fetched document's `client_id` must equal the URL, and the requested
-`redirect_uri` must be one of its `redirect_uris`. Localhost redirect URIs
-are allowed — IDEs use them — and the consent page shows that hostname.
+`redirect_uri` must be one of its `redirect_uris`. A loopback redirect
+(`127.0.0.1`, `localhost`, or `::1`) matches a listed one when the scheme,
+host, and path are equal; the port may differ, because an IDE binds an
+ephemeral port. A different path is still refused. The consent page shows
+that hostname.
 Tests inject the metadata fetch and the Google code exchange. They do not
 call Google.
 

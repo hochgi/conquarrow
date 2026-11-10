@@ -842,6 +842,59 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
     });
   });
 
+  it('A loopback redirect may use an ephemeral port', async () => {
+    await withRig(async (rig) => {
+      const clientId = 'https://opencode.ai/oauth/opencode/client.json';
+      rig.metadata.probe.on('fetch').always().answer(
+        JSON.stringify({
+          client_id: clientId,
+          redirect_uris: ['http://127.0.0.1/callback', 'http://localhost/callback'],
+        }),
+      );
+
+      const result = await rig.mcp({
+        method: 'GET',
+        path: '/authorize',
+        query: {
+          client_id: clientId,
+          redirect_uri: 'http://127.0.0.1:61762/callback',
+          code_challenge: s256('verifier'),
+          code_challenge_method: 'S256',
+          resource: MCP_AUDIENCE,
+        },
+      });
+
+      expect(result.statusCode).toBe(200);
+      expect(result.body).toContain('127.0.0.1');
+      expect(headerOf(result, 'location') ?? '').not.toContain('google.com');
+    });
+  });
+
+  it('A loopback redirect with a different path is still refused', async () => {
+    await withRig(async (rig) => {
+      const clientId = 'https://ide.example/client.json';
+      rig.metadata.probe.on('fetch').always().answer(
+        JSON.stringify({ client_id: clientId, redirect_uris: ['http://127.0.0.1/callback'] }),
+      );
+      const before = keysOf(rig);
+
+      const result = await rig.mcp({
+        method: 'GET',
+        path: '/authorize',
+        query: {
+          client_id: clientId,
+          redirect_uri: 'http://127.0.0.1:61762/stolen',
+          code_challenge: s256('verifier'),
+          code_challenge_method: 'S256',
+          resource: MCP_AUDIENCE,
+        },
+      });
+
+      expect(refusal(result.statusCode)).toBe(true);
+      expect(keysOf(rig)).toEqual(before);
+    });
+  });
+
   it('A redirect that is not in the metadata document is refused', async () => {
     await withRig(async (rig) => {
       const clientId = 'https://ide.example/client.json';
