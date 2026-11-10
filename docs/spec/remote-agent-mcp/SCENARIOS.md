@@ -64,7 +64,7 @@ sequenceDiagram
     Google->>Mcp: callback with Google code
     Mcp->>Mcp: exchange code, verify ID token
     Mcp->>S3: upsert profile, store one-time code
-    Mcp-->>IDE: redirect with code and iss
+    Mcp-->>IDE: redirect with code, iss, and the client's state
     IDE->>Mcp: POST /token with code, verifier, resource
     Mcp->>S3: delete code, write one refresh-hash object
     Mcp-->>IDE: access token 15 minutes and refresh token

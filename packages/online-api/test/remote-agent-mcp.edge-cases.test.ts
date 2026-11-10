@@ -974,6 +974,7 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
           code_challenge: s256(verifier),
           code_challenge_method: 'S256',
           resource: MCP_AUDIENCE,
+          state: 'ide-state',
         },
       });
       const continued = continueTarget(page.body);
@@ -1006,6 +1007,7 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
       const returned = new URL(headerOf(back, 'location') ?? 'http://127.0.0.1/missing');
       const ours = returned.searchParams.get('code');
       expect(returned.searchParams.get('iss')).toBe('https://mcp.games.hochgi.com');
+      expect(returned.searchParams.get('state')).toBe('ide-state');
       expect(ours).toBeTruthy();
       const stored = JSON.parse(rig.data.get(`conquarrow/oauth/codes/${ours ?? ''}`) ?? '{}') as {
         exp?: number;
