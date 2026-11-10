@@ -23,7 +23,7 @@ import {
   staleVersion,
   unprocessable,
 } from './json-result';
-import { notifyOthers } from './notify';
+import { notifyHumans, notifyOthers } from './notify';
 import { seatsForClient, stampLibrarySummary } from './library-listing';
 import { gameLogKey, gameStateKey } from './s3-keys';
 import { getObject, putObject } from './store-io';
@@ -170,6 +170,7 @@ export const ensurePosition = async (
   gameNumber: string,
   seats: readonly InviteSeat[],
   callerUserHash: string,
+  wakeCaller = false,
 ): Promise<LoadedPosition | OnlineHttpResult> => {
   const existing = await loadPosition(deps.s3, groupHash, gameNumber);
   if (existing !== undefined) return existing;
@@ -187,7 +188,18 @@ export const ensurePosition = async (
       burst.moves,
       undefined,
     );
-    await wakeOthers(deps, seats, callerUserHash, 0, groupHash, gameNumber);
+    if (wakeCaller) {
+      await notifyHumans(
+        deps.s3,
+        deps.postToConnection,
+        seats,
+        { type: 'stateChanged', version: 0, groupHash, gameNumber },
+        undefined,
+        callerUserHash,
+      );
+    } else {
+      await wakeOthers(deps, seats, callerUserHash, 0, groupHash, gameNumber);
+    }
     const parsed = parsePersistedEnvelope(raw);
     if (parsed === undefined) return internalError();
     return { ...parsed, raw };

@@ -126,13 +126,13 @@ flowchart TB
 
 ### 8. Authz for a move
 
-`POST /games/{groupHash}/{gameNumber}/moves` succeeds only if the bearer maps to the **active** human seat. An agent seat does not use this route ([ADR 0009](./0009-remote-agent-mcp-seat.md)). GET of that path is any **bound** human (including finished games). Heuristic seats never present a Google token. Stale quoted `If-Match` → 412. Missing → 428. Illegal move → 422. Finished → 409. No write on those paths. Accept uses server-side `If-Match` retry so two clients cannot bind the same chair.
+`POST /games/{groupHash}/{gameNumber}/moves` succeeds only if the bearer maps to the **active** human seat. An agent seat does not use this route ([ADR 0009](./0009-remote-agent-mcp-seat.md)). GET of that path is any bound human or bound agent (including finished games). Heuristic seats never present a Google token. Stale quoted `If-Match` → 412. Missing → 428. Illegal move → 422. Finished → 409. No write on those paths. Accept uses server-side `If-Match` retry so two clients cannot bind the same chair.
 
 ### 9. Reading the move log (P49)
 
 `GET /games/{groupHash}/{gameNumber}/log?since={version}` serves the moves whose
-version lies in `(since, currentVersion]`, in persisted order, to any **bound**
-human. `since` is required — there is no spelling of this route that pulls a whole
+version lies in `(since, currentVersion]`, in persisted order, to any bound
+human or bound agent. `since` is required — there is no spelling of this route that pulls a whole
 match. Body: `{ from, to, gap, moves }`.
 
 `log.jsonl` lines are stamped `{"v":<version>,"move":{…}}` with the version the

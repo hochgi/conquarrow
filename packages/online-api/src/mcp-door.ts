@@ -30,7 +30,7 @@ import {
 import { notifyHumans } from './notify';
 import { inviteKey, lobbyKey } from './s3-keys';
 import { getObject, listObjects, putObject } from './store-io';
-import '../../web/src/byokBot';
+import { upsertProfileDisplayName } from './user-profile';
 import {
   MCP_AUDIENCE,
   MCP_ISSUER,
@@ -136,6 +136,49 @@ const authorizationServer = (): McpHttpResult =>
     token_endpoint_auth_methods_supported: ['none'],
   });
 
+const bareHost = (hostname: string): string => {
+  const unwrapped =
+    hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(unwrapped);
+  return (mapped?.[1] ?? unwrapped).toLowerCase();
+};
+
+const ipv4Parts = (host: string): readonly number[] | undefined => {
+  const parts = host.split('.');
+  if (parts.length !== 4) return undefined;
+  const nums: number[] = [];
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return undefined;
+    const n = Number(part);
+    if (n > 255) return undefined;
+    nums.push(n);
+  }
+  return nums;
+};
+
+/** Loopback, private, and link-local. Refused before any metadata fetch. */
+const isRefusedMetadataHost = (hostname: string): boolean => {
+  const host = bareHost(hostname);
+  if (host === 'localhost' || host === '::1' || host === '::' || host.endsWith('.local')) return true;
+  const v4 = ipv4Parts(host);
+  if (v4 !== undefined) {
+    const a = v4[0] ?? -1;
+    const b = v4[1] ?? -1;
+    if (a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    return false;
+  }
+  if (!host.includes(':')) return false;
+  const headText = host.split(':')[0];
+  const head = Number.parseInt(headText === undefined || headText === '' ? '0' : headText, 16);
+  if (Number.isNaN(head)) return false;
+  if ((head & 0xffc0) === 0xfe80) return true;
+  if ((head & 0xfe00) === 0xfc00) return true;
+  return false;
+};
+
 const httpsClientId = (raw: string | undefined): URL | undefined => {
   if (raw === undefined) return undefined;
   let url: URL;
@@ -145,12 +188,12 @@ const httpsClientId = (raw: string | undefined): URL | undefined => {
     return undefined;
   }
   if (url.protocol !== 'https:' || url.pathname === '/' || url.pathname === '') return undefined;
-  const host = url.hostname;
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local')) {
-    return undefined;
-  }
+  if (isRefusedMetadataHost(url.hostname)) return undefined;
   return url;
 };
+
+const s256 = (verifier: string): string =>
+  createHash('sha256').update(verifier, 'utf8').digest('base64url');
 
 const readInvite = async (
   deps: McpHttpDeps,
@@ -359,15 +402,24 @@ const continueAuthorize = async (
 ): Promise<McpHttpResult> => {
   const ticket = request.query?.['ticket'];
   if (ticket === undefined) return json(400, { error: 'invalid_request' });
-  const raw = await getObject(deps.store, `conquarrow/oauth/tickets/${ticket}`);
-  if (raw === undefined) return json(400, { error: 'invalid_request' });
-  return {
-    statusCode: 302,
-    headers: {
-      location: `https://accounts.google.com/o/oauth2/v2/auth?state=${encodeURIComponent(ticket)}&redirect_uri=${encodeURIComponent(`${MCP_ISSUER}/oauth/callback`)}`,
-    },
-    body: '',
-  };
+  const key = `conquarrow/oauth/tickets/${ticket}`;
+  const raw = await getObject(deps.store, key);
+  const stored = asRecord(raw === undefined ? undefined : JSON.parse(raw));
+  if (stored === undefined) return json(400, { error: 'invalid_request' });
+  const verifier =
+    typeof stored['googleVerifier'] === 'string' ? stored['googleVerifier'] : bytesToHex(deps.randomBytes(32));
+  if (stored['googleVerifier'] !== verifier) {
+    await putObject(deps.store, key, JSON.stringify({ ...stored, googleVerifier: verifier }));
+  }
+  const google = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  google.searchParams.set('client_id', deps.googleAuthClientId ?? '');
+  google.searchParams.set('response_type', 'code');
+  google.searchParams.set('redirect_uri', `${MCP_ISSUER}/oauth/callback`);
+  google.searchParams.set('scope', 'openid profile');
+  google.searchParams.set('state', ticket);
+  google.searchParams.set('code_challenge', s256(verifier));
+  google.searchParams.set('code_challenge_method', 'S256');
+  return { statusCode: 302, headers: { location: google.toString() }, body: '' };
 };
 
 const oauthCallback = async (deps: McpHttpDeps, request: McpHttpRequest): Promise<McpHttpResult> => {
@@ -378,10 +430,23 @@ const oauthCallback = async (deps: McpHttpDeps, request: McpHttpRequest): Promis
   const stored = asRecord(raw === undefined ? undefined : JSON.parse(raw));
   const redirect = stored?.['redirect'];
   const challenge = stored?.['challenge'];
-  if (typeof redirect !== 'string' || typeof challenge !== 'string') return json(400, { error: 'invalid_request' });
-  const exchanged = await deps.googleCodeExchange.exchange(code, `${MCP_ISSUER}/oauth/callback`);
+  if (stored === undefined || typeof redirect !== 'string' || typeof challenge !== 'string') {
+    return json(400, { error: 'invalid_request' });
+  }
+  const googleVerifier = stored['googleVerifier'];
+  let exchanged: { readonly idToken: string };
+  try {
+    exchanged = await deps.googleCodeExchange.exchange(
+      code,
+      `${MCP_ISSUER}/oauth/callback`,
+      typeof googleVerifier === 'string' ? googleVerifier : undefined,
+    );
+  } catch {
+    return json(401, { error: 'invalid_token' });
+  }
   const verified = await deps.google.verify(`Bearer ${exchanged.idToken}`);
   if (!verified.ok) return json(401, { error: 'invalid_token' });
+  await upsertProfileDisplayName(deps.store, userHashFromSub(verified.sub), verified.displayName);
   const ours = bytesToHex(deps.randomBytes(32));
   await putObject(
     deps.store,
@@ -442,10 +507,7 @@ const exchangeCode = async (deps: McpHttpDeps, rec: Record<string, unknown>): Pr
   if (typeof exp !== 'number' || deps.clock() >= exp || typeof challenge !== 'string' || typeof sub !== 'string') {
     return unauthorized();
   }
-  const digest = createHash('sha256').update(verifier, 'utf8').digest('base64url');
-  if (sha256(verifier) !== challenge && digest !== challenge) {
-    return unauthorized();
-  }
+  if (s256(verifier) !== challenge) return unauthorized();
   await deps.store.delete(key);
   const pair = issuePair(deps, sub);
   await putObject(
@@ -525,6 +587,9 @@ const rpc = async (
   return json(200, { jsonrpc: '2.0', id: id ?? null, error: { code: -32601, message: 'method not found' } });
 };
 
+const STOP_CLAUSE =
+  'When the result has stop: true, do not call another tool; tell the person to send a message when the human seat has moved.';
+
 const toolsList = (id: unknown): McpHttpResult =>
   json(200, {
     jsonrpc: '2.0',
@@ -533,19 +598,17 @@ const toolsList = (id: unknown): McpHttpResult =>
       tools: [
         {
           name: 'join',
-          description: 'Bind the next unbound agent seat. Does not Start.',
+          description: `Bind the next unbound agent seat. Does not Start. ${STOP_CLAUSE} On a correctable error, correct once, then stop.`,
           inputSchema: { type: 'object', properties: { handle: { type: 'string' } }, required: ['handle'] },
         },
         {
           name: 'observe',
-          description:
-            'When the result has stop true, do not call another tool. Tell the person to send a message when the human seat has moved.',
+          description: `${STOP_CLAUSE} On a correctable error, correct once, then stop.`,
           inputSchema: { type: 'object', properties: { handle: { type: 'string' } }, required: ['handle'] },
         },
         {
           name: 'move',
-          description:
-            'Apply a BYOK reply. On a correctable error, correct once, then stop. When stop is true, do not call another tool.',
+          description: `Apply a BYOK reply. On a correctable error, correct once, then stop. ${STOP_CLAUSE}`,
           inputSchema: {
             type: 'object',
             properties: {
@@ -621,6 +684,7 @@ const loadedTurn = async (
     located.gameNumber,
     loaded.invite.seats,
     userHash,
+    true,
   );
   if ('statusCode' in position) return { kind: 'stop', reason: 'not-started' };
   return {
@@ -738,7 +802,8 @@ const applyPrefix = (
   let at = state;
   for (const index of indices) {
     const mapped = index >= 0 ? offer[index] : undefined;
-    if (mapped === undefined || !legalNow(at, mapped)) return undefined;
+    // The offer numbers steps only. endTurn is a flag, not a row.
+    if (mapped === undefined || mapped.kind !== 'step' || !legalNow(at, mapped)) return undefined;
     at = applyMove(at, mapped);
     moves.push(mapped);
   }

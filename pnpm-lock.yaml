@@ -41,6 +41,12 @@ importers:
       '@conquarrow/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@conquarrow/geometry-tiling':
+        specifier: workspace:*
+        version: link:../geometry-tiling
+      '@conquarrow/rules-core':
+        specifier: workspace:*
+        version: link:../rules-core
     devDependencies:
       vitest:
         specifier: ^2.1.8

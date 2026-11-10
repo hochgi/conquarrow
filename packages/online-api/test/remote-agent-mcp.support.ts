@@ -121,6 +121,7 @@ export interface RemoteRig {
 export interface RigOptions {
   readonly names?: FakeGoogleNames;
   readonly clock?: () => number;
+  readonly googleAuthClientId?: string;
 }
 
 const compareKeys = (left: string, right: string): number => {
@@ -234,6 +235,9 @@ export const createRemoteRig = (options: RigOptions = {}): RemoteRig => {
     log,
     randomBytes: sequentialBytes(),
     heuristic,
+    ...(options.googleAuthClientId === undefined
+      ? {}
+      : { googleAuthClientId: options.googleAuthClientId }),
   };
   const browser = {
     google: googlePort,

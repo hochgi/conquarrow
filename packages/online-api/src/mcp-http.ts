@@ -38,7 +38,11 @@ export interface McpHttpResult {
  * Tests inject this. The handler does not call Google.
  */
 export interface GoogleCodeExchange {
-  exchange(code: string, redirectUri: string): Promise<{ readonly idToken: string }>;
+  exchange(
+    code: string,
+    redirectUri: string,
+    codeVerifier?: string,
+  ): Promise<{ readonly idToken: string }>;
 }
 
 /** Fetches a client-id metadata document. A non-https `client_id` must not reach it. */
@@ -88,6 +92,8 @@ export interface McpHttpDeps {
   readonly log: McpLog;
   readonly randomBytes: (size: number) => Uint8Array;
   readonly heuristic?: HeuristicChooser;
+  /** Authorization-code client id sent to Google. Absent in tests that never continue. */
+  readonly googleAuthClientId?: string;
 }
 
 /** Replace each secret substring with `[redacted]`. */
@@ -101,3 +107,4 @@ export const redactSecrets = (text: string, secrets: readonly string[]): string 
 };
 
 export { handleMcpHttp } from './mcp-door';
+export { handler } from './mcp-lambda';

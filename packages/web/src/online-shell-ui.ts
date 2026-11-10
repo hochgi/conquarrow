@@ -82,8 +82,8 @@ export const kindsForHost = (
   plan.seats.map((seat) => (online && seat.kind === 'byok' ? 'heuristic' : seat.kind));
 
 /**
- * Kind control the lobby dropdown shows. Current lists — agent is not offered.
- * Phase 3 teaches the online list `agent` except on seat 0, and keeps it off local.
+ * Kind control the lobby dropdown shows. Online offers human, heuristic, and
+ * agent, except seat 0 which is never agent. Local stays human, heuristic, byok.
  */
 export const pickerKindOptions = (
   mode: PagesLobbyMode,

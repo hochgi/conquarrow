@@ -27,6 +27,15 @@ Parameters:
     Default: ''
     NoEcho: true
     Description: HS256 secret for MCP access tokens. Not committed.
+  McpGoogleClientId:
+    Type: String
+    Default: ''
+    Description: Google authorization-code client id for the MCP door. Not the GIS ID-token client.
+  McpGoogleClientSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Google authorization-code client secret. Not committed.
   GoogleClientIds:
     Type: String
     Default: ''
@@ -307,12 +316,36 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: mcp-http.handler
-      CodeUri: ../packages/online-api/src
+      CodeUri: ../packages/online-api
       ReservedConcurrentExecutions: 5
       Environment:
         Variables:
           MCP_JWT_SECRET: !Ref McpJwtSecret
           MATCH_BUCKET: !Ref MatchBucket
+          WS_MANAGEMENT_ENDPOINT: !Sub 'https://${WsApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+          GOOGLE_AUTH_CLIENT_ID: !Ref McpGoogleClientId
+          GOOGLE_AUTH_CLIENT_SECRET: !Ref McpGoogleClientSecret
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource: !GetAtt MatchBucket.Arn
+              Condition:
+                StringLike:
+                  s3:prefix:
+                    - conquarrow
+                    - conquarrow/*
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource: !Sub '${MatchBucket.Arn}/conquarrow/*'
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WsApi}/*'
       Events:
         McpPost:
           Type: HttpApi
@@ -320,14 +353,68 @@ Resources:
             ApiId: !Ref McpApi
             Path: /conquarrow
             Method: POST
+        McpGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /conquarrow
+            Method: GET
+        McpDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /conquarrow
+            Method: DELETE
+        McpResource:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /.well-known/oauth-protected-resource/conquarrow
+            Method: GET
+        McpAuthorizationServer:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /.well-known/oauth-authorization-server
+            Method: GET
+        McpAuthorize:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /authorize
+            Method: GET
+        McpAuthorizeContinue:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /authorize/continue
+            Method: GET
+        McpOauthCallback:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /oauth/callback
+            Method: GET
+        McpToken:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /token
+            Method: POST
+        McpRegisterPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /register
+            Method: POST
+        McpRegisterGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /register
+            Method: GET
     Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Format: cjs
-        Target: es2022
-        Sourcemap: false
-        EntryPoints:
-          - mcp-http.ts
+      BuildMethod: makefile
 
   McpDomain:
     Type: AWS::ApiGatewayV2::DomainName
@@ -367,3 +454,7 @@ Outputs:
     Condition: HasWsCert
     Description: Namecheap CNAME target for Host ws.games
     Value: !GetAtt WsDomain.RegionalDomainName
+  McpDomainTarget:
+    Condition: HasMcpCert
+    Description: Namecheap CNAME target for Host mcp.games
+    Value: !GetAtt McpDomain.RegionalDomainName

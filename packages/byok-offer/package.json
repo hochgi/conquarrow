@@ -10,7 +10,9 @@
     "typecheck": "tsc --build --force"
   },
   "dependencies": {
-    "@conquarrow/contracts": "workspace:*"
+    "@conquarrow/contracts": "workspace:*",
+    "@conquarrow/geometry-tiling": "workspace:*",
+    "@conquarrow/rules-core": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^2.1.8"

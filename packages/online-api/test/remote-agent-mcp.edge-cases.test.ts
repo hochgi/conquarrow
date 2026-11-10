@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { endTurn, type GameState, type Move } from '@conquarrow/contracts';
 import { replay } from '@conquarrow/rules-core';
 import { parseLogLine, stampLogLine, windowOfLog } from '../src/game-log';
-import { gameStateKey } from '../src/s3-keys';
+import { gameStateKey, userProfileKey } from '../src/s3-keys';
 import {
   ALICE,
   BOB,
@@ -326,6 +326,26 @@ describe('observe and move refuse without writing', () => {
     });
   });
 
+  it('An index the offer does not number does not change state or version', async () => {
+    await withRig(async (rig) => {
+      const state = atSeat(opening(3), 1);
+      const endIndex = rules.legalMoves(state).findIndex((move) => move.kind === 'endTurn');
+      expect(endIndex).toBeGreaterThanOrEqual(0);
+      const groupHash = started(rig, state, three(), 3);
+
+      const result = await postDoor(
+        rig,
+        toolsCall('move', { handle: inviteHandle(), moves: [endIndex], endTurn: false }),
+        accessToken(rig, CAROL.sub),
+      );
+
+      expect(toolJson(result)?.['stop']).toBe(false);
+      expect(toolContent(result)?.isError).toBe(true);
+      expect(storedVersion(rig, groupHash, GAME)).toBe(3);
+      expect(logRaw(rig, groupHash, GAME) ?? '').not.toContain('agentReply');
+    });
+  });
+
   it('A bad index does not change state or version', async () => {
     await withRig(async (rig) => {
       const groupHash = started(rig, atSeat(opening(3), 1), three(), 3);
@@ -362,6 +382,24 @@ describe('observe and move refuse without writing', () => {
       expect(storedVersion(rig, groupHash, GAME)).toBe(3);
       expect(storedActive(rig, groupHash, GAME)).toBe(String(state.players[1]));
       expect(toolJson(result)?.['stop']).toBe(false);
+    });
+  });
+
+  it('The first agent read that creates state.json wakes the acting user', async () => {
+    await withRig(async (rig) => {
+      const groupHash = started(rig, atSeat(opening(3), 1), three(), 3);
+      rig.data.delete(gameStateKey(groupHash, GAME));
+      const carolConn = 'conn-carol';
+      const aliceConn = 'conn-alice';
+      expect((await rig.ws.connect({ connectionId: aliceConn, accessToken: ALICE.bearer })).statusCode).toBe(200);
+      expect((await rig.ws.connect({ connectionId: carolConn, accessToken: CAROL.bearer })).statusCode).toBe(200);
+      rig.notifier.probe.clearCalls();
+
+      await postDoor(rig, toolsCall('observe', { handle: inviteHandle() }), accessToken(rig, CAROL.sub));
+
+      const woken = rig.notifier.probe.on('post').calls.map((call) => call.args[0]);
+      expect(woken).toEqual(expect.arrayContaining([aliceConn, carolConn]));
+      expect(rig.data.has(gameStateKey(groupHash, GAME))).toBe(true);
     });
   });
 
@@ -696,6 +734,32 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
     });
   });
 
+  it('A private or link-local metadata host is refused before fetch', async () => {
+    await withRig(async (rig) => {
+      rig.metadata.probe.on('fetch').always().answer('should-not-be-fetched');
+      for (const clientId of [
+        'https://169.254.169.254/latest/meta-data',
+        'https://10.0.0.1/client.json',
+        'https://192.168.1.9/client.json',
+        'https://172.16.0.1/client.json',
+      ]) {
+        const result = await rig.mcp({
+          method: 'GET',
+          path: '/authorize',
+          query: {
+            client_id: clientId,
+            redirect_uri: 'http://127.0.0.1/callback',
+            code_challenge: s256('verifier'),
+            code_challenge_method: 'S256',
+            resource: MCP_AUDIENCE,
+          },
+        });
+        expect(refusal(result.statusCode), clientId).toBe(true);
+      }
+      rig.metadata.probe.on('fetch').expect.neverCalled();
+    });
+  });
+
   it('A non-https client_id is refused before fetch', async () => {
     await withRig(async (rig) => {
       rig.metadata.probe.on('fetch').always().answer('should-not-be-fetched');
@@ -773,6 +837,119 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
       const toGoogle = await rig.mcp(continued ?? { method: 'GET', path: '/authorize/continue' });
       expect(toGoogle.statusCode === 302 || toGoogle.statusCode === 303).toBe(true);
       expect(headerOf(toGoogle, 'location') ?? '').toContain('google.com');
+    });
+  });
+
+  it('Google callback stores a one-time code, upserts the profile, and redeems S256', async () => {
+    await withRig(async (rig) => {
+      const clientId = 'https://ide.example/client.json';
+      const redirect = 'http://127.0.0.1:9/callback';
+      const verifier = 'b'.repeat(43);
+      rig.metadata.probe.on('fetch').always().answer(
+        JSON.stringify({ client_id: clientId, redirect_uris: [redirect] }),
+      );
+      rig.codeExchange.probe.on('exchange').always().answer({ idToken: 'google-id-token' });
+      rig.googleMock.probe.on('verify').always().answer({ ok: true, sub: ALICE.sub, displayName: 'Ada\n' });
+
+      const page = await rig.mcp({
+        method: 'GET',
+        path: '/authorize',
+        query: {
+          client_id: clientId,
+          redirect_uri: redirect,
+          code_challenge: s256(verifier),
+          code_challenge_method: 'S256',
+          resource: MCP_AUDIENCE,
+        },
+      });
+      const continued = continueTarget(page.body);
+      expect(continued).toBeDefined();
+      const toGoogle = await rig.mcp(continued ?? { method: 'GET', path: '/authorize/continue' });
+      const google = new URL(headerOf(toGoogle, 'location') ?? 'https://example.invalid/');
+      expect(google.hostname).toBe('accounts.google.com');
+      expect(google.searchParams.get('response_type')).toBe('code');
+      expect(google.searchParams.get('redirect_uri')).toBe('https://mcp.games.hochgi.com/oauth/callback');
+      expect(google.searchParams.get('scope')).toBe('openid profile');
+      expect(google.searchParams.get('code_challenge_method')).toBe('S256');
+      expect(google.searchParams.get('code_challenge')).toBeTruthy();
+      expect(google.searchParams.get('client_id')).toBe('google-auth-client');
+      const state = google.searchParams.get('state');
+      expect(state).toBeTruthy();
+
+      rig.storeMock.probe.clearCalls();
+      const back = await rig.mcp({
+        method: 'GET',
+        path: '/oauth/callback',
+        query: { state: state ?? '', code: 'google-code' },
+      });
+      const puts = rig.storeMock.probe.on('put').calls.map((call) => call.args[0]);
+      const profileAt = puts.findIndex((key) => key === userProfileKey(A()));
+      const codeAt = puts.findIndex((key) => key.startsWith('conquarrow/oauth/codes/'));
+      expect(profileAt).toBeGreaterThanOrEqual(0);
+      expect(codeAt).toBeGreaterThan(profileAt);
+      expect(rig.data.get(userProfileKey(A()))).toBe(JSON.stringify({ displayName: 'Ada' }));
+
+      const returned = new URL(headerOf(back, 'location') ?? 'http://127.0.0.1/missing');
+      const ours = returned.searchParams.get('code');
+      expect(returned.searchParams.get('iss')).toBe('https://mcp.games.hochgi.com');
+      expect(ours).toBeTruthy();
+      const stored = JSON.parse(rig.data.get(`conquarrow/oauth/codes/${ours ?? ''}`) ?? '{}') as {
+        exp?: number;
+        challenge?: string;
+        sub?: string;
+      };
+      expect(stored.exp).toBe(CLOCK + 60_000);
+      expect(stored.sub).toBe(ALICE.sub);
+      expect(stored.challenge).toBe(s256(verifier));
+
+      const redeemed = await rig.mcp({
+        method: 'POST',
+        path: '/token',
+        body: JSON.stringify({
+          grant_type: 'authorization_code',
+          code: ours,
+          code_verifier: verifier,
+          resource: MCP_AUDIENCE,
+        }),
+      });
+      const body = jsonOf(redeemed) as { access_token?: string; refresh_token?: string };
+      expect(redeemed.statusCode).toBe(200);
+      expect(rig.data.has(`conquarrow/oauth/codes/${ours ?? ''}`)).toBe(false);
+      expect(rig.signer.signed[0]?.exp).toBe(CLOCK + 15 * 60 * 1000);
+      const refresh = rig.data.get(`conquarrow/users/${A()}/mcp-refresh.json`);
+      expect(refresh).toContain(sha256(body.refresh_token ?? ''));
+      expect(typeof body.access_token).toBe('string');
+    }, { googleAuthClientId: 'google-auth-client' });
+  });
+
+  it('A hex SHA-256 challenge is not a S256 redeem', async () => {
+    await withRig(async (rig) => {
+      const verifier = 'd'.repeat(43);
+      const code = 'e'.repeat(64);
+      putRaw(
+        rig,
+        `conquarrow/oauth/codes/${code}`,
+        JSON.stringify({
+          sub: ALICE.sub,
+          challenge: sha256(verifier),
+          redirect: 'http://127.0.0.1/callback',
+          exp: CLOCK + 60_000,
+        }),
+      );
+
+      const result = await rig.mcp({
+        method: 'POST',
+        path: '/token',
+        body: JSON.stringify({
+          grant_type: 'authorization_code',
+          code,
+          code_verifier: verifier,
+          resource: MCP_AUDIENCE,
+        }),
+      });
+
+      expect(result.statusCode).toBe(401);
+      expect(rig.data.has(`conquarrow/oauth/codes/${code}`)).toBe(true);
     });
   });
 
