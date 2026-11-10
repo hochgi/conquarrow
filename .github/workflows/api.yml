@@ -15,6 +15,8 @@ on:
       - 'packages/web/src/opponent.ts'
       - 'packages/web/src/findings.ts'
       - 'packages/web/src/playLayout.ts'
+      - 'packages/web/src/botEvaluate.ts'
+      - 'packages/byok-offer/**'
       - '.github/workflows/api.yml'
   workflow_dispatch:
 
@@ -56,7 +58,11 @@ jobs:
         env:
           HTTP_CERTIFICATE_ARN: ${{ vars.HTTP_CERTIFICATE_ARN }}
           WS_CERTIFICATE_ARN: ${{ vars.WS_CERTIFICATE_ARN }}
+          MCP_CERTIFICATE_ARN: ${{ vars.MCP_CERTIFICATE_ARN }}
           GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS }}
+          MCP_GOOGLE_CLIENT_ID: ${{ secrets.MCP_GOOGLE_CLIENT_ID }}
+          MCP_GOOGLE_CLIENT_SECRET: ${{ secrets.MCP_GOOGLE_CLIENT_SECRET }}
+          MCP_JWT_SECRET: ${{ secrets.MCP_JWT_SECRET }}
         run: |
           sam build --build-in-source
           sam deploy \
@@ -66,4 +72,8 @@ jobs:
             --parameter-overrides \
               "HttpCertificateArn=${HTTP_CERTIFICATE_ARN}" \
               "WsCertificateArn=${WS_CERTIFICATE_ARN}" \
-              "GoogleClientIds=${GOOGLE_CLIENT_IDS}"
+              "McpCertificateArn=${MCP_CERTIFICATE_ARN}" \
+              "GoogleClientIds=${GOOGLE_CLIENT_IDS}" \
+              "McpGoogleClientId=${MCP_GOOGLE_CLIENT_ID}" \
+              "McpGoogleClientSecret=${MCP_GOOGLE_CLIENT_SECRET}" \
+              "McpJwtSecret=${MCP_JWT_SECRET}"
