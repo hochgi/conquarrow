@@ -448,7 +448,13 @@ const authorize = async (deps: McpHttpDeps, request: McpHttpRequest): Promise<Mc
   await putObject(
     deps.store,
     `conquarrow/oauth/tickets/${ticket}`,
-    JSON.stringify({ clientId: clientId.toString(), redirect, challenge, resource }),
+    JSON.stringify({
+      clientId: clientId.toString(),
+      redirect,
+      challenge,
+      resource,
+      ...(request.query?.['state'] === undefined ? {} : { clientState: request.query['state'] }),
+    }),
   );
   const host = new URL(redirect).hostname;
   const href = `/authorize/continue?ticket=${ticket}`;
@@ -524,6 +530,9 @@ const oauthCallback = async (deps: McpHttpDeps, request: McpHttpRequest): Promis
   const back = new URL(redirect);
   back.searchParams.set('code', ours);
   back.searchParams.set('iss', MCP_ISSUER);
+  if (typeof stored['clientState'] === 'string' && stored['clientState'] !== '') {
+    back.searchParams.set('state', stored['clientState']);
+  }
   return { statusCode: 302, headers: { location: back.toString() }, body: '' };
 };
 

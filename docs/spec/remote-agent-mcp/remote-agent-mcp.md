@@ -259,7 +259,8 @@ does not redirect to Google until the browser follows continue. Continue
 redirects to Google. The callback exchanges the Google code through an
 injected leaf, verifies the ID token with the existing injected
 `GoogleVerifier`, upserts the profile name, and redirects to the client's
-`redirect_uri` with our code and `iss=https://mcp.games.hochgi.com`.
+`redirect_uri` with our code, `iss=https://mcp.games.hochgi.com`, and the
+client's `state` unchanged when the authorize request sent one.
 `resource` on authorize and on token must be the exact audience URL. PKCE is
 S256. Our codes are one-time, 60 seconds by the injected clock, stored in the
 existing bucket, and deleted on use.
