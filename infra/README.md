@@ -50,14 +50,15 @@ token `aud` (Pages origin and localhost). Empty rejects every bearer.
 
 Do this in the **isolated personal** browser, region Frankfurt.
 
-### ACM (two certs, same region as the APIs)
+### ACM (three certs, same region as the APIs)
 
 1. ACM → Request public certificate.
 2. Names:
    - `api.games.hochgi.com`
-   - `ws.games.hochgi.com`  
-   (one cert per name is simplest; a single cert with both SANs is also fine —
-   then the same ARN goes to both SAM parameters.)
+   - `ws.games.hochgi.com`
+   - `mcp.games.hochgi.com`  
+   (one cert per name is simplest; a single cert with both API SANs is also fine —
+   then the same ARN goes to both SAM parameters. The MCP name has its own parameter.)
 3. Validation: **DNS**.
 4. ACM shows CNAME records (`_abc123.api.games.hochgi.com` → ACM value).
 5. In **Namecheap** (not Route53): add those **ACM validation CNAMEs**.
@@ -77,13 +78,14 @@ Add CNAMEs (still Namecheap):
 |---|---|
 | `api.games` | HTTP API custom-domain target (after SAM has the cert) |
 | `ws.games` | WebSocket custom-domain target |
+| `mcp.games` | MCP API custom-domain target (`McpDomainTarget`) |
 
 ### CAA (needed because `games` CNAMEs to GitHub Pages)
 
 GitHub Pages publishes CAA that does not list Amazon. Put CAA on the API
-hostnames themselves (`api.games` / `ws.games`, tag `issue`, value `amazon.com`).
+hostnames themselves (`api.games` / `ws.games` / `mcp.games`, tag `issue`, value `amazon.com`).
 You cannot put CAA on Host `games` (CNAME cannot share a name with other records).
-When the traffic CNAMEs for `api.games` / `ws.games` go in, **delete those CAA
+When the traffic CNAMEs for `api.games` / `ws.games` / `mcp.games` go in, **delete those CAA
 rows** — CNAME and CAA cannot occupy the same Host. Keep the `_….api.games`
 validation CNAMEs.
 
@@ -93,15 +95,28 @@ Repository **variables** (not secrets) on `hochgi/conquarrow`:
 
 - `HTTP_CERTIFICATE_ARN`
 - `WS_CERTIFICATE_ARN`
+- `MCP_CERTIFICATE_ARN`
 
-Same ARN is fine when one cert covers both names. Empty skips custom domains.
-Then Actions → **api** → Run workflow. Outputs `HttpDomainTarget` / `WsDomainTarget`
-are the Namecheap traffic CNAME values.
+Same ARN is fine when one cert covers both API names. The MCP ARN is its own
+variable. Empty skips that custom domain.
+Then Actions → **api** → Run workflow. Outputs `HttpDomainTarget` / `WsDomainTarget` /
+`McpDomainTarget` are the Namecheap traffic CNAME values.
+
+Repository **secrets** (never committed, never a variable):
+
+- `MCP_GOOGLE_CLIENT_ID`
+- `MCP_GOOGLE_CLIENT_SECRET`
+- `MCP_JWT_SECRET`
+
+These are the authorization-code client, not the GIS ID-token client, and the
+HS256 secret for MCP access tokens. The workflow passes them on every deploy.
+An empty secret wipes the Lambda env.
 
 Public URLs once mapped:
 
 - `https://api.games.hochgi.com/conquarrow/health`
 - `wss://ws.games.hochgi.com/conquarrow`
+- `https://mcp.games.hochgi.com/conquarrow`
 
 ## Do not
 
