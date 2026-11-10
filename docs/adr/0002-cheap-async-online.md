@@ -7,7 +7,7 @@
 **Amended:** 2026-08-14 (P19 spec) — Pages GIS Sign-In, `sessionStorage` token, `#/invite/<token>` and `#/g/<groupHash>/<gameNumber>`, Local|Online lobby toggle, 412 GET-and-drop, WS while signed in.
 **Amended:** 2026-08-14 (P25 spec) — Pages **host** binds GIS, `hashchange`, `visibilitychange`, and WS `onmessage` to `createOnlinePages`. No new AWS.
 **Amended:** 2026-08-14 (P26 spec) — GET game includes meta `seats`; HTTP 410 `started` includes `groupHash` and `gameNumber` when known.
-**Amended:** 2026-08-14 (P27 spec) — Create-invite pending copy; Local→Online coerces seats 0–1 to human; GIS `offerChooser` after One Tap dismiss.
+**Amended:** 2026-08-14 (P27 spec) — Create-invite pending copy; Local→Online coerces seats 0–1 to human only when the plan has no agent chair; GIS `offerChooser` after One Tap dismiss.
 **Amended:** 2026-08-27 (P45 spec) — `GET /my-games` started rows carry caller-relative `status` (`your-turn` \| `waiting` \| `won` \| `lost`). Persist stamps `players` / `activePlayer` / `lostPlayers` on game `meta.json`. No new AWS.
 **Amended:** 2026-08-27 (P46 spec) — library rows add ordered `seats` (labels, `you`), `seatIndex`, optional `startedAt`. Display names from GIS `given_name`/`name` on `users/<userHash>/profile.json`. No email/sub. No new AWS.
 **Amended:** 2026-11-09 ([ADR 0009](./0009-remote-agent-mcp-seat.md), P92) — an online game may have one human seat when an `agent` seat is in the plan. Agent seats do not enter `groupHash`. One human plus heuristics and no agent stays in the browser. Agent moves use the MCP door, not `POST /moves`.
@@ -92,9 +92,9 @@ WebSocket: `wss://ws.games.hochgi.com/conquarrow?access_token=<Google ID token>`
 
 `state.json` (conditional put) is the **commit pointer** for If-Match and GET. `log.jsonl` and `meta.winner` follow; S3 cannot transaction two keys. A crash between them can leave a short log; GET still serves the committed version, and a client retry of that version is 412.
 
-Pages (P19): Google Identity Services. ID token in `sessionStorage` (`conquarrow:google-id-token`). Hash routes `#/invite/<token>` and `#/g/<groupHash>/<gameNumber>`. One lobby with Local | Online (Online hides BYOK; the ≥2-human floor is amended by [ADR 0009](./0009-remote-agent-mcp-seat.md)). WS open while signed in. After POST 200 or 412 the tab GETs; 412 **drops** the in-flight move. No optimistic local `apply` for online moves. Sign-out clears the session key and closes the socket. P27: Local→Online sets seats 0 and 1 to `human` (leftover `byok` → `heuristic`); `POST /invites` in flight reports `createInvitePending` and the creating copy; Sign-In click is GIS `offerChooser` (`renderButton`); auto unsigned-invite / 401 stays One Tap `prompt()` with `cancel_on_tap_outside: false`.
+Pages (P19): Google Identity Services. ID token in `sessionStorage` (`conquarrow:google-id-token`). Hash routes `#/invite/<token>` and `#/g/<groupHash>/<gameNumber>`. One lobby with Local | Online (Online hides BYOK; the ≥2-human floor is amended by [ADR 0009](./0009-remote-agent-mcp-seat.md)). WS open while signed in. After POST 200 or 412 the tab GETs; 412 **drops** the in-flight move. No optimistic local `apply` for online moves. Sign-out clears the session key and closes the socket. P27: Local→Online forces seats 0 and 1 to `human` only when the plan has no agent chair (a plan that already has an agent chair keeps that chair and does not gain a forced second human; leftover `byok` → `heuristic`); `POST /invites` in flight reports `createInvitePending` and the creating copy; Sign-In click is GIS `offerChooser` (`renderButton`); auto unsigned-invite / 401 stays One Tap `prompt()` with `cancel_on_tap_outside: false`.
 
-Move Lambda: **60 s timeout, 1024 MB**. Worst burst: 4 consecutive heuristic seats (6-player, two humans on opposite corners).
+Move Lambda and the MCP function: **60 s timeout, 1024 MB**. Worst burst: 4 consecutive heuristic seats (6-player, two humans on opposite corners). An agent move runs that burst in the MCP function.
 
 ### 7. URLs and deploy
 

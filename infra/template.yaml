@@ -317,6 +317,8 @@ Resources:
     Properties:
       Handler: mcp-http.handler
       CodeUri: ../packages/online-api
+      Timeout: 60
+      MemorySize: 1024
       ReservedConcurrentExecutions: 5
       Environment:
         Variables:

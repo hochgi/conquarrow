@@ -136,11 +136,29 @@ const authorizationServer = (): McpHttpResult =>
     token_endpoint_auth_methods_supported: ['none'],
   });
 
+const unwrapHost = (hostname: string): string =>
+  hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
+
+/**
+ * Node's `URL.hostname` serialises an IPv4-mapped address as `[::ffff:hhhh:hhhh]`
+ * (`[::ffff:a00:1]` for 10.0.0.1), not the dotted form the request spelled.
+ */
+const mappedIpv4 = (host: string): string | undefined => {
+  const dotted = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(host);
+  if (dotted?.[1] !== undefined) return dotted[1];
+  const hex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
+  const hiText = hex?.[1];
+  const loText = hex?.[2];
+  if (hiText === undefined || loText === undefined) return undefined;
+  const hi = Number.parseInt(hiText, 16);
+  const lo = Number.parseInt(loText, 16);
+  const octet = (word: number, shift: number): string => String((word >> shift) & 0xff);
+  return [octet(hi, 8), octet(hi, 0), octet(lo, 8), octet(lo, 0)].join('.');
+};
+
 const bareHost = (hostname: string): string => {
-  const unwrapped =
-    hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(unwrapped);
-  return (mapped?.[1] ?? unwrapped).toLowerCase();
+  const host = unwrapHost(hostname).toLowerCase();
+  return mappedIpv4(host) ?? host;
 };
 
 const ipv4Parts = (host: string): readonly number[] | undefined => {
@@ -156,10 +174,18 @@ const ipv4Parts = (host: string): readonly number[] | undefined => {
   return nums;
 };
 
-/** Loopback, private, and link-local. Refused before any metadata fetch. */
+/** Loopback, private, link-local, and 0.0.0.0. Refused before any metadata fetch. */
 const isRefusedMetadataHost = (hostname: string): boolean => {
   const host = bareHost(hostname);
-  if (host === 'localhost' || host === '::1' || host === '::' || host.endsWith('.local')) return true;
+  if (
+    host === 'localhost' ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    host === '::' ||
+    host.endsWith('.local')
+  ) {
+    return true;
+  }
   const v4 = ipv4Parts(host);
   if (v4 !== undefined) {
     const a = v4[0] ?? -1;

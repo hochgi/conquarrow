@@ -181,6 +181,9 @@ describe('The stdio package is gone, and the ceiling is the one ADR 0007 already
 
   it('The MCP function stays inside the ADR 0007 ceiling', () => {
     const template = readFileSync(resolve(root, 'infra/template.yaml'), 'utf8');
+    const mcpFunction = template.slice(template.indexOf('  McpFunction:'), template.indexOf('  McpDomain:'));
+    expect(mcpFunction).toContain('Timeout: 60');
+    expect(mcpFunction).toContain('MemorySize: 1024');
     expect(template).toContain('ReservedConcurrentExecutions: 5');
     expect(template).toMatch(/ThrottlingRateLimit: 5/);
     expect(template).toMatch(/ThrottlingBurstLimit: 10/);

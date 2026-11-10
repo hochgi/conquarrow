@@ -760,6 +760,67 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
     });
   });
 
+  it('An IPv4-mapped private host is refused in the hostname form URL produces', async () => {
+    await withRig(async (rig) => {
+      rig.metadata.probe.on('fetch').always().answer('should-not-be-fetched');
+      const mapped = [
+        { clientId: 'https://[::ffff:10.0.0.1]/client.json', hostname: '[::ffff:a00:1]' },
+        { clientId: 'https://[::ffff:127.0.0.1]/cb', hostname: '[::ffff:7f00:1]' },
+        {
+          clientId: 'https://[::ffff:169.254.169.254]/latest/meta-data',
+          hostname: '[::ffff:a9fe:a9fe]',
+        },
+        { clientId: 'https://[::ffff:a00:1]/client.json', hostname: '[::ffff:a00:1]' },
+        { clientId: 'https://[::ffff:7f00:1]/cb', hostname: '[::ffff:7f00:1]' },
+        { clientId: 'https://[::ffff:a9fe:a9fe]/latest/meta-data', hostname: '[::ffff:a9fe:a9fe]' },
+        { clientId: 'https://[::ffff:c0a8:109]/client.json', hostname: '[::ffff:c0a8:109]' },
+        { clientId: 'https://[::ffff:ac10:1]/client.json', hostname: '[::ffff:ac10:1]' },
+        { clientId: 'https://0.0.0.0/client.json', hostname: '0.0.0.0' },
+        { clientId: 'https://[::ffff:0.0.0.0]/client.json', hostname: '[::ffff:0:0]' },
+        { clientId: 'https://[::ffff:0:0]/client.json', hostname: '[::ffff:0:0]' },
+      ];
+      for (const { clientId, hostname } of mapped) {
+        expect(new URL(clientId).hostname, clientId).toBe(hostname);
+        const result = await rig.mcp({
+          method: 'GET',
+          path: '/authorize',
+          query: {
+            client_id: clientId,
+            redirect_uri: 'http://127.0.0.1/callback',
+            code_challenge: s256('verifier'),
+            code_challenge_method: 'S256',
+            resource: MCP_AUDIENCE,
+          },
+        });
+        expect(refusal(result.statusCode), clientId).toBe(true);
+      }
+      rig.metadata.probe.on('fetch').expect.neverCalled();
+    });
+  });
+
+  it('A public IPv4-mapped metadata host is still fetched', async () => {
+    await withRig(async (rig) => {
+      const clientId = 'https://[::ffff:8.8.8.8]/client.json';
+      expect(new URL(clientId).hostname).toBe('[::ffff:808:808]');
+      rig.metadata.probe.on('fetch').always().answer('not-json');
+
+      const result = await rig.mcp({
+        method: 'GET',
+        path: '/authorize',
+        query: {
+          client_id: clientId,
+          redirect_uri: 'http://127.0.0.1/callback',
+          code_challenge: s256('verifier'),
+          code_challenge_method: 'S256',
+          resource: MCP_AUDIENCE,
+        },
+      });
+
+      expect(refusal(result.statusCode)).toBe(true);
+      rig.metadata.probe.on('fetch').expect.calledTimes(1);
+    });
+  });
+
   it('A non-https client_id is refused before fetch', async () => {
     await withRig(async (rig) => {
       rig.metadata.probe.on('fetch').always().answer('should-not-be-fetched');
