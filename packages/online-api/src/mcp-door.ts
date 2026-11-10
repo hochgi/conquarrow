@@ -442,7 +442,8 @@ const exchangeCode = async (deps: McpHttpDeps, rec: Record<string, unknown>): Pr
   if (typeof exp !== 'number' || deps.clock() >= exp || typeof challenge !== 'string' || typeof sub !== 'string') {
     return unauthorized();
   }
-  if (sha256(verifier) !== challenge && createHash('sha256').update(verifier).digest('base64url') !== challenge) {
+  const digest = createHash('sha256').update(verifier, 'utf8').digest('base64url');
+  if (sha256(verifier) !== challenge && digest !== challenge) {
     return unauthorized();
   }
   await deps.store.delete(key);
