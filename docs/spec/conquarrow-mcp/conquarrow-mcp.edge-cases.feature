@@ -12,6 +12,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
 
   Rule: Won match and missing match refuse mutation
 
+    @superseded-P92
     Scenario: apply_steps on a won match refuses
       Given a live match whose observation.winner is not null
       When the caller invokes apply_steps for the winner seat with any steps
@@ -19,6 +20,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       And observation.winner is unchanged
       And observation.activePlayer is unchanged
 
+    @superseded-P92
     Scenario: tools other than new_match with no live match refuse NoLiveMatch
       Given no live match
       When the caller invokes observe with seat A
@@ -30,6 +32,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
 
   Rule: One live match, last offer per seat
 
+    @superseded-P92
     Scenario: second new_match replaces the first
       Given a live match with matchId M1 from seed 1
       And legal_moves for seat A has been called
@@ -38,6 +41,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       And observation reflects seed 2 not seed 1
       And apply_steps for seat A with indices from M1's offer is refused StaleOfferIndex
 
+    @superseded-P92
     Scenario: index apply is relative to the last legal_moves for that seat
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       And legal_moves for seat A has been called
@@ -48,6 +52,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       When the caller invokes legal_moves for seat A again
       Then apply_steps with a current printed index is accepted
 
+    @superseded-P92
     Scenario: legal_moves for a non-active seat is empty and does not steal the active offer
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       And legal_moves for seat A has been called
@@ -58,6 +63,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
 
   Rule: Roster is 3 or 6, human or heuristic only
 
+    @superseded-P92
     Scenario Outline: illegal roster is refused and does not clamp
       Given no live match
       When the caller invokes new_match with playerCount <count> and seats <seats>
@@ -72,6 +78,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
         | 3     | human, human             |
         | 6     | human                    |
 
+    @superseded-P92
     Scenario: playerCount 6 with six kinds is accepted
       When the caller invokes new_match with playerCount 6 and seats human, heuristic, human, heuristic, human, heuristic
       Then observation.activePlayer is A
@@ -80,6 +87,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
 
   Rule: Kind gates mutation
 
+    @superseded-P92
     Scenario: apply_steps and end_turn on a heuristic seat refuse
       Given a live match from new_match seed 1 R=7 with seats heuristic, human, human
       When the caller invokes apply_steps for seat A with any legal-looking steps
@@ -89,12 +97,14 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       Then the tool refuses SeatKindMismatch
       And observation.activePlayer is A
 
+    @superseded-P92
     Scenario: play_heuristic_turn on a human seat refuses
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes play_heuristic_turn with seat A
       Then the tool refuses SeatKindMismatch
       And observation.activePlayer is A
 
+    @superseded-P92
     Scenario: a legal-then-illegal apply_steps batch commits none
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes apply_steps for seat A with one legal opening step followed by a step whose exit is not legal
@@ -102,6 +112,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       And observation.exposedTips matches the pre-call view
       And observation.activePlayer is A
 
+    @superseded-P92
     Scenario: apply_steps with both indices and steps, or neither, refuses
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       And legal_moves for seat A has been called
@@ -112,12 +123,14 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       Then the tool refuses
       And observation.activePlayer is A
 
+    @superseded-P92
     Scenario: includeMills false drops home_mill rows
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes legal_moves with seat A and includeMills false
       Then no printed row contains tags including home_mill
       And at least one printed row is tagged leave_home
 
+    @superseded-P92
     Scenario: unknown seat id refuses UnknownSeat
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes observe with seat Z
@@ -125,6 +138,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
 
   Rule: Handshake lists tools, not resources
 
+    @superseded-P92
     Scenario: tools/list includes the seven names and no resources
       When a client performs the stdio MCP initialize handshake
       And the client calls tools/list
@@ -139,6 +153,7 @@ Feature: MCP edges — roster, kind, stale index, won match, handshake
       When the client calls resources/list
       Then the list is empty
 
+    @superseded-P92
     Scenario: observe threatLine is derived from the fields
       Given a live match from new_match seed 1 R=7 with seats human, human, heuristic
       When the caller invokes observe with seat A

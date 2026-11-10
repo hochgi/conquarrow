@@ -20,6 +20,14 @@ Under `docs/spec/<feature-name>/` (kebab-case, shared prefix):
 2. `<feature-name>.core.feature` — happy-path Gherkin.
 3. `<feature-name>.edge-cases.feature` — boundaries, interactions, recovery.
    **This is where most of the value is here.**
+4. `SCENARIOS.md` — **required when the packet introduces a messaging
+   protocol** (HTTP, WebSocket, MCP, OAuth, or any request/response between
+   processes). One mermaid `sequenceDiagram` per protocol flow. An `alt` is
+   another outcome of that same exchange. Participants are doors and the leaf
+   seams a test will probe, not internal functions. Gherkin stays the
+   assertable contract. A path with no diagram will not be built. Escape every
+   literal `;` as `#59;`. Link it from the overview. A pure rules packet does
+   not get one.
 
 ## Non-negotiable rules
 

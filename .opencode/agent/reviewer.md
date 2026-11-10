@@ -9,5 +9,7 @@ variant: xhigh
 # reviewer
 
 Read and follow `.claude/skills/review-changes/SKILL.md`.
+Every `SCENARIOS.md` path needs a test-kit component test, and the messages
+must match the diagram.
 Prepare PR title/body starting with `🤖: `. Do not push.
 Never push shalevhoch.

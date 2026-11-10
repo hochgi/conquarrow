@@ -18,9 +18,13 @@
     "../web/src/botMission.ts",
     "../web/src/botFinish.ts",
     "../web/src/botNeverIdle.ts",
-    "../web/src/botTempo.ts"
+    "../web/src/botTempo.ts",
+    "../web/src/byokBot.ts",
+    "../web/src/byokConfig.ts",
+    "../web/src/targets.ts"
   ],
   "references": [
+    { "path": "../byok-offer" },
     { "path": "../contracts" },
     { "path": "../geometry-tiling" },
     { "path": "../rules-core" }

@@ -10,5 +10,7 @@ variant: xhigh
 
 Read and follow `.claude/skills/code-to-green/SKILL.md`.
 Implement behind the ports. Kick back to phase 1 rather than invent a rule.
+If `SCENARIOS.md` exists, keep the rule in the handler. Do not widen a probed
+leaf so the probe passes.
 Purity: no Date.now, Math.random, or I/O in the core.
 Do not open the PR.

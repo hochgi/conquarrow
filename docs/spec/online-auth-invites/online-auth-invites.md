@@ -30,7 +30,7 @@ authenticated route.
 | **hostSeatIndex** | index into `seats[]` the creator occupies at create; that seat must be `human`. Default: the first `human` seat |
 | **invite token** | opaque CSPRNG value (32 bytes, hex); path parameter, not a PIN |
 | **lobby** | an invite with status `open` |
-| **groupHash** | `truncate16(SHA-256(sorted human userHashes joined by newline))`. Heuristic seats and 3-vs-6 are not in the preimage |
+| **groupHash** | `truncate16(SHA-256(sorted human userHashes joined by newline))`. Heuristic seats, agent seats, and 3-vs-6 are not in the preimage. Agent seats: [P92](../remote-agent-mcp/remote-agent-mcp.md) |
 
 ## HTTP (under the `/conquarrow` mapping)
 
@@ -78,15 +78,15 @@ P17 does **not** write `state.json` or `log.jsonl`.
 ## Invariants
 
 - When a request has no valid Google ID token, the system shall respond 401 on `/me`, `/my-games`, `POST /invites`, accept, revoke, and start.
-- When create lists fewer than two `human` seats, or a length other than 3 or 6, or a `byok` seat, the system shall respond 422 and shall not write S3.
+- When create lists fewer than two `human` seats and no `agent` seat, or a length other than 3 or 6, or a `byok` seat, the system shall respond 422 and shall not write S3. A plan with an `agent` seat is [P92](../remote-agent-mcp/remote-agent-mcp.md).
 - When create succeeds, the system shall bind the creator to `hostSeatIndex` (default: first human seat) and shall write only invite and lobby-pointer objects.
 - While an invite is open, the system shall serve `GET /invites/:token` without a Google token and shall not include Google `sub` in the body.
-- When a user accepts an invite they already occupy, the system shall return that same seat, shall not occupy a second chair, and shall write that user's lobby pointer if it is missing.
+- When a user accepts an invite whose human seat they already occupy, the system shall return that human seat, shall not occupy a second human chair, and shall write that user's lobby pointer if it is missing. An agent seat is not that chair ([P92](../remote-agent-mcp/remote-agent-mcp.md)).
 - When every human seat is already bound, the system shall reject a further accept with 409 and shall not add a spectator row.
 - When the creator revokes, or when Start has succeeded, the system shall respond 410 with `reason` `revoked` or `started` on GET/accept/start of that token. A `started` 410 includes `groupHash` and `gameNumber` when the invite record has them (P26).
 - If the caller is not the creator, then the system shall reject revoke with 403.
 - If the caller is not a bound human on that invite, then the system shall reject Start with 403.
-- When human seats are not all bound, the system shall reject Start with 409 and shall not write group or game objects.
+- When a human seat or an agent seat is not bound, the system shall reject Start with 409 and shall not write group or game objects. Agent binding is [P92](../remote-agent-mcp/remote-agent-mcp.md).
 - When Start succeeds, the system shall compute `groupHash` from sorted human `userHash` values joined by newline, allocate the next 6-digit game number, and shall not overwrite an existing `games/NNNNNN` object.
 - When Start succeeds, the system shall not write `state.json` or `log.jsonl`.
 - The system shall not include another user's lobbies or games in `GET /my-games`.

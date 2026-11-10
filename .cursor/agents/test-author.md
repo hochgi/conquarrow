@@ -17,6 +17,8 @@ layers this repo leans on heavily.
 Committed tests are Vitest against ports. At an I/O edge (`packages/online-api`)
 they may use `@hochgi/test-kit*` — see `.claude/skills/component-testing/SKILL.md`.
 **Never** in `contracts`, `rules-core` or `geometry-*`.
+If `SCENARIOS.md` exists, one test-kit component test per diagram path.
+Leaf interfaces only. Goldilocks seam, not the SDK.
 
 ## Inputs
 

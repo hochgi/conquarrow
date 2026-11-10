@@ -11,7 +11,14 @@ thin enough that nobody mistakes them for an implementation.
 
 ## What you produce
 
-1. **One component test per Gherkin scenario**, written against the ports in
+1. **One test-kit component test per `SCENARIOS.md` path**, when that file
+   exists. Read `component-testing` and follow its Goldilocks seam. Cover every
+   `alt` the diagram names, not only the happy path. Write the leaf
+   **interfaces** the component needs and no implementation. Do not probe the
+   raw SDK when a port already hides it, and do not probe a fatter service
+   that owns the rule under test. The Gherkin tests below still exist: the
+   diagram says the message order, the scenario says the assert.
+2. **One component test per Gherkin scenario**, written against the ports in
    `packages/contracts` — never against a concrete geometry, renderer, or store, except at an
    I/O edge where the adapter *is* the component under test (`component-testing`).
    A second implementation of the port must be able to satisfy the same test.
@@ -20,11 +27,11 @@ thin enough that nobody mistakes them for an implementation.
    the boundary choice, rig lifecycle and failure injection. **Never** in
    `contracts`, `rules-core` or `geometry-*`; a core test that "needs a probe"
    means the design leaked I/O into the core.
-2. **A property test per EARS invariant**, where it is expressible as one. Most
+3. **A property test per EARS invariant**, where it is expressible as one. Most
    of this spec's invariants are. See `rules-invariants` for the catalogue.
-3. **A replay fixture** whenever the packet touches turn flow — initial state
+4. **A replay fixture** whenever the packet touches turn flow — initial state
    plus an ordered move list, asserted to reproduce an exact final state.
-4. **Minimal skeletons** so the suite compiles: signatures and types only, no
+5. **Minimal skeletons** so the suite compiles: signatures and types only, no
    logic, strict, no `any`. A skeleton that accidentally implements something is
    a phase-3 bug planted in phase 2.
 

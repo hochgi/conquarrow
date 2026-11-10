@@ -16,6 +16,7 @@
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "test/**/*.ts", "bench/**/*.ts", "vite.config.ts", "vite.byok-proxy.ts"],
   "references": [
+    { "path": "../byok-offer" },
     { "path": "../contracts" },
     { "path": "../geometry-fixtures" },
     { "path": "../geometry-tiling" },

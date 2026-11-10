@@ -45,6 +45,8 @@ BSSN: decide, write into the packet spec / ADR, continue.
 - `docs/spec/<feature>/<feature>.md`
 - `docs/spec/<feature>/<feature>.core.feature`
 - `docs/spec/<feature>/<feature>.edge-cases.feature`
+- `docs/spec/<feature>/SCENARIOS.md` when the packet introduces a messaging
+  protocol — one sequence diagram per flow. See `write-spec`.
 - SPEC.md §11 / ADR updates.
 
 Then the orchestrator starts tests. Do not wait.

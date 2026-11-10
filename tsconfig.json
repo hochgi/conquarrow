@@ -2,10 +2,10 @@
   "files": [],
   "references": [
     { "path": "./packages/contracts" },
+    { "path": "./packages/byok-offer" },
     { "path": "./packages/geometry-tiling" },
     { "path": "./packages/geometry-fixtures" },
     { "path": "./packages/rules-core" },
-    { "path": "./packages/online-api" },
-    { "path": "./packages/mcp" }
+    { "path": "./packages/online-api" }
   ]
 }

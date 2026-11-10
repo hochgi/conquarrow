@@ -33,15 +33,19 @@ export type GroupHash = string;
 /** Six-digit game counter from 1 (`000001`, …). Never reused to overwrite. */
 export type GameNumber = string;
 
-/** Seat kinds a create request may name. `byok` is refused (422). */
-export type PlannedSeatKind = 'human' | 'heuristic' | 'byok';
+/**
+ * Seat kinds a create request may name. `byok` is refused online (422).
+ * `agent` is an online chair; it is never the host.
+ */
+export type PlannedSeatKind = 'human' | 'heuristic' | 'byok' | 'agent';
 
 /**
  * A chair on an invite or game meta.
- * A human chair is bound iff `userHash` is a string (never a Google `sub`).
+ * A human or agent chair is bound iff `userHash` is a string (never a Google `sub`).
  */
 export type InviteSeat =
   | { readonly kind: 'human'; readonly userHash?: UserHash }
+  | { readonly kind: 'agent'; readonly userHash?: UserHash }
   | { readonly kind: 'heuristic' };
 
 export interface CreateInviteBody {
@@ -69,10 +73,11 @@ export interface OpenLobbyRow {
 
 /**
  * A chair on a started library row. Never `userHash`, Google `sub`, or email.
- * `you` is true only on the caller's human chair.
+ * `you` is true on the caller's human chair and, when they hold one, the agent chair.
+ * `label` on an agent chair is `Agent (given_name)` or `Agent`.
  */
 export interface LibrarySeat {
-  readonly kind: 'human' | 'heuristic';
+  readonly kind: 'human' | 'heuristic' | 'agent';
   readonly label: string;
   readonly you: boolean;
 }

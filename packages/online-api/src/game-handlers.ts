@@ -23,8 +23,8 @@ import {
   staleVersion,
   unprocessable,
 } from './json-result';
-import { notifyOthers } from './notify';
-import { stampLibrarySummary } from './library-listing';
+import { notifyHumans, notifyOthers } from './notify';
+import { seatsForClient, stampLibrarySummary } from './library-listing';
 import { gameLogKey, gameStateKey } from './s3-keys';
 import { getObject, putObject } from './store-io';
 
@@ -50,7 +50,7 @@ const parseQuotedVersion = (header: string): number | undefined => {
   return Number.parseInt(digits, 10);
 };
 
-const loadPosition = async (
+export const loadPosition = async (
   s3: ObjectStore,
   groupHash: string,
   gameNumber: string,
@@ -79,10 +79,10 @@ const activeSeat = (seats: readonly InviteSeat[], game: GameState): InviteSeat |
 const isHeuristicSeat = (seats: readonly InviteSeat[], game: GameState): boolean =>
   activeSeat(seats, game)?.kind === 'heuristic';
 
-const applyMove = (game: GameState, move: Move): GameState => rules.apply(game, move);
+export const applyMove = (game: GameState, move: Move): GameState => rules.apply(game, move);
 
-/** Play heuristic seats until a human seat or a winner; no moves when neither holds at the start. */
-const runBurst = (
+/** Play heuristic seats until a human or agent seat, or a winner. */
+export const runBurst = (
   game: GameState,
   seats: readonly InviteSeat[],
   heuristic: HeuristicChooser,
@@ -110,15 +110,18 @@ const appendLog = (
   existing: string | undefined,
   version: number,
   moves: readonly Move[],
+  extraLine?: string,
 ): string => {
-  if (moves.length === 0) return existing ?? '';
-  // P49 D2: every move of one batch carries the version that batch produced.
-  const lines = moves.map((move) => stampLogLine(version, move)).join('\n') + '\n';
+  const stamped =
+    moves.length === 0 ? '' : moves.map((move) => stampLogLine(version, move)).join('\n') + '\n';
+  const extra = extraLine === undefined || extraLine === '' ? '' : `${extraLine}\n`;
+  const lines = stamped + extra;
+  if (lines === '') return existing ?? '';
   if (existing === undefined || existing === '') return lines;
   return existing.endsWith('\n') ? existing + lines : `${existing}\n${lines}`;
 };
 
-const persistPosition = async (
+export const persistPosition = async (
   s3: ObjectStore,
   groupHash: string,
   gameNumber: string,
@@ -126,6 +129,7 @@ const persistPosition = async (
   game: GameState,
   logMoves: readonly Move[],
   previousRaw: string | undefined,
+  extraLogLine?: string,
 ): Promise<string> => {
   const body = persistEnvelope(version, game);
   if (previousRaw === undefined) {
@@ -135,7 +139,7 @@ const persistPosition = async (
   }
   const logKey = gameLogKey(groupHash, gameNumber);
   const existingLog = await getObject(s3, logKey);
-  await putObject(s3, logKey, appendLog(existingLog, version, logMoves));
+  await putObject(s3, logKey, appendLog(existingLog, version, logMoves, extraLogLine));
   await stampLibrarySummary(s3, groupHash, gameNumber, game);
   return body;
 };
@@ -160,12 +164,13 @@ const wakeOthers = async (
   }
 };
 
-const ensurePosition = async (
+export const ensurePosition = async (
   deps: OnlineApiDeps,
   groupHash: string,
   gameNumber: string,
   seats: readonly InviteSeat[],
   callerUserHash: string,
+  wakeCaller = false,
 ): Promise<LoadedPosition | OnlineHttpResult> => {
   const existing = await loadPosition(deps.s3, groupHash, gameNumber);
   if (existing !== undefined) return existing;
@@ -183,7 +188,18 @@ const ensurePosition = async (
       burst.moves,
       undefined,
     );
-    await wakeOthers(deps, seats, callerUserHash, 0, groupHash, gameNumber);
+    if (wakeCaller) {
+      await notifyHumans(
+        deps.s3,
+        deps.postToConnection,
+        seats,
+        { type: 'stateChanged', version: 0, groupHash, gameNumber },
+        undefined,
+        callerUserHash,
+      );
+    } else {
+      await wakeOthers(deps, seats, callerUserHash, 0, groupHash, gameNumber);
+    }
     const parsed = parsePersistedEnvelope(raw);
     if (parsed === undefined) return internalError();
     return { ...parsed, raw };
@@ -246,7 +262,7 @@ export const handleGetGame = async (
   return jsonResult(200, {
     version: position.version,
     state: position.state,
-    seats: member.seats,
+    seats: await seatsForClient(deps.s3, member.seats),
   });
 };
 

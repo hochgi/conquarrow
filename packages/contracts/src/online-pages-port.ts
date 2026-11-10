@@ -142,6 +142,8 @@ export interface OnlinePagesPort {
 
   onlineModeOffered(): boolean;
   seatKindOptions(): readonly PlannedSeatKind[];
+  /** Kind control for one chair. Seat 0, online, does not offer `agent`. */
+  seatKindOptionsFor(seatIndex: number): readonly PlannedSeatKind[];
   createOffered(): boolean;
   localMatchStarted(): boolean;
   copiedInviteUrl(): string | undefined;

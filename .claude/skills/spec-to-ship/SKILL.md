@@ -43,13 +43,17 @@ Online packets live in ADR 0002; reason those yourself.
 ```
   PHASE 1 — SPEC             spec-author (main thread)
     packet → Gherkin .feature + mermaid + EARS
+    messaging protocol also → SCENARIOS.md (one sequence diagram per flow)
     skill: write-spec
   PHASE 2 — FAILING TESTS    test-author
     one component test per scenario, property tests, skeletons — red
+    each SCENARIOS.md path → a test-kit component test at the Goldilocks seam
   PHASE 3 — CODE TO GREEN    coder (OpenCode, xai/grok-4.7, via handoff)
     implement behind the ports, refactor within budget, keep the core pure
+    do not widen a probed leaf to own the rule
   PHASE 4 — REVIEW           reviewer
     spec↔tests↔code, purity, boundaries
+    every SCENARIOS.md path has a test and the messages match the diagram
   SHIP — orchestrator
     PR on hochgi/conquarrow → CI green → squash-merge
 ```

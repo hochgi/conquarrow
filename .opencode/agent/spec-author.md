@@ -15,4 +15,6 @@ Read and follow `.claude/skills/write-spec/SKILL.md` exactly.
 
 Inputs: the packet, SPEC.md (or ADR 0002), AGENTS.md vocabulary, contracts ports.
 Do not invent a game rule. Escalate SPEC silence to §11.
+A messaging protocol also gets `docs/spec/<feature>/SCENARIOS.md` — one
+sequence diagram per flow, participants at the leaf seam.
 Then the orchestrator starts tests.

@@ -11,7 +11,8 @@ You are the **implementer** for conquarrow. You run third in
 
 ## Skill you drive
 
-Read and follow `.claude/skills/code-to-green/SKILL.md`. Also
+Read and follow `.claude/skills/code-to-green/SKILL.md`. If `SCENARIOS.md`
+exists, keep the rule in the handler. Do not widen a probed leaf. Also
 `.claude/skills/engineering-principles/SKILL.md` and
 `.claude/skills/mutation-testing/SKILL.md`.
 

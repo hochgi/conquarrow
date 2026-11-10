@@ -11,7 +11,8 @@ You are the **final reviewer** for conquarrow. You run last in
 
 ## Skill you drive
 
-Read and follow `.claude/skills/review-changes/SKILL.md`. Also
+Read and follow `.claude/skills/review-changes/SKILL.md`. Every
+`SCENARIOS.md` path needs a test, and the messages must match the diagram. Also
 `.claude/skills/engineering-principles/SKILL.md` and
 `.claude/skills/mutation-testing/SKILL.md`.
 

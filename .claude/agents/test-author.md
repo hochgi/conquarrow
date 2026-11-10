@@ -19,6 +19,10 @@ Committed tests are Vitest against ports. At an I/O edge (`packages/online-api`)
 they may use `@hochgi/test-kit*` — see `component-testing`. Never in
 `contracts`, `rules-core` or `geometry-*`.
 
+If the spec has `SCENARIOS.md`, one test-kit component test per diagram path,
+including every `alt`. Write the leaf interfaces and no implementation. Probe
+the Goldilocks seam, not the SDK and not a service that owns the rule.
+
 ## Inputs
 
 - The approved spec (`.feature` + mermaid + EARS invariants).

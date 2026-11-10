@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "./dist"
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "../web/src/opponent.ts",
+    "../web/src/findings.ts",
+    "../web/src/playLayout.ts",
+    "../web/src/botEvaluate.ts",
+    "../web/src/botSearch.ts",
+    "../web/src/botClose.ts",
+    "../web/src/botReply.ts",
+    "../web/src/botMission.ts",
+    "../web/src/botFinish.ts",
+    "../web/src/botNeverIdle.ts",
+    "../web/src/botTempo.ts"
+  ],
+  "references": [
+    { "path": "../contracts" },
+    { "path": "../geometry-tiling" },
+    { "path": "../rules-core" }
+  ]
+}

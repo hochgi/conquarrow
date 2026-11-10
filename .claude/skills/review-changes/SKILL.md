@@ -25,6 +25,13 @@ also obviously correct.
 
 Cheap way in: read the diff for conditionals and ask "who decided this branch?"
 
+### 1b. Message flows
+
+If `docs/spec/<feature>/SCENARIOS.md` exists, every diagram path has a
+test-kit component test, and the code's messages match the diagram. A probed
+SDK client, or a leaf that owns the rule the handler should own, is a
+boundary miss. A protocol branch with no diagram is an invented flow.
+
 ### 2. Verify purity and exactness
 
 Grep the core for `Date.now`, `new Date`, `performance.now`, `Math.random`,

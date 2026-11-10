@@ -18,6 +18,24 @@ Parameters:
     Type: String
     Default: ''
     Description: ACM cert ARN in eu-central-1 for ws.games.hochgi.com. Empty skips custom domain.
+  McpCertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM cert ARN in eu-central-1 for mcp.games.hochgi.com. Empty skips custom domain.
+  McpJwtSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: HS256 secret for MCP access tokens. Not committed.
+  McpGoogleClientId:
+    Type: String
+    Default: ''
+    Description: Google authorization-code client id for the MCP door. Not the GIS ID-token client.
+  McpGoogleClientSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Google authorization-code client secret. Not committed.
   GoogleClientIds:
     Type: String
     Default: ''
@@ -26,6 +44,7 @@ Parameters:
 Conditions:
   HasHttpCert: !Not [!Equals [!Ref HttpCertificateArn, '']]
   HasWsCert: !Not [!Equals [!Ref WsCertificateArn, '']]
+  HasMcpCert: !Not [!Equals [!Ref McpCertificateArn, '']]
 
 Resources:
   MatchBucket:
@@ -285,6 +304,137 @@ Resources:
       Stage: prod
       ApiMappingKey: conquarrow
 
+  McpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 5
+        ThrottlingBurstLimit: 10
+
+  McpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: mcp-http.handler
+      CodeUri: ../packages/online-api
+      Timeout: 60
+      MemorySize: 1024
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          MCP_JWT_SECRET: !Ref McpJwtSecret
+          MATCH_BUCKET: !Ref MatchBucket
+          WS_MANAGEMENT_ENDPOINT: !Sub 'https://${WsApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+          GOOGLE_AUTH_CLIENT_ID: !Ref McpGoogleClientId
+          GOOGLE_AUTH_CLIENT_SECRET: !Ref McpGoogleClientSecret
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource: !GetAtt MatchBucket.Arn
+              Condition:
+                StringLike:
+                  s3:prefix:
+                    - conquarrow
+                    - conquarrow/*
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+              Resource: !Sub '${MatchBucket.Arn}/conquarrow/*'
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WsApi}/*'
+      Events:
+        McpPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /conquarrow
+            Method: POST
+        McpGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /conquarrow
+            Method: GET
+        McpDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /conquarrow
+            Method: DELETE
+        McpResource:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /.well-known/oauth-protected-resource/conquarrow
+            Method: GET
+        McpAuthorizationServer:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /.well-known/oauth-authorization-server
+            Method: GET
+        McpAuthorize:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /authorize
+            Method: GET
+        McpAuthorizeContinue:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /authorize/continue
+            Method: GET
+        McpOauthCallback:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /oauth/callback
+            Method: GET
+        McpToken:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /token
+            Method: POST
+        McpRegisterPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /register
+            Method: POST
+        McpRegisterGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref McpApi
+            Path: /register
+            Method: GET
+    Metadata:
+      BuildMethod: makefile
+
+  McpDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasMcpCert
+    Properties:
+      DomainName: mcp.games.hochgi.com
+      DomainNameConfigurations:
+        - EndpointType: REGIONAL
+          CertificateArn: !Ref McpCertificateArn
+
+  McpMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasMcpCert
+    Properties:
+      DomainName: !Ref McpDomain
+      ApiId: !Ref McpApi
+      Stage: $default
+
 Outputs:
   HealthUrl:
     Description: First-deploy health URL (execute-api). Custom domain after ACM.
@@ -306,3 +456,7 @@ Outputs:
     Condition: HasWsCert
     Description: Namecheap CNAME target for Host ws.games
     Value: !GetAtt WsDomain.RegionalDomainName
+  McpDomainTarget:
+    Condition: HasMcpCert
+    Description: Namecheap CNAME target for Host mcp.games
+    Value: !GetAtt McpDomain.RegionalDomainName

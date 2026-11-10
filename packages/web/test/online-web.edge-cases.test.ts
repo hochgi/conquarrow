@@ -49,7 +49,7 @@ describe('Mode and env', () => {
     await h.adapter.boot();
     h.adapter.selectMode('online');
 
-    expect(h.adapter.seatKindOptions()).toEqual(['human', 'heuristic']);
+    expect(h.adapter.seatKindOptions()).toEqual(['human', 'heuristic', 'agent']);
     expect(h.adapter.seatKindOptions()).not.toContain('byok');
   });
 

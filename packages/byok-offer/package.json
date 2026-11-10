@@ -1,25 +1,18 @@
 {
-  "name": "@conquarrow/mcp",
+  "name": "@conquarrow/byok-offer",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": {
-    "conquarrow": "./src/stdio.ts"
-  },
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --build --force",
-    "start": "tsx src/stdio.ts"
+    "typecheck": "tsc --build --force"
   },
   "dependencies": {
     "@conquarrow/contracts": "workspace:*",
     "@conquarrow/geometry-tiling": "workspace:*",
-    "@conquarrow/rules-core": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.25.2",
-    "tsx": "^4.23.15",
-    "zod": "^4.6.5"
+    "@conquarrow/rules-core": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^2.1.8"

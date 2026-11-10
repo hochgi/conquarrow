@@ -37,6 +37,7 @@ const pureSources = [
   'packages/contracts/src/**/*.ts',
   'packages/rules-core/src/**/*.ts',
   'packages/geometry-*/src/**/*.ts',
+  'packages/byok-offer/src/**/*.ts',
 ];
 
 /**
@@ -133,6 +134,7 @@ export default tseslint.config(
       'packages/contracts/**/*.ts',
       'packages/rules-core/**/*.ts',
       'packages/geometry-*/**/*.ts',
+      'packages/byok-offer/**/*.ts',
     ],
     rules: {
       'no-restricted-globals': ['error', ...impureGlobals],
@@ -177,6 +179,7 @@ export default tseslint.config(
       'packages/contracts/**/*.ts',
       'packages/rules-core/**/*.ts',
       'packages/geometry-*/**/*.ts',
+      'packages/byok-offer/**/*.ts',
     ],
     ignores: pureSources,
     rules: {
@@ -192,6 +195,7 @@ export default tseslint.config(
       'packages/contracts/src/**/*.ts',
       'packages/rules-core/src/**/*.ts',
       'packages/geometry-*/src/**/*.ts',
+      'packages/byok-offer/src/**/*.ts',
     ],
     rules: {
       complexity: ['warn', 12],

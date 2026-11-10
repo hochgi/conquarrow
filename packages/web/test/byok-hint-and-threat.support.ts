@@ -383,7 +383,7 @@ export const matchLogSource = (): string =>
   readFileSync(join(here, '../src/matchLog.ts'), 'utf8');
 
 export const annotateMoveSource = (): string => {
-  const src = byokBotSource();
+  const src = readFileSync(join(here, '../../byok-offer/src/prompt.ts'), 'utf8');
   // P75 split annotateMove into a dispatcher over private helpers; start at the first.
   const start = src.indexOf('const annotateEndTurn =');
   if (start < 0) throw new Error('setup: annotateMove helpers missing');

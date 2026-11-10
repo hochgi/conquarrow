@@ -23,7 +23,8 @@ import { compareStrings } from './hashing';
 import {
   asRecord,
   boundUserHash,
-  indexOfBoundUser,
+  boundAgentUserHash,
+  indexOfCallerSeat,
   parseGameMeta,
   type GameMeta,
 } from './invite-record';
@@ -182,9 +183,36 @@ const librarySeatOf = (
   if (seat.kind === 'heuristic') {
     return { kind: 'heuristic', label: 'AI', you: false };
   }
+  if (seat.kind === 'agent') {
+    const you = boundAgentUserHash(seat) === callerHash;
+    const label = agentLabel(displayName);
+    return { kind: 'agent', label, you };
+  }
   const you = boundUserHash(seat) === callerHash;
   const label = displayName ?? playerLetterLabel(index);
   return { kind: 'human', label, you };
+};
+
+export const agentLabel = (displayName: string | undefined): string =>
+  displayName === undefined ? 'Agent' : `Agent (${displayName})`;
+
+/** GET game adds `label` on agent seats only. Human and heuristic objects stay as stored. */
+export const seatsForClient = async (
+  s3: ObjectStore,
+  seats: readonly InviteSeat[],
+): Promise<readonly (InviteSeat & { readonly label?: string })[]> => {
+  const names: NameCache = new Map();
+  const listed: (InviteSeat & { readonly label?: string })[] = [];
+  for (const seat of seats) {
+    if (seat.kind !== 'agent') {
+      listed.push(seat);
+      continue;
+    }
+    const bound = seat.userHash;
+    const name = bound === undefined ? undefined : await cachedDisplayName(s3, bound, names);
+    listed.push({ ...seat, label: agentLabel(name) });
+  }
+  return listed;
 };
 
 const librarySeatsOf = async (
@@ -197,7 +225,7 @@ const librarySeatsOf = async (
   for (let index = 0; index < seats.length; index += 1) {
     const seat = seats[index];
     if (seat === undefined) continue;
-    const bound = boundUserHash(seat);
+    const bound = boundUserHash(seat) ?? boundAgentUserHash(seat);
     const displayName =
       bound === undefined ? undefined : await cachedDisplayName(s3, bound, names);
     listed.push(librarySeatOf(seat, index, callerHash, displayName));
@@ -214,7 +242,7 @@ const listedRowOf = async (
   const rawMeta = await getObject(s3, gameMetaKey(pointer.groupHash, pointer.gameNumber));
   const meta = rawMeta === undefined ? undefined : parseGameMeta(rawMeta);
   const seats = meta?.seats ?? [];
-  const boundIndex = indexOfBoundUser(seats, userHash);
+  const boundIndex = indexOfCallerSeat(seats, userHash);
   const row: StartedGameRow = {
     groupHash: pointer.groupHash,
     gameNumber: pointer.gameNumber,
