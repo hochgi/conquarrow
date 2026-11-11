@@ -246,6 +246,12 @@ Feature: Remote agent seat boundaries
       And the body contains the redirect hostname
       And the response is not a redirect to Google
 
+    Scenario: A form-encoded token request redeems the code
+      Given a one-time authorization code
+      When POST /token sends that code as application/x-www-form-urlencoded
+      Then the response is 200
+      And the code is deleted
+
     Scenario: A rotated refresh token is rejected and the new one works
       Given an MCP refresh token for A
       When A refreshes once

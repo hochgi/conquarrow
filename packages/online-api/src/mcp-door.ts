@@ -551,15 +551,27 @@ const issuePair = (
   return { access: deps.signer.sign(claims), refresh: bytesToHex(deps.randomBytes(32)), claims };
 };
 
-const token = async (deps: McpHttpDeps, request: McpHttpRequest): Promise<McpHttpResult> => {
-  let body: unknown;
-  try {
-    body = JSON.parse(request.body ?? '') as unknown;
-  } catch {
-    return json(400, { error: 'invalid_request' });
+/** An IDE posts RFC 6749 form fields. Tests also send JSON. */
+const tokenFields = (body: string | undefined): Record<string, unknown> | undefined => {
+  const text = body ?? '';
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      return asRecord(JSON.parse(trimmed) as unknown);
+    } catch {
+      return undefined;
+    }
   }
-  const rec = asRecord(body);
-  if (rec?.['resource'] !== MCP_AUDIENCE) return json(400, { error: 'invalid_target' });
+  if (trimmed === '') return undefined;
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of new URLSearchParams(text)) fields[key] = value;
+  return fields;
+};
+
+const token = async (deps: McpHttpDeps, request: McpHttpRequest): Promise<McpHttpResult> => {
+  const rec = tokenFields(request.body);
+  if (rec === undefined) return json(400, { error: 'invalid_request' });
+  if (rec['resource'] !== MCP_AUDIENCE) return json(400, { error: 'invalid_target' });
   if (rec['grant_type'] === 'refresh_token') return refresh(deps, rec);
   if (rec['grant_type'] === 'authorization_code') return exchangeCode(deps, rec);
   return json(400, { error: 'unsupported_grant' });
