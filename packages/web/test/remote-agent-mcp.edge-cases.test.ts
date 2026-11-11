@@ -14,8 +14,10 @@ import {
   logFromOnlineBoard,
   pickerKindOptions,
 } from '../src/online-shell-ui';
+import { parseMyGames } from '../src/online-parse';
 import { coerceOnlineSeatPlan, defaultSeat, type SeatPlan } from '../src/seatPlan';
-import { makePagesHarness } from './online-web.support';
+import { makeHostHarness } from './online-shell.support';
+import { INVITE_TOKEN, inviteHash, makePagesHarness, peekInviteScript } from './online-web.support';
 
 const planOf = (kinds: readonly ('human' | 'heuristic' | 'agent')[]): SeatPlan => ({
   playerCount: 3,
@@ -53,6 +55,45 @@ describe('The lobby and the library tell the truth about the chair', () => {
 
     expect(online.seats[0]?.kind).toBe('human');
     expect(online.seats[1]?.kind).toBe('human');
+  });
+
+  it('An invite body with an agent seat is kept and Start is offered', async () => {
+    const seats: readonly InviteSeat[] = [
+      { kind: 'heuristic' },
+      { kind: 'agent', userHash: '0713b126c28eea4674b2d92d984bd506' },
+      { kind: 'human', userHash: '0713b126c28eea4674b2d92d984bd506' },
+    ];
+    const h = makeHostHarness({
+      sessionToken: 'alice-token',
+      hash: inviteHash(INVITE_TOKEN),
+      fetchScript: [peekInviteScript(INVITE_TOKEN, seats)],
+    });
+
+    await h.host.boot();
+
+    expect(h.host.adapter().inviteSeats()).toEqual(seats);
+    expect(h.host.startOffered()).toBe(true);
+  });
+
+  it('A library row with an agent seat is kept', () => {
+    const parsed = parseMyGames({
+      lobbies: [],
+      games: [
+        {
+          groupHash: 'g',
+          gameNumber: '1',
+          status: 'waiting',
+          seatIndex: 2,
+          seats: [
+            { kind: 'heuristic', label: 'AI', you: false },
+            { kind: 'agent', label: 'Agent', you: true },
+            { kind: 'human', label: 'Ada', you: true },
+          ],
+        },
+      ],
+    });
+
+    expect(parsed?.games[0]?.seats[1]?.kind).toBe('agent');
   });
 
   it('The in-game summary does not call an agent seat Player', () => {

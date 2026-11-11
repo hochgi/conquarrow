@@ -277,6 +277,12 @@ Feature: Remote agent seat boundaries
 
   Rule: The lobby and the library tell the truth about the chair
 
+    Scenario: An invite body with an agent seat is kept
+      Given an invite whose seats are heuristic, a bound agent, and a bound human
+      When the Pages client reads that body
+      Then the seats are kept
+      And Start is offered
+
     Scenario: The online picker offers agent and the local picker does not
       When the lobby is online
       Then the kind options include agent
