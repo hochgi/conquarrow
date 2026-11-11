@@ -106,7 +106,9 @@ Library rows and the in-game roster show `Agent (given_name)` when the profile
 has a sanitised name, else `Agent`. The name is the existing profile object,
 upserted when the MCP login verifies the Google ID token, same sanitiser as
 the browser. It is not stored on the seat. Stored seats are
-`{ kind: "agent", userHash? }` only.
+`{ kind: "agent", userHash? }` only. The Pages parser keeps that chair on an
+invite body and on a library row. Dropping it drops the whole body, so a
+bound human is not seen and Start stays disabled.
 
 `GET /my-games` returns `kind: "agent"`, that label, and `you: true` when the
 bound hash is the caller's. `GET /games` adds `label` on agent seats only.

@@ -36,10 +36,10 @@ const parseSeat = (raw: unknown): InviteSeat | undefined => {
   if (rec === undefined) return undefined;
   const kind = rec['kind'];
   if (kind === 'heuristic') return { kind: 'heuristic' };
-  if (kind !== 'human') return undefined;
+  if (kind !== 'human' && kind !== 'agent') return undefined;
   const userHash = rec['userHash'];
-  if (typeof userHash === 'string') return { kind: 'human', userHash };
-  return { kind: 'human' };
+  if (typeof userHash === 'string') return { kind, userHash };
+  return { kind };
 };
 
 export const parseSeats = (raw: unknown): readonly InviteSeat[] | undefined => {
@@ -106,7 +106,7 @@ const parseLibrarySeat = (raw: unknown): LibrarySeat | undefined => {
   const rec = asRecord(raw);
   if (rec === undefined) return undefined;
   const kind = rec['kind'];
-  if (kind !== 'human' && kind !== 'heuristic') return undefined;
+  if (kind !== 'human' && kind !== 'heuristic' && kind !== 'agent') return undefined;
   const label = rec['label'];
   const you = rec['you'];
   if (typeof label !== 'string' || typeof you !== 'boolean') return undefined;

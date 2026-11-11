@@ -337,6 +337,7 @@ handle, the token, or the bearer.
 | 2 redirect not in the document | edge: redirect not in the metadata document |
 | 2 loopback ephemeral port | edge: loopback redirect may use an ephemeral port |
 | 2 form-encoded token | edge: form-encoded token request redeems the code |
+| 5 invite body keeps agent | edge: invite body with an agent seat is kept |
 | 3 rotation | edge: rotated refresh token |
 | 4 create stored | core: create stores a lobby |
 | 4 create refused | edge outline: create refuses |
