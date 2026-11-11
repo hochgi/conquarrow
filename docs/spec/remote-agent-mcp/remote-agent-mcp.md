@@ -263,7 +263,9 @@ injected leaf, verifies the ID token with the existing injected
 client's `state` unchanged when the authorize request sent one.
 `resource` on authorize and on token must be the exact audience URL. PKCE is
 S256. Our codes are one-time, 60 seconds by the injected clock, stored in the
-existing bucket, and deleted on use.
+existing bucket, and deleted on use. `POST /token` accepts the OAuth form
+body (`application/x-www-form-urlencoded`), which is what an IDE sends, and
+also JSON. A body that is neither is `invalid_request`.
 
 `client_id` must be an `https` URL with a path. Anything else is refused
 before fetch. Loopback, private, and link-local metadata hosts are refused.

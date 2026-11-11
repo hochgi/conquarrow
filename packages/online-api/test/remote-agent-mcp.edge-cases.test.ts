@@ -1038,6 +1038,41 @@ describe('The door rejects the wrong caller before it runs a tool', () => {
     }, { googleAuthClientId: 'google-auth-client' });
   });
 
+  it('A form-encoded token request redeems the code', async () => {
+    await withRig(async (rig) => {
+      const verifier = 'f'.repeat(43);
+      const code = 'g'.repeat(64);
+      putRaw(
+        rig,
+        `conquarrow/oauth/codes/${code}`,
+        JSON.stringify({
+          sub: ALICE.sub,
+          challenge: s256(verifier),
+          redirect: 'http://127.0.0.1:58857/callback',
+          exp: CLOCK + 60_000,
+        }),
+      );
+      const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        code_verifier: verifier,
+        resource: MCP_AUDIENCE,
+        client_id: 'https://opencode.ai/oauth/opencode/client.json',
+        redirect_uri: 'http://127.0.0.1:58857/callback',
+      });
+
+      const result = await rig.mcp({
+        method: 'POST',
+        path: '/token',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+
+      expect(result.statusCode).toBe(200);
+      expect(rig.data.has(`conquarrow/oauth/codes/${code}`)).toBe(false);
+    });
+  });
+
   it('A hex SHA-256 challenge is not a S256 redeem', async () => {
     await withRig(async (rig) => {
       const verifier = 'd'.repeat(43);
