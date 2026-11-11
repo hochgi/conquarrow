@@ -96,6 +96,23 @@ export const pickerKindOptions = (
   return ['human', 'heuristic', 'byok'];
 };
 
+const LOBBY_KIND_LABEL: Record<PlannedSeatKind, string> = {
+  human: 'Player',
+  heuristic: 'AI',
+  byok: 'BYOK LLM',
+  agent: 'Agent',
+};
+
+/** Labels the lobby `<select>` shows. Same kinds as `pickerKindOptions`. */
+export const lobbyKindOptions = (
+  mode: PagesLobbyMode,
+  seatIndex: number,
+): readonly { readonly value: PlannedSeatKind; readonly label: string }[] =>
+  pickerKindOptions(mode, seatIndex).map((kind) => ({
+    value: kind,
+    label: LOBBY_KIND_LABEL[kind],
+  }));
+
 /**
  * In-game roster line. An agent chair is `Agent (name)` or `Agent`.
  */
