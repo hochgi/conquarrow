@@ -12,6 +12,7 @@ import {
   libraryVsLine,
   MY_GAMES_COPY,
   NO_GAMES_COPY,
+  lobbyKindOptions,
   rosterOccupancy,
   rosterOccupancyLabel,
 } from './online-shell-ui';
@@ -78,11 +79,7 @@ const PLACEMENT_BLURB: Record<PlaytestPlayerCount, string> = {
   6: 'All six corners — full hexagon of homes',
 };
 
-const KIND_OPTIONS: readonly { value: SeatKind; label: string }[] = [
-  { value: 'human', label: 'Player' },
-  { value: 'heuristic', label: 'AI' },
-  { value: 'byok', label: 'BYOK LLM' },
-];
+
 
 const ResumeSave = ({ resume }: { readonly resume: LobbyResume }): ReactElement => (
   <div className="lobby-resume">
@@ -118,9 +115,13 @@ export const Lobby = ({
   const startDisabled = onlineMode ? !online.startOffered : incomplete;
   const frozen = onlineMode && !online.seatEditsOffered;
   const rosterSeats = frozen ? online.inviteSeats : undefined;
-  const kindOptions = onlineMode
-    ? KIND_OPTIONS.filter((opt) => online.seatKinds.includes(opt.value))
-    : KIND_OPTIONS;
+  const optionsForSeat = (
+    index: number,
+  ): readonly { readonly value: SeatKind; readonly label: string }[] => {
+    const offered = lobbyKindOptions(onlineMode ? 'online' : 'local', index);
+    if (!onlineMode) return offered;
+    return offered.filter((opt) => online.seatKinds.includes(opt.value));
+  };
   const [probeSeat, setProbeSeat] = useState<number | undefined>(undefined);
   const [probeMsg, setProbeMsg] = useState<string | undefined>(undefined);
   const [probeOk, setProbeOk] = useState<boolean | undefined>(undefined);
@@ -203,7 +204,11 @@ export const Lobby = ({
 
         <fieldset className="lobby-seats">
           <legend>
-            {frozen ? 'Seats — Player, AI, waiting, or you' : 'Seats — each can be Player or AI'}
+            {frozen
+              ? 'Seats — Player, AI, waiting, or you'
+              : onlineMode
+                ? 'Seats — Player, AI, or Agent'
+                : 'Seats — each can be Player or AI'}
           </legend>
           {rosterSeats !== undefined ? (
             <FrozenRoster seats={rosterSeats} userHash={online?.userHash} />
@@ -231,7 +236,7 @@ export const Lobby = ({
                       setProbeOk(undefined);
                     }}
                   >
-                    {kindOptions.map((opt) => (
+                    {optionsForSeat(index).map((opt) => (
                       <option
                         key={opt.value}
                         value={opt.value}
