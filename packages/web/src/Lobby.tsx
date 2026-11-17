@@ -20,6 +20,7 @@ import {
   libraryTurnLine,
   libraryWinnerLine,
   type LibrarySectionView,
+  chooserSlotOffered,
   formatLibraryStartedAt,
   libraryOffered,
   libraryRowTint,
@@ -812,6 +813,37 @@ const InviteNameField = ({ online }: { readonly online: LobbyOnline }): ReactEle
   </label>
 );
 
+/** Online row. The chooser slot exists only while signed out, never beside Sign out. */
+const OnlineActionRow = ({ online }: { readonly online: LobbyOnline }): ReactElement => (
+  <div className="lobby-online-row">
+    {online.signedIn ? (
+      <button type="button" className="lobby-byok-test" onClick={online.onSignOut}>
+        Sign out
+      </button>
+    ) : (
+      <>
+        <button type="button" className="lobby-start" onClick={online.onSignIn}>
+          Sign in with Google
+        </button>
+        {chooserSlotOffered(online.signedIn) ? <div id="conquarrow-gis-chooser" /> : null}
+      </>
+    )}
+    <button
+      type="button"
+      className="lobby-byok-test"
+      disabled={!online.createOffered}
+      onClick={online.onCreate}
+    >
+      Create invite
+    </button>
+    {online.acceptOffered ? (
+      <button type="button" className="lobby-start" onClick={online.onAccept}>
+        Accept invite
+      </button>
+    ) : null}
+  </div>
+);
+
 const OnlineChrome = ({
   online,
   onLearn,
@@ -847,30 +879,7 @@ const OnlineChrome = ({
     </div>
     {online.mode === 'online' ? (
       <>
-        <div className="lobby-online-row">
-          {online.signedIn ? (
-            <button type="button" className="lobby-byok-test" onClick={online.onSignOut}>
-              Sign out
-            </button>
-          ) : (
-            <button type="button" className="lobby-start" onClick={online.onSignIn}>
-              Sign in with Google
-            </button>
-          )}
-          <button
-            type="button"
-            className="lobby-byok-test"
-            disabled={!online.createOffered}
-            onClick={online.onCreate}
-          >
-            Create invite
-          </button>
-          {online.acceptOffered ? (
-            <button type="button" className="lobby-start" onClick={online.onAccept}>
-              Accept invite
-            </button>
-          ) : null}
-        </div>
+        <OnlineActionRow online={online} />
         {online.signedIn && online.seatEditsOffered ? <InviteNameField online={online} /> : null}
         {online.createInvitePending ? (
           <p className="lobby-create-pending" role="status">

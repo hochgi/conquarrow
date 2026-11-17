@@ -119,9 +119,8 @@ detailed form of an item; this file is the short list and the order.
 - **Event animations are too fast to read.** P92/P93 issue review
   2026-11-16: conversions, battles and encirclements play faster than a
   human can follow, now that every seat replays (P94). Pace them.
-- **"Your agent" label and a GIS flicker.** P92/P93 issue review 2026-11-16:
-  the seat label for the caller's own agent, and the sign-in button
-  flickering on load.
+- **"Your agent" label.** P92/P93 issue review 2026-11-16: the seat label
+  for the caller's own agent. The GIS flicker half is P97's phone check.
 - **Big stacks lag.** P92/P93 issue review 2026-11-16: moving a large stack
   is slow; `reachWashOf` is the suspect. Profile before changing it.
 - **Post-P72 UX regressions.** Changes made when an agent played as the human
@@ -170,6 +169,9 @@ detailed form of an item; this file is the short list and the order.
 - **P95 knobs to confirm in play.** The poll interval (`POLL_MS` 15 s), the
   heartbeat (5 min), and the token-refresh lead (5 min). A `GET` may now write
   (the read-time advance heals a stalled game); that is ADR 0011's choice.
+- **A 401 on `GET /my-games` looks like no games.** P97 review: the library
+  read still leaves the list unset on 401 (P95 D10), and the lobby paints an
+  unset library as empty. Not fixed in P97.
 - **The One Tap refresh can still be suppressed.** P95 asks GIS for a fresh
   token before expiry with `auto_select`, and holds a submit a 401 stopped,
   but a browser that suppresses One Tap leaves the human to click Sign in

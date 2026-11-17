@@ -4,8 +4,6 @@
  * @see docs/spec/online-reliability/online-reliability.web.edge-cases.feature
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { REAUTH_LEAD_MS, SUBMIT_RETRY_MS } from '../src/online-pages';
 import { submitNote } from '../src/online-submit';
@@ -18,12 +16,10 @@ import {
   posted,
   postsOf,
 } from './online-turn-flow.support';
-import { makeHostHarness } from './online-shell.support';
 import {
   ALICE,
   GAME_ONE,
   GROUP_HASH,
-  apiCalls,
   gameHash,
   quotedVersion,
 } from './online-web.support';
@@ -292,44 +288,6 @@ describe('online-reliability web edge cases', () => {
       await h.adapter.poll();
 
       expect(versionReads(h)).toBe(0);
-    });
-  });
-
-  describe('Sign-in reaches the lobby (D12, P95 fix)', () => {
-    it('A credential on the lobby signs the shell in and lists My games', async () => {
-      const h = makeHostHarness();
-      await h.host.boot();
-      expect(h.host.signedIn()).toBe(false);
-      expect(apiCalls(h, 'GET', '/my-games')).toHaveLength(0);
-
-      await h.host.handleGisCredential(ALICE.bearer);
-
-      expect(h.host.signedIn()).toBe(true);
-      expect(apiCalls(h, 'GET', '/my-games')).toHaveLength(1);
-      expect(h.host.adapter().myGames()).toBeDefined();
-    });
-
-    it("Signing out turns the host's signed-in flag off", async () => {
-      const h = makeHostHarness({ sessionToken: ALICE.bearer });
-      await h.host.boot();
-      expect(h.host.signedIn()).toBe(true);
-
-      h.host.signOut();
-
-      expect(h.host.signedIn()).toBe(false);
-    });
-
-    it('The shell asks the host whether it is signed in', () => {
-      const src = join(import.meta.dirname, '..', 'src');
-      const offenders = readdirSync(src, { recursive: true, encoding: 'utf8' })
-        .filter((file) => /\.tsx?$/.test(file))
-        .filter((file) =>
-          /sessionStorage\.getItem\(\s*GOOGLE_ID_TOKEN_SESSION_KEY/.test(
-            readFileSync(join(src, file), 'utf8'),
-          ),
-        );
-
-      expect(offenders).toEqual([]);
     });
   });
 });

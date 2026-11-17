@@ -50,6 +50,7 @@ import {
   displaySeatKind,
   exportFileName,
   kindsForHost,
+  lobbyLibraryDue,
   logFromOnlineBoard,
 } from './online-shell-ui';
 import type { ByokRunStats, MatchLog, SeatDriverLog } from './matchLog';
@@ -584,10 +585,15 @@ export const App = (): ReactElement => {
 
   useEffect(() => {
     const current = host;
-    if (current === undefined || state !== undefined) return;
-    if (!signedIn) return;
+    if (current === undefined) return;
+    // Same hash the pages adapter routes on. A library already set by the
+    // credential handler is loaded, so this effect does not send a second GET.
+    const onLobby = parsePagesHash(window.location.hash).kind === 'lobby';
+    if (!lobbyLibraryDue(signedIn, onLobby, current.adapter().myGames() !== undefined)) {
+      return;
+    }
     void current.refreshLibrary().then(refresh);
-  }, [host, state, refresh, signedIn]);
+  }, [host, refresh, signedIn]);
 
   useEffect(() => {
     if (host === undefined || state !== undefined) return;

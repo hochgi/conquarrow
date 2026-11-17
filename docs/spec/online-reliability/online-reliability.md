@@ -17,6 +17,8 @@ version route, the WS `$default` route, the payload log), `packages/contracts`
 [server edge cases](./online-reliability.server.edge-cases.feature) ·
 [web core](./online-reliability.web.core.feature) ·
 [web edge cases](./online-reliability.web.edge-cases.feature) ·
+[sign-in core](./online-reliability.signin.core.feature) ·
+[sign-in edges](./online-reliability.signin.edge-cases.feature) ·
 [sequence diagrams](./SCENARIOS.md)
 
 ## Purpose
@@ -41,6 +43,9 @@ able to always catch up with it.
 | **summary** | `{winner, turns, standings}` of a finished game |
 | **poll** | the client's `GET …/version` fallback while it is in a game |
 | **held submit** | the moves a 401 stopped, kept to send after the next credential |
+| **signed in** | the host's session store holds an ID token; `OnlineHostPort.signedIn()` |
+| **chooser slot** | the element `id="conquarrow-gis-chooser"` the shell mounts while signed out |
+| **library due** | signed in, the hash route is the lobby, and My games not yet loaded |
 
 ## Decisions (online/web BSSN, recorded here)
 
@@ -217,11 +222,95 @@ verification) is less than `REAUTH_LEAD_MS` (300 000 ms) away or past, by
 initialised with `auto_select: true`, so a returning user gets a new credential
 with no tap. A token whose `exp` cannot be read is left to the server's 401.
 
-The shell reads sign-in only through the host's `signedIn()`, which reads the
-same store. A credential delivered on the lobby route reads `/my-games` at once,
-and the Google button the chooser rendered is removed. (The first P95 build left
-`App` reading `sessionStorage`, so a signed-in player saw "Sign in with Google"
-and no My games.)
+Who the lobby says is signed in, and where the Google button sits, is D13.
+
+### D13 — the lobby shows who is signed in (P97)
+
+Packet: [P97](../../design/packets/P97-signin-lobby.md). No game rule. No
+`online-api` change. No production read or write.
+
+#### Diagnosis, recorded before the fix
+
+P95 cached the ID token in `localStorage` (`browserSession`). The shell still
+decided "signed in" by reading `sessionStorage` for the same key. The two stores
+diverge, and both live symptoms are that split:
+
+- A phone that signs in after P95 holds the token only in `localStorage`. The
+  shell reads `sessionStorage` (empty), so it keeps "Sign in with Google", hides
+  My games, and never calls `refreshLibrary`. Create invite still works: the
+  host reads the store that holds the token. Google's own button stays because
+  `renderChooser` appends an iframe under the first `.lobby-online-row` — a
+  node React owns, and a class the Learn card also uses — and a One Tap failure
+  or a 401 renders it again. The button swaps, sometimes doubles, and sits
+  beside Sign out.
+- A laptop tab that still has the pre-P95 token in `sessionStorage` shows My
+  games and then an empty list. The shell thinks it is signed in, so the button
+  is offered. `refreshLibrary` sends the host's token. When `localStorage` is
+  empty the read returns before the GET. An unset library is painted as no
+  games (`library === undefined` has no sections). A 401 is swallowed the same
+  way; that path is not this packet.
+
+The seat-A game created from an invite while the lobby looked signed out is not
+missing from the index. Create and accept bind `userHashFromSub` of the bearer
+`requireUserHash` verified. Start's `finishStart` writes a membership pointer
+for every bound human and agent hash before it returns the game ids. `/my-games`
+resolves the caller with the same function. A missing library stamp does not
+omit a row: listing follows the pointer, hydrates an unstamped meta from
+`state.json`, and still lists a row whose summary is missing (`waiting`). No
+backfill. A well-formed P96 body parses; the empty list is an unset library,
+not a dropped row.
+
+A leftover `sessionStorage` token is not copied across. Reading that key is
+forbidden below, so the laptop shows Sign in until the player signs in again,
+into the host store. The indexed game then appears. Do not touch production.
+
+#### Decisions
+
+1. **`signedIn()` is the only sign-in bit.** `OnlineHostPort.signedIn()` is true
+   while the host session store holds an ID token. The shell uses
+   `host.signedIn()`. No file under `packages/web/src` reads
+   `GOOGLE_ID_TOKEN_SESSION_KEY` from `sessionStorage`.
+
+2. **One library read per new credential on the lobby.** `deliverGoogleCredential`
+   on the lobby route (not an invite route, not a game route) sends exactly one
+   `GET /my-games` and sets the library to that body. An invite route still
+   accepts. A game route still loads the game. Neither also lists. Sign-out
+   clears the library and reports signed out. My games is offered only by
+   `libraryOffered` — online and signed in.
+
+3. **The shell re-reads only when a read is due, and only on the lobby
+   route.** `lobbyLibraryDue(signedIn, onLobby, libraryLoaded)` is true only
+   when signed in, the hash route is the lobby, and the library is not loaded.
+   `onLobby` is `parsePagesHash(hash).kind === 'lobby'`. It is not "React has
+   no match yet": an invite route never sets that state, and a game credential
+   fills the host board before React flushes `setState`. Passing that flag
+   starts `GET /my-games` after an invite accept or a game read, which decision
+   2 and sequence diagram 6 forbid. `App`'s effect calls `refreshLibrary` only
+   when `lobbyLibraryDue` is true, and it passes the hash route, not
+   `state !== undefined`. After the credential handler has loaded the library,
+   that effect does not send a second GET. A reload with a stored token
+   (library unset, lobby route) sends one GET from the effect. A reload on an
+   invite or game route does not. `becomeVisible` / `refreshLobby` may read
+   again on resume; that is a later read, not this sign-in.
+
+4. **The Google button mounts once, in a React-owned slot, and never while
+   signed in.** `chooserSlotOffered(signedIn)` is `!signedIn`. The online row
+   renders an empty `<div id="conquarrow-gis-chooser">` only while that is true.
+   `renderChooser` does not create, move, or remove nodes, and does not query
+   `.lobby-online-row`. When `document` exists it calls `renderButton` only if
+   that element exists and has no element child. When `document` is absent it
+   still calls `renderButton` with `{ id: "conquarrow-gis-chooser" }`, so the
+   existing no-DOM GIS tests keep their meaning. The credential callback does
+   not remove the slot. The shell unmounts it when `signedIn()` becomes true.
+   The web package does not gain jsdom. Before this is called fixed on a phone:
+   one Google button, no swap between "Sign in with Google" and "Sign in as …",
+   not beside Sign out, and the Sign in button back after sign-out.
+
+#### Out of scope
+
+A `GET /my-games` answered 401 still leaves the library unset, which looks
+empty (P95 D10). Not this packet. The seat list labelling an agent seat "you"
+(P93-a) and the MCP OAuth token-endpoint items are not this packet.
 
 ## Flow
 
@@ -240,6 +329,15 @@ stateDiagram-v2
   Reconciling --> Idle: outcome returned
 ```
 
+Lobby sign-in (D13). The Google slot exists only in Signed out.
+
+```mermaid
+stateDiagram-v2
+  [*] --> SignedOut: lobby, no host token
+  SignedOut --> SignedIn: credential on the lobby, one GET /my-games
+  SignedIn --> SignedOut: sign-out, library cleared
+```
+
 ## Invariants (EARS)
 
 1. *Ubiquitous*: The server shall apply a submit id from one user at most once per game.
@@ -254,8 +352,16 @@ stateDiagram-v2
 10. *Unwanted*: If a submit is answered 401, then the client shall keep it pending until it is sent after a new credential or dropped by sign-out or a route change.
 11. *State-driven*: While the client is in a game and visible, it shall reopen a closed socket and poll the version, and a newer version shall take the wake path.
 12. *Ubiquitous*: The client shall read no online board, log or seat from browser storage.
-13. *Event-driven*: When a credential is delivered, the shell shall report signed in from the host's session store, and on the lobby route shall read `/my-games`.
+13. *Event-driven*: When a credential is delivered on the lobby route, the client shall report signed in from the host and shall send exactly one GET /my-games, and the library shall be that body.
+14. *Event-driven*: When the player signs out, the host shall report signed out, the library shall be cleared, and My games shall not be offered.
+15. *Ubiquitous*: The shell shall read signed-in only from the host, and no web source shall read the ID token key from sessionStorage.
+16. *State-driven*: While the player is signed out, the hash route is not the lobby, or the library is already loaded, the shell shall not start a GET /my-games.
+17. *Unwanted*: If the chooser slot is absent or already holds a button, the client shall not call renderButton, and it shall not create the slot.
+18. *Ubiquitous*: The Google chooser shall render only into the shell's chooser slot, and shall not query or append under a lobby-online-row.
+19. *Unwanted*: If a credential is delivered on an invite route or a game route, the client shall not replace that route's accept or game read with a library read.
 
 ## Counts
 
-13 invariants · 4 feature files · 5 sequence diagrams.
+19 invariants · 6 feature files · 6 sequence diagrams. P97 adds invariants
+13–19, 14 scenarios (1 core, 13 edge, including 2 outlines), two feature files,
+and sequence diagram 6. No server change. No backfill.

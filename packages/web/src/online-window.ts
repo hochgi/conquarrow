@@ -1,5 +1,5 @@
 /**
- * Browser facades for the P19/P25 host: `location`, `sessionStorage`, `fetch`,
+ * Browser facades for the P19/P25 host: `location`, the token cache, `fetch`,
  * and `WebSocket`. Tests inject fakes instead.
  *
  * @see docs/spec/online-shell/online-shell.md

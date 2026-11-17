@@ -2,7 +2,8 @@
 
 **Status:** Accepted
 **Date:** 2026-11-16
-**Context:** [P95](../design/packets/P95-online-reliability.md), [ADR 0002](./0002-cheap-async-online.md), [P49](../design/packets/P49-online-move-log-replay.md)
+**Amended:** 2026-11-17 (P97) — the shell reads sign-in only from the host. A leftover `sessionStorage` token is not migrated.
+**Context:** [P95](../design/packets/P95-online-reliability.md), [ADR 0002](./0002-cheap-async-online.md), [P49](../design/packets/P49-online-move-log-replay.md), [P97](../design/packets/P97-signin-lobby.md)
 
 ## Context
 
@@ -35,7 +36,10 @@ showed where that design was incomplete, not wrong:
    takes the P49 wake path.
 4. **Browser storage is a cache.** The ID token is cached in `localStorage` and
    refreshed ahead of expiry through One Tap; boards, logs and seats come from
-   the server.
+   the server. The shell asks the online host whether it is signed in
+   (`signedIn()`). It does not read the token key itself, and it does not read
+   `sessionStorage` for that key. A leftover `sessionStorage` token from before
+   P95 is not migrated (P97).
 
 ## Consequences
 

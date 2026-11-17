@@ -79,6 +79,19 @@ export const libraryRowTint = (seatIndex: number): string =>
 export const libraryOffered = (mode: PagesLobbyMode, signedIn: boolean): boolean =>
   mode === 'online' && signedIn;
 
+/**
+ * P97 D13: a library read is due only when signed in, the hash route is the
+ * lobby, and the library is not loaded. `onLobby` is not "React has no match".
+ */
+export const lobbyLibraryDue = (
+  signedIn: boolean,
+  onLobby: boolean,
+  libraryLoaded: boolean,
+): boolean => signedIn && onLobby && !libraryLoaded;
+
+/** P97 D13: the Google chooser slot is offered only while signed out. */
+export const chooserSlotOffered = (signedIn: boolean): boolean => !signedIn;
+
 export const kindsForHost = (
   plan: SeatPlan,
   online: boolean,
