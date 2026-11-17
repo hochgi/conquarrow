@@ -16,7 +16,13 @@ import {
   posted,
   postsOf,
 } from './online-turn-flow.support';
-import { ALICE, GAME_ONE, GROUP_HASH, gameHash, quotedVersion } from './online-web.support';
+import {
+  ALICE,
+  GAME_ONE,
+  GROUP_HASH,
+  gameHash,
+  quotedVersion,
+} from './online-web.support';
 import {
   VERSION_PATH,
   myGamesScript,

@@ -34,13 +34,13 @@ sequenceDiagram
   App->>Pages: submitMoves([endTurn])
   Pages->>API: POST /moves {submitId s}
   API-->>Pages: 401
-  Note over Pages: held = {moves, ids, version}; pending true; gis.prompt()
+  Note over Pages: held = {moves, ids, version}#59; pending true#59; gis.prompt()
   Pages-->>App: unauthorized (note: sign in and it will be sent)
   App->>Pages: deliverGoogleCredential(token)
   Pages->>API: POST /moves {submitId s}
   API-->>Pages: 200 {version 5}
   Pages->>API: GET /games/g/n (reconcile)
-  Note over Pages: held cleared; pending false
+  Note over Pages: held cleared#59; pending false
 ```
 
 ## 3. The advance passes a lost seat and heals on read
@@ -90,4 +90,36 @@ sequenceDiagram
   Agent->>Door: tools/call observe
   Door->>Store: get state (winner set), log
   Door-->>Agent: {stop true, reason game-over, summary {winner, turns, standings}}
+```
+
+## 6. A credential on the lobby lists My games
+
+The lobby route. An invite route and a game route are the other outcomes of the
+same credential delivery (D13). The chooser slot is the shell's element. GIS
+does not create or remove it.
+
+```mermaid
+sequenceDiagram
+  participant GIS
+  participant Pages
+  participant API
+  participant App
+  GIS->>Pages: credential callback
+  Note over GIS: does not remove the chooser slot
+  Pages->>Pages: store the token, signedIn() true
+  alt lobby route
+    Pages->>API: GET /my-games
+    API-->>Pages: 200 {lobbies, games, counts}
+    Note over Pages: library is that body, one GET
+  else invite route
+    Pages->>API: POST /invites/token/accept
+    API-->>Pages: 200
+    Note over Pages: no GET /my-games
+  else game route
+    Pages->>API: GET /games/g/n
+    API-->>Pages: 200
+    Note over Pages: no GET /my-games
+  end
+  Pages-->>App: settled
+  Note over App: Sign out shown, chooser slot unmounted, My games offered on the lobby
 ```

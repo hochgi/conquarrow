@@ -89,6 +89,11 @@ export interface OnlineHostPort {
    */
   seatEditsOffered(): boolean;
   createOffered(): boolean;
+  /**
+   * True while the host's session store holds an ID token. The shell reads
+   * sign-in only here, never from browser storage itself (P95 D12).
+   */
+  signedIn(): boolean;
   /** True while `POST /invites` has not settled (P27). */
   createInvitePending(): boolean;
   /** Current Local | Online selection. Invite/game hash selects Online on boot. */

@@ -121,3 +121,6 @@ Feature: The client's reliability edges
       Given A has signed out
       When the poll runs on a game route
       Then the version is not read
+
+# Lobby sign-in is P97, in online-reliability.signin.*.feature.
+# It does not share this file's game-route Background.

@@ -749,7 +749,12 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       await acceptInvite();
       return;
     }
-    if (route.kind === 'game') await getGame(route.groupHash, route.gameNumber);
+    if (route.kind === 'game') {
+      await getGame(route.groupHash, route.gameNumber);
+      return;
+    }
+    // A sign-in on the lobby lists My games straight away (P95 D12).
+    await refreshLibrary();
   };
 
   const signOut = (): void => {

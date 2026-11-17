@@ -202,6 +202,7 @@ export const createOnlineHost = (deps: OnlineHostDeps): OnlineHostPort => {
     acceptOffered,
     seatEditsOffered,
     createOffered: () => pages.createOffered() && signedIn() && !createPending,
+    signedIn,
     createInvitePending: () => createPending,
     mode: () => mode,
     illegal: () => illegalMsg,

@@ -92,25 +92,21 @@ export const gisOneTapFailed = (notification: GisPromptNotification): boolean =>
   notification.isSkippedMoment() ||
   notification.isDismissedMoment();
 
-const chooserParent = (): unknown => {
-  if (typeof document === 'undefined') {
-    return { id: GIS_CHOOSER_ID };
-  }
-  const row = document.querySelector('.lobby-online-row');
-  const host = row ?? document.body;
-  const existing = document.getElementById(GIS_CHOOSER_ID);
-  if (existing !== null) {
-    if (existing.parentElement !== host) host.appendChild(existing);
-    return existing;
-  }
-  const el = document.createElement('div');
-  el.id = GIS_CHOOSER_ID;
-  host.appendChild(el);
-  return el;
+/**
+ * P97 D13: GIS renders only into the shell's empty slot. It does not create,
+ * move, or remove that node. With no document, the no-DOM id object remains.
+ */
+const chooserTarget = (): unknown => {
+  if (typeof document === 'undefined') return { id: GIS_CHOOSER_ID };
+  const slot = document.getElementById(GIS_CHOOSER_ID);
+  if (slot === null || slot.childElementCount > 0) return undefined;
+  return slot;
 };
 
 const renderChooser = (id: BrowserGisId): void => {
-  id.renderButton?.(chooserParent(), GIS_BUTTON);
+  const parent = chooserTarget();
+  if (parent === undefined) return;
+  id.renderButton?.(parent, GIS_BUTTON);
 };
 
 /**
@@ -130,7 +126,8 @@ export const createBrowserGis = (
       client_id: clientId,
       callback: (response) => {
         const token = response.credential;
-        if (typeof token === 'string' && token !== '') onCredential(token);
+        if (typeof token !== 'string' || token === '') return;
+        onCredential(token);
       },
       cancel_on_tap_outside: false,
       // P95 D12: a returning user is signed back in without a click.
