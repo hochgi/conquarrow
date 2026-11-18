@@ -123,3 +123,7 @@ sequenceDiagram
   Pages-->>App: settled
   Note over App: Sign out shown, chooser slot unmounted, My games offered on the lobby
 ```
+
+A credential that is only usable under [P98](../session-expired/session-expired.md)
+counts as signed in here. A held create's retry is that packet's diagram 2, not
+a second library read on top of this one.

@@ -43,7 +43,7 @@ able to always catch up with it.
 | **summary** | `{winner, turns, standings}` of a finished game |
 | **poll** | the client's `GET …/version` fallback while it is in a game |
 | **held submit** | the moves a 401 stopped, kept to send after the next credential |
-| **signed in** | the host's session store holds an ID token; `OnlineHostPort.signedIn()` |
+| **signed in** | the host store holds a usable ID token (`exp` strictly after `now`). [P98](../session-expired/session-expired.md) |
 | **chooser slot** | the element `id="conquarrow-gis-chooser"` the shell mounts while signed out |
 | **library due** | signed in, the hash route is the lobby, and My games not yet loaded |
 
@@ -220,9 +220,13 @@ browser storage for an online game. When the token's `exp` claim (read without
 verification) is less than `REAUTH_LEAD_MS` (300 000 ms) away or past, by
 `deps.now()`, the adapter calls `gis.prompt()` — once per token. GIS is
 initialised with `auto_select: true`, so a returning user gets a new credential
-with no tap. A token whose `exp` cannot be read is left to the server's 401.
+with no tap. P98 also runs that ask before a user-initiated request. A token
+whose `exp` cannot be read is not signed in: it is removed, not left for a 401.
+A usable token the server still answers 401 is the session-expired state in
+[P98](../session-expired/session-expired.md).
 
-Who the lobby says is signed in, and where the Google button sits, is D13.
+Who the lobby says is signed in, and where the Google button sits, is D13, as
+amended by P98.
 
 ### D13 — the lobby shows who is signed in (P97)
 
@@ -267,14 +271,17 @@ into the host store. The indexed game then appears. Do not touch production.
 #### Decisions
 
 1. **`signedIn()` is the only sign-in bit.** `OnlineHostPort.signedIn()` is true
-   while the host session store holds an ID token. The shell uses
-   `host.signedIn()`. No file under `packages/web/src` reads
+   only while the host session store holds a usable ID token (P98: `exp` is a
+   finite number strictly after `now`; an unusable token is removed). The shell
+   uses `host.signedIn()`. No file under `packages/web/src` reads
    `GOOGLE_ID_TOKEN_SESSION_KEY` from `sessionStorage`.
 
 2. **One library read per new credential on the lobby.** `deliverGoogleCredential`
    on the lobby route (not an invite route, not a game route) sends exactly one
-   `GET /my-games` and sets the library to that body. An invite route still
-   accepts. A game route still loads the game. Neither also lists. Sign-out
+   `GET /my-games` and sets the library to that body, unless a P98 held-create
+   retry on that credential is answered 401, in which case no library read is
+   sent. An invite route still accepts. A game route still loads the game.
+   Neither also lists. Sign-out
    clears the library and reports signed out. My games is offered only by
    `libraryOffered` — online and signed in.
 
@@ -308,9 +315,9 @@ into the host store. The indexed game then appears. Do not touch production.
 
 #### Out of scope
 
-A `GET /my-games` answered 401 still leaves the library unset, which looks
-empty (P95 D10). Not this packet. The seat list labelling an agent seat "you"
-(P93-a) and the MCP OAuth token-endpoint items are not this packet.
+A `GET /my-games` answered 401 is [P98](../session-expired/session-expired.md):
+session expired, not an empty library. The seat list labelling an agent seat
+"you" (P93-a) and the MCP OAuth token-endpoint items are not this packet.
 
 ## Flow
 
@@ -352,7 +359,7 @@ stateDiagram-v2
 10. *Unwanted*: If a submit is answered 401, then the client shall keep it pending until it is sent after a new credential or dropped by sign-out or a route change.
 11. *State-driven*: While the client is in a game and visible, it shall reopen a closed socket and poll the version, and a newer version shall take the wake path.
 12. *Ubiquitous*: The client shall read no online board, log or seat from browser storage.
-13. *Event-driven*: When a credential is delivered on the lobby route, the client shall report signed in from the host and shall send exactly one GET /my-games, and the library shall be that body.
+13. *Event-driven*: When a credential is delivered on the lobby route and no create is held, the client shall report signed in from the host and shall send exactly one GET /my-games, and the library shall be that body. A held create is P98; if its retry is answered 401, that library read is not sent.
 14. *Event-driven*: When the player signs out, the host shall report signed out, the library shall be cleared, and My games shall not be offered.
 15. *Ubiquitous*: The shell shall read signed-in only from the host, and no web source shall read the ID token key from sessionStorage.
 16. *State-driven*: While the player is signed out, the hash route is not the lobby, or the library is already loaded, the shell shall not start a GET /my-games.
@@ -364,4 +371,7 @@ stateDiagram-v2
 
 19 invariants · 6 feature files · 6 sequence diagrams. P97 adds invariants
 13–19, 14 scenarios (1 core, 13 edge, including 2 outlines), two feature files,
-and sequence diagram 6. No server change. No backfill.
+and sequence diagram 6. No server change. No backfill. P98 amends the signed-in
+term, D12's unreadable-`exp` sentence, D13 decision 1, and invariant 13's
+held-create exception. The session-expired contract is
+[session-expired](../session-expired/session-expired.md).

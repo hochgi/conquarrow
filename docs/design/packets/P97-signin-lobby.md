@@ -39,6 +39,6 @@ empty list is an unset library painted as no games. **No backfill.**
 ## Out of scope
 
 - 401 on `GET /my-games` still leaves the library unset (P95). It looks empty.
-  Not this packet.
+  Not this packet. Taken by [P98](./P98-session-expired.md).
 - The seat list labelling an agent seat "you" (P93-a).
 - MCP OAuth token-endpoint items.

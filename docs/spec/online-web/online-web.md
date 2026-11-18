@@ -35,7 +35,7 @@ Online mode is **off** unless all three are non-empty. CORS already allows
 | Term | Means |
 |---|---|
 | **GIS** | Google Identity Services in the page; yields an ID token |
-| **session token** | That ID token in `sessionStorage` under `conquarrow:google-id-token` |
+| **session token** | That ID token under `conquarrow:google-id-token` in the host session store. P95 keeps it in `localStorage`. Whether it counts as signed in is [P98](../session-expired/session-expired.md) |
 | **hash route** | `location.hash` path. Invite: `#/invite/<token>`. Game: `#/g/<groupHash>/<gameNumber>` |
 | **Local mode** | Today's lobby and match. No `fetch` to `VITE_API_BASE`, no WS |
 | **Online mode** | Sign-In required. Seat kinds are `human` or `heuristic` only (no BYOK). Create/accept/start/play hit the API |
