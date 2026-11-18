@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@conquarrow/geometry-fixtures": "workspace:*",
+    "@hochgi/test-kit": "^2.0.5",
+    "@hochgi/test-kit-mock": "^2.0.2",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",

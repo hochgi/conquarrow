@@ -105,8 +105,8 @@ No fake timers: nothing under test owns a timer.
 3. **[NO-PUT]** If an `ifMatch` put fails its body comparison or finds no
    object, then the real store shall throw `PreconditionFailed` without sending
    a `PutObject`.
-4. **[CORE-CLEAN]** The system shall name no `@hochgi/test-kit*` or
-   `@vnatures/test-kit*` package in any `dependencies`, `devDependencies` or
+4. **[CORE-CLEAN]** The system shall name no `@hochgi/test-kit*` package in
+   any `dependencies`, `devDependencies` or
    `peerDependencies` of `packages/contracts`, `packages/rules-core`, or any
    `packages/geometry-*` manifest (enumerated from the directory, so a new
    geometry package is covered).
@@ -116,7 +116,7 @@ No fake timers: nothing under test owns a timer.
 6. **[HOOK]** The pre-push hook shall run `pnpm verify` and no other command,
    and `scripts/check-local-hygiene.sh` shall not exist.
 7. **[LINT]** If a file under `packages/contracts`, `packages/rules-core` or
-   `packages/geometry-*` imports `@hochgi/test-kit*` or `@vnatures/test-kit*`,
+   `packages/geometry-*` imports `@hochgi/test-kit*`,
    then `pnpm lint` shall fail. *(ESLint `no-restricted-imports`; verified by
    the reviewer with a throwaway import, not by Vitest — typed lint needs a
    tsconfig a synthetic file is not in. The rule must keep the existing

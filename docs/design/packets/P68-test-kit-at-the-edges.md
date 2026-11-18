@@ -16,7 +16,7 @@ escalate, not a silent fix).
 
 ## Why this exists
 
-The private `@vnatures/test-kit` was open-sourced as `@hochgi/test-kit*` on
+The private test-kit was open-sourced as `@hochgi/test-kit*` on
 public npm (MIT, provenance). P24 kept it off every pushed branch because it
 was org-private: a never-pushed `local-main` overlay, a `local-hygiene`
 pre-push hook, and `scripts/check-local-hygiene.sh`. That reason is gone, so
@@ -152,8 +152,8 @@ pure package's manifest names test-kit.
 ## Done when
 
 - `pnpm verify` is green; the pre-push hook runs `verify` only.
-- `git grep` finds no live `local-main` / `local-hygiene` / `@vnatures/test-kit`
-  policy text outside shipped-packet history.
+- `git grep` finds no live `local-main` / `local-hygiene` policy text, and no
+  test-kit scope other than `@hochgi/test-kit*`, outside shipped-packet history.
 - The three devDependencies are in `packages/online-api/package.json` only,
   and the lockfile diff names only them.
 - Every scenario in `docs/spec/online-edge-probes/` has one test.

@@ -27,7 +27,7 @@ territory. ~~SPEC.md §9 / `packages/rules-core/src/victory.ts`~~ — **P29's
 out-of-scope.** P36 later revised both for per-seat losing, not for this FX.
 
 Tests against the **pure helper** (same posture as `fx/evaporation.ts` /
-`spawnerInfo.ts`). One Vitest per scenario. No `@vnatures/test-kit`, no React
+`spawnerInfo.ts`). One Vitest per scenario. No `@hochgi/test-kit`, no React
 Testing Library.
 
 ## Terms
