@@ -104,6 +104,14 @@ export const PLAYER_AND_AGENT: readonly PlannedSeatKind[] = ['human', 'agent'];
 export const storedToken = (h: HostHarness): string | null =>
   h.session.getItem(GOOGLE_ID_TOKEN_SESSION_KEY);
 
+/**
+ * Put a usable bearer back without `deliverGoogleCredential`. That path would
+ * send or drop a held submit; a library 401 must be able to meet the hold.
+ */
+export const restoreToken = (h: HostHarness, token: string): void => {
+  h.session.setItem(GOOGLE_ID_TOKEN_SESSION_KEY, token);
+};
+
 export const expiredNote = (h: HostHarness): string | undefined =>
   sessionExpiredNote(h.host.sessionExpired(), h.host.signedIn());
 
@@ -136,6 +144,24 @@ export const settlementOf = async (
   }
 };
 
+/**
+ * `GET /me` 200. P98 tokens are not ALICE/BOB/CAROL, so the harness default
+ * would answer 401 and the door would clear the token before the scenario.
+ */
+export const meOk = (): ScriptedFetch =>
+  scripted('GET', '/me', 200, { userHash: 'alice-user-hash' });
+
+const hasMeScript = (script: readonly ScriptedFetch[]): boolean =>
+  script.some((entry) => entry.method === 'GET' && entry.path === '/me');
+
+/**
+ * Two successful `/me` reads: one for boot (or hashchange) and one for a later
+ * credential. A script that already names `/me` — the boot-401 example — is
+ * left alone.
+ */
+const withMe = (script: readonly ScriptedFetch[]): readonly ScriptedFetch[] =>
+  hasMeScript(script) ? script : [meOk(), meOk(), ...script];
+
 export const frozenHost = (options: {
   readonly sessionToken?: string;
   readonly fetchScript?: readonly ScriptedFetch[];
@@ -146,7 +172,7 @@ export const frozenHost = (options: {
     now: options.now ?? frozenNow,
     ...(options.hash === undefined ? {} : { hash: options.hash }),
     ...(options.sessionToken === undefined ? {} : { sessionToken: options.sessionToken }),
-    ...(options.fetchScript === undefined ? {} : { fetchScript: options.fetchScript }),
+    fetchScript: withMe(options.fetchScript ?? []),
   });
 
 /** Online, creatable plan, valid name — the only reason not to POST is the token. */
@@ -347,8 +373,20 @@ export const leadRename = async (token: string): Promise<LeadResult> => {
 };
 
 export const leadLoadMore = async (token: string): Promise<LeadResult> => {
-  const h = authed(token, undefined, [oneGameLibrary(), emptyLibrary()]);
+  const expiry = tokenExpiryMs(token);
+  if (expiry === undefined) throw new Error('arrange: load-more token has no exp');
+  // Load the library outside the lead so that read does not set promptedFor.
+  let now = expiry - REAUTH_LEAD_MS - 1;
+  const h = frozenHost({
+    sessionToken: token,
+    fetchScript: [oneGameLibrary(), emptyLibrary()],
+    now: () => now,
+  });
   await h.host.refreshLibrary();
+  if (h.gis.promptCount !== 0) {
+    throw new Error('arrange: loading the library prompted before the lead window');
+  }
+  now = expiry - MINUTE_MS;
   const fired = await around(h, 'GET', '/my-games', 'loads more games', () =>
     h.host.adapter().loadMoreGames('your-turn'),
   );

@@ -436,6 +436,7 @@ describe('session-expired invariants', () => {
       fetchScript: [
         scripted('GET', '/my-games', 500, { error: 'internal' }),
         scripted('POST', '/invites', 401, { error: 'unauthorized' }),
+        emptyLibrary(),
       ],
     });
     armCreate(h);

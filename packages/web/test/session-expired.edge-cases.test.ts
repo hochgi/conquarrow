@@ -58,6 +58,7 @@ import {
   isEmptySuccess,
   minuteToken,
   noticeOf,
+  restoreToken,
   scripted,
   settlementOf,
   storedToken,
@@ -282,7 +283,7 @@ describe('The held create is one shot (D3)', () => {
 
   it('Signing out before the credential does not retry the create', async () => {
     // SCENARIOS.md §2 — sign-out drops the held create
-    const h = await createAnswered401();
+    const h = await createAnswered401([emptyLibrary()]);
     const posts = apiCalls(h, 'POST', '/invites').length;
 
     h.host.signOut();
@@ -619,6 +620,9 @@ describe('Any other authenticated 401 is the same door (D2)', () => {
     });
     await h.host.boot();
     await h.host.submitMoves([pass()]);
+    // The submit 401 cleared the bearer. Put it back without a credential,
+    // which would send or drop the hold, so this library 401 is actually sent.
+    restoreToken(h, hourToken());
 
     await h.host.refreshLibrary();
 
