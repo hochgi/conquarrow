@@ -39,6 +39,7 @@ import {
   DOOR_401,
   GAME_PATH,
   LEAD_ACTIONS,
+  MOVES_PATH,
   PLAYER_AND_AGENT,
   TWO_PLAYERS,
   armCreate,
@@ -121,6 +122,33 @@ describe('An unusable token is removed and is not session expired (D1)', () => {
       first: false,
       token: null,
       second: false,
+    });
+  });
+
+  it('A submit with an already expired token sends nothing', async () => {
+    const h = frozenHost({
+      sessionToken: hourToken(),
+      hash: gameHash(GROUP_HASH, GAME_ONE),
+      fetchScript: [getGameScript(openingBoard('expired-submit'))],
+    });
+    await h.host.boot();
+    if (h.host.board() === undefined) {
+      throw new Error('arrange: the board was not loaded, so submit would refuse early');
+    }
+    restoreToken(h, expiredToken());
+
+    const outcome = await h.host.submitMoves([pass()]);
+
+    expect({
+      outcome,
+      posts: apiCalls(h, 'POST', MOVES_PATH).length,
+      expired: h.host.sessionExpired(),
+      signedIn: h.host.signedIn(),
+    }).toEqual({
+      outcome: 'refused',
+      posts: 0,
+      expired: false,
+      signedIn: false,
     });
   });
 

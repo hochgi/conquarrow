@@ -11,6 +11,8 @@ import { snapshotScript } from './online-move-log-replay.support';
 import { GAME_PATH, MOVES_PATH } from './online-turn-flow.support';
 import {
   ALICE,
+  BOB,
+  CAROL,
   GAME_ONE,
   GROUP_HASH,
   apiCalls,
@@ -52,6 +54,19 @@ export const submitIdsOf = (h: FetchSpy): readonly unknown[] =>
 export const versionReads = (h: FetchSpy): number => apiCalls(h, 'GET', VERSION_PATH).length;
 export const snapshotReadsOf = (h: FetchSpy): number => apiCalls(h, 'GET', GAME_PATH).length;
 
+const KNOWN_BEARERS = new Set([ALICE.bearer, BOB.bearer, CAROL.bearer]);
+
+/** A custom JWT is not in the Alice/Bob/Carol map, so boot's `loadMe` would 401. */
+const needsScriptedMe = (token: string): boolean =>
+  !KNOWN_BEARERS.has(token) && token.split('.').length === 3;
+
+const meOk = (): ScriptedFetch => ({
+  method: 'GET',
+  path: '/me',
+  status: 200,
+  body: { userHash: ALICE.userHash },
+});
+
 /**
  * A's client in the open game at `baseline`, with `extra` deps (the clock, the
  * id source) injected the way the browser runtime would.
@@ -65,7 +80,11 @@ export const showingWith = async (
   const fakes = makePagesFakes({
     hash: gameHash(GROUP_HASH, GAME_ONE),
     sessionToken,
-    fetchScript: [snapshotScript(baseline), ...fetchScript],
+    fetchScript: [
+      ...(needsScriptedMe(sessionToken) ? [meOk()] : []),
+      snapshotScript(baseline),
+      ...fetchScript,
+    ],
   });
   const adapter = createOnlinePages({ ...fakes.deps, ...extra });
   await adapter.boot();

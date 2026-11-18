@@ -220,7 +220,12 @@ describe('online-reliability web edge cases', () => {
     });
 
     it('A token with no readable expiry is not refreshed', async () => {
-      const h = await showingWith(4, [snapshotScript(4), myGamesScript()], { now: () => NOW });
+      const h = await showingWith(
+        4,
+        [snapshotScript(4), myGamesScript()],
+        { now: () => NOW },
+        'not-a-jwt',
+      );
       const before = h.gis.promptCount;
 
       await h.adapter.becomeVisible();
