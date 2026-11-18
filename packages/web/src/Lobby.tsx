@@ -11,9 +11,11 @@ import { DELETE_GAME_CONFIRM, GAME_NAME_MAX } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { testByokConnection } from './byokBot';
 import { DEFAULT_BYOK, isByokReady } from './byokConfig';
+import { onlinePlanCreatable } from './online-pages';
 import {
   CREATING_INVITE_COPY,
   GAME_DELETED_COPY,
+  LIBRARY_FAILED_COPY,
   formatLibraryRow,
   librarySections,
   libraryRowTitle,
@@ -21,7 +23,10 @@ import {
   libraryWinnerLine,
   type LibrarySectionView,
   chooserSlotOffered,
+  createPlanNote,
   formatLibraryStartedAt,
+  kindsForHost,
+  libraryNotice,
   libraryOffered,
   libraryRowTint,
   MY_GAMES_COPY,
@@ -29,6 +34,7 @@ import {
   lobbyKindOptions,
   rosterOccupancy,
   rosterOccupancyLabel,
+  sessionExpiredNote,
 } from './online-shell-ui';
 import {
   PLAYTEST_PLAYER_COUNTS,
@@ -78,6 +84,14 @@ export interface LobbyOnline {
   readonly seatEditsOffered: boolean;
   readonly inviteSeats: readonly InviteSeat[] | undefined;
   readonly userHash: string | undefined;
+  /** P98. An authenticated 401 cleared the token. */
+  readonly sessionExpired: boolean;
+  /** P98. The sentence after a create that settled and did not succeed and was not a 401. */
+  readonly createInviteNote: string | undefined;
+  /** P98. The last library read failed and was not a 401. */
+  readonly libraryFailed: boolean;
+  /** P98. Calls `refreshLibrary`. */
+  readonly onRetryLibrary: () => void;
 }
 
 export interface LobbyResume {
@@ -461,12 +475,8 @@ export const Lobby = ({
           <p className="lobby-byok-warn">Complete every BYOK seat before Start.</p>
         ) : null}
 
-        {onlineMode &&
-        online.signedIn &&
-        !online.createOffered &&
-        online.seatEditsOffered &&
-        !online.createInvitePending ? (
-          <p className="lobby-byok-note">Create needs two Player seats.</p>
+        {onlineMode && online !== undefined ? (
+          <SeatPlanNote plan={plan} online={online} />
         ) : null}
 
         {onlineMode && !online.startOffered ? (
@@ -729,9 +739,7 @@ const LibrarySectionList = ({
       </button>
       {open ? (
         <>
-          {section.rows.length === 0 && !section.more ? (
-            <p className="lobby-byok-note">{NO_GAMES_COPY}</p>
-          ) : (
+          {section.rows.length === 0 && !section.more ? null : (
             <ul className="lobby-games">
               {section.rows.map((row) => (
                 <LibraryGameRow key={`${row.groupHash}/${row.gameNumber}`} row={row} actions={actions} />
@@ -755,18 +763,33 @@ const LibrarySectionList = ({
   );
 };
 
-const MyGamesDisclosure = ({
-  library,
-  hiddenGames,
-  actions,
+const LibraryNoticeBody = ({
+  online,
 }: {
-  readonly library: MyGamesBody | undefined;
-  readonly hiddenGames: readonly StartedGameRow[];
-  readonly actions: LibraryActions;
-}): ReactElement => {
+  readonly online: LobbyOnline;
+}): ReactElement | null => {
+  const notice = libraryNotice(online.signedIn, online.library, online.libraryFailed);
+  if (notice === 'failed') {
+    return (
+      <button type="button" className="lobby-byok-test" onClick={online.onRetryLibrary}>
+        {LIBRARY_FAILED_COPY}
+      </button>
+    );
+  }
+  if (notice === 'empty') return <p className="lobby-byok-note">{NO_GAMES_COPY}</p>;
+  if (notice !== 'list' || online.library === undefined) return null;
+  const sections = librarySections(online.library, online.hiddenGames);
+  return (
+    <div className="lobby-library">
+      {sections.map((section) => (
+        <LibrarySectionList key={section.list} section={section} actions={online} />
+      ))}
+    </div>
+  );
+};
+
+const MyGamesDisclosure = ({ online }: { readonly online: LobbyOnline }): ReactElement => {
   const [open, setOpen] = useState(false);
-  const sections = library === undefined ? [] : librarySections(library, hiddenGames);
-  const empty = sections.every((section) => section.count === 0);
   return (
     <>
       <button
@@ -778,19 +801,23 @@ const MyGamesDisclosure = ({
       >
         {MY_GAMES_COPY}
       </button>
-      {open ? (
-        empty ? (
-          <p className="lobby-byok-note">{NO_GAMES_COPY}</p>
-        ) : (
-          <div className="lobby-library">
-            {sections.map((section) => (
-              <LibrarySectionList key={section.list} section={section} actions={actions} />
-            ))}
-          </div>
-        )
-      ) : null}
+      {open ? <LibraryNoticeBody online={online} /> : null}
     </>
   );
+};
+
+/** Shown only when the online plan is not creatable. An invalid name keeps its own warning. */
+const SeatPlanNote = ({
+  plan,
+  online,
+}: {
+  readonly plan: SeatPlan;
+  readonly online: LobbyOnline;
+}): ReactElement | null => {
+  if (!online.signedIn || !online.seatEditsOffered || online.createInvitePending) return null;
+  const note = createPlanNote(onlinePlanCreatable(kindsForHost(plan, true)));
+  if (note === undefined) return null;
+  return <p className="lobby-byok-note">{note}</p>;
 };
 
 /** P96 D6: the optional name of the next invite, checked as it is typed. */
@@ -812,6 +839,26 @@ const InviteNameField = ({ online }: { readonly online: LobbyOnline }): ReactEle
     )}
   </label>
 );
+
+/** Session-expired note and the create note. Absent unless the host exposes them. */
+const SessionNotes = ({ online }: { readonly online: LobbyOnline }): ReactElement | null => {
+  const expired = sessionExpiredNote(online.sessionExpired, online.signedIn);
+  if (expired === undefined && online.createInviteNote === undefined) return null;
+  return (
+    <>
+      {expired === undefined ? null : (
+        <p className="lobby-byok-warn" role="status">
+          {expired}
+        </p>
+      )}
+      {online.createInviteNote === undefined ? null : (
+        <p className="lobby-byok-warn" role="status">
+          {online.createInviteNote}
+        </p>
+      )}
+    </>
+  );
+};
 
 /** Online row. The chooser slot exists only while signed out, never beside Sign out. */
 const OnlineActionRow = ({ online }: { readonly online: LobbyOnline }): ReactElement => (
@@ -880,6 +927,7 @@ const OnlineChrome = ({
     {online.mode === 'online' ? (
       <>
         <OnlineActionRow online={online} />
+        <SessionNotes online={online} />
         {online.signedIn && online.seatEditsOffered ? <InviteNameField online={online} /> : null}
         {online.createInvitePending ? (
           <p className="lobby-create-pending" role="status">
@@ -913,9 +961,7 @@ const OnlineChrome = ({
         {online.inviteGone ? <p className="lobby-byok-warn">{goneCopy(online.goneReason)}</p> : null}
         {online.lobbyFull ? <p className="lobby-byok-warn">That lobby is full.</p> : null}
         {online.gameDeleted ? <p className="lobby-byok-warn">{GAME_DELETED_COPY}</p> : null}
-        {libraryOffered(online.mode, online.signedIn) ? (
-          <MyGamesDisclosure library={online.library} hiddenGames={online.hiddenGames} actions={online} />
-        ) : null}
+        {libraryOffered(online.mode, online.signedIn) ? <MyGamesDisclosure online={online} /> : null}
       </>
     ) : null}
   </div>
