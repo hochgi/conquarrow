@@ -34,6 +34,16 @@ Feature: A dead session cannot look like success
       And the token is gone
       And a second ask still reports signed out
 
+    Scenario: A submit with an already expired token sends nothing
+      Given player A is on a game route with a board
+      And player A's stored token expired one hour ago
+      And A has a legal endTurn to submit
+      When A submits that move
+      Then the submit outcome is refused
+      And no POST /moves was sent
+      And session expired is clear
+      And the host reports signed out
+
     Scenario: A create with an already expired token sends nothing
       Given player A's stored token expired one hour ago
       And the seat plan is two Players and the invite name is valid

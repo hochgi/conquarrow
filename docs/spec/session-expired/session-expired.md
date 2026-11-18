@@ -180,9 +180,11 @@ at the start of every user-initiated authenticated call, before the request:
 When the stored token is usable and `exp - now <= REAUTH_LEAD_MS` and
 `promptedFor` is not that token, it sets `promptedFor` and calls `gis.prompt()`
 once. It does not wait for a credential. The request still sends the current
-bearer. A token that is already unusable is not prompted here (D1 removes it
-and the request is not sent). `promptedFor` still suppresses a second
-proactive prompt for the same token. It does not suppress D2.
+bearer. A token that is already unusable is not prompted here. D1 removes it
+and the request is not sent. `submitMoves` returns `refused`, the outcome it
+already uses when it sends nothing. It does not set session expired.
+`promptedFor` still suppresses a second proactive prompt for the same token.
+It does not suppress D2.
 
 ### D7 — the seat-plan sentence matches the rule
 
@@ -331,4 +333,4 @@ edit is not already on the branch.
 ## Counts
 
 13 invariants · 2 feature files · 6 sequence diagrams · 5 core scenarios ·
-30 edge scenarios (4 outlines). No server change. No backfill.
+31 edge scenarios (4 outlines). No server change. No backfill.
