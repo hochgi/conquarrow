@@ -217,33 +217,31 @@ suite (`stryker.online-api.config.json`). Advisory
 
 ## The spec→ship workflow
 
-Take one work packet all the way to a merged PR through **four phases**. Do not
-stop for a human thumbs-up between them. In Claude Code / Cursor / OpenCode:
-`/spec-to-ship <path-to-packet>`.
+Take one work packet all the way to a merged PR through **five phases**. Do not
+stop for a human thumbs-up between them. The live pipeline is the OpenCode
+command [`.opencode/command/spec-to-ship.md`](.opencode/command/spec-to-ship.md).
+Model is `xai/grok-4.7`; variant is a second field (`OPENCODE.md`). Never a
+`#` suffix. SuperGrok via `/connect`. Do not put an `XAI_API_KEY` in the repo.
 
-OpenCode pins every phase to `xai/grok-4.7` and bills the **SuperGrok**
-subscription via `/connect` → xAI → SuperGrok Subscription. See `OPENCODE.md`.
-Do not put an `XAI_API_KEY` in the repo.
+1. **spec-author** (main thread, `xhigh`) drives `write-spec`. A protocol
+   delivery (HTTP, WebSocket, MCP, OAuth, or any request/response between
+   processes) also gets `docs/spec/<feature>/SCENARIOS.md` — one
+   `sequenceDiagram` per flow, participants the doors and leaf seams. An
+   `alt`, `opt`, or `par` is another path. Escape `;` as `#59;`.
+2. **test-author** (`high`) drives `write-failing-tests`. Each diagram path,
+   including every `alt`, is a `@hochgi/test-kit` component test at the
+   Goldilocks seam. A scripted fetch is not that test.
+3. **coder** (`high`) drives `code-to-green`. The component keeps the rule.
+4. **verifier** (read-only, `low`) re-runs `pnpm verify` and the mutation
+   command the patch's files require. It does not judge survivors.
+5. **reviewer** (read-only, `xhigh`) drives `review-changes`. Then the
+   orchestrator opens the PR and squash-merges to `hochgi/conquarrow` once CI
+   is green. The same PR updates [`docs/design/backlog.md`](docs/design/backlog.md).
 
-1. **spec-author** drives `write-spec` → Gherkin `.feature` + mermaid (escape `;`
-   as `#59;`) + EARS invariants. A messaging protocol also gets
-   `docs/spec/<feature>/SCENARIOS.md` (one sequence diagram per flow). Escalate
-   only for a SPEC.md game-rule gap, a substantial unexpected cost, or a big
-   behavioral shift; otherwise decide BSSN and write it into the spec / ADR.
-2. **test-author** drives `write-failing-tests` → one failing test per scenario
-   plus compiling skeletons, red for the right reason. Each `SCENARIOS.md` path
-   is a `@hochgi/test-kit` component test at the Goldilocks seam. Leaf
-   interfaces only.
-3. **coder** drives `code-to-green` → red → green → refactor within budget,
-   incremental Stryker, CRAP glance on touched files.
-4. **reviewer** drives `review-changes` → spec ↔ tests ↔ code coherence,
-   boundaries, purity. Then **open the PR** and squash-merge to `hochgi/conquarrow` once CI
-   is green — the reviewer phase is the review gate.
-   The same PR updates [`docs/design/backlog.md`](docs/design/backlog.md):
-   it deletes the shipped item and adds what the run turned up.
-
-Do not collapse phases. Do not invent a game rule. Online/infra BSSN is in-bounds
-when documented. Never push `shalevhoch`.
+Re-run the gate after every phase. A subagent's "green" is a hypothesis.
+Halt only for a SPEC.md game-rule gap, a substantial unexpected cost, or a big
+behavioural shift. Online/infra BSSN: decide, write it down, continue.
+Do not collapse phases. Do not invent a game rule. Never push `shalevhoch`.
 
 **How this differs from cycle-processing:** there, phase 1's input was a
 high-level spec living outside the repo. Here **SPEC.md is already that document**

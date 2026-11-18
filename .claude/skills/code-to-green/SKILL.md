@@ -17,9 +17,11 @@ right reason. Your job is to make them pass without changing what they mean.
    rule or splitting a function arbitrarily to duck a line count.
 3. **Replay.** Re-run the replay fixtures. Green unit tests plus a drifted
    replay means you introduced nondeterminism.
-4. **Stryker.** `pnpm test:mutation:incremental` on files you touched that sit
-   in `mutate[]`. Triage per `mutation-testing`. No new survivors.
-5. **CRAP glance.** `pnpm crap` is advisory. If you grew a function you
+4. **Stryker, early only.** You may run `pnpm test:mutation:incremental` on
+   files you touched in `mutate[]`. Do not suppress a survivor and do not call
+   it equivalent. Hand the list to the orchestrator. test-author kills it. The
+   verifier re-runs and is the gate.
+5. **CRAP glance.** `pnpm crap` is advisory, not a gate. If you grew a function you
    touched past the complexity budget, extract. Do not churn the rest of the
    file to silence a warning you did not cause.
 6. Repeat until green, clean, and stable.
@@ -34,7 +36,7 @@ phase-1 kickback, not a convenience.
 
 ## What you may not do
 
-- **Change the spec.** Phases 1 and 4 own `SPEC.md`. If the implementation wants
+- **Change the spec.** Phase 1 owns `SPEC.md`. If the implementation wants
   the spec different, that is a phase-1 kickback.
 - **Weaken a test.** Not by loosening an assertion, not by widening a tolerance,
   not by deleting a case that "was testing the old design."
@@ -92,10 +94,9 @@ between turns — see `speed` in `packages/contracts/src/move.ts`.
 
 ## Gate
 
-You do not stop mid-loop and you do **not** open the PR. Hand to the reviewer
-reporting green state, lint/typecheck status, Stryker triage (new survivors
-killed vs ignored), and — importantly — every question you had to kick back
-rather than answer.
+You do not stop mid-loop and you do **not** open the PR. Hand to the verifier
+reporting green state, the `pnpm verify` output you actually produced, any
+survivors you saw and did not classify, and every question you kicked back.
 
 At an online I/O edge the red suite may drive `@hochgi/test-kit*` probes; read
 `component-testing` before making one green — failure injection goes through

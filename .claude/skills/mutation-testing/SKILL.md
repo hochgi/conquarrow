@@ -2,8 +2,9 @@
 name: mutation-testing
 description: >-
   Workflow for mutation-testing rules-core and online-api with Stryker's
-  vitest-runner and triaging survivors. Baseline → implement → compare → triage.
-  Use in code-to-green and review-changes, or when a test gap is suspected.
+  vitest-runner. The verifier lists new survivors and does not classify them.
+  test-author kills or suppresses. The reviewer judges every suppression.
+  Use from verify-changes, or when a test gap is suspected.
 ---
 
 # Mutation testing workflow
@@ -15,8 +16,10 @@ For any non-trivial change that touches behaviour we care about (anything in
 Skip for typo fixes, doc-only changes, mechanical refactors with no behaviour
 delta.
 
-This skill is one step inside `code-to-green` / `review-changes`. Committed
-tests are plain Vitest. Do not add test-kit to kill a rules-core mutant —
+The verifier runs the command and lists new survivors. It does not classify
+them. test-author kills each with a test, or suppresses it with the invariant.
+The reviewer judges every suppression. A coder's "equivalent" is not a verdict.
+Do not add web to Stryker. Do not add test-kit to kill a rules-core mutant —
 rules-core may never use it (see `component-testing`).
 
 ## Running Stryker
