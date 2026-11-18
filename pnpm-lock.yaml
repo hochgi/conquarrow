@@ -155,6 +155,12 @@ importers:
       '@conquarrow/geometry-fixtures':
         specifier: workspace:*
         version: link:../geometry-fixtures
+      '@hochgi/test-kit':
+        specifier: ^2.0.5
+        version: 2.0.5
+      '@hochgi/test-kit-mock':
+        specifier: ^2.0.2
+        version: 2.0.2(@hochgi/test-kit@2.0.5)
       '@types/react':
         specifier: ^19.1.2
         version: 19.2.18

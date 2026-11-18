@@ -186,7 +186,7 @@ const OUTSIDE_P = ['conquarrow/p', 'conquarrow/pp/1', 'conquarrow/o/1', 'conquar
 
 // ── 4–6: manifests and hooks ───────────────────────────────────────────────
 
-const TEST_KIT = /^@(hochgi|vnatures)\/test-kit/;
+const TEST_KIT = /^@hochgi\/test-kit/;
 
 type Manifest = {
   readonly dependencies?: Readonly<Record<string, string>>;

@@ -47,7 +47,7 @@ const pureSources = [
  * guards the manifests; this guards the imports.
  */
 const testKitBan = {
-  group: ['@hochgi/test-kit', '@hochgi/test-kit-*', '@vnatures/test-kit', '@vnatures/test-kit-*'],
+  group: ['@hochgi/test-kit', '@hochgi/test-kit-*'],
   message:
     'test-kit is an I/O-edge tool (P68); the core is pure (ADR 0001) and has no I/O to probe.',
 };

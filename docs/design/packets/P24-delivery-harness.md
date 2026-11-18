@@ -17,7 +17,7 @@ where it pays, without publishing org-private test-kit.
 - Complexity ESLint **warn** on core/geometry (≤12 / depth 4 / 80 lines / 5 params).
   Eventual gate is raw complexity, not CRAP — coverage can hide a god function.
 - `pnpm verify` CI on push/PR; pre-push runs verify + local-hygiene.
-- Never-pushed `local-main` may carry `@vnatures/test-kit` and `*.kit.test.ts`.
+- Never-pushed `local-main` may carry a private test-kit overlay and `*.kit.test.ts`.
   Committed spec-to-ship tests stay plain Vitest against ports.
 
 > **Superseded by P68:** test-kit is public (`@hochgi/test-kit*`), so the

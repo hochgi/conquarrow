@@ -5,6 +5,12 @@ Participants are the seams a test probes: **App** (the shell), **Host**
 session store), **GIS** (`OnlinePagesGis`), **API** (the injected `fetch`).
 [Overview](./session-expired.md).
 
+Each diagram below, including every `alt`, is a `@hochgi/test-kit` component
+test in `packages/web/test/session-expired.scenarios.test.ts`. The component is
+the host. The probed leaf is the HTTP door (`PagesApi.send`). GIS `prompt` is
+synchronous, so the kit cannot probe it; the test counts that fake. Session is
+the injected store.
+
 ## 1. An expired token is signed out, with no request
 
 ```mermaid

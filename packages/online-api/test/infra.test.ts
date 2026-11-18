@@ -57,7 +57,6 @@ describe('online-infra — edge cases', () => {
   it('template and workflow do not name employer accounts', () => {
     const blob = `${template}\n${workflow}`.toLowerCase();
     expect(blob).not.toContain('versatile');
-    expect(blob).not.toContain('vnatures');
     expect(workflow).not.toContain('AKIA');
   });
 

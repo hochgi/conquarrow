@@ -1,5 +1,6 @@
 /**
- * Host harness for P98. Scripted fetch at `createOnlineHost` — not test-kit.
+ * Host harness for the P98 Gherkin suite. Scripted fetch at `createOnlineHost`.
+ * Diagram paths are the probed component tests in `session-expired.scenarios.test.ts`.
  * The clock is the injected `now`. GIS prompt counts are `gis.prompt`, never
  * `offerChooser`.
  *
