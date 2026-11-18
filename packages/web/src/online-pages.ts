@@ -153,7 +153,8 @@ const humanCount = (plan: readonly PlannedSeatKind[]): number =>
 const agentCount = (plan: readonly PlannedSeatKind[]): number =>
   plan.filter((kind) => kind === 'agent').length;
 
-const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean => {
+/** Two Players, or a Player and an Agent. The lobby sentence uses this; do not copy it. */
+export const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean => {
   const humans = humanCount(plan);
   return humans >= 2 || (humans >= 1 && agentCount(plan) >= 1);
 };
@@ -934,5 +935,9 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     inviteToken: () => state.inviteToken,
     myGames: () => state.library,
     userHash: () => state.userHash,
+    // P98 readers. Constants until the expiry door lands — not the behaviour.
+    sessionExpired: () => false,
+    createInviteNote: () => undefined,
+    libraryFailed: () => false,
   };
 };

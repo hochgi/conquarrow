@@ -233,4 +233,13 @@ export interface OnlinePagesPort {
   myGames(): MyGamesBody | undefined;
   /** `/me` hash after boot, when known (P26 Accept / roster). */
   userHash(): UserHash | undefined;
+  /** P98. True after an authenticated 401, until a usable credential or sign-out. */
+  sessionExpired(): boolean;
+  /**
+   * P98. The sentence after a create that settled and did not succeed and was
+   * not a 401. Absent otherwise.
+   */
+  createInviteNote(): string | undefined;
+  /** P98. True when the last library read failed and was not a 401. */
+  libraryFailed(): boolean;
 }

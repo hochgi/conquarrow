@@ -17,10 +17,13 @@ import {
   gameHash,
   makePagesFakes,
   parseJson,
+  tokenExpiringAt,
   type FetchSpy,
   type PagesHarness,
   type ScriptedFetch,
 } from './online-web.support';
+
+export { tokenExpiringAt };
 
 export const VERSION_PATH = `/games/${GROUP_HASH}/${GAME_ONE}/version`;
 
@@ -48,13 +51,6 @@ export const submitIdsOf = (h: FetchSpy): readonly unknown[] =>
 
 export const versionReads = (h: FetchSpy): number => apiCalls(h, 'GET', VERSION_PATH).length;
 export const snapshotReadsOf = (h: FetchSpy): number => apiCalls(h, 'GET', GAME_PATH).length;
-
-/** An unsigned JWT whose payload carries `exp` (seconds), as Google's has. */
-export const tokenExpiringAt = (expMs: number): string => {
-  const part = (value: unknown): string =>
-    Buffer.from(JSON.stringify(value)).toString('base64url');
-  return `${part({ alg: 'RS256' })}.${part({ exp: Math.floor(expMs / 1000) })}.sig`;
-};
 
 /**
  * A's client in the open game at `baseline`, with `extra` deps (the clock, the

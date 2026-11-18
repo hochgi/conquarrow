@@ -90,10 +90,21 @@ export interface OnlineHostPort {
   seatEditsOffered(): boolean;
   createOffered(): boolean;
   /**
-   * True while the host's session store holds an ID token. The shell reads
-   * sign-in only here, never from browser storage itself (P95 D12).
+   * True only while the host's session store holds a usable ID token: `exp`,
+   * read without verification, is a finite number of epoch milliseconds
+   * strictly after now. An unusable token is removed. The shell reads
+   * sign-in only here, never from browser storage itself (P95 D12, P98 D1).
    */
   signedIn(): boolean;
+  /** P98. True after an authenticated 401, until a usable credential or sign-out. */
+  sessionExpired(): boolean;
+  /**
+   * P98. The sentence after a create that settled and did not succeed and was
+   * not a 401. Absent otherwise.
+   */
+  createInviteNote(): string | undefined;
+  /** P98. True when the last library read failed and was not a 401. */
+  libraryFailed(): boolean;
   /** True while `POST /invites` has not settled (P27). */
   createInvitePending(): boolean;
   /** Current Local | Online selection. Invite/game hash selects Online on boot. */

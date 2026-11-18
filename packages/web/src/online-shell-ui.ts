@@ -92,6 +92,54 @@ export const lobbyLibraryDue = (
 /** P97 D13: the Google chooser slot is offered only while signed out. */
 export const chooserSlotOffered = (signedIn: boolean): boolean => !signedIn;
 
+/** P98. Shown when an authenticated 401 cleared the token. */
+export const SESSION_EXPIRED_COPY = 'Your sign-in expired — sign in again';
+
+/** P98. A 422 on `POST /invites`, before an optional `: reason`. */
+export const CREATE_REFUSED_COPY = 'The server refused this seat plan';
+
+/** P98. Any other non-success create, including a thrown fetch. */
+export const CREATE_FAILED_COPY = "Couldn't create the invite — try again";
+
+/** P98. A library read that was not 200 and not 401. */
+export const LIBRARY_FAILED_COPY = "Couldn't load your games — Retry";
+
+/** P98. The seat-plan sentence. Shown only when the plan is not creatable. */
+export const CREATE_PLAN_NOTE = 'Create needs two Players, or a Player and an Agent.';
+
+/** `SESSION_EXPIRED_COPY` when the session expired and the player is signed out. */
+export const sessionExpiredNote = (
+  sessionExpired: boolean,
+  signedIn: boolean,
+): string | undefined => (sessionExpired && !signedIn ? SESSION_EXPIRED_COPY : undefined);
+
+/** Refused sentence, plus `: ` and `reason` when that is a non-empty string. */
+export const createRefusedNote = (reason: string | undefined): string =>
+  reason !== undefined && reason !== '' ? `${CREATE_REFUSED_COPY}: ${reason}` : CREATE_REFUSED_COPY;
+
+/** Absent when the plan is creatable. */
+export const createPlanNote = (creatable: boolean): string | undefined =>
+  creatable ? undefined : CREATE_PLAN_NOTE;
+
+/** What My games should paint. `NO_GAMES_COPY` only for `empty`; `LIBRARY_FAILED_COPY` only for `failed`. */
+export type LibraryNotice = 'hidden' | 'failed' | 'unset' | 'empty' | 'list';
+
+const libraryCountsEmpty = (library: MyGamesBody): boolean =>
+  (['your-turn', 'waiting', 'finished', 'hidden'] as const).every(
+    (list) => library.counts[list] === 0,
+  );
+
+export const libraryNotice = (
+  signedIn: boolean,
+  library: MyGamesBody | undefined,
+  libraryFailed: boolean,
+): LibraryNotice => {
+  if (!signedIn) return 'hidden';
+  if (libraryFailed) return 'failed';
+  if (library === undefined) return 'unset';
+  return libraryCountsEmpty(library) ? 'empty' : 'list';
+};
+
 export const kindsForHost = (
   plan: SeatPlan,
   online: boolean,

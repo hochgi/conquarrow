@@ -28,6 +28,8 @@ export const makeHostHarness = (overrides?: {
   readonly hash?: string;
   readonly sessionToken?: string;
   readonly fetchScript?: readonly ScriptedFetch[];
+  /** Epoch ms, threaded onto `OnlinePagesDeps.now`. GIS prompt counts live on `gis`. */
+  readonly now?: () => number;
 }): HostHarness => {
   const fakes = makePagesFakes(overrides);
   return { ...fakes, host: createOnlineHost(fakes.deps) };
