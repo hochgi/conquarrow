@@ -734,10 +734,8 @@ describe('The lead window prompts once and does not block the fallback (D6)', ()
 
 describe('Sign-out and the seat sentence (D7)', () => {
   it('Signing out clears the expiry flags', async () => {
-    // D4 leaves the create note absent once the 401 create that arms the hold
-    // starts, so "note showing" and "create held" are not both reachable from
-    // the spec's transitions. This test demands the flags those transitions do
-    // set, then sign-out clears them and does not retry. Reported, not invented.
+    // Amended Given: a library read failed, then a create 401 is held, and the
+    // create note is absent. A 401 arms the hold and leaves the note absent.
     const h = frozenHost({
       sessionToken: hourToken(),
       fetchScript: [
@@ -785,6 +783,32 @@ describe('Sign-out and the seat sentence (D7)', () => {
         library: undefined,
       },
       posts,
+    });
+  });
+
+  it('Signing out clears a create note', async () => {
+    const h = frozenHost({
+      sessionToken: hourToken(),
+      fetchScript: [scripted('POST', '/invites', 500, { error: 'internal' })],
+    });
+    armCreate(h);
+    await h.host.createInvite();
+    const noteBefore = h.host.createInviteNote();
+
+    h.host.signOut();
+
+    expect({
+      sent: apiCalls(h, 'POST', '/invites').length,
+      noteBefore,
+      note: h.host.createInviteNote(),
+      signedIn: h.host.signedIn(),
+      expired: h.host.sessionExpired(),
+    }).toEqual({
+      sent: 1,
+      noteBefore: CREATE_FAILED_COPY,
+      note: undefined,
+      signedIn: false,
+      expired: false,
     });
   });
 
