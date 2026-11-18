@@ -281,7 +281,9 @@ Feature: A dead session cannot look like success
   Rule: Sign-out and the seat sentence (D7)
 
     Scenario: Signing out clears the expiry flags
-      Given session expired is set and a create note is showing and the library is failed and a create is held
+      Given a library read for A failed
+      And a later create for A was answered 401 and is held
+      And the create note is absent
       When A signs out
       Then the host reports signed out
       And session expired is clear
@@ -289,6 +291,15 @@ Feature: A dead session cannot look like success
       And the library is not failed
       And the library is cleared
       And a later credential on the lobby does not post /invites for that held create
+
+    Scenario: Signing out clears a create note
+      Given player A is signed in with a token an hour from expiry
+      And the seat plan is two Players and the invite name is valid
+      And a create was answered 500
+      When A signs out
+      Then the create note is absent
+      And the host reports signed out
+      And session expired is clear
 
     Scenario Outline: The seat-plan note follows the creatable rule
       Given player A is signed in

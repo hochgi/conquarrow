@@ -147,6 +147,10 @@ below. The adapter does not retype them.
 A create note is cleared when the next create attempt starts, when a 200 or
 201 sets the link, and on sign-out.
 
+A create note and a held create are not both set. A 401 arms the hold and
+leaves the note absent. A 422, any other non-success, or a throw sets the note
+and does not arm the hold. Sign-out clears whichever of the two is set.
+
 ### D5 — empty is only a 200
 
 `libraryFailed()` is a pages reader, delegated on the host.
@@ -327,4 +331,4 @@ edit is not already on the branch.
 ## Counts
 
 13 invariants · 2 feature files · 6 sequence diagrams · 5 core scenarios ·
-29 edge scenarios (4 outlines). No server change. No backfill.
+30 edge scenarios (4 outlines). No server change. No backfill.
