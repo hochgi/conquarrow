@@ -475,9 +475,7 @@ export const Lobby = ({
           <p className="lobby-byok-warn">Complete every BYOK seat before Start.</p>
         ) : null}
 
-        {onlineMode && online !== undefined ? (
-          <SeatPlanNote plan={plan} online={online} />
-        ) : null}
+        {onlineMode ? <SeatPlanNote plan={plan} online={online} /> : null}
 
         {onlineMode && !online.startOffered ? (
           <p className="lobby-byok-note">
