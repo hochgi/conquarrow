@@ -760,6 +760,8 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
 
   const submitMoves = async (moves: readonly Move[]): Promise<SubmitOutcome> => {
     refreshTokenIfStale();
+    // D6: an already-unusable token is removed and the request is not sent.
+    if (token() === undefined) return 'refused';
     const route = parsePagesHash(location.hash);
     const board = state.board;
     if (route.kind !== 'game' || board === undefined || submitBlocked(moves)) return 'refused';
