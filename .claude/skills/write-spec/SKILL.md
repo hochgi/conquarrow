@@ -20,14 +20,15 @@ Under `docs/spec/<feature-name>/` (kebab-case, shared prefix):
 2. `<feature-name>.core.feature` — happy-path Gherkin.
 3. `<feature-name>.edge-cases.feature` — boundaries, interactions, recovery.
    **This is where most of the value is here.**
-4. `SCENARIOS.md` — **required when the packet introduces a messaging
-   protocol** (HTTP, WebSocket, MCP, OAuth, or any request/response between
-   processes). One mermaid `sequenceDiagram` per protocol flow. An `alt` is
-   another outcome of that same exchange. Participants are doors and the leaf
-   seams a test will probe, not internal functions. Gherkin stays the
-   assertable contract. A path with no diagram will not be built. Escape every
-   literal `;` as `#59;`. Link it from the overview. A pure rules packet does
-   not get one.
+4. `SCENARIOS.md` — required when the packet is a communication protocol
+   (HTTP, WebSocket, MCP, OAuth, or any request/response between processes).
+   One mermaid `sequenceDiagram` per flow. Participants are the doors and the
+   leaf seams a test will probe, not internal functions. Escape every literal
+   `;` as `#59;`. An `alt`, `opt`, or `par` is another path of that exchange.
+   Link it from the overview. A pure rules packet does not get the file.
+   Gherkin does not replace it: a scenario with no diagram path will not be
+   probed, and a diagram path with no scenario is still a path the test-author
+   must cover. The example is `docs/spec/session-expired/SCENARIOS.md`.
 
 ## Non-negotiable rules
 
@@ -91,6 +92,7 @@ These become `write-failing-tests`' property tests — see `rules-invariants`.
 
 ## After writing
 
-Write the three files. Record scenario count, invariant count, and any §11 / ADR
+Write the files. A protocol packet includes `SCENARIOS.md`; a pure rules packet
+does not. Record scenario count, diagram-path count, invariant count, and any §11 / ADR
 BSSN in the spec itself. Do not wait for approval — the orchestrator starts
 tests.

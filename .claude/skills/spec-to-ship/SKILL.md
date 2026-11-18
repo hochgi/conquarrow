@@ -1,10 +1,11 @@
 ---
 name: spec-to-ship
 description: >-
-  Orchestrator overview of the 4-phase delivery pipeline for conquarrow:
-  spec-author → test-author → coder → reviewer → PR → merge. No human
-  gate between phases. Escalate only for unexpected cost, a big
-  behavioral shift, or a SPEC.md game-rule gap.
+  Orchestrator overview of the 5-phase delivery pipeline for conquarrow:
+  spec-author → test-author → coder → verifier → reviewer → PR. No human
+  gate between phases. A protocol delivery's diagram paths are probed
+  component tests. Escalate only for unexpected cost, a big behavioral
+  shift, or a SPEC.md game-rule gap.
 ---
 
 # Spec-to-Ship (multi-agent pipeline)
@@ -14,12 +15,10 @@ because plausible-looking-but-wrong code is the dominant failure mode in
 agent-driven development. The loop kills it by forcing the design conversation
 before tests, tests before code, and a coherence check after.
 
-There is **no human gate** between phases, except that phase 3 is handed to
-OpenCode/grok (below) and the human relays its report. The human is reached
-only for a
-**substantial unexpected cost**, a **big behavioral shift** versus SPEC.md / ADR
-0002 / a shipped packet, or a **SPEC.md game-rule gap**. Online/infra BSSN:
-decide, write it down, continue.
+There is **no human gate** between phases. The orchestrator runs them. The
+human is reached only for a **substantial unexpected cost**, a **big behavioral
+shift** versus SPEC.md / ADR 0002 / a shipped packet, or a **SPEC.md game-rule
+gap**. Online/infra BSSN: decide, write it down, continue.
 
 ## The particular failure mode this repo has
 
@@ -38,33 +37,40 @@ So the **phases** are not ceremony. A wrong *game* rule is still expensive if it
 lands in tests. **Do not invent a game rule.** If SPEC.md §11 is silent, escalate.
 Online packets live in ADR 0002; reason those yourself.
 
-## The four phases
+## The five phases
 
 ```
-  PHASE 1 — SPEC             spec-author (main thread)
+  PHASE 1 — SPEC             spec-author (main thread, variant xhigh)
     packet → Gherkin .feature + mermaid + EARS
-    messaging protocol also → SCENARIOS.md (one sequence diagram per flow)
+    a protocol also → SCENARIOS.md (one sequenceDiagram per flow)
     skill: write-spec
-  PHASE 2 — FAILING TESTS    test-author
+  PHASE 2 — RED              test-author (variant high)
     one component test per scenario, property tests, skeletons — red
-    each SCENARIOS.md path → a test-kit component test at the Goldilocks seam
-  PHASE 3 — CODE TO GREEN    coder (OpenCode, xai/grok-4.7, via handoff)
-    implement behind the ports, refactor within budget, keep the core pure
-    do not widen a probed leaf to own the rule
-  PHASE 4 — REVIEW           reviewer
-    spec↔tests↔code, purity, boundaries
-    every SCENARIOS.md path has a test and the messages match the diagram
+    each diagram path, including every alt, opt, and par → a test-kit
+    component test at the Goldilocks seam. A scripted fetch is not that test.
+  PHASE 3 — GREEN            coder (variant high)
+    implement behind the ports, keep the core pure
+    the component keeps the rule; do not widen the probed leaf
+  PHASE 4 — VERIFY           verifier (read-only, variant low)
+    pnpm verify, plus the mutation command the patch's files require
+    new survivors → test-author. No judgment. No CRAP gate.
+    skill: verify-changes
+  PHASE 5 — REVIEW           reviewer (read-only, variant xhigh)
+    spec↔tests↔code, purity, boundaries, every suppression
+    every diagram path has a probed test and the messages match
   SHIP — orchestrator
     PR on hochgi/conquarrow → CI green → squash-merge
 ```
 
 Do not collapse phases. Do not wait for a thumbs-up between them.
 
-**Phase 3 runs outside Claude, to save Claude tokens.** The orchestrator writes
-a self-contained handoff prompt to `archive/handoffs/<Pnn>-phase3-prompt.md`
-(never committed), stops, and resumes when the human pastes back grok's report.
-The prompt's required sections are in `.claude/commands/spec-to-ship.md`.
-Use a `coder` subagent only when the human asks.
+**Nobody grades their own homework.** The coder's goal is green. Phases 4 and 5
+cannot edit files. Phase 4 makes no judgment. Phase 5 judges every suppression,
+so it runs last. Re-run the gate after every phase. A subagent's "green" is a
+hypothesis.
+
+The live command is `.opencode/command/spec-to-ship.md`. Model is
+`xai/grok-4.7`. Variant is a second field (`OPENCODE.md`). Never a `#` suffix.
 
 ## Context is handed off through artifacts, not chat
 
@@ -96,18 +102,28 @@ ask the human those.
 ## When NOT to run the full pipeline
 
 Typo fixes, doc-only changes, mechanical refactors with no observable delta,
-dependency bumps, and **tooling/harness packets** skip the four-phase Gherkin
-loop — ship with a one-line scope note. Everything that touches the rules
+dependency bumps, and **tooling/harness packets** skip the pipeline — ship
+with a one-line scope note. Everything that touches the rules
 engine, or an online adapter's observable behaviour, runs the pipeline.
 
-**Committed tests are the pipeline.** Phase 2 writes Vitest against ports. At an
-I/O edge (`packages/online-api`) those tests may use `@hochgi/test-kit*` — see
-`component-testing`. Never in `contracts`, `rules-core` or `geometry-*`.
+**Committed tests are the pipeline.** Phase 2 writes Vitest against ports. A
+protocol delivery also writes one `@hochgi/test-kit` component test per
+`SCENARIOS.md` path, including every `alt`, `opt`, and `par`. Probe the leaf.
+The component keeps the rule. Assert order, method, path, and the visible
+outcome. A scripted fetch that calls the same functions is not that test.
+Never in `contracts`, `rules-core`, or `geometry-*`. Web may use it only at an
+injected I/O boundary, as the session-expired HTTP door does
+(`docs/spec/session-expired/SCENARIOS.md`,
+`packages/web/test/session-expired.scenarios.test.ts`). Synchronous leaves
+(GIS `prompt`, the session store) stay real or counted fakes. See
+`component-testing`.
 
 ## References
 
-- Command: `.claude/commands/spec-to-ship.md`
-- Phase skills: `write-spec`, `write-failing-tests`, `code-to-green`, `review-changes`
+- Command: `.opencode/command/spec-to-ship.md` (the Claude file is a pointer)
+- Agents: `.opencode/agent/{spec-author,test-author,coder,verifier,reviewer}.md`
+- Phase skills: `write-spec`, `write-failing-tests`, `code-to-green`,
+  `verify-changes`, `review-changes`
 - Support skills: `rules-invariants`, `engineering-principles`, `mutation-testing`, `component-testing`
 - Design source of truth: `SPEC.md` (game); `docs/adr/0002-cheap-async-online.md` (online)
 - Packet index: `docs/design/02-work-packets.md`

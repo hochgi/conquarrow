@@ -1,6 +1,6 @@
 ---
 name: component-testing
-description: Committed component tests at a conquarrow I/O edge with @hochgi/test-kit — choosing the Goldilocks seam, one rig per test, probed S3 and probed mocks, failure injection by probe rule. Use when writing or reviewing an online-api test that probes S3Client or PostToConnection, or when deciding whether test-kit belongs in a package at all.
+description: Committed component tests at a conquarrow I/O edge with @hochgi/test-kit — Goldilocks seam, one rig per test, one probed test per SCENARIOS.md path including every alt. Use when probing an injected HTTP door, S3Client, or PostToConnection, or when deciding whether test-kit belongs in a package at all.
 ---
 
 # component-testing — probed I/O edges
@@ -11,8 +11,11 @@ probe. Here it lives only at I/O edges, because the rules engine has none.
 
 ## Where it may be used
 
-- `packages/online-api` — the only consumer today, **devDependencies only**.
-- `packages/web` — only once it grows an injected I/O boundary.
+- `packages/online-api` — **devDependencies only**.
+- `packages/web` — only at an injected I/O boundary, as the session-expired
+  HTTP door does (`PagesApi.send` into `createOnlineHost`). Caret ranges, the
+  versions online-api already pins. `@hochgi/test-kit` and
+  `@hochgi/test-kit-mock` are enough when the leaf is not S3.
 - **Never** `packages/contracts`, `packages/rules-core`, `packages/geometry-*`
   — not in `src`, not in `test`. ESLint `no-restricted-imports` and
   `online-edge-probes.invariants.test.ts` ([CORE-CLEAN], [DEV-ONLY]) enforce it.
@@ -52,11 +55,26 @@ pnpm --filter @conquarrow/online-api add -D @hochgi/test-kit @hochgi/test-kit-s3
 
 ## Message flows
 
-When `docs/spec/<feature>/SCENARIOS.md` exists, each diagram path is a
-component test. The diagram's participants name the leaves. Probe those
-leaves. The handler stays the component. Phase 2 may add the leaf interface
-and must not implement it. Phase 3 implements behind that interface and does
-not widen the seam to make the probe easier.
+A protocol delivery has `docs/spec/<feature>/SCENARIOS.md`. Each diagram path,
+including every `alt`, `opt`, and `par`, is a component test. Participants
+name the doors and the leaf seams. Probe those leaves. The component keeps the
+rule. Assert the messages the diagram shows: order, method, path, and the
+visible outcome. Program every `send` before the When, or the mock parks and
+the test hangs. One rig per test, closed in `afterEach`.
+
+A scripted fetch that calls the same functions is not that test. Do not waive
+a path because a Gherkin scenario already passed.
+
+Phase 2 may add the leaf interface and must not implement it. Phase 3
+implements behind that interface and does not widen the seam, or move the rule
+into the leaf, to make the probe pass. Do not probe the AWS SDK.
+
+Synchronous leaves stay real or counted fakes. `createProbedMock` rejects sync
+methods. GIS `prompt()` and the session store are that case: count the fake,
+read the store. The example is
+`packages/web/test/session-expired.scenarios.test.ts` against
+`docs/spec/session-expired/SCENARIOS.md`. The component is `createOnlineHost`.
+The probed leaf is `PagesApi.send`.
 
 ## Choose the seam (Goldilocks)
 
@@ -83,9 +101,9 @@ So:
   (`src/apigw-post-to-connection.ts`) — has its one SDK call as its seam: probe
   `PostToConnectionClient` (`send`) to test the bytes it sends and its 410
   mapping (`online-entry.support.ts`), never to test a handler.
-- **Synchronous deps** (`clock`, `randomBytes`, the heuristic) are not I/O, and
-  `google`'s deterministic `fakeGoogle` already answers every scenario. Pass the real or a scripted function; `createProbedMock`
-  rejects sync methods at compile time anyway.
+- **Synchronous deps** (`clock`, `randomBytes`, the heuristic, GIS `prompt`,
+  the session store) are not probed. Pass the real function or a counted fake.
+  `createProbedMock` rejects sync methods at compile time.
 
 Checklist: exposes status codes, raw bytes or SDK errors → too thin. Owns the
 retry, orchestration or rule you want to test → too fat. Programmable without

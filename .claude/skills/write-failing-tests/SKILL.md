@@ -1,6 +1,6 @@
 ---
 name: write-failing-tests
-description: Turn a conquarrow spec into a red suite — one component test per Gherkin scenario, property tests per EARS invariant, replay fixtures for turn flow, plus compiling skeletons. Use as phase 2 of spec-to-ship.
+description: Turn a conquarrow spec into a red suite — one component test per Gherkin scenario, one @hochgi/test-kit test per SCENARIOS.md path including every alt, property tests per EARS invariant, replay fixtures for turn flow, plus compiling skeletons. Use as phase 2 of spec-to-ship.
 ---
 
 # write-failing-tests — approved spec → red suite
@@ -11,13 +11,19 @@ thin enough that nobody mistakes them for an implementation.
 
 ## What you produce
 
-1. **One test-kit component test per `SCENARIOS.md` path**, when that file
-   exists. Read `component-testing` and follow its Goldilocks seam. Cover every
-   `alt` the diagram names, not only the happy path. Write the leaf
-   **interfaces** the component needs and no implementation. Do not probe the
-   raw SDK when a port already hides it, and do not probe a fatter service
-   that owns the rule under test. The Gherkin tests below still exist: the
-   diagram says the message order, the scenario says the assert.
+1. **One `@hochgi/test-kit` component test per `SCENARIOS.md` path**, including
+   every `alt`, `opt`, and `par`. This is not optional when the file exists,
+   and a protocol packet without the file goes back to phase 1. Probe the leaf.
+   The component keeps the rule. Assert the messages the diagram shows: order,
+   method, path, and the visible outcome. Program every `send` before the When,
+   or the mock parks. One rig per test, closed in `afterEach`. Write the leaf
+   interfaces and no implementation. Do not probe the SDK, and do not probe a
+   service that owns the rule. A scripted fetch that calls the same functions
+   is not this test — Gherkin does not cover a diagram path. Synchronous leaves
+   (GIS `prompt`, the session store) stay real or counted fakes; the kit
+   rejects sync methods. The example is
+   `packages/web/test/session-expired.scenarios.test.ts`: component
+   `createOnlineHost`, leaf `PagesApi.send`. Follow `component-testing`.
 2. **One component test per Gherkin scenario**, written against the ports in
    `packages/contracts` — never against a concrete geometry, renderer, or store, except at an
    I/O edge where the adapter *is* the component under test (`component-testing`).
