@@ -18,6 +18,27 @@ export const readSessionToken = (session: OnlinePagesSession): string | undefine
   return value;
 };
 
+/**
+ * P98 D1. The one read `signedIn()` and every authenticated request share.
+ * A present token whose `exp` is missing, not a finite number, or not strictly
+ * after `now` is removed. That removal does not set session expired. Missing
+ * or empty stays a no-token and is not removed. `now` is the caller's clock
+ * (`deps.now`, or the existing `Date.now` fallback when that is absent).
+ */
+export const readUsableSessionToken = (
+  session: OnlinePagesSession,
+  now: () => number,
+): string | undefined => {
+  const value = readSessionToken(session);
+  if (value === undefined) return undefined;
+  const expiry = tokenExpiryMs(value);
+  if (expiry === undefined || expiry <= now()) {
+    clearSessionToken(session);
+    return undefined;
+  }
+  return value;
+};
+
 export const writeSessionToken = (session: OnlinePagesSession, token: string): void => {
   session.setItem(GOOGLE_ID_TOKEN_SESSION_KEY, token);
 };

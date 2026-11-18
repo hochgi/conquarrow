@@ -1889,6 +1889,12 @@ export const App = (): ReactElement => {
                 seatEditsOffered: host.seatEditsOffered(),
                 inviteSeats: host.adapter().inviteSeats(),
                 userHash: host.adapter().userHash(),
+                sessionExpired: host.sessionExpired(),
+                createInviteNote: host.createInviteNote(),
+                libraryFailed: host.libraryFailed(),
+                onRetryLibrary: () => {
+                  void host.refreshLibrary().then(refresh);
+                },
               },
             })}
         {...(resume === undefined ? {} : { resume })}

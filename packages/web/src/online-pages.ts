@@ -31,6 +31,7 @@ import type {
 import { DELETE_GAME_CONFIRM, FINISHED_PAGE, normalizeGameName } from '@conquarrow/contracts';
 import { isOnlineEnvReady } from './online-env';
 import { copiedInviteUrl, formatGameHash, parsePagesHash } from './online-hash';
+import { CREATE_FAILED_COPY, createRefusedNote } from './online-shell-ui';
 import {
   asRecord,
   parseBoard,
@@ -50,7 +51,7 @@ import {
 import { logPath, parseLogWindow, planFromWake } from './online-replay';
 import {
   clearSessionToken,
-  readSessionToken,
+  readUsableSessionToken,
   tokenExpiryMs,
   writeSessionToken,
 } from './online-session';
@@ -114,6 +115,14 @@ interface AdapterState {
   held: HeldSubmit | undefined;
   /** P95 D12: the token a refresh was already asked for, so it is asked once. */
   promptedFor: string | undefined;
+  /** P98 D2: an authenticated 401 cleared the token. A usable credential or sign-out clears it. */
+  sessionExpired: boolean;
+  /** P98 D4: the sentence after a create that settled and did not succeed and was not a 401. */
+  createNote: string | undefined;
+  /** P98 D5: the last library read failed and was not a 401. */
+  libraryFailed: boolean;
+  /** P98 D3: a POST /invites 401, waiting for one lobby retry. Not the body — that is read at credential time. */
+  heldCreate: boolean;
   /** P96 D6: the invite name as typed. */
   inviteName: string;
   /** P96 D9: hidden rows loaded so far, in listing order. */
@@ -142,6 +151,10 @@ const emptyState = (): AdapterState => ({
   submitting: false,
   held: undefined,
   promptedFor: undefined,
+  sessionExpired: false,
+  createNote: undefined,
+  libraryFailed: false,
+  heldCreate: false,
   inviteName: '',
   hidden: [],
   deleted: false,
@@ -153,7 +166,8 @@ const humanCount = (plan: readonly PlannedSeatKind[]): number =>
 const agentCount = (plan: readonly PlannedSeatKind[]): number =>
   plan.filter((kind) => kind === 'agent').length;
 
-const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean => {
+/** Two Players, or a Player and an Agent. The lobby sentence uses this; do not copy it. */
+export const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean => {
   const humans = humanCount(plan);
   return humans >= 2 || (humans >= 1 && agentCount(plan) >= 1);
 };
@@ -217,7 +231,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
 
   const onlineReady = (): boolean => isOnlineEnvReady(env);
 
-  const token = (): string | undefined => readSessionToken(session);
+  const token = (): string | undefined => readUsableSessionToken(session, now);
 
   const closeSocket = (): void => {
     state.socket?.close();
@@ -243,6 +257,10 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     state.library = undefined;
     state.held = undefined;
     state.promptedFor = undefined;
+    state.sessionExpired = false;
+    state.createNote = undefined;
+    state.libraryFailed = false;
+    state.heldCreate = false;
     state.hidden = [];
     state.deleted = false;
     clearInviteScope();
@@ -290,7 +308,21 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     gis.prompt();
   };
 
-  const request = (
+  /**
+   * P98 D2. The one door for an authenticated 401. Removes the token, forgets
+   * the socket, sets session expired, and prompts even when `promptedFor`
+   * already named that token. Does not drop a held submit. The invite peek
+   * (`auth: false`) never reaches this.
+   */
+  const expireSession = (): void => {
+    clearSessionToken(session);
+    state.promptedFor = undefined;
+    closeSocket();
+    state.sessionExpired = true;
+    gis.prompt();
+  };
+
+  const request = async (
     method: 'GET' | 'POST',
     path: string,
     options?: {
@@ -309,18 +341,21 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       method,
       headers,
     };
-    if (options?.body !== undefined) {
-      headers['Content-Type'] = 'application/json';
-      return fetchHttp({ ...req, headers, body: JSON.stringify(options.body) });
-    }
-    return fetchHttp(req);
+    const sent: OnlinePagesHttpRequest =
+      options?.body === undefined
+        ? req
+        : {
+            ...req,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify(options.body),
+          };
+    const res = await fetchHttp(sent);
+    if (options?.auth !== false && res.status === 401) expireSession();
+    return res;
   };
 
-  const onUnauthorized = (status: number): boolean => {
-    if (status !== 401) return false;
-    gis.prompt();
-    return true;
-  };
+  /** True when the door already ran for this authenticated response. */
+  const onUnauthorized = (status: number): boolean => status === 401;
 
   const loadMe = async (): Promise<void> => {
     if (!onlineReady() || token() === undefined) return;
@@ -407,7 +442,8 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   };
 
   const acceptInvite = async (): Promise<void> => {
-    if (!onlineReady()) return;
+    refreshTokenIfStale();
+    if (!onlineReady() || token() === undefined) return;
     const inviteToken = state.inviteToken;
     if (inviteToken === undefined || state.inviteGone) return;
     const res = await request('POST', `/invites/${inviteToken}/accept`, { body: {} });
@@ -424,24 +460,80 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     if (res.status === 200) applyInviteBody(parseJson(res.body));
   };
 
-  const createInvite = async (): Promise<void> => {
-    if (!onlineReady() || state.mode !== 'online' || !onlinePlanCreatable(state.seatPlan)) {
-      return;
-    }
+  const inviteRequestBody = (): { readonly seats: readonly PlannedSeatKind[]; readonly name?: string } => {
     const named = normalizeGameName(state.inviteName);
-    if (!named.ok) return;
-    const body = named.name === undefined ? { seats: state.seatPlan } : { seats: state.seatPlan, name: named.name };
-    const res = await request('POST', '/invites', { body });
-    if (onUnauthorized(res.status)) return;
-    if (res.status !== 201 && res.status !== 200) return;
-    applyInviteBody(parseJson(res.body));
+    if (!named.ok || named.name === undefined) return { seats: state.seatPlan };
+    return { seats: state.seatPlan, name: named.name };
+  };
+
+  /** Online, a creatable plan, a valid name, and a usable token. */
+  const createGatesPass = (): boolean =>
+    onlineReady() &&
+    state.mode === 'online' &&
+    onlinePlanCreatable(state.seatPlan) &&
+    normalizeGameName(state.inviteName).ok &&
+    token() !== undefined;
+
+  const refusedReason = (body: string): string | undefined => {
+    const reason = asRecord(parseJson(body))?.['reason'];
+    return typeof reason === 'string' && reason !== '' ? reason : undefined;
+  };
+
+  const installCreatedInvite = (body: string): void => {
+    state.createNote = undefined;
+    applyInviteBody(parseJson(body));
     const inviteToken = state.inviteToken;
     if (inviteToken === undefined) return;
     state.copiedUrl = copiedInviteUrl(location.origin, location.pathname, inviteToken);
   };
 
+  const noteCreateFailure = (status: number, body: string): void => {
+    state.copiedUrl = undefined;
+    state.createNote =
+      status === 422 ? createRefusedNote(refusedReason(body)) : CREATE_FAILED_COPY;
+  };
+
+  /**
+   * P98 D3/D4. `armHold` is true only for the player's create. The credential
+   * retry passes false so a second 401 does not post a third time.
+   */
+  const applyCreateResponse = (res: OnlinePagesHttpResponse, armHold: boolean): void => {
+    if (res.status === 401) {
+      state.copiedUrl = undefined;
+      state.createNote = undefined;
+      if (armHold) state.heldCreate = true;
+      return;
+    }
+    if (res.status === 200 || res.status === 201) {
+      installCreatedInvite(res.body);
+      return;
+    }
+    noteCreateFailure(res.status, res.body);
+  };
+
+  const postInvite = async (armHold: boolean): Promise<OnlinePagesHttpResponse | 'thrown'> => {
+    try {
+      const res = await request('POST', '/invites', { body: inviteRequestBody() });
+      applyCreateResponse(res, armHold);
+      return res;
+    } catch {
+      state.copiedUrl = undefined;
+      state.createNote = CREATE_FAILED_COPY;
+      return 'thrown';
+    }
+  };
+
+  const createInvite = async (): Promise<void> => {
+    refreshTokenIfStale();
+    state.createNote = undefined;
+    if (!createGatesPass()) return;
+    state.heldCreate = false;
+    await postInvite(true);
+  };
+
   const startOnlineMatch = async (): Promise<void> => {
-    if (!onlineReady()) return;
+    refreshTokenIfStale();
+    if (!onlineReady() || token() === undefined) return;
     const inviteToken = state.inviteToken;
     if (inviteToken === undefined) return;
     const res = await request('POST', `/invites/${inviteToken}/start`);
@@ -453,13 +545,33 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     await getGame(ids.groupHash, ids.gameNumber);
   };
 
-  const refreshLibrary = async (): Promise<void> => {
-    if (!onlineReady() || token() === undefined) return;
-    const res = await request('GET', '/my-games');
-    if (onUnauthorized(res.status)) return;
-    if (res.status !== 200) return;
+  /** P98 D5. A 401 is not a failure and does not install an empty success. */
+  const applyLibraryResponse = (res: OnlinePagesHttpResponse): void => {
+    if (res.status === 401) {
+      state.libraryFailed = false;
+      return;
+    }
+    if (res.status !== 200) {
+      state.libraryFailed = true;
+      return;
+    }
     const library = parseMyGames(parseJson(res.body));
-    if (library !== undefined) state.library = library;
+    if (library === undefined) {
+      state.libraryFailed = true;
+      return;
+    }
+    state.library = library;
+    state.libraryFailed = false;
+  };
+
+  const refreshLibrary = async (): Promise<void> => {
+    refreshTokenIfStale();
+    if (!onlineReady() || token() === undefined) return;
+    try {
+      applyLibraryResponse(await request('GET', '/my-games'));
+    } catch {
+      state.libraryFailed = true;
+    }
   };
 
   const refreshLobby = async (): Promise<void> => {
@@ -471,6 +583,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   };
 
   const openMyGame = async (groupHash: GroupHash, gameNumber: GameNumber): Promise<void> => {
+    refreshTokenIfStale();
     clearInviteScope();
     // P95 D10: a held submit belongs to the game it was made in.
     if (state.held?.groupHash !== groupHash || state.held.gameNumber !== gameNumber) {
@@ -646,6 +759,9 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     !callerIsToMove(state);
 
   const submitMoves = async (moves: readonly Move[]): Promise<SubmitOutcome> => {
+    refreshTokenIfStale();
+    // D6: an already-unusable token is removed and the request is not sent.
+    if (token() === undefined) return 'refused';
     const route = parsePagesHash(location.hash);
     const board = state.board;
     if (route.kind !== 'game' || board === undefined || submitBlocked(moves)) return 'refused';
@@ -738,13 +854,31 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     await routeFromHash();
   };
 
+  /**
+   * P98 D3. Lobby credential: retry a held create once, or list as P97 does.
+   * The hold is cleared before the post, so a retry 401 cannot arm another.
+   */
+  const lobbyAfterCredential = async (): Promise<void> => {
+    if (state.heldCreate && createGatesPass()) {
+      state.heldCreate = false;
+      const posted = await postInvite(false);
+      if (posted !== 'thrown' && posted.status === 401) return;
+      if (token() !== undefined) await refreshLibrary();
+      return;
+    }
+    state.heldCreate = false;
+    await refreshLibrary();
+  };
+
   const deliverGoogleCredential = async (idToken: string): Promise<void> => {
     writeSessionToken(session, idToken);
+    if (token() !== undefined) state.sessionExpired = false;
     if (!onlineReady()) return;
     openSessionSocket();
     await loadMe();
     await sendHeld();
     const route = parsePagesHash(location.hash);
+    if (route.kind === 'invite' || route.kind === 'game') state.heldCreate = false;
     if (route.kind === 'invite' && !state.inviteGone) {
       await acceptInvite();
       return;
@@ -753,8 +887,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       await getGame(route.groupHash, route.gameNumber);
       return;
     }
-    // A sign-in on the lobby lists My games straight away (P95 D12).
-    await refreshLibrary();
+    await lobbyAfterCredential();
   };
 
   const signOut = (): void => {
@@ -766,6 +899,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
 
   /** P96 D12: the server's export of the game on screen, as its text. */
   const exportGame = async (): Promise<string | undefined> => {
+    refreshTokenIfStale();
     const route = parsePagesHash(location.hash);
     if (!onlineReady() || route.kind !== 'game' || token() === undefined) return undefined;
     try {
@@ -784,6 +918,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     action: 'delete' | 'name' | 'hide',
     body: unknown,
   ): Promise<boolean> => {
+    refreshTokenIfStale();
     if (!onlineReady() || token() === undefined) return false;
     try {
       const res = await request('POST', `/games/${groupHash}/${gameNumber}/${action}`, { body });
@@ -828,6 +963,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
 
   /** P96 D8: the next page of one list, appended to the rows already held. */
   const loadMoreGames = async (list: LibraryList): Promise<void> => {
+    refreshTokenIfStale();
     if (!onlineReady() || token() === undefined) return;
     const library = state.library;
     const held =
@@ -934,5 +1070,8 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     inviteToken: () => state.inviteToken,
     myGames: () => state.library,
     userHash: () => state.userHash,
+    sessionExpired: () => state.sessionExpired,
+    createInviteNote: () => state.createNote,
+    libraryFailed: () => state.libraryFailed,
   };
 };

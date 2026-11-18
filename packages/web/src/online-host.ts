@@ -21,7 +21,7 @@ import type {
 import { parsePagesHash } from './online-hash';
 import { createOnlinePages, occupiesHumanChair } from './online-pages';
 import { parseLibraryChanged, parseStateChanged } from './online-parse';
-import { readSessionToken } from './online-session';
+import { readUsableSessionToken } from './online-session';
 
 const humansAllBound = (seats: readonly InviteSeat[] | undefined): boolean => {
   if (seats === undefined) return false;
@@ -87,8 +87,9 @@ export const createOnlineHost = (deps: OnlineHostDeps): OnlineHostPort => {
   };
 
   const pages = createOnlinePages({ ...deps, fetch });
+  const now = deps.now ?? Date.now;
 
-  const signedIn = (): boolean => readSessionToken(deps.session) !== undefined;
+  const signedIn = (): boolean => readUsableSessionToken(deps.session, now) !== undefined;
 
   const syncModeFromHash = (): void => {
     if (!pages.onlineModeOffered()) return;
@@ -147,6 +148,8 @@ export const createOnlineHost = (deps: OnlineHostDeps): OnlineHostPort => {
     createPending = true;
     try {
       await pages.createInvite();
+    } catch {
+      // P98 D4: the host promise resolves, including a fetch the pages adapter caught.
     } finally {
       createPending = false;
     }
@@ -203,6 +206,9 @@ export const createOnlineHost = (deps: OnlineHostDeps): OnlineHostPort => {
     seatEditsOffered,
     createOffered: () => pages.createOffered() && signedIn() && !createPending,
     signedIn,
+    sessionExpired: () => pages.sessionExpired(),
+    createInviteNote: () => pages.createInviteNote(),
+    libraryFailed: () => pages.libraryFailed(),
     createInvitePending: () => createPending,
     mode: () => mode,
     illegal: () => illegalMsg,

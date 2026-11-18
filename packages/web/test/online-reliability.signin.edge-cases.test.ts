@@ -120,8 +120,13 @@ describe('The shell asks the host, and refreshes only when due (D13)', () => {
   it('The shell starts a library read only when one is due', () => {
     const app = readWebSource('App.tsx');
     const sites = refreshLibrarySites(app);
-    expect(sites.length).toBeGreaterThan(0);
-    for (const site of sites) {
+    // Retry must read again even when a previous body is still loaded, so
+    // lobbyLibraryDue is false. The automatic effect is the one that waits.
+    const automatic = sites.filter((site) => !site.includes('onRetryLibrary'));
+    const retries = sites.filter((site) => site.includes('onRetryLibrary'));
+    expect(automatic.length).toBeGreaterThan(0);
+    expect(retries.length).toBeGreaterThan(0);
+    for (const site of automatic) {
       expect(site).toContain('lobbyLibraryDue');
     }
     const calls = lobbyLibraryDueSites(app);

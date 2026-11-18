@@ -169,14 +169,10 @@ detailed form of an item; this file is the short list and the order.
 - **P95 knobs to confirm in play.** The poll interval (`POLL_MS` 15 s), the
   heartbeat (5 min), and the token-refresh lead (5 min). A `GET` may now write
   (the read-time advance heals a stalled game); that is ADR 0011's choice.
-- **A 401 on `GET /my-games` looks like no games.** P97 review: the library
-  read still leaves the list unset on 401 (P95 D10), and the lobby paints an
-  unset library as empty. Not fixed in P97.
-- **The One Tap refresh can still be suppressed.** P95 asks GIS for a fresh
-  token before expiry with `auto_select`, and holds a submit a 401 stopped,
-  but a browser that suppresses One Tap leaves the human to click Sign in
-  (the note says so). A server session cookie would remove the hourly
-  expiry; not designed.
+- **A server session cookie is not designed.** P98 shows Sign in when the
+  token is unusable, and a 401 no longer looks like an empty library. A
+  browser can still suppress One Tap. A cookie or refresh token would remove
+  the hourly Google expiry. Not designed.
 
 ## BYOK seat
 

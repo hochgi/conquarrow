@@ -11,16 +11,21 @@ import { snapshotScript } from './online-move-log-replay.support';
 import { GAME_PATH, MOVES_PATH } from './online-turn-flow.support';
 import {
   ALICE,
+  BOB,
+  CAROL,
   GAME_ONE,
   GROUP_HASH,
   apiCalls,
   gameHash,
   makePagesFakes,
   parseJson,
+  tokenExpiringAt,
   type FetchSpy,
   type PagesHarness,
   type ScriptedFetch,
 } from './online-web.support';
+
+export { tokenExpiringAt };
 
 export const VERSION_PATH = `/games/${GROUP_HASH}/${GAME_ONE}/version`;
 
@@ -49,12 +54,18 @@ export const submitIdsOf = (h: FetchSpy): readonly unknown[] =>
 export const versionReads = (h: FetchSpy): number => apiCalls(h, 'GET', VERSION_PATH).length;
 export const snapshotReadsOf = (h: FetchSpy): number => apiCalls(h, 'GET', GAME_PATH).length;
 
-/** An unsigned JWT whose payload carries `exp` (seconds), as Google's has. */
-export const tokenExpiringAt = (expMs: number): string => {
-  const part = (value: unknown): string =>
-    Buffer.from(JSON.stringify(value)).toString('base64url');
-  return `${part({ alg: 'RS256' })}.${part({ exp: Math.floor(expMs / 1000) })}.sig`;
-};
+const KNOWN_BEARERS = new Set([ALICE.bearer, BOB.bearer, CAROL.bearer]);
+
+/** A custom JWT is not in the Alice/Bob/Carol map, so boot's `loadMe` would 401. */
+const needsScriptedMe = (token: string): boolean =>
+  !KNOWN_BEARERS.has(token) && token.split('.').length === 3;
+
+const meOk = (): ScriptedFetch => ({
+  method: 'GET',
+  path: '/me',
+  status: 200,
+  body: { userHash: ALICE.userHash },
+});
 
 /**
  * A's client in the open game at `baseline`, with `extra` deps (the clock, the
@@ -69,7 +80,11 @@ export const showingWith = async (
   const fakes = makePagesFakes({
     hash: gameHash(GROUP_HASH, GAME_ONE),
     sessionToken,
-    fetchScript: [snapshotScript(baseline), ...fetchScript],
+    fetchScript: [
+      ...(needsScriptedMe(sessionToken) ? [meOk()] : []),
+      snapshotScript(baseline),
+      ...fetchScript,
+    ],
   });
   const adapter = createOnlinePages({ ...fakes.deps, ...extra });
   await adapter.boot();

@@ -41,20 +41,40 @@ export const OTHER_GROUP_HASH = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';
 export const GAME_ONE = '000001';
 export const INVITE_TOKEN = 'a'.repeat(64);
 
+/**
+ * An unsigned JWT whose payload carries `exp` (seconds), as Google's has.
+ * P98 reads that claim; an opaque bearer is signed out. Extra claims only
+ * distinguish fixtures — one-argument calls stay `{ exp }` alone.
+ */
+export const tokenExpiringAt = (
+  expMs: number,
+  claims: Readonly<Record<string, unknown>> = {},
+): string => {
+  const part = (value: unknown): string =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${part({ alg: 'RS256' })}.${part({ ...claims, exp: Math.floor(expMs / 1000) })}.sig`;
+};
+
+/**
+ * Far enough ahead that a stored bearer stays usable under any clock this
+ * suite injects short of 2099-01-01. `sub` and `userHash` are unchanged.
+ */
+const FAR_FUTURE_EXP_MS = Date.UTC(2099, 0, 1);
+
 export const ALICE = {
-  bearer: 'alice-id-token',
+  bearer: tokenExpiringAt(FAR_FUTURE_EXP_MS, { sub: 'alice-google-sub' }),
   sub: 'alice-google-sub',
   userHash: 'alice-user-hash',
 } as const;
 
 export const BOB = {
-  bearer: 'bob-id-token',
+  bearer: tokenExpiringAt(FAR_FUTURE_EXP_MS, { sub: 'bob-google-sub' }),
   sub: 'bob-google-sub',
   userHash: 'bob-user-hash',
 } as const;
 
 export const CAROL = {
-  bearer: 'carol-id-token',
+  bearer: tokenExpiringAt(FAR_FUTURE_EXP_MS, { sub: 'carol-google-sub' }),
   sub: 'carol-google-sub',
   userHash: 'carol-user-hash',
 } as const;
@@ -343,6 +363,8 @@ export const makePagesFakes = (overrides?: {
   readonly hash?: string;
   readonly sessionToken?: string;
   readonly fetchScript?: readonly ScriptedFetch[];
+  /** Epoch ms. Absent → the adapter's `Date.now` fallback. */
+  readonly now?: () => number;
 }): PagesFakes => {
   const env: OnlinePagesEnv = { ...DEFAULT_ENV, ...overrides?.env };
   const session = memorySession(overrides?.sessionToken);
@@ -405,7 +427,15 @@ export const makePagesFakes = (overrides?: {
     return socket;
   };
 
-  const deps: OnlinePagesDeps = { env, session, location, fetch, openSocket, gis };
+  const deps: OnlinePagesDeps = {
+    env,
+    session,
+    location,
+    fetch,
+    openSocket,
+    gis,
+    ...(overrides?.now === undefined ? {} : { now: overrides.now }),
+  };
   return { env, session, location, gis, fetchLog, sockets, deps };
 };
 
