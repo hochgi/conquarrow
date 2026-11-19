@@ -358,6 +358,11 @@ carry change** — never per hover. `MAX_DEPTH = 8` bounds it at `3^8` walks wor
 case and `3^6 = 729` for any stack the game produces, so hover is a lookup into
 an already-built map. Hover lag is what would make this model feel broken.
 
+P99 amends the cost of the reach wash only: it walks the carry's portion, not
+every portion from 1 through the head count. The set definition in *Paint* is
+unchanged, and previews stay eager. See
+[big-stack-selection](../big-stack-selection/big-stack-selection.md).
+
 ## SPEC.md edit
 
 §5's closing line currently reads *"The interaction model is Galcon-like: pick a

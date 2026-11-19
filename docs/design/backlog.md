@@ -121,8 +121,9 @@ detailed form of an item; this file is the short list and the order.
   human can follow, now that every seat replays (P94). Pace them.
 - **"Your agent" label.** P92/P93 issue review 2026-11-16: the seat label
   for the caller's own agent. The GIS flicker half is P97's phone check.
-- **Big stacks lag.** P92/P93 issue review 2026-11-16: moving a large stack
-  is slow; `reachWashOf` is the suspect. Profile before changing it.
+- **Feel-check P99 on a phone.** Select a 16+ stack. The markers should be the
+  same wash as before and should appear without a long wait. CI counts
+  `rules.apply` calls; it does not time the phone. Source: issue #121.
 - **Post-P72 UX regressions.** Changes made when an agent played as the human
   seat through the Chrome extension suited the agent and cost a human more
   clicks. Research first: list the clicks and steps per turn today, find

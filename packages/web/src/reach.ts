@@ -6,7 +6,9 @@
  * four. That is the most important thing about a stack and the board never said it
  * out loud; this module is what lets the renderer show it.
  *
- * **Computed by simulation, never by re-deriving the rules.** For each portion size
+ * **Computed by simulation, never by re-deriving the rules.** The no-portion walk
+ * still tries every portion because bigger is not always further. A present
+ * portion walks only that count, because the caller already chose it. Either way
  * this walks the real `apply` and keeps whatever it accepted, so allowance,
  * enemy-occupied ground (§6.2) and a closure landing mid-path (§7) are all
  * respected because the engine was asked rather than imitated. An adapter that
@@ -55,20 +57,39 @@ interface Mutable {
 }
 
 /**
+ * Counts one query tries. Absent portion: 1..heads, because bigger is not always
+ * further. A present portion: that count alone, because the caller already chose
+ * it — or nothing, when it is not an integer in 1..heads (no `apply`).
+ */
+const portionSpan = (
+  heads: number,
+  portion: number | undefined,
+): { readonly low: number; readonly high: number } | undefined => {
+  if (portion === undefined) return { low: 1, high: heads };
+  if (!Number.isInteger(portion) || portion < 1 || portion > heads) return undefined;
+  return { low: portion, high: portion };
+};
+
+/**
  * Every arrow the group on `from` could reach this turn, keyed by arrow.
  *
- * Portions are tried from 1 upward because *bigger is not always further*: a portion
- * that outnumbers the group it merges into is barred for the rest of the turn (§3), so
- * `minCount` and `maxCount` are both measured rather than assumed.
+ * With no portion, counts are tried from 1 upward because *bigger is not always
+ * further*: a portion that outnumbers the group it merges into is barred for the
+ * rest of the turn (§3), so `minCount` and `maxCount` are both measured rather
+ * than assumed. A present portion walks only that count, because the caller
+ * already chose it.
  */
 export const reachFrom = (
   geometry: GeometryPort,
   rules: RulesPort,
   state: GameState,
   from: ArrowId,
+  options?: { readonly portion?: number },
 ): Reach => {
   const group = state.groups.get(from);
   if (group === undefined || group.owner !== state.activePlayer) return new Map();
+  const span = portionSpan(group.heads, options?.portion);
+  if (span === undefined) return new Map();
 
   const found = new Map<ArrowId, Mutable>();
   const record = (
@@ -95,7 +116,7 @@ export const reachFrom = (
     if (best === undefined || plan.length < best.length) seen.plans.set(count, plan);
   };
 
-  for (let count = 1; count <= group.heads; count += 1) {
+  for (let count = span.low; count <= span.high; count += 1) {
     // `speed(count)` only bounds the search — the engine still decides every hop.
     const cap = Math.min(MAX_DEPTH, group.speedOverride ?? speed(count));
     const visited = new Set<string>();

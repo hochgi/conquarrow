@@ -601,7 +601,9 @@ const reachWashOf = (
   const wash = new Set<ArrowId>();
   if (inputs.terminal === true || inputs.carry < 1) return wash;
   const walked = walkedArrows(inputs);
-  const reach = reachFrom(inputs.geometry, inputs.rules, inputs.state, inputs.tip);
+  const reach = reachFrom(inputs.geometry, inputs.rules, inputs.state, inputs.tip, {
+    portion: inputs.carry,
+  });
   for (const [arrow, entry] of reach) {
     if (!entry.plans.has(inputs.carry)) continue;
     if (arrow === inputs.tip || clickable.has(arrow) || walked.has(arrow)) continue;
