@@ -79,6 +79,8 @@ export interface BoardProps {
   readonly onPointerMove: (e: PointerEvent<SVGSVGElement>) => void;
   readonly onPointerUp: (e: PointerEvent<SVGSVGElement>) => void;
   readonly onPointerLeave: (e: PointerEvent<SVGSVGElement>) => void;
+  /** P100 D4: `pointercancel` and `lostpointercapture` end a drag. */
+  readonly onPointerCancel: (e: PointerEvent<SVGSVGElement>) => void;
   readonly onWheel: (e: WheelEvent<SVGSVGElement>) => void;
 }
 
@@ -492,6 +494,7 @@ export const Board = ({
   onPointerMove,
   onPointerUp,
   onPointerLeave,
+  onPointerCancel,
   onWheel,
 }: BoardProps): ReactElement => {
   const yieldSoon = yieldSoonAllowed(fx)
@@ -511,6 +514,8 @@ export const Board = ({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerLeave}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onPointerCancel}
       onWheel={onWheel}
     >
       <defs>

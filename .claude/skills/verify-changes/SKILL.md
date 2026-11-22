@@ -2,8 +2,8 @@
 name: verify-changes
 description: >-
   Phase 4 of spec-to-ship. Mechanical read-only gate: re-run pnpm verify, and
-  the mutation command when the patch touches rules-core or online-api. Kick
-  every new survivor back. Do not judge mutants, accept a failure, or review
+  a scoped Stryker run (pnpm test:mutation:changed) on every change. Kick
+  every survivor back. Nothing to mutate is a failure. Do not judge mutants, accept a failure, or review
   spec coherence.
 ---
 
@@ -23,33 +23,44 @@ pnpm verify
 **A skipped run is not a clean run.** If you did not run it, do not report it.
 The exit code is the verdict. Do not interpret a failure as close enough.
 
-## 2. Mutation, only when the patch touches those files
+## 2. Mutation — always, scoped to the change
 
 ```bash
-pnpm test:mutation:incremental    # stryker.config.json mutate[] — packages/rules-core/src
-pnpm test:mutation:online-api     # packages/online-api
+pnpm test:mutation:changed
 ```
 
-Run the first when the patch touches a file in `mutate[]`. Run the second when
-it touches `packages/online-api`. Do not add web to Stryker. Do not run CRAP
-as a gate. Do not run either command on a patch that touches neither tree.
+Mandatory on every patch that touches `packages/*/src`, in any package
+(web, contracts, byok-offer, rules-core, online-api, …). The script mutates
+only the changed line ranges (merge-base with `main` → working tree), runs
+only the tests that import them, and exits:
 
-`break` is `null`. A zero exit does not mean the patch is clean. Read the
-summary. A survivor that was not in the baseline is new. Every new survivor
-goes back to test-author. Pre-existing survivors are named and left.
+- **0** — every mutant on the changed lines killed, timed out, or suppressed.
+- **2** — survivors or `NoCoverage` mutants, printed one per line. All of
+  them are this patch's: only changed lines are mutated.
+- **1** — nothing to mutate, no test reaches the change, zero mutants, or a
+  crash. **This is a failure, not a pass.** Source changed and the run did
+  not cover it, so the scope is wrong.
+
+If the touched package or file is not covered, the fix is to extend or scope
+the config (`scripts/stryker-changed.mjs`, `stryker.changed.config.json`) to
+the changed files — never to skip. Never use a whole-package run
+(`test:mutation`, `test:mutation:incremental`, `test:mutation:online-api`) as
+the gate; an incremental run always uses a scoped mutate list. Do not run CRAP
+as a gate.
 
 ## Kick-back
 
 | Failure | Next |
 |---|---|
 | `pnpm verify` exits non-zero | coder |
-| A new survivor | test-author: kill it with a test, or suppress it with its invariant |
-| A zero-mutant run, or a script that crashes | the orchestrator |
+| `test:mutation:changed` exits 2 | test-author: kill it with a test, or suppress it with its invariant |
+| `test:mutation:changed` exits 1, or crashes | the orchestrator: extend or scope the config; do not skip |
 
 ## Handoff
 
-Report, command by command, the exit code and the summary lines. Include the
-new-survivor list as printed, and the suppressions on the patch — the
+Report, command by command, the exit code and the summary lines (the
+`stryker-changed: score` line and the mutate ranges included). Include the
+survivor list as printed, and the suppressions on the patch — the
 orchestrator passes that list to the reviewer verbatim. **Pass** only when
-`pnpm verify` exits 0 and the new-survivor list is empty. You do not push and
+`pnpm verify` exits 0 and `pnpm test:mutation:changed` exits 0. You do not push and
 you do not open a PR.

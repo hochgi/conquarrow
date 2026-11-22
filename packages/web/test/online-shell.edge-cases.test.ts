@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { endTurn } from '@conquarrow/contracts';
+import { submitNote } from '../src/online-submit';
 import {
   ALICE,
   GAME_ONE,
@@ -129,7 +130,7 @@ describe('Move errors', () => {
     expect(h.host.board()).toEqual(opening);
     // P94 D3: a 422 still reconciles — one more GET, and the board below stays put.
     expect(apiCalls(h, 'GET', `/games/${GROUP_HASH}/${GAME_ONE}`)).toHaveLength(2);
-    expect(h.host.illegal()).toBe('illegal');
+    expect(h.host.illegal()).toBe(submitNote('illegal'));
   });
 
   it('Invalid WS payload does not replace the board', async () => {

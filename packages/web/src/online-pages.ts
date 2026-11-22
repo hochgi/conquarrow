@@ -26,6 +26,7 @@ import type {
   StartedGameRow,
   StateChangedPayload,
   SubmitOutcome,
+  SubmitRefusal,
   UserHash,
 } from '@conquarrow/contracts';
 import { DELETE_GAME_CONFIRM, FINISHED_PAGE, normalizeGameName } from '@conquarrow/contracts';
@@ -209,6 +210,39 @@ export const isCallerToMove = (
   const mine = players?.[index];
   if (mine === undefined || active === undefined) return true;
   return mine === active;
+};
+
+/** P100 D1: the facts the submit guards read. */
+export interface SubmitGuardInput {
+  readonly onlineReady: boolean;
+  readonly signedIn: boolean;
+  /** On a game route with a board loaded. */
+  readonly onGame: boolean;
+  readonly moveCount: number;
+  readonly submitting: boolean;
+  readonly held: boolean;
+  readonly replaying: boolean;
+  readonly gameOver: boolean;
+  readonly callerToMove: boolean;
+}
+
+/**
+ * P100 D1. The first failing guard, in `SUBMIT_REFUSALS` order, or
+ * `undefined` when the submit may be sent.
+ */
+export const submitRefusal = (input: SubmitGuardInput): SubmitRefusal | undefined => {
+  if (!input.onlineReady) return 'not-ready';
+  if (input.submitting) return 'sending';
+  // P95 D10: a 401 holds the rest and clears the token, so held outranks signed out.
+  if (input.held) return 'held';
+  if (!input.signedIn) return 'signed-out';
+  if (!input.onGame) return 'no-game';
+  if (input.moveCount === 0) return 'no-moves';
+  // P49 D7: the board is showing a superseded position while a batch plays.
+  if (input.replaying) return 'replaying';
+  if (input.gameOver) return 'game-over';
+  if (!input.callerToMove) return 'not-your-turn';
+  return undefined;
 };
 
 const callerIsToMove = (state: AdapterState): boolean => {
@@ -749,27 +783,34 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   /** P95 D10: a submit is in flight or held for the next sign-in. */
   const submitPending = (): boolean => state.submitting || state.held !== undefined;
 
-  /** P94 D4: the guards under which a submit sends nothing. */
-  const submitBlocked = (moves: readonly Move[]): boolean =>
-    !onlineReady() ||
-    moves.length === 0 ||
-    submitPending() ||
-    // P49 D7: the board is showing a superseded position while a batch plays.
-    replayInFlight() ||
-    !callerIsToMove(state);
-
   const submitMoves = async (moves: readonly Move[]): Promise<SubmitOutcome> => {
     refreshTokenIfStale();
-    // D6: an already-unusable token is removed and the request is not sent.
-    if (token() === undefined) return 'refused';
     const route = parsePagesHash(location.hash);
     const board = state.board;
-    if (route.kind !== 'game' || board === undefined || submitBlocked(moves)) return 'refused';
-    if (winnerOf(board.state) !== undefined) return 'refused';
+    const target = route.kind === 'game' && board !== undefined ? { route, board } : undefined;
+    // P94 D4 / P100 D1: every guard sends nothing and names itself. P98 D6:
+    // reading the token removes an already-unusable one.
+    const refusal = submitRefusal({
+      onlineReady: onlineReady(),
+      signedIn: token() !== undefined,
+      onGame: target !== undefined,
+      moveCount: moves.length,
+      submitting: state.submitting,
+      held: state.held !== undefined,
+      replaying: replayInFlight(),
+      gameOver: board !== undefined && winnerOf(board.state) !== undefined,
+      callerToMove: callerIsToMove(state),
+    });
+    if (refusal !== undefined) return refusal;
+    // `onGame` already refused a missing target; this only narrows it. A throw,
+    // not a second `no-game`, so the guard above is the one that answers.
+    // Stryker disable next-line ConditionalExpression -- unreachable: submitRefusal returned 'no-game' for an undefined target.
+    if (target === undefined) throw new Error('submitMoves: no game target past the guards');
     state.submitting = true;
     try {
       const ids = moves.map(() => newId());
-      return await sendAndHold(route.groupHash, route.gameNumber, moves, ids, board.version);
+      const { groupHash, gameNumber } = target.route;
+      return await sendAndHold(groupHash, gameNumber, moves, ids, target.board.version);
     } finally {
       state.submitting = false;
     }

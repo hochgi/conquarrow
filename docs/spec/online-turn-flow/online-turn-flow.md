@@ -29,7 +29,7 @@ through the path a wake takes.
 | **settle** | the submit returns an outcome; nothing it started is still pending |
 | **reconcile** | the P49 wake path run after the POSTs: re-read the snapshot, then queue the replay window from the displayed baseline, or install |
 | **displayed baseline** | P49: the version this client is showing |
-| **outcome** | `sent`, `refused`, `illegal`, `stale`, `failed` or `unauthorized` |
+| **outcome** | `sent`, `refused`, `illegal`, `stale`, `failed` or `unauthorized`. P100 replaced `refused` with one reason per guard |
 | **burst** | the heuristic seats' moves the server persists in the same version as the human's move (P49 "batch") |
 
 ## Decisions (online/web BSSN, recorded here)
@@ -74,7 +74,7 @@ While a submit is in flight `submitPending()` is true, and a second
 `submitMoves` returns `refused` without a request. The existing P18/P49 guards
 also return `refused` without a request: not online-ready, not a game route,
 no board, a finished game, not the caller's turn, a replay in flight, and an
-empty move list.
+empty move list. **Amended by [P100](../send-refusal/send-refusal.md) D1:** each guard now returns its own reason instead of `refused`.
 
 ### D5 — outcomes, and every outcome unlocks
 
@@ -105,7 +105,9 @@ The host's `illegal()` note survives the reconcile's own reads of the game
   `failed`, "The server did not answer, so your last move may not have been
   sent. Try again."; for `stale`, "The game moved on before your move arrived.
   The board has caught up."; nothing for the other outcomes (`illegal` keeps the
-  host's existing note, `unauthorized` the sign-in prompt).
+  host's existing note, `unauthorized` the sign-in prompt). **Amended by
+  [P100](../send-refusal/send-refusal.md) D2:** every outcome but `sent` has a
+  note, `illegal` included, and a refusal keeps the drawn route (D3).
 - The note clears on the next submit.
 
 ### D7 — no server change

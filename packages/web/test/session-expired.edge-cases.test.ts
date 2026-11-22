@@ -145,7 +145,7 @@ describe('An unusable token is removed and is not session expired (D1)', () => {
       expired: h.host.sessionExpired(),
       signedIn: h.host.signedIn(),
     }).toEqual({
-      outcome: 'refused',
+      outcome: 'signed-out',
       posts: 0,
       expired: false,
       signedIn: false,

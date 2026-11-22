@@ -1,17 +1,19 @@
 ---
 name: mutation-testing
 description: >-
-  Workflow for mutation-testing rules-core and online-api with Stryker's
-  vitest-runner. The verifier lists new survivors and does not classify them.
+  Workflow for mutation-testing every change with Stryker's vitest-runner,
+  scoped to the changed lines (pnpm test:mutation:changed). The verifier lists new survivors and does not classify them.
   test-author kills or suppresses. The reviewer judges every suppression.
   Use from verify-changes, or when a test gap is suspected.
 ---
 
 # Mutation testing workflow
 
-For any non-trivial change that touches behaviour we care about (anything in
-`stryker.config.json` `mutate[]`). Runner: **`@stryker-mutator/vitest-runner`**.
-`break` is `null` — the score is **advisory/triaged**, not a hard gate.
+**Every change to `packages/*/src` gets a Stryker run, in every package.**
+Runner: **`@stryker-mutator/vitest-runner`**. The gate is
+`pnpm test:mutation:changed`: it mutates only the lines the branch changed and
+fails on any survivor, any no-coverage mutant, and on a run with nothing to
+mutate. The whole-package configs keep `break: null`; they are baselines.
 
 Skip for typo fixes, doc-only changes, mechanical refactors with no behaviour
 delta.
@@ -19,30 +21,52 @@ delta.
 The verifier runs the command and lists new survivors. It does not classify
 them. test-author kills each with a test, or suppresses it with the invariant.
 The reviewer judges every suppression. A coder's "equivalent" is not a verdict.
-Do not add web to Stryker. Do not add test-kit to kill a rules-core mutant —
+Do not add test-kit to kill a rules-core mutant —
 rules-core may never use it (see `component-testing`).
 
 ## Running Stryker
 
 ```bash
-pnpm test:mutation
+pnpm test:mutation:changed                 # THE GATE: changed lines, related tests only
+pnpm test:mutation:changed --dry           # print the mutate ranges and tests, run nothing
+pnpm test:mutation:changed --base <ref>    # diff against another base
+pnpm test:mutation                         # whole rules-core baseline (hours)
 pnpm test:mutation:incremental
 pnpm test:mutation:report
 pnpm test:mutation:online-api              # stryker.online-api.config.json
 pnpm test:mutation:online-api:incremental
 ```
 
-Target a few files while iterating with **one comma-separated** `--mutate`
+### The scoped run
+
+`scripts/stryker-changed.mjs` diffs the merge-base with `main` (`hochgi/main`,
+`upstream/main` or `origin/main`, or `--base`) against the working tree, and
+turns every changed line range under `packages/*/src/**/*.{ts,tsx}` (barrels
+excepted) into one `--mutate 'file:start-end,…'`. It walks each test's static
+runtime import closure (`import type` skipped; a named import from a package
+barrel follows only the files that export those names) and writes the tests
+that reach a mutated file into `vitest.changed.config.mjs` (gitignored), which
+`stryker.changed.config.json` runs. Exit 0 pass, 2 survivors, 1 nothing to
+mutate / no test reaches it / zero mutants / crash.
+
+When a change is not covered — a new package, a new file kind, a test the
+closure misses — fix the script or the config so it is. Do not skip, and do
+not swap in a whole-package run. A `.tsx` component with no DOM harness: move
+the decision into a pure module and test it there; suppress only the wiring
+line in the component, with the reason.
+
+Target a few files by hand with **one comma-separated** `--mutate`
 (Stryker keeps only the last of repeated flags):
 `npx stryker run stryker.online-api.config.json --mutate 'packages/online-api/src/a.ts,packages/online-api/src/b.ts'`.
 
-Use `:incremental` while iterating; full run when capturing a baseline or
-before calling a packet done.
+Line ranges work too: `--mutate 'packages/web/src/a.ts:10-24'`. An
+incremental run always uses a scoped mutate list; a whole-package run is only
+for a baseline.
 
 ### Local run
 
-Stryker is **not** in CI. Run it in a normal terminal (agent tool-call
-timeouts will kill a full `rules-core` pass). Format survivors with
+Stryker is **not** in CI. The scoped run takes about a minute; a full
+`rules-core` pass takes hours and will be killed by agent tool-call timeouts. Format survivors with
 `pnpm test:mutation:report`.
 
 `stryker.config.json` mutates `packages/rules-core/src/**/*.ts` (except the
@@ -112,9 +136,10 @@ functions over the complexity budget even when well covered.
 
 - Suite green, lint/typecheck clean (complexity warnings on *untouched*
   files are the ratchet, not a blocker).
-- Incremental Stryker run on changed mutate[] files.
-- Every NEW survivor killed or classified as noise with rationale.
-- Handoff includes a one-line mutation summary per mutated file.
+- `pnpm test:mutation:changed` exits 0 on the final diff.
+- Every survivor on the changed lines killed, or suppressed with a
+  `// Stryker disable next-line <Mutator> -- reason` the reviewer accepts.
+- Handoff and PR body include the `stryker-changed: score` line.
 
 ## When NOT to follow this loop
 
@@ -124,6 +149,7 @@ functions over the complexity budget even when well covered.
 
 ## Reference
 
+- `scripts/stryker-changed.mjs` + `stryker.changed.config.json` — the scoped gate.
 - `stryker.config.json` — `mutate[]`, `excludedMutations`, and `ignorePatterns`.
   `ignorePatterns` excludes `.claude` / `.agents`: the skill directories contain
   symlinks that point outside the repo, and Stryker's sandbox copy follows them.

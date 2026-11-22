@@ -22,6 +22,7 @@ import { parsePagesHash } from './online-hash';
 import { createOnlinePages, occupiesHumanChair } from './online-pages';
 import { parseLibraryChanged, parseStateChanged } from './online-parse';
 import { readUsableSessionToken } from './online-session';
+import { submitNote } from './online-submit';
 
 const humansAllBound = (seats: readonly InviteSeat[] | undefined): boolean => {
   if (seats === undefined) return false;
@@ -73,7 +74,8 @@ export const createOnlineHost = (deps: OnlineHostDeps): OnlineHostPort => {
     if (isInviteAccept(req.method, path) && res.status === 200) inviteGoneFlag = false;
     if (isInviteCreate(req.method, path) && is2xx(res.status)) inviteGoneFlag = false;
     if (isPostMoves(req.method, path) && res.status === 422) {
-      illegalMsg = 'illegal';
+      // P100 D2: the same sentence `submitNote` gives the outcome.
+      illegalMsg = submitNote('illegal');
       return;
     }
     // P94: a 422 stays up through the reconcile reads that follow it.

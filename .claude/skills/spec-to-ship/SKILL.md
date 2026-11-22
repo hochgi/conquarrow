@@ -52,8 +52,9 @@ Online packets live in ADR 0002; reason those yourself.
     implement behind the ports, keep the core pure
     the component keeps the rule; do not widen the probed leaf
   PHASE 4 — VERIFY           verifier (read-only, variant low)
-    pnpm verify, plus the mutation command the patch's files require
-    new survivors → test-author. No judgment. No CRAP gate.
+    pnpm verify, plus pnpm test:mutation:changed on EVERY change
+    (scoped to the changed lines; nothing to mutate = fail)
+    survivors → test-author. No judgment. No CRAP gate.
     skill: verify-changes
   PHASE 5 — REVIEW           reviewer (read-only, variant xhigh)
     spec↔tests↔code, purity, boundaries, every suppression

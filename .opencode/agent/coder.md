@@ -18,6 +18,6 @@ the SDK, to make a probe pass.
 
 Purity: no `Date.now`, `Math.random`, or I/O in the core.
 
-You may run `pnpm test:mutation:incremental` to see survivors early. Do not
+You may run `pnpm test:mutation:changed` to see survivors early. Do not
 suppress one and do not call it equivalent. Hand the list to the orchestrator.
 The verifier re-runs the gate. You do not open the PR.

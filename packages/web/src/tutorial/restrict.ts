@@ -137,6 +137,7 @@ export const decorateInputMode = (inner: InputMode, restriction: RailRestriction
       return inner.label;
     },
     reset: (): InputSnapshot => delegate(() => inner.reset()),
+    restoreSent: (): InputSnapshot => delegate(() => inner.restoreSent()),
 
     onBackgroundClick: (): InputSnapshot => delegate(() => inner.onBackgroundClick()),
 

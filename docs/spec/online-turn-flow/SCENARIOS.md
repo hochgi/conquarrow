@@ -91,7 +91,7 @@ sequenceDiagram
   App->>Pages: submitMoves([m1])
   Pages->>API: POST moves m1
   App->>Pages: submitMoves([m2])
-  Pages-->>App: refused (no request)
+  Pages-->>App: sending (a P100 refusal, no request)
   alt 401
     API-->>Pages: 401
     Note over Pages: GIS prompt, no reconcile

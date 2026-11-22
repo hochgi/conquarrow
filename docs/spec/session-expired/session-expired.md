@@ -182,7 +182,8 @@ When the stored token is usable and `exp - now <= REAUTH_LEAD_MS` and
 once. It does not wait for a credential. The request still sends the current
 bearer. A token that is already unusable is not prompted here. D1 removes it
 and the request is not sent. `submitMoves` returns `refused`, the outcome it
-already uses when it sends nothing. It does not set session expired.
+already uses when it sends nothing (`signed-out` since
+[P100](../send-refusal/send-refusal.md) D1). It does not set session expired.
 `promptedFor` still suppresses a second proactive prompt for the same token.
 It does not suppress D2.
 

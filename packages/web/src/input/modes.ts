@@ -154,6 +154,13 @@ export interface InputMode {
   setCarry(count: number): InputSnapshot;
   /** Emit the draft as `pending`, in draft order, and return to idle. */
   send(): InputSnapshot;
+  /**
+   * P100 D3. Put back the route the last {@link send} emitted — phase and
+   * highlights, no `pending`, no `refusal` — when the host sent nothing. Only
+   * while the current snapshot is still the one `send` returned, and only once;
+   * otherwise it is {@link reset}.
+   */
+  restoreSent(): InputSnapshot;
   /** Discard the draft and return to idle — Cancel, background click, Escape. */
   cancel(): InputSnapshot;
   requestEndTurn(): InputSnapshot;
@@ -257,6 +264,8 @@ abstract class BaseMode implements InputMode {
   abstract readonly label: string;
 
   protected snap: InputSnapshot = idle();
+  /** P100 D3: what the last `send` emitted, and the route it came from. */
+  private sent: { readonly snap: InputSnapshot; readonly before: InputSnapshot } | undefined;
   /** The board the last click was made against. Undefined until the first one. */
   private board: Board | undefined;
 
@@ -438,11 +447,21 @@ abstract class BaseMode implements InputMode {
   send(): InputSnapshot {
     const { phase } = this.snap;
     if (phase.kind !== 'route' || phase.draft.length === 0) return this.snap;
+    const before: InputSnapshot = { phase, highlights: this.snap.highlights };
     this.snap = {
       phase: { kind: 'idle' },
       highlights: emptyHighlights(),
       pending: [...phase.draft],
     };
+    this.sent = { snap: this.snap, before };
+    return this.snap;
+  }
+
+  restoreSent(): InputSnapshot {
+    const sent = this.sent;
+    this.sent = undefined;
+    if (sent === undefined || sent.snap !== this.snap) return this.reset();
+    this.snap = sent.before;
     return this.snap;
   }
 
