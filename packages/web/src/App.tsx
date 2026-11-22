@@ -40,7 +40,7 @@ import type { RecencyStacks } from './selection/cursor';
 import { mergeButtons, stripLines } from './selection/status';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
-import { submitNote } from './online-submit';
+import { draftAfterSubmit, submitNote } from './online-submit';
 import { commitSequence, divergenceReport } from './online-replay';
 import { parsePagesHash } from './online-hash';
 import { isCallerToMove } from './online-pages';
@@ -1422,13 +1422,22 @@ export const App = (): ReactElement => {
         // replay, so nothing is pushed or recorded here.
         setSubmitting(true);
         setSubmitNoteText(undefined);
+        // P100 D3: a refusal sent nothing, so the drawn route comes back.
+        let draft: 'keep' | 'clear' = 'clear';
         void h
           .submitMoves(next.pending)
           .then((outcome) => {
             setSubmitNoteText(submitNote(outcome));
+            draft = draftAfterSubmit(outcome);
           })
           .finally(() => {
             setSubmitting(false);
+            if (draft === 'keep') {
+              // Nothing reached the server, so there is nothing to refresh — and
+              // a refresh re-installs the snapshot, which resets the input.
+              setSnap(mode.restoreSent());
+              return;
+            }
             setSnap(mode.reset());
             refresh();
           });
@@ -2084,6 +2093,13 @@ export const App = (): ReactElement => {
     }
   };
 
+  /** P100 D4: a system pinch or scroll cancelled the pointer; end its drag. */
+  const onPointerCancel = (e: PointerEvent<SVGSVGElement>): void => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    drag.current = null;
+  };
+
   const onPointerLeave = (): void => {
     drag.current = null;
     pointers.current.clear();
@@ -2274,6 +2290,7 @@ export const App = (): ReactElement => {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerLeave}
+          onPointerCancel={onPointerCancel}
           onWheel={onWheel}
         />
         {tutorial === undefined ? null : (

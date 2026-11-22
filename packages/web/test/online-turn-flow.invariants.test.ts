@@ -113,7 +113,7 @@ describe('P94 invariants over every answer sequence', () => {
     ]);
     held.answer(5);
     await first;
-    expect(others).toEqual(['refused', 'refused']);
+    expect(others).toEqual(['sending', 'sending']);
     expect(postsOf(h)).toBe(1);
   });
 

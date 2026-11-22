@@ -111,11 +111,18 @@ detailed form of an item; this file is the short list and the order.
   after End turn, the human's own move and every heuristic or agent seat's
   burst should animate, and End turn should read "Sending…" until the server
   answers. CI covers the adapter, not the render.
-- **P94 review: one unlocked frame.** When a submit settles with a replay
-  queued, `submitting` clears in the same render that bumps `gen`, and the
-  drain effect sets `replayPlaying` one render later. The adapter refuses a
-  submit in that frame (P49 D7), so nothing is sent, but a tap is lost
-  silently. Fold "a replay is queued" into `inputLocked` if it shows.
+- **Send self-heal (issue #129, second half).** P100 made every refused Send
+  say why and keep the route. Still open: a held submit (P95 D10) should be
+  sent or rebased when `/me` is valid instead of refusing `held`, and a held
+  submit with a stale `baseVersion` dropped with a note; a replay queue that
+  has not progressed for N seconds (config) flushed to the latest snapshot;
+  `not-your-turn` re-fetches the game and `/me` once before refusing. Needs a
+  fake clock and a held-submit component test.
+- **Check P100 on a phone, online.** Expire the session mid-game, sign in
+  again, then Send on a 4-stack: a refusal note shows and the route stays
+  drawn. Pinch during a route draw: the drag ends cleanly. Also covers P94's
+  "one unlocked frame": a tap in that frame now says `replaying` and keeps
+  the route instead of being lost.
 - **Event animations are too fast to read.** P92/P93 issue review
   2026-11-16: conversions, battles and encirclements play faster than a
   human can follow, now that every seat replays (P94). Pace them.

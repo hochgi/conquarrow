@@ -91,7 +91,7 @@ describe('A submit is visibly in flight', () => {
     held.answer(5);
     await first;
 
-    expect(second).toBe('refused');
+    expect(second).toBe('sending');
     expect(postsOf(h)).toBe(1);
   });
 

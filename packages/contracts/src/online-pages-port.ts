@@ -54,20 +54,42 @@ export interface ReplayBatch {
 }
 
 /**
- * How one `submitMoves` call ended (P94 D5, P95 D9–D10). Decided by what stopped
- * the POST loop: every move answered 200 → `sent`; 422 → `illegal`; 409 or 412
- * → `stale`; 403 → `forbidden`; 401 → `unauthorized` (the rest is held and sent
- * after the next credential); retries spent on a rejected fetch or a 5xx, or any
- * other status → `failed`. `refused` means a guard stopped it before any request.
+ * Why a `submitMoves` call sent nothing (P100 D1). One reason per guard, in the
+ * order the guards are checked: the first failing guard is the reason.
  */
-export type SubmitOutcome =
-  | 'sent'
-  | 'refused'
-  | 'illegal'
-  | 'stale'
-  | 'forbidden'
-  | 'failed'
-  | 'unauthorized';
+export const SUBMIT_REFUSALS = [
+  'not-ready',
+  'sending',
+  'held',
+  'signed-out',
+  'no-game',
+  'no-moves',
+  'replaying',
+  'game-over',
+  'not-your-turn',
+] as const;
+
+export type SubmitRefusal = (typeof SUBMIT_REFUSALS)[number];
+
+/**
+ * How one `submitMoves` call ended (P94 D5, P95 D9–D10, P100 D1). A refusal
+ * means a guard stopped it before any request. Otherwise it is decided by what
+ * stopped the POST loop: every move answered 200 → `sent`; 422 → `illegal`; 409
+ * or 412 → `stale`; 403 → `forbidden`; 401 → `unauthorized` (the rest is held
+ * and sent after the next credential); retries spent on a rejected fetch or a
+ * 5xx, or any other status → `failed`.
+ */
+export const SUBMIT_OUTCOMES = [
+  'sent',
+  ...SUBMIT_REFUSALS,
+  'illegal',
+  'stale',
+  'forbidden',
+  'failed',
+  'unauthorized',
+] as const;
+
+export type SubmitOutcome = (typeof SUBMIT_OUTCOMES)[number];
 
 export interface OnlinePagesEnv {
   readonly VITE_API_BASE: string;

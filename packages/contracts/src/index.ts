@@ -95,7 +95,11 @@ export { libraryStatusFor } from './library-status';
 
 export { PLAYER_SEAT_LABELS, libraryVsLine, playerLetterLabel } from './library-row';
 
-export { GOOGLE_ID_TOKEN_SESSION_KEY } from './online-pages-port';
+export {
+  GOOGLE_ID_TOKEN_SESSION_KEY,
+  SUBMIT_OUTCOMES,
+  SUBMIT_REFUSALS,
+} from './online-pages-port';
 export type {
   OnlineGameBoard,
   OnlinePagesDeps,
@@ -112,6 +116,7 @@ export type {
   PagesLobbyMode,
   ReplayBatch,
   SubmitOutcome,
+  SubmitRefusal,
 } from './online-pages-port';
 
 export type { OnlineHostDeps, OnlineHostPort } from './online-host-port';

@@ -139,8 +139,11 @@ describe('Failures settle and unlock', () => {
 
   it.each<{ outcome: SubmitOutcome; note: string | undefined }>([
     { outcome: 'sent', note: undefined },
-    { outcome: 'refused', note: undefined },
-    { outcome: 'illegal', note: undefined },
+    // P100 D2: illegal has its own sentence; the refusals are pinned in send-refusal.
+    {
+      outcome: 'illegal',
+      note: 'The server refused that move, so the board shows the last accepted position.',
+    },
     // P95 D10: the held submit says what happens next.
     {
       outcome: 'unauthorized',
@@ -203,7 +206,7 @@ describe('Guards send nothing', () => {
   it('An empty move list is refused without a request', async () => {
     const h = await showingAt(4, [posted(5)]);
 
-    expect(await h.adapter.submitMoves([])).toBe('refused');
+    expect(await h.adapter.submitMoves([])).toBe('no-moves');
     expect(postsOf(h)).toBe(0);
   });
 
@@ -216,7 +219,7 @@ describe('Guards send nothing', () => {
     await h.adapter.boot();
     h.adapter.noteDisplayed(4);
 
-    expect(await h.adapter.submitMoves([pass()])).toBe('refused');
+    expect(await h.adapter.submitMoves([pass()])).toBe('game-over');
     expect(postsOf(h)).toBe(0);
   });
 
@@ -229,7 +232,7 @@ describe('Guards send nothing', () => {
     await h.adapter.boot();
     h.adapter.noteDisplayed(4);
 
-    expect(await h.adapter.submitMoves([pass()])).toBe('refused');
+    expect(await h.adapter.submitMoves([pass()])).toBe('not-your-turn');
     expect(postsOf(h)).toBe(0);
   });
 
@@ -246,7 +249,7 @@ describe('Guards send nothing', () => {
       gameNumber: GAME_ONE,
     });
 
-    expect(await h.adapter.submitMoves([pass()])).toBe('refused');
+    expect(await h.adapter.submitMoves([pass()])).toBe('replaying');
     expect(postsOf(h)).toBe(0);
   });
 });
@@ -280,7 +283,7 @@ describe('Review — what a 200 carries, the route guard, and how long the 422 n
 
     const outcome = await h.adapter.submitMoves([mark('s1')]);
 
-    expect(outcome).toBe('refused');
+    expect(outcome).toBe('no-game');
     expect(postsOf(h)).toBe(0);
   });
 

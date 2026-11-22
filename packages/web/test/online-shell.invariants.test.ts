@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { endTurn, GOOGLE_ID_TOKEN_SESSION_KEY } from '@conquarrow/contracts';
 import type { OnlinePagesEnv } from '@conquarrow/contracts';
+import { submitNote } from '../src/online-submit';
 import {
   ALICE,
   BOB,
@@ -253,7 +254,7 @@ describe('online-shell invariants', () => {
     expect(h.host.board()).toEqual(opening);
     // P94 D3: a 422 still reconciles — one more GET, and the board below stays put.
     expect(apiCalls(h, 'GET', `/games/${GROUP_HASH}/${GAME_ONE}`)).toHaveLength(2);
-    expect(h.host.illegal()).toBe('illegal');
+    expect(h.host.illegal()).toBe(submitNote('illegal'));
   });
 
   it('When the player signs out via the host, the session key shall be gone and the WebSocket closed', async () => {

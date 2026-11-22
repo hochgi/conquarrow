@@ -385,6 +385,7 @@ export const spySend = (
       n += 1;
       return send();
     },
+    restoreSent: () => inner.restoreSent(),
     cancel: () => inner.cancel(),
     requestEndTurn: () => inner.requestEndTurn(),
   };
