@@ -6,9 +6,11 @@
  */
 
 import { SUBMIT_REFUSALS, type SubmitOutcome, type SubmitRefusal } from '@conquarrow/contracts';
+import type { InputMode, InputSnapshot } from './input/modes';
 
-/** P100 D2: every outcome but `sent` has a sentence; the type keeps it total. */
-const NOTES: Readonly<Record<Exclude<SubmitOutcome, 'sent'>, string>> = {
+/** P100 D2: every outcome is a key, so the type keeps the table total. */
+const NOTES: Readonly<Record<SubmitOutcome, string | undefined>> = {
+  sent: undefined,
   // P100 D1: a guard stopped it, so nothing was sent and the route is kept.
   'not-ready': 'Online play is not set up on this page, so nothing was sent.',
   'signed-out': 'You are signed out, so nothing was sent. Sign in and tap Send again.',
@@ -28,18 +30,32 @@ const NOTES: Readonly<Record<Exclude<SubmitOutcome, 'sent'>, string>> = {
 };
 
 /** D6 / P100 D2. The one line under the buttons for an outcome; `sent` has none. */
-export const submitNote = (outcome: SubmitOutcome): string | undefined =>
-  outcome === 'sent' ? undefined : NOTES[outcome];
+export const submitNote = (outcome: SubmitOutcome): string | undefined => NOTES[outcome];
 
-const isRefusal = (outcome: SubmitOutcome): outcome is SubmitRefusal =>
-  (SUBMIT_REFUSALS as readonly SubmitOutcome[]).includes(outcome);
+const isRefusal = (outcome: SubmitOutcome | undefined): outcome is SubmitRefusal =>
+  (SUBMIT_REFUSALS as readonly (SubmitOutcome | undefined)[]).includes(outcome);
 
 /**
  * P100 D3. `keep` the drawn route when nothing was sent; `clear` it when the
  * submit reached the server (a prefix may have landed, or the rest is held).
+ * `undefined` is a rejected submit, which clears too.
  */
-export const draftAfterSubmit = (outcome: SubmitOutcome): 'keep' | 'clear' =>
+export const draftAfterSubmit = (outcome: SubmitOutcome | undefined): 'keep' | 'clear' =>
   isRefusal(outcome) ? 'keep' : 'clear';
+
+/**
+ * P100 D3. What the shell does when a submit settles: the snapshot to show,
+ * and whether to refresh the host. `undefined` is a rejected submit, which
+ * clears like any outcome that may have reached the server. A kept route is
+ * not refreshed: a refresh re-installs the snapshot, which resets the input.
+ */
+export const settleSubmit = (
+  outcome: SubmitOutcome | undefined,
+  mode: Pick<InputMode, 'reset' | 'restoreSent'>,
+): { readonly snap: InputSnapshot; readonly refresh: boolean } =>
+  draftAfterSubmit(outcome) === 'keep'
+    ? { snap: mode.restoreSent(), refresh: false }
+    : { snap: mode.reset(), refresh: true };
 
 /** D6. End turn's label: "Sending…" while a submit is in flight. */
 export const endTurnLabel = (sending: boolean): string => (sending ? 'Sending…' : 'End turn');

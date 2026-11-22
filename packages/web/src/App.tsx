@@ -10,6 +10,7 @@ import {
   type Move,
   type OnlineHostPort,
   type PagesLobbyMode,
+  type SubmitOutcome,
   type PlayerId,
   type ReplayBatch,
 } from '@conquarrow/contracts';
@@ -24,7 +25,7 @@ import { Hud } from './Hud';
 import type { TutorialHud } from './Hud';
 import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
-import { pointerUpIntent, type PointerUpIntent } from './input/pointer';
+import { cancelPointer, pointerUpIntent, type PointerUpIntent } from './input/pointer';
 import { Lobby } from './Lobby';
 import type { LobbyResume } from './Lobby';
 import {
@@ -40,7 +41,7 @@ import type { RecencyStacks } from './selection/cursor';
 import { mergeButtons, stripLines } from './selection/status';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
-import { draftAfterSubmit, submitNote } from './online-submit';
+import { settleSubmit, submitNote } from './online-submit';
 import { commitSequence, divergenceReport } from './online-replay';
 import { parsePagesHash } from './online-hash';
 import { isCallerToMove } from './online-pages';
@@ -1423,23 +1424,19 @@ export const App = (): ReactElement => {
         setSubmitting(true);
         setSubmitNoteText(undefined);
         // P100 D3: a refusal sent nothing, so the drawn route comes back.
-        let draft: 'keep' | 'clear' = 'clear';
+        let settled: SubmitOutcome | undefined;
         void h
           .submitMoves(next.pending)
           .then((outcome) => {
             setSubmitNoteText(submitNote(outcome));
-            draft = draftAfterSubmit(outcome);
+            settled = outcome;
           })
           .finally(() => {
             setSubmitting(false);
-            if (draft === 'keep') {
-              // Nothing reached the server, so there is nothing to refresh — and
-              // a refresh re-installs the snapshot, which resets the input.
-              setSnap(mode.restoreSent());
-              return;
-            }
-            setSnap(mode.reset());
-            refresh();
+            const after = settleSubmit(settled, mode);
+            setSnap(after.snap);
+            // Stryker disable next-line all -- no DOM harness for App; settleSubmit decides `refresh` and is tested.
+            if (after.refresh) refresh();
           });
         return;
       }
@@ -2094,9 +2091,10 @@ export const App = (): ReactElement => {
   };
 
   /** P100 D4: a system pinch or scroll cancelled the pointer; end its drag. */
+  // Stryker disable next-line all -- no DOM harness for App; cancelPointer holds the decision and is tested.
   const onPointerCancel = (e: PointerEvent<SVGSVGElement>): void => {
-    pointers.current.delete(e.pointerId);
-    if (pointers.current.size < 2) pinch.current = null;
+    // Stryker disable next-line all -- as above.
+    if (cancelPointer(pointers.current, e.pointerId)) pinch.current = null;
     drag.current = null;
   };
 

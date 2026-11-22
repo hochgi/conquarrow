@@ -34,8 +34,9 @@ pin. Model and variant are two fields. Never write `xai/grok-4.7#xhigh`.
 
 ```bash
 pnpm verify                         # typecheck && lint && test — the gate
-pnpm test:mutation:incremental      # rules-core, changed mutants; break is null
-pnpm test:mutation:online-api       # online-api src
+pnpm test:mutation:changed          # Stryker on the changed lines, any package — mandatory
+pnpm test:mutation:incremental      # whole rules-core baseline; never the gate
+pnpm test:mutation:online-api       # whole online-api baseline; never the gate
 ```
 
 - Remote `hochgi` (`github.com:hochgi/conquarrow.git`). Base `main`. Never push
@@ -66,17 +67,19 @@ classification from the coder.
 
 ## Phase 4 — Verify (`@verifier`)
 
-Delegate. It cannot edit files. It re-runs `pnpm verify`. If the patch touches
-`stryker.config.json` `mutate[]` (`packages/rules-core/src`), it runs
-`pnpm test:mutation:incremental`. If it touches `packages/online-api`, it runs
-`pnpm test:mutation:online-api`. It does not add web to Stryker, run CRAP as a
-gate, or decide that a mutant is equivalent.
+Delegate. It cannot edit files. It re-runs `pnpm verify` and
+`pnpm test:mutation:changed` — **Stryker on every change, in every package**,
+mutating only the changed lines and running only the tests that reach them.
+It does not run CRAP as a gate or decide that a mutant is equivalent.
 
-`pnpm verify`'s exit code is the gate verdict. Stryker's `break` is `null`, so
-a zero exit is not a clean mutation run — the new-survivor list is. Every new
-survivor goes back to `@test-author` (kill it, or suppress it with the
-invariant). A red gate goes back to `@coder`. Then verify again, until
-`pnpm verify` exits 0 and the new-survivor list is empty.
+Both exit codes are the gate. `test:mutation:changed` exit 2 (a survivor or a
+no-coverage mutant) goes back to `@test-author` (kill it, or suppress it with
+the invariant). Exit 1 — nothing to mutate, no test reaches the change, zero
+mutants — is a **failure, not a pass**: you extend or scope
+`scripts/stryker-changed.mjs` / `stryker.changed.config.json` to the changed
+files and re-run. Never skip it and never substitute a whole-package run. A
+red `pnpm verify` goes back to `@coder`. Then verify again, until both exit 0.
+Put the `stryker-changed: score` line in the PR body.
 
 ## Phase 5 — Review (`@reviewer`)
 

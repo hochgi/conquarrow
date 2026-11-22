@@ -787,12 +787,13 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     refreshTokenIfStale();
     const route = parsePagesHash(location.hash);
     const board = state.board;
+    const target = route.kind === 'game' && board !== undefined ? { route, board } : undefined;
     // P94 D4 / P100 D1: every guard sends nothing and names itself. P98 D6:
     // reading the token removes an already-unusable one.
     const refusal = submitRefusal({
       onlineReady: onlineReady(),
       signedIn: token() !== undefined,
-      onGame: route.kind === 'game' && board !== undefined,
+      onGame: target !== undefined,
       moveCount: moves.length,
       submitting: state.submitting,
       held: state.held !== undefined,
@@ -801,12 +802,15 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       callerToMove: callerIsToMove(state),
     });
     if (refusal !== undefined) return refusal;
-    // Unreachable past `onGame`; it narrows the route and board for the send.
-    if (route.kind !== 'game' || board === undefined) return 'no-game';
+    // `onGame` already refused a missing target; this only narrows it. A throw,
+    // not a second `no-game`, so the guard above is the one that answers.
+    // Stryker disable next-line ConditionalExpression -- unreachable: submitRefusal returned 'no-game' for an undefined target.
+    if (target === undefined) throw new Error('submitMoves: no game target past the guards');
     state.submitting = true;
     try {
       const ids = moves.map(() => newId());
-      return await sendAndHold(route.groupHash, route.gameNumber, moves, ids, board.version);
+      const { groupHash, gameNumber } = target.route;
+      return await sendAndHold(groupHash, gameNumber, moves, ids, target.board.version);
     } finally {
       state.submitting = false;
     }

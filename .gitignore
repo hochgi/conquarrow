@@ -19,3 +19,6 @@ packages/web/bench/results/
 # mutation / coverage artefacts
 .stryker-tmp/
 reports/
+
+# scripts/stryker-changed.mjs output (scoped Stryker run)
+vitest.changed.config.mjs

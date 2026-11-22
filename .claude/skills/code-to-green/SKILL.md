@@ -17,8 +17,8 @@ right reason. Your job is to make them pass without changing what they mean.
    rule or splitting a function arbitrarily to duck a line count.
 3. **Replay.** Re-run the replay fixtures. Green unit tests plus a drifted
    replay means you introduced nondeterminism.
-4. **Stryker, early only.** You may run `pnpm test:mutation:incremental` on
-   files you touched in `mutate[]`. Do not suppress a survivor and do not call
+4. **Stryker, early only.** You may run `pnpm test:mutation:changed` (the
+   changed lines only, any package). Do not suppress a survivor and do not call
    it equivalent. Hand the list to the orchestrator. test-author kills it. The
    verifier re-runs and is the gate.
 5. **CRAP glance.** `pnpm crap` is advisory, not a gate. If you grew a function you

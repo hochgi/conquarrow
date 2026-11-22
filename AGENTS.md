@@ -145,8 +145,9 @@ TypeScript (strict) + Vitest + pnpm workspaces. Landed in P01.
 ```bash
 pnpm verify                      # typecheck && lint && test — before saying you are done
 pnpm crap                        # coverage + CRAP report (advisory, not a gate)
-pnpm test:mutation               # Stryker on rules-core (local; advisory)
-pnpm test:mutation:incremental   # Stryker, changed mutants only
+pnpm test:mutation:changed       # Stryker on the lines this branch changed, any package — the gate, every change
+pnpm test:mutation               # Stryker on all of rules-core (baseline; hours)
+pnpm test:mutation:incremental   # same, incremental (baseline only)
 pnpm test:mutation:online-api    # Stryker on online-api/src (its own suite only; ~4 min)
 ```
 
@@ -210,10 +211,12 @@ usual suffixes (`*.core|edge-cases|invariants|replay.test.ts`, rig factory in
 `*.support.ts`); the `*.kit.test.ts` suffix is retired. See the
 `component-testing` skill.
 
-Stryker (`pnpm test:mutation`) is the mutation layer on `rules-core`;
-`pnpm test:mutation:online-api` runs the same on `online-api` against its own
-suite (`stryker.online-api.config.json`). Advisory
-(`break: null`); triage new survivors. See the `mutation-testing` skill.
+Stryker runs on **every** change: `pnpm test:mutation:changed` mutates only
+the changed lines in any package and runs only the tests that reach them. It
+fails on a survivor, a no-coverage mutant, or nothing to mutate. The
+whole-package configs (`pnpm test:mutation` for `rules-core`,
+`pnpm test:mutation:online-api` for `online-api`) are baselines
+(`break: null`). See the `mutation-testing` skill.
 
 ## The spec→ship workflow
 

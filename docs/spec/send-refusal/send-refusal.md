@@ -50,7 +50,9 @@ so there is no new protocol path, no `SCENARIOS.md` and no new
 | 9 | `not-your-turn` | the caller's seat is not the active player |
 
 or `undefined` when every guard passes. `submitMoves` sends nothing when it
-returns a reason, and returns that reason. `game-over` is checked before
+returns a reason, and returns that reason. Past the guards the game target is
+narrowed with a throw that cannot fire, not a second `no-game`, so the guard
+is the only thing that answers `no-game`. `game-over` is checked before
 `not-your-turn` because a finished board's active player says nothing about
 the caller. `sending` before `held` because both are `submitPending()` and the
 in-flight one is the more immediate fact (`sendHeld` submits while `held` is
@@ -71,11 +73,14 @@ outcomes' sentences (P94, P95) are unchanged.
 
 `draftAfterSubmit(outcome)` (pure, `online-submit.ts`) is `keep` for every
 refusal and `clear` for `sent` and every outcome that reached the server.
-`commitSnap` applies it when the submit settles: `keep` → `mode.restoreSent()`
-and no host refresh; `clear` → `mode.reset()` and a refresh (as today). A
+`commitSnap` applies it through the pure `settleSubmit(outcome, mode)`
+(`online-submit.ts`), which returns the snapshot and whether to refresh:
+`keep` → `mode.restoreSent()` and no host refresh; `clear` → `mode.reset()`
+and a refresh (as today). A
 refusal changed nothing on the server, and a refresh bumps `gen`, whose
 snapshot-install effect calls `mode.reset()` and would wipe the restored route.
-A rejected `submitMoves` promise counts as `clear`.
+A rejected `submitMoves` promise (`settleSubmit(undefined, …)`) counts as
+`clear`.
 
 A later `gen` bump (a wake, a poll, a replay finishing) still resets the input
 as it does today. So a `replaying` refusal keeps the route until that replay's
@@ -96,7 +101,8 @@ the unsent rest is already held and sent after the next sign-in (P95 D10).
 
 The board SVG passes `onPointerCancel` and `onLostPointerCapture`. Both drop
 the event's pointer, clear the pinch when fewer than two pointers remain, and
-clear the drag. `touch-action: none` is already set on the board SVG. CI has
+clear the drag. The decision is the pure `cancelPointer(pointers, id)` in
+`input/pointer.ts`; `App.tsx` only wires it. `touch-action: none` is already set on the board SVG. CI has
 no DOM; the PR's phone check covers a pinch during a route draw.
 
 ## EARS
@@ -110,6 +116,13 @@ no DOM; the PR's phone check covers a pinch during a route draw.
    that was sent; otherwise it shall clear it (D3).
 5. When the pointer is cancelled or loses capture, the board shall end any
    drag or pinch that pointer was part of (D4).
+
+## Mutation
+
+`pnpm test:mutation:changed` on this packet's lines. The suppressions are the
+`App.tsx` wiring (no DOM harness; `settleSubmit` and `cancelPointer` carry the
+decisions and are tested) and the unreachable narrowing throw in
+`submitMoves`. Pinned in `send-refusal.mutation-pins.test.ts`.
 
 ## Out of scope
 

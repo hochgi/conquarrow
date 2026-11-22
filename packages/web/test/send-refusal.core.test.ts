@@ -17,6 +17,7 @@ import {
   postStatus,
   postsOf,
   showingAt,
+  GAME_PATH,
 } from './online-turn-flow.support';
 import { ALICE, GAME_ONE, GROUP_HASH, gameHash, makePagesHarness } from './online-web.support';
 import {
@@ -96,6 +97,18 @@ describe('Each guard has its own reason (D1)', () => {
   it('Leaving the game route is no-game', async () => {
     const h = await showingAt(4, [posted(5)]);
     (h.location as { hash: string }).hash = '';
+    expect(await h.adapter.submitMoves([pass()])).toBe('no-game');
+    expect(postsOf(h)).toBe(0);
+  });
+
+  it('A game route whose board never loaded is no-game', async () => {
+    const h = makePagesHarness({
+      hash: gameHash(GROUP_HASH, GAME_ONE),
+      sessionToken: ALICE.bearer,
+      fetchScript: [{ method: 'GET', path: GAME_PATH, status: 500, body: { error: 'down' } }, posted(5)],
+    });
+    await h.adapter.boot();
+    expect(h.adapter.board()).toBeUndefined();
     expect(await h.adapter.submitMoves([pass()])).toBe('no-game');
     expect(postsOf(h)).toBe(0);
   });

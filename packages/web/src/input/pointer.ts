@@ -32,6 +32,16 @@ export interface PointerUp {
   readonly hit: ArrowId | undefined;
 }
 
+/**
+ * P100 D4. A `pointercancel` or `lostpointercapture`: forget that pointer.
+ * Returns whether the pinch ends (fewer than two pointers left). The drag
+ * always ends.
+ */
+export const cancelPointer = (pointers: Map<number, unknown>, pointerId: number): boolean => {
+  pointers.delete(pointerId);
+  return pointers.size < 2;
+};
+
 export const pointerUpIntent = (up: PointerUp): PointerUpIntent => {
   // A pan or a pinch moved the camera, and a release with no press behind it is
   // not a click: none of them touches the input snapshot (invariant 13).
