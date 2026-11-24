@@ -101,5 +101,7 @@ title, body (starts with `🤖: `) linking the packet and the spec files.
 
 ## Ship
 
-The **orchestrator** pushes, opens the PR, and squash-merges once CI is
-green. The reviewer does **not** push. Never push `shalevhoch`.
+The **orchestrator** pushes the feature branch, opens the PR with `gh`, and
+squash-merges with `gh pr merge --squash` once CI is green. Never push `main`.
+A local squash pushed to `main` is not a merge. The reviewer does **not** push.
+Never push `shalevhoch`.

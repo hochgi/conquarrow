@@ -40,7 +40,7 @@ pnpm test:mutation:online-api       # whole online-api baseline; never the gate
 ```
 
 - Remote `hochgi` (`github.com:hochgi/conquarrow.git`). Base `main`. Never push
-  `shalevhoch`. PR title and body start with `🤖: `.
+  `shalevhoch`. Never push `main`. PR title and body start with `🤖: `.
 - The core is pure. Never invent a game rule. SPEC.md silence goes to §11.
 - A protocol delivery (HTTP, WebSocket, MCP, OAuth, or any request/response
   between processes) has `docs/spec/<feature>/SCENARIOS.md`. Each `alt`, `opt`,
@@ -90,11 +90,18 @@ then phase 5.
 
 ## Ship
 
-Push to `hochgi` only. Open the PR. Body starts with `🤖: ` and links the
+Push the feature branch to `hochgi` only. SSH is fine
+(`git@github.com:hochgi/conquarrow.git`). Never push `main`. Never push
+`shalevhoch`. Open the PR with `gh`. Body starts with `🤖: ` and links the
 packet and the spec, including `SCENARIOS.md` when the packet has a protocol.
-Squash-merge once CI is green, unless an escalate item appeared. The same PR
+Squash-merge with `gh pr merge --squash` once CI is green, unless an escalate
+item appeared. A local squash pushed to `main` is not that merge. The same PR
 updates `docs/design/backlog.md`: delete the shipped item, add what the run
 turned up.
+
+Authenticate `gh` by sourcing `~/.zshrc` (`zsh -lic 'gh …'`). Do not use
+`security` to read a token. If that does not log `gh` in, ask the user to auth
+the GitHub MCP or `gh`, and stop. Do not land the change another way.
 
 ## Skip the pipeline
 

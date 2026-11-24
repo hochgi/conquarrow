@@ -245,6 +245,9 @@ Re-run the gate after every phase. A subagent's "green" is a hypothesis.
 Halt only for a SPEC.md game-rule gap, a substantial unexpected cost, or a big
 behavioural shift. Online/infra BSSN: decide, write it down, continue.
 Do not collapse phases. Do not invent a game rule. Never push `shalevhoch`.
+Never push `main`. The only landing is `gh pr merge --squash` after CI is green.
+A local squash pushed to `main` is not a merge. If `gh` is not authenticated,
+stop and ask. Do not land the change another way.
 
 **How this differs from cycle-processing:** there, phase 1's input was a
 high-level spec living outside the repo. Here **SPEC.md is already that document**
