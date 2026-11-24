@@ -12,6 +12,7 @@ import type { VictoryFx } from './fx/victory';
 import type { InputPhase } from './input/modes';
 import { endTurnLabel } from './online-submit';
 import { routeHint } from './route';
+import { turnBannerCopy, type TurnBannerCopy, type TurnBannerSeat } from './turnBanner';
 
 export interface HudProps {
   readonly state: GameState;
@@ -46,6 +47,11 @@ export interface HudProps {
   readonly submitting: boolean;
   /** P94 / P49 D7: a replay batch is playing. */
   readonly replaying: boolean;
+  /**
+   * P101: whose chair the banner names. App passes `onlineTurnSeat` online and
+   * the local seat config otherwise. Absent only in the static HUD harness.
+   */
+  readonly turnSeat?: TurnBannerSeat;
   readonly tutorial?: TutorialHud;
   /** P96 D11: the online game's title, under the action row. */
   readonly gameName?: string;
@@ -84,6 +90,74 @@ const phaseHint = (
       return routeHint(phase) ?? '';
   }
 };
+
+/** Harness default: a local hot-seat. App always passes the real seat. */
+const LOCAL_HOT_SEAT: TurnBannerSeat = {
+  venue: 'local',
+  kind: 'human',
+  relation: 'caller-human',
+};
+
+// Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+const inPlayTurnCopy = (args: {
+  readonly state: GameState;
+  readonly phase: InputPhase;
+  readonly movableCount: number;
+  readonly vsBot: boolean;
+  readonly byokActive: boolean;
+  readonly botBusy: boolean;
+  readonly pause: PauseKind;
+  readonly replaying: boolean;
+  readonly seat: TurnBannerSeat;
+}): TurnBannerCopy =>
+  turnBannerCopy({
+    venue: args.seat.venue,
+    letter: String(args.state.activePlayer),
+    kind: args.seat.kind,
+    relation: args.seat.relation,
+    // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+    ...(args.seat.ownerName === undefined ? {} : { ownerName: args.seat.ownerName }),
+    replaying: args.replaying,
+    vsBot: args.vsBot,
+    pause: args.pause,
+    botBusy: args.botBusy,
+    byokActive: args.byokActive,
+    phase: args.phase.kind,
+    movableCount: args.movableCount,
+    // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+    routeHint: routeHint(args.phase) ?? '',
+  });
+
+/**
+ * In-play banner only. Tutorial and victory banners do not call this.
+ * The letter is coloured; the function owns the words.
+ */
+// Stryker disable all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+const InPlayBanner = ({
+  state,
+  copy,
+}: {
+  readonly state: GameState;
+  readonly copy: TurnBannerCopy;
+  // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+}): ReactElement => {
+  const fill = styleFor(state.activePlayer).fill;
+  return (
+    <p
+      className="banner"
+      style={{ borderColor: fill }}
+      // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+      aria-busy={copy.thinking ? true : undefined}
+    >
+      Turn: <strong style={{ color: fill }}>{copy.letter}</strong>
+      {copy.suffix}
+      {/* Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested. */}
+      {copy.thinking ? <span className="spinner" aria-hidden="true" /> : null}
+      {starvationNote(state)}
+    </p>
+  );
+};
+// Stryker restore all
 
 /**
  * Every seat on the starvation clock, in `state.players` order (P36).
@@ -229,10 +303,27 @@ export const Hud = ({
   illegal,
   submitting,
   replaying,
+  turnSeat,
   tutorial,
   gameName,
 }: HudProps): ReactElement => {
-  const active = styleFor(state.activePlayer);
+  // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+  const seat = turnSeat ?? LOCAL_HOT_SEAT;
+  // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+  const inPlay = tutorial === undefined && victory.kind !== 'over';
+  const playing = inPlay
+    ? inPlayTurnCopy({
+        state,
+        phase,
+        movableCount,
+        vsBot,
+        byokActive,
+        botBusy,
+        pause: kind,
+        replaying,
+        seat,
+      })
+    : undefined;
   // Read off `winner`, never off the celebration (P38 invariant 12). While the
   // deciding move's overlays play out, `victory` deliberately reads *playing* — so
   // `controlsLocked(victory)` would unlock Next stack and End turn for the length of the
@@ -273,25 +364,17 @@ export const Hud = ({
         </p>
       ) : victory.kind === 'over' ? (
         <p className="banner win">{victory.banner}</p>
-      ) : (
-        <p className="banner" style={{ borderColor: active.fill }}>
-          Turn: <strong style={{ color: active.fill }}>{active.label}</strong>
-          {vsBot
-            ? kind !== 'running'
-              ? ' · paused'
-              : botBusy
-                ? byokActive
-                  ? ' · llm'
-                  : ' · ai'
-                : ' · you'
-            : null}
-          {starvationNote(state)}
-        </p>
-      )}
+      ) : // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+      playing !== undefined ? (
+        <InPlayBanner state={state} copy={playing} />
+      ) : null}
       <p className="hint">
         {victory.kind === 'over'
           ? victory.hint
-          : phaseHint(phase, movableCount, botBusy, vsBot, byokActive, kind)}
+          : // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+            playing !== undefined
+            ? playing.hint
+            : phaseHint(phase, movableCount, botBusy, vsBot, byokActive, kind)}
       </p>
       {tutorial?.coach !== undefined ? <p className="hint byok-status">{tutorial.coach}</p> : null}
       {byokStatus !== undefined ? <p className="hint byok-status">{byokStatus}</p> : null}
