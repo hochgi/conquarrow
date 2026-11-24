@@ -96,9 +96,13 @@ ask the human those.
 
 ## Ship loop
 
-1. Push to `hochgi/conquarrow` only (never `shalevhoch`).
-2. Open the PR; body starts with `🤖: `.
-3. Squash-merge when CI is green, unless an escalate item appeared.
+1. Push the feature branch to `hochgi/conquarrow` only. Never push `shalevhoch`.
+   Never push `main`.
+2. Open the PR with `gh`; body starts with `🤖: `.
+3. Squash-merge with `gh pr merge --squash` when CI is green, unless an
+   escalate item appeared. A local squash pushed to `main` is not a merge.
+   If `gh` is not authenticated, stop and ask. Do not land the change another
+   way. OpenCode auth is in `OPENCODE.md`.
 
 ## When NOT to run the full pipeline
 

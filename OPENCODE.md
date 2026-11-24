@@ -10,6 +10,15 @@ Shared conventions: [`AGENTS.md`](./AGENTS.md).
 
 Never commit `XAI_API_KEY`.
 
+## GitHub
+
+`gh` is authenticated by sourcing `~/.zshrc` (`zsh -lic 'gh …'`). Do not use
+`security` to read a token. Push a feature branch over SSH
+(`git@github.com:hochgi/conquarrow.git`). Never push `main`. Squash-merge with
+`gh pr merge --squash` once CI is green. If `gh` is not logged in after sourcing
+`~/.zshrc`, ask the user to auth the GitHub MCP or `gh`, and stop. Do not land
+the change another way.
+
 List what this login actually exposes:
 
 ```
