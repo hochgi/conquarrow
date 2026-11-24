@@ -126,8 +126,14 @@ detailed form of an item; this file is the short list and the order.
 - **Event animations are too fast to read.** P92/P93 issue review
   2026-11-16: conversions, battles and encirclements play faster than a
   human can follow, now that every seat replays (P94). Pace them.
-- **"Your agent" label.** P92/P93 issue review 2026-11-16: the seat label
-  for the caller's own agent. The GIS flicker half is P97's phone check.
+- **"Your agent" label on the roster.** P92/P93 issue review 2026-11-16: the
+  seat label for the caller's own agent everywhere it is listed. P101 covers
+  the turn banner only (`your agent is playing…`). The GIS flicker half is
+  P97's phone check. Issue #119.
+- **Rest of #120, in-game turn and seat clarity.** P101 ships the turn banner
+  and the thinking indicator. Still open: grey an eliminated seat and toast
+  it; a game-over summary; raw `tiling:` ids out of copy; the `passing…`
+  delay; camera lock; animation pacing. Names everywhere stay #119.
 - **Feel-check P99 on a phone.** Select a 16+ stack. The markers should be the
   same wash as before and should appear without a long wait. CI counts
   `rules.apply` calls; it does not time the phone. Source: issue #121.

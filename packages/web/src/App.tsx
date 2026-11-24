@@ -11,6 +11,7 @@ import {
   type OnlineHostPort,
   type PagesLobbyMode,
   type SubmitOutcome,
+  type InviteSeat,
   type PlayerId,
   type ReplayBatch,
 } from '@conquarrow/contracts';
@@ -23,6 +24,7 @@ import { cullArrows, cullVertices } from './cull';
 import { COARSE_HIT_PADDING_PX, hitArrow, hitSpawnerVertex } from './hit';
 import { Hud } from './Hud';
 import type { TutorialHud } from './Hud';
+import { localConfigKind, localTurnSeat, onlineTurnSeat, type TurnBannerSeat } from './turnBanner';
 import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
 import { cancelPointer, pointerUpIntent, type PointerUpIntent } from './input/pointer';
@@ -370,6 +372,36 @@ const lobbyResume = (
     ...(error === undefined ? {} : { error }),
   };
 };
+
+/**
+ * P101: online copy reads game seats (`board().seats`, else `inviteSeats()`),
+ * never `aiSeatsRef` or `seatConfigsRef`.
+ */
+// Stryker disable all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+const onlineBannerSeat = (
+  seats: readonly InviteSeat[] | undefined,
+  userHash: string | undefined,
+  players: readonly string[],
+  active: string,
+  // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+): TurnBannerSeat => {
+  const derived = onlineTurnSeat({
+    players,
+    active,
+    // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+    ...(seats === undefined ? {} : { seats }),
+    // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+    ...(userHash === undefined ? {} : { userHash }),
+  });
+  return {
+    venue: 'online',
+    kind: derived.kind,
+    relation: derived.relation,
+    // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+    ...(derived.ownerName === undefined ? {} : { ownerName: derived.ownerName }),
+  };
+};
+// Stryker restore all
 
 export const App = (): ReactElement => {
   const { host, gen, refresh } = usePagesHost();
@@ -2236,6 +2268,20 @@ export const App = (): ReactElement => {
         {...(onlineGameName === undefined ? {} : { gameName: onlineGameName })}
         submitting={submitting}
         replaying={replayPlaying}
+        turnSeat={
+          // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+          host !== undefined && onlinePlayRef.current
+            ? onlineBannerSeat(
+                // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+                host.board()?.seats ?? host.adapter().inviteSeats(),
+                host.adapter().userHash(),
+                // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+                state.players.map((id) => String(id)),
+                String(state.activePlayer),
+              )
+            // Stryker disable next-line all -- no DOM harness; turnBannerCopy / onlineTurnSeat hold the decision and are tested.
+            : { venue: 'local', ...localTurnSeat({ configKind: localConfigKind(activeSeat), logSeats: log.seats, active: String(state.activePlayer) }) }
+        }
         {...(tutorialHud === undefined ? {} : { tutorial: tutorialHud })}
       />
       <div className="stage" ref={shellRef}>

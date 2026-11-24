@@ -1943,13 +1943,22 @@ body,
   gap: 0.4em;
 }
 
-.actions .spinner {
+/* P101: the turn banner reuses this box and p94-spin. No second animation. */
+.actions .spinner,
+.banner .spinner {
   width: 0.9em;
   height: 0.9em;
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
   animation: p94-spin 0.8s linear infinite;
+}
+
+/* A span in the banner is inline; the box above only paints once it is a block. */
+.banner .spinner {
+  display: inline-block;
+  vertical-align: -0.15em;
+  margin-inline-start: 0.35em;
 }
 
 @keyframes p94-spin {
@@ -1959,7 +1968,8 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .actions .spinner {
+  .actions .spinner,
+  .banner .spinner {
     animation-duration: 2.4s;
   }
 }
