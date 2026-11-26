@@ -2,7 +2,7 @@
 
 Participants are the seams the tests probe:
 
-- **Lobby**: `pickOnlineSeat`, `lobbyKindOptions`, `planProblem`, `createPlanNote`
+- **Lobby**: `pickOnlineSeat`, `lobbyKindOptions`, `onlinePlanProblem`, `seatPlanNote`
   (pure web helpers the `<select>` and the Create button call).
 - **Pages**: `createOnlinePages` / `createOnlineHost` with the probed `fetch`.
 - **API**: `createOnlineApi` (handlers).
@@ -25,7 +25,7 @@ sequenceDiagram
   else any other choice
     Lobby->>Lobby: seat i → c (no pick is refused)
   end
-  Lobby->>Lobby: planProblem(plan)
+  Lobby->>Lobby: onlinePlanProblem(plan)
   alt pick-your-seat (no creator)
     Lobby-->>User: Create disabled + "Pick your seat: choose Player (you) on one seat."
   else needs-another (< 2 chairs that are not AI)
@@ -71,7 +71,7 @@ sequenceDiagram
   Door->>Store: get invite
   alt no invite
     Door-->>Door: error bad-handle
-  else revoked / started / deleted
+  else revoked / started / deleted (P92 tests)
     Door-->>Door: error revoked / started / deleted
   else chairs reserved for caller, unbound
     Door->>Store: put invite (If-Match): bind all of them, drop reservedFor

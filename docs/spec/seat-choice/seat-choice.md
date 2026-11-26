@@ -6,6 +6,7 @@ Packet: [P106](../../design/packets/P106-seat-choice.md). Issue
 (seat 0, the host chair, one agent seat per user) and
 [seat-labels](../seat-labels/seat-labels.md) (a reserved agent chair).
 [SCENARIOS](./SCENARIOS.md).
+**Status:** awaiting review. **SPEC:** not edited. No game rule.
 
 ## Glossary
 
@@ -32,7 +33,7 @@ play is unchanged (`Player`, `AI`, `BYOK LLM`); `creator`, `creator-agent` and
 
 ## A valid online plan (client gate = server 422)
 
-`planProblem(choices)`, first match wins:
+`onlinePlanProblem(choices)` (contracts `seat-plan.ts`), first match wins:
 
 1. length not 3 or 6 → `size` (422)
 2. any `byok` → `byok` (422)
@@ -53,7 +54,7 @@ creator's chair is wherever `creator` is. A body with the old shape (no
 - Every other pick replaces only that seat. No pick is refused (the old
   "the last human cannot be dropped" guard is gone); the plan note says what
   is missing instead.
-- Create is offered only when `planProblem` is valid. The note reads:
+- Create is offered only when `onlinePlanProblem` finds no problem. The note reads:
   - `pick-your-seat` → `Pick your seat: choose Player (you) on one seat.`
   - `needs-another` → `Create needs you and at least one more Player or Agent.`
 - Local → Online: seats 0 and 1 become `Player` unless the plan has an agent
@@ -101,7 +102,7 @@ standings, the export and the MCP door all key on hashes, not on an index.
 ## EARS invariants
 
 1. The online kind options for every seat index shall be exactly `creator`, `human`, `creator-agent`, `agent`, `heuristic`, in that order.
-2. The client's `planProblem` and the server's create validation shall agree for every plan of length 3 and 6 over the online tokens.
+2. The client's `onlinePlanProblem` and the server's create validation shall agree for every plan of length 3 and 6 over the online tokens.
 3. When a plan has no `creator` or more than one, the server shall answer 422 and store nothing.
 4. After `pickOnlineSeat`, the plan shall hold at most one `creator`.
 5. A chair reserved for user U shall only ever be bound to U.

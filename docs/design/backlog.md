@@ -130,7 +130,7 @@ detailed form of an item; this file is the short list and the order.
 - **Seat choice (Gilad, 2026-11-26) — P106.** The creator is not pinned to
   seat A; every online seat offers `Player (you)`, `Player`, `Agent (yours)`,
   `Agent` and `AI`; create needs `Player (you)` picked (once); `Agent (yours)`
-  may repeat. Being shipped as [P106](packets/P106-seat-choice.md). Open: may
+  may repeat. Shipped as [P106](packets/P106-seat-choice.md) (branch `p106-seat-choice`, awaiting review). Open: may
   the creator hold only `Agent (yours)` seats (no human seat)?
 - **A BYOK seat reads `AI` on the seat line.** P105 follows P102's table
   (`byok` → `AI`). If a local BYOK seat should read `LLM` or the model
