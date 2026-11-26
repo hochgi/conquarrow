@@ -125,3 +125,5 @@ export type {
 
 export type { OnlineHostDeps, OnlineHostPort } from './online-host-port';
 
+
+export type { AppliedStep, GameEvent, GameEventKind } from './game-events';

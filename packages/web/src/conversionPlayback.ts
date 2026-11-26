@@ -10,8 +10,8 @@
  */
 
 import type { ArrowId, GameState, Move } from '@conquarrow/contracts';
-import type { GameEvent } from './fx/events';
-import { resolveEvents } from './fx/events';
+import type { GameEvent } from '@conquarrow/contracts';
+import { resolveEvents } from '@conquarrow/rules-core';
 import { FX_MS, FX_OFFSET_MS } from './fx/timing';
 import type { CameraTarget, Fit, Pt } from './spectate';
 import { arrowsOfMove, groupTarget, groupTiming, SAFE_BOX } from './spectate';

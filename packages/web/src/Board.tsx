@@ -67,7 +67,7 @@ export interface BoardProps {
   /** Narrate focus rings (P43) — named arrows only, never a second selection. */
   readonly focus?: ReadonlySet<ArrowId>;
   /**
-   * Live gameplay effects, resolved from state transitions (see `fx/events.ts`).
+   * Live gameplay effects, resolved from state transitions (see `resolveEvents` in `@conquarrow/rules-core`).
    *
    * Additive: the board below already renders the authoritative state, so an
    * empty queue is a correct board, never a stale one.

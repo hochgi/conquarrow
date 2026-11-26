@@ -26,8 +26,8 @@
  */
 
 import type { ArrowId, GeometryPort, PlayerId } from '@conquarrow/contracts';
-import type { AppliedStep, GameEvent } from './events';
-import { resolveEvents } from './events';
+import type { AppliedStep, GameEvent } from '@conquarrow/contracts';
+import { resolveEvents } from '@conquarrow/rules-core';
 import { borderOf, staggerFrom } from './spatial';
 import {
   FX_MS,

@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { GameState, Move, RulesPort } from '@conquarrow/contracts';
-import { resolveEvents } from '../src/fx/events';
+import { resolveEvents } from '@conquarrow/rules-core';
 import {
   FX_STEP_GAP_MS,
   MAX_FX_CELLS,

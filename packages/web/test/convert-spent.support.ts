@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ArrowId, PlayerId } from '@conquarrow/contracts';
-import type { GameEvent } from '../src/fx/events';
+import type { GameEvent } from '@conquarrow/contracts';
 import { presentEvents, type FxOverlay } from '../src/fx/present';
 import { SAFE_BOX, type CameraTarget, type Pt } from '../src/spectate';
 import { toScreen, type Viewport } from '../src/viewport';

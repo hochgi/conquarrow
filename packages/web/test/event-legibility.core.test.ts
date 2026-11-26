@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Move } from '@conquarrow/contracts';
-import { resolveEvents } from '../src/fx/events';
+import { resolveEvents } from '@conquarrow/rules-core';
 import { A, B, C, kinds, pick, state, tile } from './event-legibility.support';
 
 const step = (from: string, exit: string, count: number): Move => ({
