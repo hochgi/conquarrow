@@ -68,6 +68,7 @@ import {
   postMove,
   postStart,
   userHashOf,
+  loggedOf,
 } from './support';
 
 const A = () => aliceHash();
@@ -520,9 +521,9 @@ describe('The reply record is not a move', () => {
       const afterEnd = rules.apply(afterPrefix, endTurn());
       const moves: readonly Move[] = [first, endTurn()];
       const lines = [
-        stampLogLine(1, first),
+        stampLogLine(1, loggedOf(first)),
         JSON.stringify({ v: 1, agentReply: { moves: [0], endTurn: false } }),
-        stampLogLine(2, endTurn()),
+        stampLogLine(2, loggedOf(endTurn())),
         JSON.stringify({ v: 2, agentReply: { moves: [1, 2], endTurn: true } }),
       ].join('\n') + '\n';
       const groupHash = groupHashOfUserHashes([A()]);

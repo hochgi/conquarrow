@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import type { InviteSeat } from '@conquarrow/contracts';
 import { endTurn, mintArrowId, mintPlayerId, step } from '@conquarrow/contracts';
 import { parseLogLine, stampLogLine } from '../src/game-log';
+import { loggedOf } from './support';
 import { parsePersistedEnvelope, persistEnvelope } from '../src/game-snapshot';
 import type { InviteRecord, InviteStatus } from '../src/invite-record';
 import { parseGameMeta, parseInvite, serializeInvite } from '../src/invite-record';
@@ -127,7 +128,14 @@ describe('log.jsonl lines round-trip', () => {
 
   for (const [name, move] of moves) {
     it(`restores the version stamp and ${name}`, () => {
-      expect(parseLogLine(stampLogLine(12, move))).toStrictEqual({ v: 12, move });
+      expect(parseLogLine(stampLogLine(12, loggedOf(move)))).toStrictEqual({
+        v: 12,
+        at: '2026-11-27T10:00:00.000Z',
+        seat: 'A',
+        move,
+        events: [],
+      });
+      expect(parseLogLine(stampLogLine(12, loggedOf(move, 'B', 'server')))).toMatchObject({ seat: 'B', by: 'server' });
     });
 
     it(`reads a pre-P49 bare line of ${name} as unstamped`, () => {

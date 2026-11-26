@@ -37,6 +37,7 @@ import type {
   PostToConnection,
 } from '../src/create-online-api';
 import { PreconditionFailed } from '../src/create-online-api';
+import type { LoggedMove } from '../src/game-log';
 
 export const GAME_ONE = '000001';
 export const GAME_TWO = '000002';
@@ -1169,3 +1170,28 @@ export const notifiesTo = (
 /** P96: a wake's version — only `stateChanged` carries one. */
 export const versionOfPayload = (payload: WsPayload): number | undefined =>
   payload.type === 'stateChanged' ? payload.version : undefined;
+
+/** P107: a move as `stampLogLine` takes it, with fixed line data. */
+export const loggedOf = (move: Move, seat = 'A', by?: 'server'): LoggedMove => ({
+  move,
+  at: '2026-11-27T10:00:00.000Z',
+  seat,
+  by,
+  events: [],
+});
+
+/**
+ * P107: a `log.jsonl` body reduced to its P49 `{v, move}` view — for tests that
+ * pin the order and the version stamps, not the v2 fields (match-log-v2 tests do).
+ */
+export const v1View = (raw: string | undefined): string | undefined =>
+  raw === undefined
+    ? undefined
+    : raw
+        .split('\n')
+        .map((line) => {
+          if (line.length === 0) return line;
+          const { v, move } = JSON.parse(line) as { v?: number; move?: unknown };
+          return JSON.stringify(move === undefined ? JSON.parse(line) : { v, move });
+        })
+        .join('\n');

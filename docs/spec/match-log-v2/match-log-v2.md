@@ -83,11 +83,9 @@ keeps its two causes apart, which is why the resolver is per step too.
 ```
 
 - `v` — the version the write produced (P49 D2, unchanged).
-- `at` — the server clock (ISO 8601) when this move was applied. The advance
-  reads the clock after each move it applies, so a long heuristic burst shows
-  its pace. A client's move is stamped with the clock read when the request
-  applied it; an agent's steps share the clock read when its `move` call
-  applied them.
+- `at` — the server clock (ISO 8601) read right after this move was applied
+  (`applyLogged`), for every move: a client's, an agent's steps, and each of
+  the advance's, so a long heuristic burst shows its pace.
 - `seat` — `String(before.activePlayer)`.
 - `by` — `"server"` on a server move; absent on a move a human posted or an
   agent's `move` call applied (its steps and the `endTurn` that closes its

@@ -5,7 +5,7 @@
  * @see docs/adr/0002-cheap-async-online.md
  */
 
-import type { Move, OnlineHttpResult, OnlineRequest } from '@conquarrow/contracts';
+import type { ExportMoveEntry, LogEvent, Move, OnlineHttpResult, OnlineRequest } from '@conquarrow/contracts';
 import type { OnlineApiDeps } from './api-types';
 import { parsePersistedEnvelope } from './game-snapshot';
 import { requireMember } from './game-member';
@@ -14,18 +14,51 @@ import { jsonResult, unprocessable } from './json-result';
 import { gameLogKey, gameStateKey } from './s3-keys';
 import { getObject } from './store-io';
 
-/** One persisted log line. `v` is absent on everything written before P49. */
-export interface LogLine {
-  readonly v?: number;
+/**
+ * One persisted move line as read back. `v` is absent before P49; `at`, `seat`,
+ * `by` and `events` are absent before P107 (match-log-v2 D3, D6).
+ */
+export type LogLine = ExportMoveEntry;
+
+/** P107 D3: one applied move with what its line records beside `v`. */
+export interface LoggedMove {
   readonly move: Move;
+  /** Server clock (ISO 8601) read right after the move was applied. */
+  readonly at: string;
+  /** The player id whose turn it was. */
+  readonly seat: string;
+  /** `server` when the advance chose the move; absent (`undefined`) otherwise. */
+  readonly by: 'server' | undefined;
+  readonly events: readonly LogEvent[];
 }
 
 /** A plain non-negative decimal integer — the only `since` this route accepts. */
 const SINCE = /^(?:0|[1-9][0-9]*)$/;
 
-/** `{"v":N,"move":{…}}` — the P49 line format (D2). */
-export const stampLogLine = (version: number, move: Move): string =>
-  JSON.stringify({ v: version, move });
+/**
+ * `{"v":N,"at":…,"seat":…,"by"?:"server","move":{…},"events":[…]}` — P107 D3.
+ * An absent `by` is dropped by `JSON.stringify` (it is `undefined`).
+ */
+export const stampLogLine = (version: number, entry: LoggedMove): string =>
+  JSON.stringify({
+    v: version,
+    at: entry.at,
+    seat: entry.seat,
+    by: entry.by,
+    move: entry.move,
+    events: entry.events,
+  });
+
+/** The P107 fields a stored line carries, each kept only when it has its written type. */
+const v2Fields = (rec: Readonly<Record<string, unknown>>): Omit<ExportMoveEntry, 'v' | 'move'> => {
+  const { at, seat, by, events } = rec;
+  return {
+    ...(typeof at === 'string' ? { at } : {}),
+    ...(typeof seat === 'string' ? { seat } : {}),
+    ...(by === 'server' ? { by } : {}),
+    ...(Array.isArray(events) ? { events: events as readonly LogEvent[] } : {}),
+  };
+};
 
 /** Parse one `log.jsonl` line. Unstamped lines parse with `v` absent. */
 export const parseLogLine = (raw: string): LogLine | undefined => {
@@ -45,8 +78,9 @@ export const parseLogLine = (raw: string): LogLine | undefined => {
   const inner = asRecord(move);
   if (inner === undefined) return undefined;
   const v = rec['v'];
-  if (typeof v !== 'number' || !Number.isInteger(v)) return { move: move as Move };
-  return { v, move: move as Move };
+  const fields = v2Fields(rec);
+  if (typeof v !== 'number' || !Number.isInteger(v)) return { ...fields, move: move as Move };
+  return { v, ...fields, move: move as Move };
 };
 
 const parseLogLines = (raw: string | undefined): readonly LogLine[] => {

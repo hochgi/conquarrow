@@ -97,7 +97,7 @@ const seedThree = (rig: RemoteRig, state: GameState, version: number, seats = [h
 };
 
 const exportOf = async (rig: RemoteRig): Promise<GameExport> =>
-  parseBody(expectStatus(await getExport(rig.api, GROUP(), GAME, ALICE.bearer), 200)) as unknown as GameExport;
+  parseBody(expectStatus(await getExport(rig.api, GROUP(), GAME, ALICE.bearer), 200)) as GameExport;
 
 describe('SCENARIOS.md 1 — a browser move is logged', () => {
   it('alt refused (illegal step): 422 and log.jsonl unchanged', async () => {
@@ -313,7 +313,7 @@ describe('SCENARIOS.md 4 — the export serves v2', () => {
       let version = 0;
       for (let turn = 0; turn < 4; turn += 1) {
         const res = expectStatus(await postMove(rig.api, GROUP(), GAME, ALICE.bearer, endTurn(), version), 200);
-        version = parseBody(res)['version'] as number;
+        version = (parseBody(res) as Record<string, unknown>)['version'] as number;
       }
       const raw = logRaw(rig, GROUP(), GAME);
       const exported = await exportOf(rig);

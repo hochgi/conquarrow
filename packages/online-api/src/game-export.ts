@@ -6,8 +6,8 @@
  */
 
 import type {
-  ExportAgentReply,
   ExportLogEntry,
+  ExportReplyEntry,
   ExportSeat,
   GameExport,
   GameState,
@@ -28,14 +28,14 @@ import { gameLogKey } from './s3-keys';
 import { getObject } from './store-io';
 import { readProfileDisplayName } from './user-profile';
 
-/** D1: a seat by kind and name; an agent names its owner. Never a user hash. */
+/** D1: a seat by kind (P107 D5: the invite's kinds) and name; an agent names its owner. Never a user hash. */
 const exportSeatOf = async (
   s3: ObjectStore,
   seat: InviteSeat,
   index: number,
   player: string,
 ): Promise<ExportSeat> => {
-  if (seat.kind === 'heuristic') return { seat: index, player, kind: 'bot', name: 'AI' };
+  if (seat.kind === 'heuristic') return { seat: index, player, kind: 'heuristic', name: 'AI' };
   if (seat.kind === 'agent') {
     const owner = seat.userHash === undefined ? undefined : await readProfileDisplayName(s3, seat.userHash);
     return { seat: index, player, kind: 'agent', name: 'Agent', ...(owner === undefined ? {} : { owner }) };
@@ -54,8 +54,12 @@ const numberList = (value: unknown): readonly number[] | undefined => {
   return list;
 };
 
-/** A stored reply record, or `undefined` when it is not one. */
-const replyOf = (raw: string): { readonly v: number; readonly agentReply: ExportAgentReply } | undefined => {
+/**
+ * A stored reply line, or `undefined` when it is not one. P107 D4/D6: the seat
+ * is the line's, else (pre-P107) the one nested in `agentReply`; `at`,
+ * `resolved` and `offerVersion` are kept only when they have their written type.
+ */
+const replyOf = (raw: string): ExportReplyEntry | undefined => {
   let value: unknown;
   try {
     value = JSON.parse(raw) as unknown;
@@ -65,16 +69,21 @@ const replyOf = (raw: string): { readonly v: number; readonly agentReply: Export
   const rec = asRecord(value);
   const reply = asRecord(rec?.['agentReply']);
   const v = rec?.['v'];
-  if (reply === undefined || typeof v !== 'number') return undefined;
+  if (rec === undefined || reply === undefined || typeof v !== 'number') return undefined;
   const moves = numberList(reply['moves']);
   const endTurn = reply['endTurn'];
   if (moves === undefined || typeof endTurn !== 'boolean') return undefined;
-  const { seat, why, plan } = reply;
+  const { at } = rec;
+  const seat = typeof rec['seat'] === 'string' ? rec['seat'] : reply['seat'];
+  const { why, plan, resolved, offerVersion } = reply;
   return {
     v,
+    ...(typeof at === 'string' ? { at } : {}),
+    ...(typeof seat === 'string' ? { seat } : {}),
     agentReply: {
-      ...(typeof seat === 'string' ? { seat } : {}),
       moves,
+      ...(Array.isArray(resolved) ? { resolved: resolved as readonly Move[] } : {}),
+      ...(typeof offerVersion === 'number' ? { offerVersion } : {}),
       endTurn,
       ...(typeof why === 'string' ? { why } : {}),
       ...(typeof plan === 'string' ? { plan } : {}),
@@ -109,7 +118,7 @@ const exportLog = (
     if (line.length === 0) continue;
     const reply = replyOf(line);
     if (reply !== undefined) {
-      const seat = reply.agentReply.seat;
+      const seat = reply.seat;
       if (finished || (seat !== undefined && own.has(seat))) log.push(reply);
       else withheld += 1;
       continue;
@@ -117,7 +126,7 @@ const exportLog = (
     const parsed = parseLogLine(line);
     if (parsed === undefined) continue;
     moves.push(parsed.move);
-    log.push(parsed.v === undefined ? { move: parsed.move } : { v: parsed.v, move: parsed.move });
+    log.push(parsed);
   }
   return { log, moves, withheld };
 };
@@ -148,7 +157,7 @@ export const buildGameExport = async (
   const summary = summaryOf(game, seats, rawLog);
   return {
     format: 'conquarrow-online-export',
-    formatVersion: 1,
+    formatVersion: 2,
     groupHash,
     gameNumber,
     ...(meta.name === undefined ? {} : { name: meta.name }),
