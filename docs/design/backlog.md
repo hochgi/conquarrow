@@ -131,11 +131,28 @@ detailed form of an item; this file is the short list and the order.
   the turn banner only (`your agent is playing…`). P102 uses that label for
   the elimination toast and the standings row only. The GIS flicker half is
   P97's phone check. Issue #119.
-- **Rest of #120, in-game turn and seat clarity.** P101 ships the turn banner
-  and the thinking indicator. P102 ships the greyed eliminated seat, the
-  one-time toast, and the online game-over standings. Still open: raw
-  `tiling:` ids out of copy; the `passing…` delay; camera lock; animation
-  pacing. Names everywhere stay #119.
+- **The online `passing…` wait (#120 item 6).** P103 found no client delay:
+  the pass posts at `setTimeout(…, 0)`. The wait is three sequential requests
+  (POST `endTurn`, the reconcile's `GET` game, `GET …/log`) plus the replay's
+  first camera group (`BASE_TIMING` × playback speed). Measure it on a phone
+  first (network tab: how much is Lambda latency vs. the camera pre-roll).
+  Faster needs an optimistic local pass, or a POST that returns the log
+  window — a protocol change, so it gets a `SCENARIOS.md`. Pacing is #124.
+- **Merge targets on the board (#120, playtest 2026-11-02 FINDINGS §1).**
+  P103 labels each Merge button `Merge into your N-stack, <direction>`.
+  Still open: a badge on the target tile, highlight the target while its
+  button is hovered or focused, show the merge's speed price before Send, and
+  stack the buttons vertically on a narrow screen.
+- **Keep a pan made between two replayed seats.** P103 frees pan and zoom
+  while a seat thinks, but the replay window's restore still returns to the
+  camera saved before the first hop. Decide whether a pan made during a think
+  should become the camera to restore to.
+- **Check P103 on a phone.** Online 3-seat game with your agent plus an AI.
+  While the agent thinks, pan and pinch — both work. While a batch replays,
+  with auto-focus on, they don't. Select a stack next to two of your stacks:
+  the strip reads `Selected: N heads · n of m` and each Merge button reads
+  `Merge into your K-stack, <direction>` with the right direction. Lower the
+  count: `… stay where the last run began`. No `tiling:` anywhere.
 - **Feel-check P99 on a phone.** Select a 16+ stack. The markers should be the
   same wash as before and should appear without a long wait. CI counts
   `rules.apply` calls; it does not time the phone. Source: issue #121.

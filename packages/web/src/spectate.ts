@@ -93,6 +93,18 @@ export const cameraLocked = (args: {
   readonly paused: boolean;
 }): boolean => args.spectating && args.autoFocus && args.inReplayWindow;
 
+/**
+ * P103: moves are on screen, or queued to be — an online batch playing or
+ * waiting, or a local seat applying its plan. This, not the camera-save window,
+ * is what `cameraLocked` reads as `inReplayWindow`: the wait for a seat's
+ * *decision* is outside the lock (spectated-turn-camera, *Sequential opponents*).
+ */
+export const showingMoves = (args: {
+  readonly replaying: boolean;
+  readonly pendingReplays: number;
+  readonly localPlayback: boolean;
+}): boolean => args.replaying || args.pendingReplays > 0 || args.localPlayback;
+
 /** A step names the two arrows worth looking at; an endTurn names none. */
 export const arrowsOfMove = (move: Move): readonly ArrowId[] =>
   move.kind === 'step' ? [move.from, move.exit] : [];

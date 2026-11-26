@@ -49,7 +49,7 @@ describe('id-free-copy invariants', () => {
         merges: new Set([a, b, c]),
         locked: false,
         selected,
-        headsOf: headsTable({ [ID_NAMES[1]]: 2 }),
+        groups: headsTable({ [ID_NAMES[1]]: 2 }),
         centreOf: centres({ [ID_NAMES[0]]: { x: 1, y: 2 }, [ID_NAMES[2]]: { x: -3, y: 0 } }),
       })) {
         noId(option.label);
@@ -70,7 +70,7 @@ describe('id-free-copy invariants', () => {
           merges: new Set([t]),
           locked: false,
           selected,
-          headsOf: headsTable({ [ID_NAMES[1]]: 3 }),
+          groups: headsTable({ [ID_NAMES[1]]: 3 }),
           centreOf: centres({ [ID_NAMES[0]]: { x: 0, y: 0 }, [ID_NAMES[1]]: p }),
         });
         const word = selected === undefined ? undefined : compassWord({ x: 0, y: 0 }, p);
@@ -90,7 +90,7 @@ describe('id-free-copy invariants', () => {
             merges: set,
             locked,
             selected: ARROWS[0],
-            headsOf: headsTable({}),
+            groups: headsTable({}),
             centreOf: centres({}),
           }).map((o) => o.arrow),
         ).toEqual(mergeButtons(set, locked));

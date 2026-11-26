@@ -11,6 +11,7 @@
 import { compareArrows } from '@conquarrow/rules-core';
 import type { ArrowId } from '@conquarrow/contracts';
 import { REFUSAL_TEXT } from '../fx/present';
+import { compassWord, headsPhrase, mergeLabel, type Pt } from '../stackCopy';
 import type { Cursor } from './cursor';
 
 /**
@@ -30,7 +31,8 @@ export const selectionLine = (opts: {
   if (selected === undefined) {
     return m === 0 ? 'No stack selected · nothing can move' : `No stack selected · ${String(m)} can move`;
   }
-  const named = `Selected: ${String(heads)} on ${String(selected)}`;
+  // P103: the stack is named by its size — never by its arrow id.
+  const named = `Selected: ${headsPhrase(heads)}`;
   // The 1-based lap position: arrows strictly before `selected` in
   // `compareArrows` order, plus one — never the index in `movable`'s own order.
   const isMovable = movable.some((arrow) => compareArrows(arrow, selected) === 0);
@@ -77,3 +79,33 @@ export const mergeButtons = (
   merges: ReadonlySet<ArrowId> | undefined,
   locked: boolean,
 ): readonly ArrowId[] => (locked || merges === undefined ? [] : [...merges].toSorted(compareArrows));
+
+/** One Merge button: the target and its words (P103). */
+export interface MergeOption {
+  readonly arrow: ArrowId;
+  readonly label: string;
+}
+
+/**
+ * The Merge buttons with their labels, in `mergeButtons` order: which of your
+ * stacks (by size) and which way from the selected stack (by screen direction).
+ * No direction without a selection, or when the centres coincide.
+ */
+export const mergeOptions = (opts: {
+  readonly merges: ReadonlySet<ArrowId> | undefined;
+  readonly locked: boolean;
+  readonly selected: Cursor;
+  /** The live board's groups; a target with no group reads 0 heads. */
+  readonly groups: { get(arrow: ArrowId): { readonly heads: number } | undefined };
+  readonly centreOf: (arrow: ArrowId) => Pt;
+}): readonly MergeOption[] => {
+  const { selected, groups, centreOf } = opts;
+  const from = selected === undefined ? undefined : centreOf(selected);
+  return mergeButtons(opts.merges, opts.locked).map((arrow) => ({
+    arrow,
+    label: mergeLabel(
+      groups.get(arrow)?.heads ?? 0,
+      from === undefined ? undefined : compassWord(from, centreOf(arrow)),
+    ),
+  }));
+};

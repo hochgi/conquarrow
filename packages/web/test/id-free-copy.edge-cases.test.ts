@@ -63,7 +63,7 @@ describe('Edge cases of id-free copy and the camera lock', () => {
           merges: new Set([a]),
           locked: true,
           selected: undefined,
-          headsOf: headsTable({ a: 2 }),
+          groups: headsTable({ a: 2 }),
           centreOf: centres({}),
         }),
       ).toEqual([]);
@@ -75,7 +75,7 @@ describe('Edge cases of id-free copy and the camera lock', () => {
           merges: undefined,
           locked: false,
           selected: undefined,
-          headsOf: headsTable({}),
+          groups: headsTable({}),
           centreOf: centres({}),
         }),
       ).toEqual([]);
@@ -89,7 +89,7 @@ describe('Edge cases of id-free copy and the camera lock', () => {
           merges: new Set([a]),
           locked: false,
           selected: undefined,
-          headsOf: headsTable({ a: 1 }),
+          groups: headsTable({ a: 1 }),
           centreOf: centres({ a: { x: 5, y: 5 } }),
         }),
       ).toEqual([{ arrow: a, label: 'Merge into your 1-stack' }]);
@@ -103,7 +103,7 @@ describe('Edge cases of id-free copy and the camera lock', () => {
           merges: new Set([a]),
           locked: false,
           selected: s,
-          headsOf: headsTable({ a: 2 }),
+          groups: headsTable({ a: 2 }),
           centreOf: centres({ s: { x: 1, y: 1 }, a: { x: 1, y: 1 } }),
         }),
       ).toEqual([{ arrow: a, label: 'Merge into your 2-stack' }]);
@@ -118,7 +118,7 @@ describe('Edge cases of id-free copy and the camera lock', () => {
         merges: new Set([m3, m1, m2]),
         locked: false,
         selected: s,
-        headsOf: headsTable({ m1: 1, m2: 2, m3: 3 }),
+        groups: headsTable({ m1: 1, m2: 2, m3: 3 }),
         centreOf: centres({ m1: { x: 1, y: 0 }, m2: { x: 0, y: 1 }, m3: { x: -1, y: 0 } }),
       });
       expect(options.map((o) => o.label)).toEqual([

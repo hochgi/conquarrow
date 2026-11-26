@@ -283,7 +283,8 @@ seeds of own/enemy stacks and territory).
 10. **Event-driven** — When `Next stack` is pressed, the system shall emit no
     move and leave the `GameState` identical.
 11. **State-driven** — While a stack is selected, the selection line shall name
-    its arrow; while none is, it shall begin `No stack selected`.
+    its heads and never its arrow id (P103); while none is, it shall begin
+    `No stack selected`.
 12. **Ubiquitous** — The HUD markup before the end of the action row shall not
     depend on the hint, refusal, coach, BYOK, banner or illegal text.
 13. **Ubiquitous** — A pan or pinch shall not change the input snapshot.

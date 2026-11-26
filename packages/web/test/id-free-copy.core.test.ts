@@ -39,7 +39,7 @@ describe('Player-facing copy never shows an arrow id', () => {
         merges: new Set([tgt]),
         locked: false,
         selected: sel,
-        headsOf: headsTable({ tgt: 3 }),
+        groups: headsTable({ tgt: 3 }),
         centreOf: centres({ sel: { x: 0, y: 0 }, tgt: { x: -2, y: -2 } }),
       });
       expect(options).toEqual([{ arrow: tgt, label: 'Merge into your 3-stack, up-left' }]);

@@ -58,7 +58,7 @@ import {
   turnAnchor,
 } from './selection/cursor';
 import type { RecencyStacks } from './selection/cursor';
-import { mergeButtons, stripLines } from './selection/status';
+import { mergeOptions, stripLines } from './selection/status';
 import { TutorialOverlay } from './TutorialOverlay';
 import { hydrateState } from './online-hydrate';
 import { settleSubmit, submitNote } from './online-submit';
@@ -140,6 +140,7 @@ import {
   focusArrow as targetStack,
   groupTiming,
   isSpectatedSeat,
+  showingMoves,
   restoreTarget,
   suppressed,
   type CameraTarget,
@@ -524,6 +525,9 @@ export const App = (): ReactElement => {
   const replayEpoch = useRef(0);
   /** D7 mirror for render: the board is showing a superseded position. */
   const [replayPlaying, setReplayPlaying] = useState(false);
+  /** P103: a local AI seat's planned moves are being applied (not planned). */
+  // Stryker disable next-line BooleanLiteral -- no DOM harness for App; the initial value is the unlocked camera, and showingMoves is tested.
+  const [localPlayback, setLocalPlayback] = useState(false);
   /**
    * P94 D6: an online submit has not settled. Set synchronously on the tap, so
    * the lock and the spinner answer it before the first request leaves.
@@ -1261,6 +1265,8 @@ export const App = (): ReactElement => {
   useEffect(() => {
     if (botChair === null) {
       setBotBusy(false);
+      // Stryker disable next-line BooleanLiteral -- no DOM harness for App; a cancelled playback must not leave the lock on.
+      setLocalPlayback(false);
       return;
     }
     const start = stateRef.current;
@@ -1293,6 +1299,8 @@ export const App = (): ReactElement => {
         const speed = prefsRef.current.playbackSpeed;
         // Invariant 28: local playback and online replay consume one plan.
         const cues = cameraCues(plan.moves, arrowCentroid, viewportRef.current);
+        // Stryker disable next-line BooleanLiteral -- no DOM harness for App; showingMoves decides the lock and is tested.
+        setLocalPlayback(true);
         await applyMovesSequentially(rules, start, plan.moves, {
           // Speed is an *opponent playback* preference, so it scales the gap
           // whether or not the camera is following. A converting spectated
@@ -1346,6 +1354,8 @@ export const App = (): ReactElement => {
           setByokStatus(`${botChair} playback failed: ${detail}`);
         }
       } finally {
+        // Stryker disable next-line all -- no DOM harness for App; showingMoves decides the lock and is tested.
+        if (!cancelled()) setLocalPlayback(false);
         if (!cancelled()) setBotBusy(false);
       }
     };
@@ -1676,6 +1686,8 @@ export const App = (): ReactElement => {
     aiSeatsRef.current = new Set();
     seatConfigsRef.current = new Map();
     setBotBusy(false);
+    // Stryker disable next-line BooleanLiteral -- no DOM harness for App; a reset must not leave the lock on.
+    setLocalPlayback(false);
     setManualPause(false);
     setByokStatus(undefined);
     setFx(emptyQueue());
@@ -2029,7 +2041,13 @@ export const App = (): ReactElement => {
   const cameraLockedNow = cameraLocked({
     spectating: spectatedIn(state),
     autoFocus: prefs.autoFocus,
-    inReplayWindow: replayOpen,
+    // P103: moves on screen, not the camera-save window — a seat's think is free.
+    inReplayWindow: showingMoves({
+      replaying: replayPlaying,
+      // Stryker disable next-line all -- no DOM harness for App; reads the queue length, showingMoves decides and is tested.
+      pendingReplays: host?.adapter().pendingReplays().length ?? 0,
+      localPlayback,
+    }),
     paused: held,
   });
 
@@ -2482,7 +2500,13 @@ export const App = (): ReactElement => {
         control={dock}
         selection={strip.selection}
         message={strip.message}
-        merges={mergeButtons(snap.highlights.merges, inputLocked)}
+        merges={mergeOptions({
+          merges: snap.highlights.merges,
+          locked: inputLocked,
+          selected: snap.highlights.selected,
+          groups: state.groups,
+          centreOf: arrowCentroid,
+        })}
         onCount={setCarry}
         onMerge={(arrow) => {
           commitSnap(liveInput().mergeInto(arrow));

@@ -74,8 +74,9 @@ export const REFUSAL_TEXT: Readonly<Record<RefusalReason, string>> = {
  */
 export const refusalText = (reason: RefusalReason, selected?: ArrowId): string => {
   if (selected === undefined) return REFUSAL_TEXT[reason];
-  if (reason === 'out-of-reach') return `Too far for the stack on ${String(selected)}`;
-  if (reason === 'no-exit') return `The stack on ${String(selected)} has no move left this turn`;
+  // P103: "the selected stack" — the selection line already says which one.
+  if (reason === 'out-of-reach') return 'Too far for the selected stack';
+  if (reason === 'no-exit') return 'The selected stack has no move left this turn';
   return REFUSAL_TEXT[reason];
 };
 

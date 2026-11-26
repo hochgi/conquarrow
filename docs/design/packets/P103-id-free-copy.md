@@ -51,6 +51,11 @@
    log window; neither is small. Left on the backlog with the measurement it
    needs.
 
+6. **Source scans read the committed source under Stryker.** The scoped
+   mutation run failed its initial test run because a scan of `spectate.ts`
+   read the instrumented copy. `committedDir` (test support) maps the sandbox
+   path back to the working tree. Harness fix, no product effect.
+
 ## Out of scope (stay on the backlog)
 
 Seat names everywhere (#119). Board badges on merge targets and

@@ -89,7 +89,8 @@ describe('Rule: A click on an own stack selects it, always', () => {
     const sent = s.mode.send();
     expect(sent.pending).toEqual([oneStep(b0, a0, 1)]);
     // The strip carries the button the mode answers.
-    expect(codeOf(dockSource()).includes('Merge into')).toBe(true);
+    // P103: the label comes from mergeOptions (stackCopy owns the words).
+    expect(codeOf(dockSource()).includes('{option.label}')).toBe(true);
   });
 });
 

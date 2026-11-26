@@ -8,7 +8,7 @@
  *
  * The oracle for a run's offerable counts is deliberately not the implementation:
  * {@link countsThatWalk} walks `rules.apply` itself, step by step, at every count
- * from 1 up to the heads standing where the last run began. If `runCarries` and this
+ * from 1 up to the heads standing where the run began. If `runCarries` and this
  * disagree, one of them is wrong and the test says which numbers.
  */
 

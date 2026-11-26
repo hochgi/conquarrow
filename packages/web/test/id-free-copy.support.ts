@@ -4,9 +4,9 @@
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import { mintArrowId, type ArrowId } from '@conquarrow/contracts';
+import { committedDir } from './source-scan.support';
 
 export const ids = (...names: readonly string[]): readonly ArrowId[] => names.map(mintArrowId);
 
@@ -23,17 +23,21 @@ export const centres =
   (arrow: ArrowId): Pt =>
     table[String(arrow)] ?? { x: 0, y: 0 };
 
-/** A heads table keyed by the id's string. Missing ids read 0. */
-export const headsTable =
-  (table: Readonly<Record<string, number>>) =>
-  (arrow: ArrowId): number =>
-    table[String(arrow)] ?? 0;
+/** A groups view keyed by the id's string. Missing ids have no group. */
+export const headsTable = (
+  table: Readonly<Record<string, number>>,
+): { get(arrow: ArrowId): { readonly heads: number } | undefined } => ({
+  get: (arrow) => {
+    const heads = table[String(arrow)];
+    return heads === undefined ? undefined : { heads };
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Source scan (invariant 6)
 // ---------------------------------------------------------------------------
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = committedDir(import.meta.url);
 export const srcRoot = join(here, '../src');
 
 const walk = (dir: string): readonly string[] =>

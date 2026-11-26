@@ -14,6 +14,7 @@ import type { InputSnapshot } from '../src/input/modes';
 import { countControl, leftoverNote } from '../src/route';
 import { SELECTED_UNDER_STROKE } from '../src/selectionChrome';
 import { emptyRecency, movableArrows, nextStack, turnAnchor } from '../src/selection/cursor';
+import { headsPhrase } from '../src/stackCopy';
 import { selectionLine } from '../src/selection/status';
 import { selectionPaint } from '../src/selectionChrome';
 import {
@@ -106,7 +107,8 @@ describe('Rule: The five playtest incidents cannot recur', () => {
     expect(snap.refusal).toEqual({ arrow: target, reason: 'out-of-reach' });
     const movable = movableArrows(rules, state);
     expect(messageLine(snap, movable.length)).toBe('Too far for the selected stack');
-    expect(selectionLine({ selected: selectedOf(snap), heads: 1, movable })).toContain(String(s0));
+    // P103: the line names the selected stack by its size, never by its arrow id.
+    expect(selectionLine({ selected: selectedOf(snap), heads: 1, movable })).toContain('Selected: 1 head');
   });
 
   // Turn 17: Next stack alternated between one stack and nothing, never the front.
@@ -137,7 +139,8 @@ describe('Rule: The five playtest incidents cannot recur', () => {
     expect(paint.selected).toBe(cursor);
     expect(paint.selectedEmphasis).toBe(true);
     const line = selectionLine({ selected: cursor, heads: headsOn(state, cursor), movable });
-    expect(line).toContain(String(cursor));
+    expect(line).toContain(`Selected: ${headsPhrase(headsOn(state, cursor))}`);
+    expect(line).not.toContain(String(cursor));
     expect(/· [12] of 2$/.test(line), line).toBe(true);
   });
 

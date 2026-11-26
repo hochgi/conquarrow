@@ -36,6 +36,7 @@ import {
   type RouteTier,
 } from '../src/selectionChrome';
 import { movableArrows, nextStack } from '../src/selection/cursor';
+import { headsPhrase } from '../src/stackCopy';
 import { selectionLine, turnStatus } from '../src/selection/status';
 import {
   A,
@@ -421,7 +422,7 @@ describe('P77 invariants', () => {
     expect(/\bnextStack\(/.test(codeOf(appSource())), 'App.tsx does not drive the lap').toBe(true);
   });
 
-  it('11. While a stack is selected, the selection line shall name its arrow; while none is, it shall begin `No stack selected`.', () => {
+  it('11. While a stack is selected, the selection line shall name its heads and never its arrow (P103); while none is, it shall begin `No stack selected`.', () => {
     const pool = ['m1', 'm2', 'm3', 'm4'].map(mintArrowId);
     for (let size = 0; size <= pool.length; size += 1) {
       const movable = pool.slice(0, size).toReversed();
@@ -430,7 +431,8 @@ describe('P77 invariants', () => {
       for (const selected of [...pool, mintArrowId('z9')]) {
         for (const heads of [1, 2, 13]) {
           const line = selectionLine({ selected, heads, movable });
-          expect(line.includes(String(selected)), line).toBe(true);
+          expect(line.startsWith(`Selected: ${headsPhrase(heads)} · `), line).toBe(true);
+          expect(line.includes(String(selected)), line).toBe(false);
           expect(line.startsWith('No stack selected'), line).toBe(false);
         }
       }

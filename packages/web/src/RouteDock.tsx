@@ -1,6 +1,7 @@
 import type { ArrowId } from '@conquarrow/contracts';
 import type { ReactElement } from 'react';
 import { leftoverNote, type CountControl } from './route';
+import type { MergeOption } from './selection/status';
 
 /**
  * The docked count control for a drafted route (P35).
@@ -47,8 +48,8 @@ export interface RouteDockProps {
   readonly selection: string;
   /** Row 3: the last refusal's sentence, or `turnStatus`. */
   readonly message: string;
-  /** Merge targets in `compareArrows` order — one button each. */
-  readonly merges: readonly ArrowId[];
+  /** Merge targets in `compareArrows` order with their words (P103) — one button each. */
+  readonly merges: readonly MergeOption[];
   readonly onCount: (count: number) => void;
   readonly onMerge: (arrow: ArrowId) => void;
   readonly onSend: () => void;
@@ -80,7 +81,7 @@ const CountStepper = ({
   readonly control: CountControl;
   readonly onCount: (count: number) => void;
 }): ReactElement => {
-  const { count, ceiling, counts, start } = control;
+  const { count, ceiling, counts } = control;
   const fewer = neighbour(counts, count, -1);
   const more = neighbour(counts, count, 1);
   return (
@@ -112,7 +113,7 @@ const CountStepper = ({
           +
         </button>
       </div>
-      <span className="route-dock-note">{leftoverNote({ count, ceiling, start })}</span>
+      <span className="route-dock-note">{leftoverNote({ count, ceiling })}</span>
     </>
   );
 };
@@ -150,16 +151,16 @@ export const RouteDock = ({
           out of the row. */}
       {merges.length === 0 ? null : (
         <div className="route-dock-merges">
-        {merges.map((arrow) => (
+        {merges.map((option) => (
           <button
-            key={String(arrow)}
+            key={String(option.arrow)}
             type="button"
             className="route-dock-merge"
             onClick={() => {
-              onMerge(arrow);
+              onMerge(option.arrow);
             }}
           >
-            {`Merge into ${String(arrow)}`}
+            {option.label}
           </button>
         ))}
         </div>

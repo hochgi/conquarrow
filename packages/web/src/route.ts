@@ -563,7 +563,7 @@ export const runCeiling = (inputs: RouteInputs): number =>
  * engine is the one that decides.
  *
  * The ceiling falls out of the same measurement: no count above the heads
- * standing where the last run began can step at all — and where the run's final step
+ * standing where the run began can step at all — and where the run's final step
  * attacks, §6.2's stay-behind takes the ceiling down to `heads - 1`.
  *
  * Measuring is what makes it right about **spent allowance**: `spent` travels
@@ -724,17 +724,18 @@ const lastRunStart = (phase: RoutePhase): ArrowId => {
 
 /**
  * The count strip's note (P77): where the heads a lowered count leaves behind
- * stand — the arrow the last run began on — or that none stays.
+ * stand — where the last run began, never named by its arrow (P103) — or that
+ * none stays.
  */
 export const leftoverNote = (opts: {
   readonly count: number;
   readonly ceiling: number;
-  readonly start: ArrowId;
 }): string => {
   const left = opts.ceiling - opts.count;
   if (left <= 0) return 'No head stays behind';
   const heads = left === 1 ? '1 head stays' : `${String(left)} heads stay`;
-  return `${heads} on ${String(opts.start)}`;
+  // P103: where the last run began (`CountControl.start`), in words — no arrow id.
+  return `${heads} where the last run began`;
 };
 
 /** The locked HUD line for a route phase: empty draft or drafted. */

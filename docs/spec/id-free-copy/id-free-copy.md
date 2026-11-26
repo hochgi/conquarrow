@@ -50,15 +50,15 @@ player whenever no move is being shown to them.
 ### Merge options
 
 ```
-mergeOptions({ merges, locked, selected, headsOf, centreOf }) =
+mergeOptions({ merges, locked, selected, groups, centreOf }) =
   mergeButtons(merges, locked)                 -- compareArrows order, [] when locked
-    .map(arrow => { arrow, label: mergeLabel(headsOf(arrow), direction(arrow)) })
+    .map(arrow => { arrow, label: mergeLabel(groups.get(arrow)?.heads ?? 0, direction(arrow)) })
 
 direction(arrow) = selected === undefined ? undefined
                  : compassWord(centreOf(selected), centreOf(arrow))
 ```
 
-`headsOf` reads the live board; a missing group reads 0 (`your 0-stack` is
+`groups` is the live board's `state.groups`; a missing group reads 0 (`your 0-stack` is
 never offered by the mode, but the function stays total).
 
 ### Compass word
@@ -119,3 +119,12 @@ an optimistic local pass or a POST that returns the log window. Backlog.
    are on screen or queued.
 6. No template literal in `packages/web/src` that contains a space shall
    interpolate `String(<arrow-ish>)`, except in the agent-prompt allowlist.
+
+## Source scans under Stryker
+
+A source-scan test reads `src` as text. In a Stryker sandbox that text is the
+instrumented copy, and its preamble (`cover.apply(null, arguments)`) failed
+`spectated-turn-camera` invariant 31 as soon as `spectate.ts` was mutated.
+`test/source-scan.support.ts` (`committedDir`) maps a sandbox path back to the
+working tree, so scans read the committed source in and out of a mutation run.
+The scans that read `spectate.ts`, `App.tsx` and `RouteDock.tsx` use it.

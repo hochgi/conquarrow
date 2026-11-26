@@ -147,7 +147,7 @@ export interface InputMode {
    * described, and the offer shrank to match the guess.
    *
    * Every earlier run stays byte-identical; a count the offer does not list is
-   * ignored. Lowering it leaves the difference standing where the last run began, as
+   * ignored. Lowering it leaves the difference standing where the run began, as
    * a sentry (§5), and repaints the offer from the new tip — fewer heads arrived
    * there, so less is reachable onward.
    */
