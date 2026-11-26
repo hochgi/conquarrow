@@ -42,26 +42,22 @@ export const parseJson = (raw: string): unknown => {
 const hashField = (raw: unknown): string | undefined =>
   typeof raw === 'string' ? raw : undefined;
 
-/** A label the GET already sent. Empty and non-strings are dropped. */
-const agentLabel = (raw: unknown): string | undefined =>
+/** P105: an owner name the server sent. Empty and non-strings are dropped. */
+const nameField = (raw: unknown): string | undefined =>
   typeof raw === 'string' && raw !== '' ? raw : undefined;
 
-const humanSeat = (userHash: unknown): InviteSeat => {
-  const hash = hashField(userHash);
-  return hash === undefined ? { kind: 'human' } : { kind: 'human', userHash: hash };
-};
-
 /**
- * Keeps a non-empty string `label` on an agent only. A label on a human or a
- * heuristic is not read. `userHash` keeps today's rule: any string, or absent.
+ * A human or agent chair: `userHash` keeps today's rule (any string, or absent)
+ * and `name` is kept when it is a non-empty string. Any other field is dropped.
  */
-const agentSeat = (userHash: unknown, label: unknown): InviteSeat => {
-  const hash = hashField(userHash);
-  const name = agentLabel(label);
-  if (hash !== undefined && name !== undefined) return { kind: 'agent', userHash: hash, label: name };
-  if (hash !== undefined) return { kind: 'agent', userHash: hash };
-  if (name !== undefined) return { kind: 'agent', label: name };
-  return { kind: 'agent' };
+const personSeat = (kind: 'human' | 'agent', rec: Record<string, unknown>): InviteSeat => {
+  const hash = hashField(rec['userHash']);
+  const name = nameField(rec['name']);
+  return {
+    kind,
+    ...(hash === undefined ? {} : { userHash: hash }),
+    ...(name === undefined ? {} : { name }),
+  };
 };
 
 const parseSeat = (raw: unknown): InviteSeat | undefined => {
@@ -69,8 +65,7 @@ const parseSeat = (raw: unknown): InviteSeat | undefined => {
   if (rec === undefined) return undefined;
   const kind = rec['kind'];
   if (kind === 'heuristic') return { kind: 'heuristic' };
-  if (kind === 'human') return humanSeat(rec['userHash']);
-  if (kind === 'agent') return agentSeat(rec['userHash'], rec['label']);
+  if (kind === 'human' || kind === 'agent') return personSeat(kind, rec);
   return undefined;
 };
 

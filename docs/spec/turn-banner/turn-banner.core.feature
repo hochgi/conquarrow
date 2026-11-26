@@ -93,7 +93,7 @@ Feature: The turn banner says who is playing
   Rule: Online facts come from the game seats (D5)
 
     Scenario: A three-seat game derives you, your agent, and the AI
-      Given online seats human "me", agent "me" labelled "Agent (Ada)", and heuristic
+      Given online seats human "me", agent "me" named "Ada", and heuristic
       And the caller hash is "me"
       And the players are "A", "B", "C"
       When the active seat is derived for "A", "B", and "C"

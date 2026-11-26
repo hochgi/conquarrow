@@ -78,7 +78,7 @@ const CHAIRS: readonly { readonly name: string; readonly chair: InviteSeat | und
   { name: 'human-alice', chair: { kind: 'human', userHash: 'alice' } },
   { name: 'human-bob', chair: { kind: 'human', userHash: 'bob' } },
   { name: 'human-unbound', chair: { kind: 'human' } },
-  { name: 'agent-alice', chair: { kind: 'agent', userHash: 'alice', label: 'Agent (Ada)' } },
+  { name: 'agent-alice', chair: { kind: 'agent', userHash: 'alice', name: 'Ada' } },
   { name: 'heuristic', chair: { kind: 'heuristic' } },
 ];
 
@@ -293,7 +293,7 @@ describe('lost-seat standings invariants', () => {
       ]),
       [
         { kind: 'human', userHash: 'bob' },
-        { kind: 'agent', userHash: 'alice', label: 'Agent (Ada)' },
+        { kind: 'agent', userHash: 'alice', name: 'Ada' },
       ],
       'alice',
     );

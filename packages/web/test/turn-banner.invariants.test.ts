@@ -42,21 +42,21 @@ const SEAT_WORLDS: readonly SeatWorld[] = [
   { name: 'human unbound', seats: [{ kind: 'human' }], players: ['A'] },
   {
     name: 'agent match',
-    seats: [{ kind: 'agent', userHash: 'me', label: 'Agent (Ada)' }],
+    seats: [{ kind: 'agent', userHash: 'me', name: 'Ada' }],
     players: ['A'],
   },
   {
     name: 'agent mismatch',
-    seats: [{ kind: 'agent', userHash: 'them', label: 'Agent (Bea)' }],
+    seats: [{ kind: 'agent', userHash: 'them', name: 'Bea' }],
     players: ['A'],
   },
-  { name: 'agent unbound', seats: [{ kind: 'agent', label: 'Agent (Ada)' }], players: ['A'] },
+  { name: 'agent unbound', seats: [{ kind: 'agent', name: 'Ada' }], players: ['A'] },
   { name: 'heuristic', seats: [{ kind: 'heuristic' }], players: ['A'] },
   {
     name: 'short seats',
     seats: [
       { kind: 'human', userHash: 'me' },
-      { kind: 'agent', userHash: 'me', label: 'Agent (Ada)' },
+      { kind: 'agent', userHash: 'me', name: 'Ada' },
     ],
     players: ['A', 'B', 'C'],
   },
@@ -88,19 +88,15 @@ const derive = (
   return onlineTurnSeat(withHash);
 };
 
-const ownerOf = (label: string | undefined, kind: OnlineSeatFact['kind']): OnlineTurnSeatResult => {
-  const seat = seatWithLabel(kind, label);
+const ownerOf = (name: string | undefined, kind: OnlineSeatFact['kind']): OnlineTurnSeatResult => {
+  const seat = seatWithName(kind, name);
   return onlineTurnSeat({ seats: [seat], players: ['A'], active: 'A' });
 };
 
-const seatWithLabel = (kind: OnlineSeatFact['kind'], label: string | undefined): OnlineSeatFact => {
-  if (kind === 'heuristic') {
-    return label === undefined ? { kind } : { kind, label };
-  }
-  if (kind === 'agent') {
-    return label === undefined ? { kind } : { kind, label };
-  }
-  return label === undefined ? { kind } : { kind, label };
+/** P105: the chair's `name`. A heuristic chair has none; a stray one is cast in to prove it is ignored. */
+const seatWithName = (kind: OnlineSeatFact['kind'], name: string | undefined): OnlineSeatFact => {
+  if (name === undefined) return { kind };
+  return { kind, name };
 };
 
 describe('turn-banner invariants', () => {
@@ -192,17 +188,16 @@ describe('turn-banner invariants', () => {
     expect(unproved).toBeGreaterThan(0);
   });
 
-  it('When an online agent label carries a display name, the derived owner name shall be that name; otherwise it shall be absent', () => {
-    expect(ownerOf('Agent (Ada)', 'agent').ownerName).toBe('Ada');
-    expect(ownerOf('Agent ( Ada )', 'agent').ownerName).toBe('Ada');
+  it('When an online agent chair carries a usable name, the derived owner name shall be that name; otherwise it shall be absent (P105)', () => {
+    expect(ownerOf('Ada', 'agent').ownerName).toBe('Ada');
+    expect(ownerOf(' Ada ', 'agent').ownerName).toBe('Ada');
 
-    expectNoOwner(ownerOf('Agent', 'agent'));
-    expectNoOwner(ownerOf('Agent ()', 'agent'));
-    expectNoOwner(ownerOf('Agent ( )', 'agent'));
+    for (const unusable of ['', ' ', 'you', 'Your Agent', 'ai', 'waiting', 'Player C']) {
+      expectNoOwner(ownerOf(unusable, 'agent'));
+    }
     expectNoOwner(ownerOf(undefined, 'agent'));
-    expectNoOwner(ownerOf('Agent (Ada)', 'human'));
-    expectNoOwner(ownerOf('Agent (Ada)', 'heuristic'));
-    expectNoOwner(ownerOf('AI', 'heuristic'));
+    expectNoOwner(ownerOf('Ada', 'human'));
+    expectNoOwner(ownerOf('Ada', 'heuristic'));
   });
 
   it('The banner shall name the seat by its letter and shall not contain "Player "', () => {

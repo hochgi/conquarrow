@@ -122,48 +122,50 @@ Feature: Turn-banner boundaries
       Then the letter is "B", kind "human", relation "other", with no owner name
 
     Scenario: A missing caller hash still reads the kind
-      Given online seats human "me", agent "them" labelled "Agent (Bea)", and heuristic
+      Given online seats human "me", agent "them" named "Bea", and heuristic
       And the caller hash is missing
       And the players are "A", "B", "C"
       When the active seat is derived for "B"
       Then the letter is "B", kind "agent", relation "other", owner "Bea"
 
     Scenario: An active id that is not in the players is other
-      Given online seats human "me", agent "me" labelled "Agent (Ada)", and heuristic
+      Given online seats human "me", agent "me" named "Ada", and heuristic
       And the caller hash is "me"
       And the players are "A", "B", "C"
       When the active seat is derived for "D"
       Then the letter is "D", kind "human", relation "other", with no owner name
 
     Scenario: A short seats array does not invent a chair
-      Given online seats of length 2, human "me" and agent "me" labelled "Agent (Ada)"
+      Given online seats of length 2, human "me" and agent "me" named "Ada"
       And the caller hash is "me"
       And the players are "A", "B", "C"
       When the active seat is derived for "C"
       Then the letter is "C", kind "human", relation "other", with no owner name
 
-    Scenario Outline: An agent label yields an owner name only when it carries one
-      Given an agent seat labelled "<label>"
+    # Amended by P105: the owner is the chair's usable `name`, not a parsed label.
+    Scenario Outline: An agent name yields an owner name only when it is usable
+      Given an agent seat named "<name>"
       When the owner name is read
       Then the owner name is "<owner>"
 
       Examples:
-        | label          | owner |
-        | Agent (Ada)    | Ada   |
-        | Agent          |       |
-        | Agent ()       |       |
-        | Agent ( )      |       |
-        | Agent ( Ada )  | Ada   |
+        | name      | owner |
+        | Ada       | Ada   |
+        |           |       |
+        |           |       |
+        |  Ada      | Ada   |
+        | you       |       |
+        | Player B  |       |
 
     Scenario: An unbound agent is not yours
-      Given an agent seat with no hash, labelled "Agent (Ada)"
+      Given an agent seat with no hash, named "Ada"
       And the caller hash is "me"
       When the seat is derived as the active chair
       Then the relation is "other"
       And the owner name is "Ada"
 
     Scenario: An agent hash match is yours even with no human chair
-      Given online seats agent "me" labelled "Agent (Ada)", and heuristic
+      Given online seats agent "me" named "Ada", and heuristic
       And the caller hash is "me"
       And the players are "A", "B"
       When the active seat is derived for "A"
@@ -219,11 +221,11 @@ Feature: Turn-banner boundaries
       When the configured kind is read
       Then the kind is "heuristic"
 
-  Rule: The parser keeps the label the server already sends (D5)
+  Rule: The parser keeps the name the server sends (D5, amended by P105)
 
-    Scenario: An agent label survives parsing and a human label does not
-      Given a seats array with an agent labelled "Agent (Ada)" and a human labelled "Ada" and a heuristic labelled "AI"
+    Scenario: A name survives parsing on an agent and a human, and a label never does
+      Given a seats array with an agent named "Ada", a human named "Ada" labelled "Ada", and a heuristic labelled "AI" named "AI"
       When the seats are parsed
-      Then the agent seat's label is "Agent (Ada)"
-      And the human seat has no label
-      And the heuristic seat has no label
+      Then the agent seat's name is "Ada" and it has no label
+      And the human seat's name is "Ada" and it has no label
+      And the heuristic seat is exactly { kind: heuristic }

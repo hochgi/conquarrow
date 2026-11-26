@@ -44,12 +44,12 @@ export type PlannedSeatKind = 'human' | 'heuristic' | 'byok' | 'agent';
 /**
  * A chair on an invite or game meta.
  * A human or agent chair is bound iff `userHash` is a string (never a Google `sub`).
- * An agent chair may carry `label` — GET game already sends it (`Agent` or `Agent (name)`).
+ * A bound human or agent chair may carry `name` (P105) — never in a non-member's peek.
  */
 export type InviteSeat =
-  | { readonly kind: 'human'; readonly userHash?: UserHash }
-  // `label` is what GET game already sends: `Agent` or `Agent (name)`. Not a human or heuristic field.
-  | { readonly kind: 'agent'; readonly userHash?: UserHash; readonly label?: string }
+  // P105: `name` is the bound user's profile display name, sent to members only.
+  | { readonly kind: 'human'; readonly userHash?: UserHash; readonly name?: string }
+  | { readonly kind: 'agent'; readonly userHash?: UserHash; readonly name?: string }
   | { readonly kind: 'heuristic' };
 
 export interface CreateInviteBody {

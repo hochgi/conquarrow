@@ -158,7 +158,7 @@ describe('The turn banner says who is playing', () => {
     it('A three-seat game derives you, your agent, and the AI', () => {
       const seats = [
         { kind: 'human' as const, userHash: 'me' },
-        { kind: 'agent' as const, userHash: 'me', label: 'Agent (Ada)' },
+        { kind: 'agent' as const, userHash: 'me', name: 'Ada' },
         { kind: 'heuristic' as const },
       ];
       const players = ['A', 'B', 'C'];

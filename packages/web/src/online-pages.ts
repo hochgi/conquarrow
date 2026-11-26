@@ -367,7 +367,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
    * P98 D2. The one door for an authenticated 401. Removes the token, forgets
    * the socket, sets session expired, and prompts even when `promptedFor`
    * already named that token. Does not drop a held submit. The invite peek
-   * (`auth: false`) never reaches this.
+   * (`auth: 'optional'`) never reaches this.
    */
   const expireSession = (): void => {
     clearSessionToken(session);
@@ -381,16 +381,15 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     method: 'GET' | 'POST',
     path: string,
     options?: {
-      readonly auth?: boolean;
+      /** P105: `optional` sends the bearer when there is one, and a 401 is not a session end. */
+      readonly auth?: 'optional';
       readonly body?: unknown;
       readonly headers?: Readonly<Record<string, string>>;
     },
   ): Promise<OnlinePagesHttpResponse> => {
     const headers: Record<string, string> = { ...options?.headers };
-    if (options?.auth !== false) {
-      const bearer = token();
-      if (bearer !== undefined) headers['Authorization'] = `Bearer ${bearer}`;
-    }
+    const bearer = token();
+    if (bearer !== undefined) headers['Authorization'] = `Bearer ${bearer}`;
     const req: OnlinePagesHttpRequest = {
       url: joinApi(env.VITE_API_BASE, path),
       method,
@@ -405,7 +404,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
             body: JSON.stringify(options.body),
           };
     const res = await fetchHttp(sent);
-    if (options?.auth !== false && res.status === 401) expireSession();
+    if (options?.auth !== 'optional' && res.status === 401) expireSession();
     return res;
   };
 
@@ -469,7 +468,8 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   }): Promise<void> => {
     const inviteToken = state.inviteToken;
     if (!onlineReady() || inviteToken === undefined) return;
-    const res = await request('GET', `/invites/${inviteToken}`, { auth: false });
+    // P105 D3: signed in, the peek carries the bearer so a member sees names.
+    const res = await request('GET', `/invites/${inviteToken}`, { auth: 'optional' });
     if (res.status === 410) {
       const body = parseJson(res.body);
       markInviteGone(body);

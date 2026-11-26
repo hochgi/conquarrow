@@ -32,7 +32,7 @@ import {
   unprocessable,
 } from './json-result';
 import { notifyHumans } from './notify';
-import { seatsForClient, stampLibrarySummary } from './library-listing';
+import { stampLibrarySummary, withSeatNames } from './library-listing';
 import { gameLogKey, gameStateKey } from './s3-keys';
 import { getObject, putObject } from './store-io';
 
@@ -288,7 +288,7 @@ export const handleGetGame = async (
   const body: Record<string, unknown> = {
     version: position.version,
     state: position.state,
-    seats: await seatsForClient(deps.s3, member.seats),
+    seats: await withSeatNames(deps.s3, member.seats),
     ...(member.meta.name === undefined ? {} : { name: member.meta.name }),
     owner: (await gameOwner(deps.s3, member.meta)) === member.userHash,
   };

@@ -137,7 +137,7 @@ const dispatch = (
     case 'create':
       return handleCreate(deps, request);
     case 'get-invite':
-      return handleGetInvite(deps, route.token);
+      return handleGetInvite(deps, request, route.token);
     case 'accept':
       return handleAccept(deps, request, route.token);
     case 'revoke':
