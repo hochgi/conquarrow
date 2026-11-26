@@ -7,6 +7,7 @@
  * @see docs/spec/turn-banner/turn-banner.md
  */
 
+import { usableSeatName, type InviteSeat } from '@conquarrow/contracts';
 import { pauseHint, type PauseKind } from './botPause';
 import type { SeatKind } from './seatPlan';
 
@@ -21,7 +22,7 @@ export type TurnPhase = 'idle' | 'blocked' | 'route';
 
 /**
  * Facts `turnBannerCopy` needs. Online ignores `vsBot`, `pause`, `botBusy`,
- * and `byokActive`. `ownerName` is set only when the seat label carried one.
+ * and `byokActive`. `ownerName` is set only when an agent chair carried a usable name.
  */
 export interface TurnBannerInput {
   readonly venue: TurnVenue;
@@ -59,14 +60,10 @@ export interface TurnBannerSeat {
 }
 
 /**
- * A chair on the game seats, aligned with `players` (P18). `label` is the
- * optional agent display the GET already sends; human and heuristic labels
- * are not a name source.
+ * A chair on the game seats, aligned with `players` (P18). P105: the GET sends
+ * the owner's `name` on human and agent chairs; only an agent's feeds the banner.
  */
-export type OnlineSeatFact =
-  | { readonly kind: 'human'; readonly userHash?: string; readonly label?: string }
-  | { readonly kind: 'agent'; readonly userHash?: string; readonly label?: string }
-  | { readonly kind: 'heuristic'; readonly label?: string };
+export type OnlineSeatFact = InviteSeat;
 
 export interface OnlineTurnSeatInput {
   readonly seats?: readonly OnlineSeatFact[];
@@ -100,9 +97,6 @@ const AI_MOVING = `AI seat is moving${ELLIPSIS}`;
 
 const LLM_THINKING = `LLM seat is thinking${ELLIPSIS}`;
 
-/** `Agent (` … last `)`. Trimmed, and absent when the interior is empty. */
-const AGENT_PREFIX = 'Agent (';
-
 interface CopyParts {
   readonly suffix: string;
   readonly hint: string;
@@ -122,11 +116,8 @@ const phaseSentence = (input: TurnBannerInput, idleWithMoves: string): string =>
   return idleWithMoves;
 };
 
-/** Non-empty after trim; otherwise the seat letter. */
-const displayName = (input: TurnBannerInput): string => {
-  const trimmed = input.ownerName?.trim() ?? '';
-  return trimmed === '' ? input.letter : trimmed;
-};
+/** A usable name (P105: not blank, not a reserved seat word); otherwise the seat letter. */
+const displayName = (input: TurnBannerInput): string => usableSeatName(input.ownerName) ?? input.letter;
 
 const playingSuffix = (input: TurnBannerInput): string => {
   if (input.kind === 'agent' && input.relation === 'caller-agent') {
@@ -203,23 +194,9 @@ const relationFor = (seat: OnlineSeatFact, userHash: string | undefined): TurnRe
   return 'other';
 };
 
-/**
- * Interior between the first `Agent (` and the last `)`, trimmed and non-empty.
- * No opening or no closing parenthesis is not a name.
- */
-export const ownerNameFromLabel = (label: string | undefined): string | undefined => {
-  if (label === undefined) return undefined;
-  const start = label.indexOf(AGENT_PREFIX);
-  if (start === -1) return undefined;
-  const end = label.lastIndexOf(')');
-  if (end === -1) return undefined;
-  const name = label.slice(start + AGENT_PREFIX.length, end).trim();
-  return name === '' ? undefined : name;
-};
-
 const withOwner = (seat: OnlineSeatFact, base: OnlineTurnSeatResult): OnlineTurnSeatResult => {
   if (seat.kind !== 'agent') return base;
-  const ownerName = ownerNameFromLabel(seat.label);
+  const ownerName = usableSeatName(seat.name);
   if (ownerName === undefined) return base;
   return { ...base, ownerName };
 };

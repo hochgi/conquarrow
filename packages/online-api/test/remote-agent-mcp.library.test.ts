@@ -106,7 +106,8 @@ describe('The lobby and the library tell the truth about the chair', () => {
       (game) => game.groupHash === groupHash,
     );
 
-    expect(row?.seats?.[1]).toEqual({ kind: 'agent', label: 'Agent (Ada)', you: true });
+    // P105: the caller's own agent reads `your agent` (one table, seat-labels).
+    expect(row?.seats?.[1]).toEqual({ kind: 'agent', label: 'your agent', you: true });
     expect(row?.status).not.toBe('your-turn');
 
     const unnamed = libraryApi();
@@ -117,7 +118,8 @@ describe('The lobby and the library tell the truth about the chair', () => {
       headers: { authorization: `Bearer ${ALICE.bearer}` },
     }), 200);
     const bareRow = (parseBody(bare) as { games?: { seats?: { label?: string }[] }[] }).games?.[0];
-    expect(bareRow?.seats?.[1]?.label).toBe('Agent');
+    // The caller's own agent reads `your agent` with or without a profile name.
+    expect(bareRow?.seats?.[1]?.label).toBe('your agent');
   });
 
   it('An agent-only caller is listed and is never your-turn', async () => {
@@ -148,9 +150,9 @@ describe('The lobby and the library tell the truth about the chair', () => {
 
     const got = await getGame(api, groupHash, GAME, CAROL.bearer);
     expect(got.statusCode).toBe(200);
-    const body = parseBody(got) as { seats?: { kind?: string; label?: string }[] };
-    const label = body.seats?.[1]?.label;
-    expect(label === 'Agent' || (typeof label === 'string' && label.startsWith('Agent ('))).toBe(true);
+    const body = parseBody(got) as { seats?: Record<string, unknown>[] };
+    // P105: no `label` any more; an unnamed owner means no `name` key either.
+    expect(body.seats?.[1]).toEqual({ kind: 'agent', userHash: carolHash() });
 
     const moved = await postMove(api, groupHash, GAME, CAROL.bearer, endTurn(), 1);
     expect(moved.statusCode).toBe(403);

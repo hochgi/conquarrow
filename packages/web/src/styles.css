@@ -510,18 +510,27 @@ body,
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* P105 (2a): the kind select and the frozen roster column share one width. */
+  --seat-kind-width: 8.5rem;
 }
 
 .lobby-seat-head select {
   margin-left: auto;
   font: inherit;
   padding: 0.35rem 0.45rem;
+  width: var(--seat-kind-width);
+  flex: 0 0 auto;
 }
 
 .lobby-seat-occupancy {
   margin-left: auto;
   font-size: 0.85rem;
   color: var(--muted);
+  width: var(--seat-kind-width);
+  flex: 0 0 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .lobby-seat-swatch {

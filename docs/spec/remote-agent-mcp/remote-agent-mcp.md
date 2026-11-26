@@ -102,6 +102,8 @@ user is listed in My games.
 
 ## Labels and status
 
+> **Amended by P105** ([seat-labels](../seat-labels/seat-labels.md)): the library labels chairs with the one table (`your agent` for the caller's own agent, `Ada's agent` for someone else's, `Agent` unnamed). `GET` game sends the owner's `name`, not a `label`; the in-game roster line is the seat line (`labelForSeat`).
+
 Library rows and the in-game roster show `Agent (given_name)` when the profile
 has a sanitised name, else `Agent`. The name is the existing profile object,
 upserted when the MCP login verifies the Google ID token, same sanitiser as

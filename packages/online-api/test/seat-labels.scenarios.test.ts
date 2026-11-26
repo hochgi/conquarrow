@@ -249,7 +249,21 @@ describe('SCENARIOS.md 4 — game', () => {
   it('alt not a member: 403, no seats', async () => {
     const h = await started();
     const res = await getGame(h.api, aliceBobGroupHash(), GAME_ONE, CAROL.bearer);
-    expect(res.statusCode === 403 || res.statusCode === 404).toBe(true);
+    expect(res.statusCode).toBe(403);
+    expect(res.body.includes('seats')).toBe(false);
+  });
+
+  it('alt bearer rejected: 401, no seats', async () => {
+    const h = await started();
+    const res = await getGame(h.api, aliceBobGroupHash(), GAME_ONE, EXPIRED_BEARER);
+    expectStatus(res, 401);
+    expect(res.body.includes('seats')).toBe(false);
+  });
+
+  it('alt unknown game: 404, no seats', async () => {
+    const h = await started();
+    const res = await getGame(h.api, aliceBobGroupHash(), '000099', ALICE.bearer);
+    expectStatus(res, 404);
     expect(res.body.includes('seats')).toBe(false);
   });
 });
@@ -272,11 +286,12 @@ describe('SCENARIOS.md 5 — my games', () => {
     ]);
   });
 
-  const agentGame = async (bindAgent: boolean) => {
+  const agentGame = async () => {
     const h = named();
     const token = await createOpenInvite(h.api, ALICE, ['human', 'agent', 'human']);
     await postAccept(h.api, token, BOB.bearer);
-    if (bindAgent) {
+    // Start needs the agent bound (409 otherwise); bind it to Alice, as the MCP door would.
+    {
       const raw = JSON.parse(h.s3.get(inviteKey(token)) ?? '{}') as { seats: unknown[] };
       raw.seats[1] = { kind: 'agent', userHash: aliceHash() };
       h.s3.set(inviteKey(token), JSON.stringify(raw));
@@ -289,14 +304,9 @@ describe('SCENARIOS.md 5 — my games', () => {
   };
 
   it('an agent chair: your agent for its owner, <name>’s agent for the others', async () => {
-    const { row } = await agentGame(true);
+    const { row } = await agentGame();
     expect(await row(ALICE.bearer)).toEqual([['you', true], ['your agent', true], ['Bob', false]]);
     expect(await row(BOB.bearer)).toEqual([['Alice', false], ["Alice's agent", false], ['you', true]]);
-  });
-
-  it('an agent chair nobody bound yet reads waiting', async () => {
-    const { row } = await agentGame(false);
-    expect(await row(BOB.bearer)).toEqual([['Alice', false], ['waiting', false], ['you', true]]);
   });
 
   it('alt rejected: 401', async () => {
@@ -339,7 +349,11 @@ describe('withSeatNames (EARS 5)', () => {
     await withSeatNames(store, [
       { kind: 'human', userHash: 'h1' },
       { kind: 'agent', userHash: 'h1' },
+      { kind: 'human' },
+      { kind: 'agent' },
+      { kind: 'heuristic' },
     ]);
+    // An unbound or heuristic chair has no user, so no profile is read for it.
     expect(reads).toEqual([userProfileKey('h1')]);
   });
 });

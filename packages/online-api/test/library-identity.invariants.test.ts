@@ -65,12 +65,14 @@ describe('online-library-identity API invariants', () => {
     ]);
   });
 
-  it('When a listed human has no profile, the system shall label that chair Player A through Player F from its seat index', async () => {
+  it('When a listed human other than the caller has no profile, the system shall label that chair Player A through Player F from its seat index (P105: the caller reads you)', async () => {
     const { api } = makeHarness();
     await startAliceBob(api);
     const seats = asLibrarySeats((await listedRow(api, ALICE.bearer, aliceBobGroupHash())).seats);
-    expect(seats[0]?.label).toBe(PLAYER_SEAT_LABELS[0]);
+    expect(seats[0]?.label).toBe('you');
     expect(seats[1]?.label).toBe(PLAYER_SEAT_LABELS[1]);
+    const bobs = asLibrarySeats((await listedRow(api, BOB.bearer, aliceBobGroupHash())).seats);
+    expect(bobs[0]?.label).toBe(PLAYER_SEAT_LABELS[0]);
     for (const [index, label] of PLAYER_SEAT_LABELS.entries()) {
       expect(playerLetterLabel(index), label).toBe(label);
     }

@@ -11,7 +11,7 @@ import { labelInviteChair, seatLabel, seatLetter, usableSeatName } from '../src/
 const KINDS = ['human', 'agent', 'heuristic', 'byok'] as const;
 const RELATIONS = ['caller-human', 'caller-agent', 'other'] as const;
 const BOUND = [undefined, true, false] as const;
-const NAMES = [undefined, '', '  ', 'Bob', '  Ada  ', 'you', 'YOU', 'Your Agent', 'ai', 'Waiting', 'Player C', 'player a', 'Players', 'Agent'] as const;
+const NAMES = [undefined, '', '  ', 'Bob', '  Ada  ', 'you', 'YOU', 'Your Agent', 'ai', 'Waiting', 'Player C', 'player a', 'Players', 'Agent', 'Player Bob', 'Ex player b', 'Player G'] as const;
 const SAY = [false, true] as const;
 
 const RESERVED = new Set(['you', 'your agent', 'ai', 'waiting']);
@@ -67,6 +67,11 @@ describe('seat-labels invariants — the table', () => {
 
   it('EARS 2: no usable name is a reserved word or another seat fallback', () => {
     for (const name of NAMES) expect(usableSeatName(name), String(name)).toBe(expectedName(name));
+    // Only the whole name `Player <A–F>` poses as a fallback; a longer name is a name.
+    expect(usableSeatName('Player Bob')).toBe('Player Bob');
+    expect(usableSeatName('Ex player b')).toBe('Ex player b');
+    expect(usableSeatName('Player G')).toBe('Player G');
+    expect(usableSeatName(' player f ')).toBeUndefined();
   });
 
   it('EARS 3: "you" and "your agent" only for the caller', () => {

@@ -127,11 +127,21 @@ detailed form of an item; this file is the short list and the order.
 - **Event animations are too fast to read.** P92/P93 issue review
   2026-11-16: conversions, battles and encirclements play faster than a
   human can follow, now that every seat replays (P94). Pace them.
-- **"Your agent" label on the roster.** P92/P93 issue review 2026-11-16: the
-  seat label for the caller's own agent everywhere it is listed. P101 covers
-  the turn banner only (`your agent is playing…`). P102 uses that label for
-  the elimination toast and the standings row only. The GIS flicker half is
-  P97's phone check. Issue #119.
+- **Seat A: keep it the creator's, or let the creator pick?** [P105](packets/P105-seat-labels.md)
+  keeps the spec default (the first human chair is the host and reads
+  `Player (you)`). Gilad's call; issue #119's grill question.
+- **A BYOK seat reads `AI` on the seat line.** P105 follows P102's table
+  (`byok` → `AI`). If a local BYOK seat should read `LLM` or the model
+  name, that is one row in `seatLabel` plus its tests.
+- **The banner's "is playing" sentence (cluster 03).** P105 feeds it names
+  through `usableSeatName`, but another human still reads `B is playing…`
+  by letter. Rewording the banner to the one table is cluster 03's.
+- **Check P105 on a phone (360 px).** Lobby: the kind selects are one
+  width (8.5 rem) and line up with the frozen roster column; a long name
+  ends in `…`. Seat A reads `Player (you)`. Roster: `you`, the joiner's
+  name, `waiting`, `AI`. In game: the seat line reads `A=you · B=Ada's agent
+  · C=AI`. Library chips: no ` (you) (you)`. Standings and the toast use the
+  same words.
 - **The online `passing…` wait (#120 item 6).** P103 found no client delay:
   the pass posts at `setTimeout(…, 0)`. The wait is three sequential requests
   (POST `endTurn`, the reconcile's `GET` game, `GET …/log`) plus the replay's
@@ -184,10 +194,10 @@ detailed form of an item; this file is the short list and the order.
 ## Online
 
 - **Online shell UX from playtest P95 (R3).** Seat names and kinds in the
-  shell, and "your agent" on the owner's seat (issue #119). P101 ships the
-  thinking indicator. P102 greys a lost seat in the in-game seat line and
-  draws the game-over standings; the lobby chips are not that line. No board
-  input on an agent seat is already the server's 403 `agent-seat` (P95 D3).
+  shell and "your agent" on the owner's seat ship in P105 (issue #119).
+  P101 ships the thinking indicator. P102 greys a lost seat in the in-game
+  seat line and draws the game-over standings. No board input on an agent
+  seat is already the server's 403 `agent-seat` (P95 D3).
 - **Auto-archive finished games** ([P96](packets/P96-game-management.md)
   D10, not built). Proposed: a finished game whose `lastActivityAt` is older
   than a set age leaves the default Finished page for an Archived list, per

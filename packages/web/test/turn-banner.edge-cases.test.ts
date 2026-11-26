@@ -139,18 +139,19 @@ const NON_HUMAN_LOCAL_KINDS = [
   { kind: 'agent' },
 ] as const satisfies readonly { readonly kind: SeatKind }[];
 
-/** A blank owner cell means the name is absent, not the empty string. */
-const LABEL_ROWS = [
-  { label: 'Agent (Ada)', owner: 'Ada' },
-  { label: 'Agent', owner: undefined },
-  { label: 'Agent ()', owner: undefined },
-  { label: 'Agent ( )', owner: undefined },
-  { label: 'Agent ( Ada )', owner: 'Ada' },
+/** P105: the chair's `name`. A blank owner cell means the name is absent, not the empty string. */
+const NAME_ROWS = [
+  { name: 'Ada', owner: 'Ada' },
+  { name: '', owner: undefined },
+  { name: ' ', owner: undefined },
+  { name: ' Ada ', owner: 'Ada' },
+  { name: 'you', owner: undefined },
+  { name: 'Player B', owner: undefined },
 ] as const;
 
-const seatLabel = (seat: object): string | undefined => {
-  if (!Object.hasOwn(seat, 'label')) return undefined;
-  const value = (seat as Record<string, unknown>)['label'];
+const seatName = (seat: object): string | undefined => {
+  if (!Object.hasOwn(seat, 'name')) return undefined;
+  const value = (seat as Record<string, unknown>)['name'];
   return typeof value === 'string' ? value : undefined;
 };
 
@@ -370,7 +371,7 @@ describe('Turn-banner boundaries', () => {
       const seat = onlineTurnSeat({
         seats: [
           { kind: 'human', userHash: 'me' },
-          { kind: 'agent', userHash: 'them', label: 'Agent (Bea)' },
+          { kind: 'agent', userHash: 'them', name: 'Bea' },
           { kind: 'heuristic' },
         ],
         players: ['A', 'B', 'C'],
@@ -387,7 +388,7 @@ describe('Turn-banner boundaries', () => {
       const seat = onlineTurnSeat({
         seats: [
           { kind: 'human', userHash: 'me' },
-          { kind: 'agent', userHash: 'me', label: 'Agent (Ada)' },
+          { kind: 'agent', userHash: 'me', name: 'Ada' },
           { kind: 'heuristic' },
         ],
         userHash: 'me',
@@ -405,7 +406,7 @@ describe('Turn-banner boundaries', () => {
       const seat = onlineTurnSeat({
         seats: [
           { kind: 'human', userHash: 'me' },
-          { kind: 'agent', userHash: 'me', label: 'Agent (Ada)' },
+          { kind: 'agent', userHash: 'me', name: 'Ada' },
         ],
         userHash: 'me',
         players: ['A', 'B', 'C'],
@@ -418,12 +419,12 @@ describe('Turn-banner boundaries', () => {
       expectNoOwner(seat);
     });
 
-    it.each(LABEL_ROWS)(
-      'An agent label yields an owner name only when it carries one ($label)',
-      ({ label, owner }) => {
+    it.each(NAME_ROWS)(
+      'An agent name yields an owner name only when it is usable ($name)',
+      ({ name, owner }) => {
         // The one agent seat is the active chair: seat 0 is players[0].
         const seat = onlineTurnSeat({
-          seats: [{ kind: 'agent', label }],
+          seats: [{ kind: 'agent', name }],
           userHash: 'me',
           players: ['A'],
           active: 'A',
@@ -439,7 +440,7 @@ describe('Turn-banner boundaries', () => {
 
     it('An unbound agent is not yours', () => {
       const seat = onlineTurnSeat({
-        seats: [{ kind: 'agent', label: 'Agent (Ada)' }],
+        seats: [{ kind: 'agent', name: 'Ada' }],
         userHash: 'me',
         players: ['A'],
         active: 'A',
@@ -452,7 +453,7 @@ describe('Turn-banner boundaries', () => {
     it('An agent hash match is yours even with no human chair', () => {
       const seat = onlineTurnSeat({
         seats: [
-          { kind: 'agent', userHash: 'me', label: 'Agent (Ada)' },
+          { kind: 'agent', userHash: 'me', name: 'Ada' },
           { kind: 'heuristic' },
         ],
         userHash: 'me',
@@ -540,12 +541,12 @@ describe('Turn-banner boundaries', () => {
     });
   });
 
-  describe('The parser keeps the label the server already sends', () => {
-    it('An agent label survives parsing and a human label does not', () => {
+  describe('The parser keeps the name the server sends (P105)', () => {
+    it('A name survives parsing on an agent and a human, and a label never does', () => {
       const raw: unknown = [
-        { kind: 'agent', userHash: 'me', label: 'Agent (Ada)' },
-        { kind: 'human', userHash: 'ada', label: 'Ada' },
-        { kind: 'heuristic', label: 'AI' },
+        { kind: 'agent', userHash: 'me', name: 'Ada' },
+        { kind: 'human', userHash: 'ada', name: 'Ada', label: 'Ada' },
+        { kind: 'heuristic', label: 'AI', name: 'AI' },
       ];
       const seats = parseSeats(raw);
       expect(seats).toHaveLength(3);
@@ -557,11 +558,12 @@ describe('Turn-banner boundaries', () => {
       }
 
       expect(agent.kind).toBe('agent');
-      expect(seatLabel(agent)).toBe('Agent (Ada)');
+      expect(seatName(agent)).toBe('Ada');
+      expect(Object.hasOwn(agent, 'label')).toBe(false);
       expect(human.kind).toBe('human');
+      expect(seatName(human)).toBe('Ada');
       expect(Object.hasOwn(human, 'label')).toBe(false);
-      expect(heuristic.kind).toBe('heuristic');
-      expect(Object.hasOwn(heuristic, 'label')).toBe(false);
+      expect(heuristic).toStrictEqual({ kind: 'heuristic' });
     });
   });
 });

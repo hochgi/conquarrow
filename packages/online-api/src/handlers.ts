@@ -34,6 +34,7 @@ import {
   unprocessable,
 } from './json-result';
 import {
+  withSeatNames,
   libraryFirstPage,
   libraryPage,
   listLibrary,
@@ -169,18 +170,49 @@ export const handleCreate = async (
     ...(args.name === undefined ? {} : { name: args.name }),
   });
   await writeLobbyPointer(deps.s3, user.userHash, token);
-  return jsonResult(201, publicInvite(token, seats, args.name));
+  return jsonResult(201, publicInvite(token, await withSeatNames(deps.s3, seats), args.name));
+};
+
+/**
+ * P105 D2: the peek is public, so a bearer is optional and never answers 401.
+ * Only a verified user bound to a chair (the creator always is) sees names.
+ */
+const peekerIsMember = async (
+  deps: OnlineApiDeps,
+  request: OnlineRequest,
+  invite: InviteRecord,
+): Promise<boolean> => {
+  const authorization = authorizationOf(request);
+  if (authorization === undefined) return false;
+  let user: UserAuth;
+  try {
+    user = await requireUserHash(deps.google, authorization);
+  } catch {
+    return false;
+  }
+  // A failed UserAuth (`{ ok: false, result }`) carries no `userHash`, and the
+  // member list holds only bound (defined) hashes, so one read answers both.
+  const userHash = (user as { readonly userHash?: string }).userHash;
+  const members: readonly (string | undefined)[] = [
+    ...boundHumanHashes(invite.seats),
+    ...boundAgentHashes(invite.seats),
+  ];
+  return members.includes(userHash);
 };
 
 export const handleGetInvite = async (
   deps: OnlineApiDeps,
+  request: OnlineRequest,
   token: string,
 ): Promise<OnlineHttpResult> => {
   const invite = await readInvite(deps.s3, token);
   if (invite === undefined) return notFound();
   const closedResult = closed(invite);
   if (closedResult !== undefined) return closedResult;
-  return jsonResult(200, publicInvite(token, invite.seats, invite.name));
+  const seats = (await peekerIsMember(deps, request, invite))
+    ? await withSeatNames(deps.s3, invite.seats)
+    : invite.seats;
+  return jsonResult(200, publicInvite(token, seats, invite.name));
 };
 
 export const handleAccept = async (
@@ -200,7 +232,7 @@ export const handleAccept = async (
     if (closedResult !== undefined) return closedResult;
     if (indexOfBoundUser(invite.seats, user.userHash) >= 0) {
       await writeLobbyPointer(deps.s3, user.userHash, token);
-      return jsonResult(200, publicInvite(token, invite.seats, invite.name));
+      return jsonResult(200, publicInvite(token, await withSeatNames(deps.s3, invite.seats), invite.name));
     }
     const next = nextUnboundHumanIndex(invite.seats);
     if (next < 0) return conflict();
@@ -214,7 +246,7 @@ export const handleAccept = async (
       throw error;
     }
     await writeLobbyPointer(deps.s3, user.userHash, token);
-    return jsonResult(200, publicInvite(token, seats, invite.name));
+    return jsonResult(200, publicInvite(token, await withSeatNames(deps.s3, seats), invite.name));
   }
 };
 

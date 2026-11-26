@@ -308,11 +308,11 @@ Feature: Remote agent seat boundaries
       Given a started game where A holds the human seat and the agent seat, and the agent is to move
       And A's profile display name is "Ada"
       When A GETs /my-games
-      Then the agent seat label is "Agent (Ada)"
+      Then the agent seat label is "your agent"
       And the agent seat has you true
       And the row status is not "your-turn"
       When the profile has no name
-      Then the agent seat label is "Agent"
+      Then the agent seat label is still "your agent"
 
     Scenario: An agent-only caller is listed and is never your-turn
       Given a started game where C holds only the agent seat
@@ -325,15 +325,15 @@ Feature: Remote agent seat boundaries
       Given a started game where C holds only the agent seat and it is that seat's turn
       When C GETs the game with a Google ID token
       Then the response is 200
-      And the agent seat label is "Agent" or "Agent (name)"
+      And the agent chair has no label, and no name when C has no profile name
       When C POSTs /moves
       Then the response is 403
       And the stored version is unchanged
 
-    Scenario: The in-game summary does not call an agent seat Player
+    Scenario: The in-game seat line does not call an agent seat Player
       Given a started game whose seat 1 is an agent with profile name "Ada"
-      When the in-game roster is rendered
-      Then the summary contains "Agent (Ada)"
+      When the seat line is labelled for seat 0's user
+      Then it reads "you", "Ada's agent", "AI"
       And the match log does not record that seat as human
 
   Rule: The stdio package is gone, and the ceiling is the one ADR 0007 already set

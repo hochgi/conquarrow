@@ -177,6 +177,8 @@ must not depend on an animated `transform`.
 
 `seatLabel` (`packages/web/src/seatLabel.ts`) is pure. First match wins.
 
+> **Amended by P105** ([seat-labels](../seat-labels/seat-labels.md)): the table below is replaced by the one table in contracts (`seatLabel`): an agent reads `Ada's agent` or `Agent`, a human reads its name or `Player B`, and a hot-seat human reads `Player A`. `labelForChair` uses `kindHint` only for `agent` (`Agent`) and `heuristic` (`AI`); any other hint is `Player X`. Names come from the chair's `name`; the `Agent (Ada)` parse is gone.
+
 | # | When | label |
 |---|---|---|
 | 1 | `sayYou` and relation `caller-human` and kind `human` | `you` |

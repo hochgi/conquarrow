@@ -77,7 +77,8 @@ describe('Opponents distinguish groups', () => {
     const row = libraryRowOf(await listedGames(api, ALICE.bearer), aliceBobGroupHash());
     const seats = asLibrarySeats(row.seats);
     expect(seats).toEqual([
-      { kind: 'human', label: 'Player A', you: true },
+      // P105: the caller's chair reads `you` (one table, seat-labels).
+      { kind: 'human', label: 'you', you: true },
       { kind: 'human', label: 'Player B', you: false },
       { kind: 'heuristic', label: 'AI', you: false },
     ]);

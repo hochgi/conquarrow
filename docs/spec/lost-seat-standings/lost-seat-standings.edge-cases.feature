@@ -83,6 +83,7 @@ Feature: Lost-seat and standings boundaries
 
   Rule: Seat labels are the P101 words (D5)
 
+    # Amended by P105: one wording (seat-labels) — `Player X`, names, `<name>'s agent`, `Agent`.
     Scenario Outline: The first matching label row wins
       Given a seat letter "<letter>", kind "<kind>", relation "<relation>", owner "<owner>", sayYou "<sayYou>"
       When the seat label is read
@@ -93,25 +94,25 @@ Feature: Lost-seat and standings boundaries
       Examples:
         | letter | kind      | relation      | owner | sayYou | label      |
         | A      | human     | caller-human  | (none) | true  | you        |
-        | A      | human     | caller-human  | (none) | false | A          |
+        | A      | human     | caller-human  | (none) | false | Player A   |
         | C      | agent     | caller-agent  | Ada   | true  | your agent |
         | C      | agent     | caller-agent  | (none) | true  | your agent |
         | B      | heuristic | other         | (none) | true  | AI         |
         | B      | byok      | other         | (none) | false | AI         |
-        | B      | agent     | other         | Ada   | true  | Ada        |
-        | B      | agent     | other         | (none) | true  | B          |
-        | B      | human     | other         | (none) | true  | B          |
-        | B      | agent     | other         | (blank) | true | B          |
-        | A      | human     | caller-agent  | (none) | true  | A          |
-        | C      | agent     | caller-human  | Ada   | true  | Ada        |
+        | B      | agent     | other         | Ada   | true  | Ada's agent|
+        | B      | agent     | other         | (none) | true  | Agent      |
+        | B      | human     | other         | (none) | true  | Player B   |
+        | B      | agent     | other         | (blank) | true | Agent      |
+        | A      | human     | caller-agent  | (none) | true  | Player A   |
+        | C      | agent     | caller-human  | Ada   | true  | Ada's agent|
 
     Scenario: Online, only a proved human caller is you
-      Given online seats human "alice", human "bob", and agent "alice" labeled "Agent (Ada)"
+      Given online seats human "alice", human "bob", and agent "alice" named "Ada"
       And the caller hash is "alice"
       And the players are "A", "B", "C"
       When each online seat label is read
       Then "A" is labeled "you"
-      And "B" is labeled "B"
+      And "B" is labeled "Player B"
       And "C" is labeled "your agent"
 
     Scenario: A missing hash or a missing chair is never you
@@ -119,13 +120,13 @@ Feature: Lost-seat and standings boundaries
       And the caller hash is missing
       And the players are "A"
       When the online label of "A" is read
-      Then the label is "A"
+      Then the label is "Player A"
 
-    Scenario: A local hot-seat labels humans by letter
+    Scenario: A local hot-seat labels humans Player and their letter
       Given local log seats "A" human, "B" human, and "C" heuristic
       When each local seat label is read
-      Then "A" is labeled "A"
-      And "B" is labeled "B"
+      Then "A" is labeled "Player A"
+      And "B" is labeled "Player B"
       And "C" is labeled "AI"
 
     Scenario: The one human in a local versus-bot match is you
@@ -211,7 +212,7 @@ Feature: Lost-seat and standings boundaries
       And the caption is "Won on turn 0"
       And there are no rows
 
-    Scenario: Without a chair, a heuristic standing is AI and a human is the letter
+    Scenario: Without a chair, a heuristic standing is AI and a human is Player and its letter
       Given a summary won by "A" on turn 4
       And standings "A" seat 0 not lost with territory 1, shares 0, heads 1, kind human
       And standings "B" seat 1 lost with territory 0, shares 0, heads 0, kind heuristic
@@ -219,7 +220,7 @@ Feature: Lost-seat and standings boundaries
       And the caller hash is "alice"
       And the match is showing game-over
       When the standings view is read
-      Then row "A" is labeled "A" and is not marked you
+      Then row "A" is labeled "Player A" and is not marked you
       And row "B" is labeled "AI" and its marker is "lost"
 
     Scenario: The caller's agent is your agent, not the owner name
@@ -227,22 +228,22 @@ Feature: Lost-seat and standings boundaries
       And standings "A" seat 0 not lost with territory 2, shares 1, heads 1
       And standings "C" seat 2 lost with territory 0, shares 0, heads 0
       And seat 0 is a human chair with hash "bob"
-      And seat 2 is an agent chair with hash "alice" labeled "Agent (Ada)"
+      And seat 2 is an agent chair with hash "alice" named "Ada"
       And the caller hash is "alice"
       And the match is showing game-over
       When the standings view is read
-      Then row "A" is labeled "A" and is not marked you
+      Then row "A" is labeled "Player A" and is not marked you
       And row "C" is labeled "your agent"
 
     Scenario: Another agent's owner name is the label
       Given a summary won by "A" on turn 8
       And standings "A" seat 0 not lost with territory 2, shares 1, heads 1
       And standings "C" seat 2 lost with territory 0, shares 0, heads 0
-      And seat 2 is an agent chair with hash "bob" labeled "Agent (Ada)"
+      And seat 2 is an agent chair with hash "bob" named "Ada"
       And the caller hash is "alice"
       And the match is showing game-over
       When the standings view is read
-      Then row "C" is labeled "Ada"
+      Then row "C" is labeled "Ada's agent"
 
   Rule: A bad summary does not drop the board (D8)
 

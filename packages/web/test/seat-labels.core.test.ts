@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { InviteSeat } from '@conquarrow/contracts';
 import { parseSeats } from '../src/online-parse';
 import { hostSeatIndex, lobbyKindOptions } from '../src/online-shell-ui';
-import { labelForSeat, rosterLabel } from '../src/seatLabel';
+import { labelForSeat, rosterLabel, seatLineLabel } from '../src/seatLabel';
 import { onlineTurnSeat, turnBannerCopy } from '../src/turnBanner';
 import { eliminationSentence } from '../src/lostSeat';
 import { standingsForHud } from '../src/standings';
@@ -86,6 +86,29 @@ describe('The seat line uses the same labels', () => {
       'AI',
     ]);
   });
+
+  it('the seat line prints the letter already, so the fallback reads Player there', () => {
+    const hot = [
+      { player: 'A', kind: 'human' as const },
+      { player: 'B', kind: 'human' as const },
+      { player: 'C', kind: 'heuristic' as const },
+    ];
+    expect(hot.map((s) => seatLineLabel({ letter: s.player, local: { configKind: s.kind, logSeats: hot } }))).toEqual([
+      'Player',
+      'Player',
+      'AI',
+    ]);
+    const chairs: readonly InviteSeat[] = [
+      { kind: 'human', userHash: ME },
+      { kind: 'human', userHash: 'bob', name: 'Bob' },
+      { kind: 'human', userHash: 'cy' },
+    ];
+    expect(
+      players.map((letter) =>
+        seatLineLabel({ letter, online: { players, seats: chairs, userHash: ME }, local: { configKind: undefined, logSeats: [] } }),
+      ),
+    ).toEqual(['you', 'Bob', 'Player']);
+  });
 });
 
 describe('The parser keeps names on human and agent chairs only', () => {
@@ -122,7 +145,7 @@ describe('The banner reads the owner from `name`, never a reserved word', () => 
     venue: 'online' as const,
     replaying: false,
     vsBot: false,
-    pause: 'none' as const,
+    pause: 'running' as const,
     botBusy: false,
     byokActive: false,
     phase: 'idle' as const,
@@ -183,15 +206,15 @@ describe('Seat A says it is you (2b)', () => {
   });
 
   it('when seat A is AI the first human seat is the host', () => {
-    const kinds = ['heuristic', 'human', 'human'] as const;
-    const host = hostSeatIndex(kinds);
+    const host = hostSeatIndex([{ kind: 'heuristic' }, { kind: 'human' }, { kind: 'human' }]);
     expect(host).toBe(1);
     expect(lobbyKindOptions('online', 1, host)[0]).toEqual({ value: 'human', label: 'Player (you)' });
     expect(lobbyKindOptions('online', 2, host)[0]).toEqual({ value: 'human', label: 'Player' });
   });
 
   it('no human seat: no host', () => {
-    expect(hostSeatIndex(['heuristic', 'agent', 'heuristic'])).toBe(-1);
+    expect(hostSeatIndex([{ kind: 'heuristic' }, { kind: 'agent' }, { kind: 'heuristic' }])).toBe(-1);
+    expect(hostSeatIndex([{ kind: 'human' }, { kind: 'human' }])).toBe(0);
     expect(lobbyKindOptions('online', 0, -1)[0]).toEqual({ value: 'human', label: 'Player' });
   });
 
@@ -229,7 +252,7 @@ describe('Wiring (source scans — no DOM harness)', () => {
 
   it('App builds the seat line with labelForSeat', () => {
     const app = code(src('App.tsx'));
-    expect(app).toMatch(/kindLabel: labelForSeat\(/);
+    expect(app).toMatch(/kindLabel: seatLineLabel\(/);
     expect(app).not.toMatch(/displaySeatKind/);
   });
 

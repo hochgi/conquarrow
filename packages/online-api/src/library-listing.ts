@@ -21,8 +21,10 @@ import type {
 import {
   FINISHED_PAGE,
   MAX_LIBRARY_PAGE,
+  chairUserHash,
+  labelInviteChair,
   libraryStatusFor,
-  playerLetterLabel,
+  seatLetter,
 } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { isLost } from '@conquarrow/rules-core';
@@ -31,8 +33,6 @@ import { parsePersistedEnvelope } from './game-snapshot';
 import { compareStrings } from './hashing';
 import {
   asRecord,
-  boundUserHash,
-  boundAgentUserHash,
   indexOfCallerSeat,
   parseGameMeta,
   type GameMeta,
@@ -197,43 +197,28 @@ const cachedDisplayName = async (
   return name;
 };
 
-const librarySeatOf = (
-  seat: InviteSeat,
-  index: number,
-  callerHash: string,
-  displayName: string | undefined,
-): LibrarySeat => {
-  if (seat.kind === 'heuristic') {
-    return { kind: 'heuristic', label: 'AI', you: false };
-  }
-  if (seat.kind === 'agent') {
-    const you = boundAgentUserHash(seat) === callerHash;
-    const label = agentLabel(displayName);
-    return { kind: 'agent', label, you };
-  }
-  const you = boundUserHash(seat) === callerHash;
-  const label = displayName ?? playerLetterLabel(index);
-  return { kind: 'human', label, you };
+/** P105: the row's chair, labelled by the one table (`you`, `your agent`, names …). */
+const librarySeatOf = (seat: InviteSeat, index: number, callerHash: string): LibrarySeat => {
+  const label = labelInviteChair({ letter: seatLetter(index), chair: seat, userHash: callerHash });
+  // The caller's hash is a string, so an unbound or heuristic chair is never `you`.
+  return { kind: seat.kind, label, you: chairUserHash(seat) === callerHash };
 };
 
-export const agentLabel = (displayName: string | undefined): string =>
-  displayName === undefined ? 'Agent' : `Agent (${displayName})`;
-
-/** GET game adds `label` on agent seats only. Human and heuristic objects stay as stored. */
-export const seatsForClient = async (
+/**
+ * P105 D2: `seats` in order, each bound human or agent chair with `name` when
+ * its user's profile has one. Nothing else is added; each profile is read once.
+ */
+export const withSeatNames = async (
   s3: ObjectStore,
   seats: readonly InviteSeat[],
-): Promise<readonly (InviteSeat & { readonly label?: string })[]> => {
-  const names: NameCache = new Map();
-  const listed: (InviteSeat & { readonly label?: string })[] = [];
+  names: NameCache = new Map(),
+): Promise<readonly InviteSeat[]> => {
+  const listed: InviteSeat[] = [];
   for (const seat of seats) {
-    if (seat.kind !== 'agent') {
-      listed.push(seat);
-      continue;
-    }
-    const bound = seat.userHash;
-    const name = bound === undefined ? undefined : await cachedDisplayName(s3, bound, names);
-    listed.push({ ...seat, label: agentLabel(name) });
+    const userHash = chairUserHash(seat);
+    // Only a bound chair has a user; a heuristic chair never has one.
+    const name = userHash === undefined ? undefined : await cachedDisplayName(s3, userHash, names);
+    listed.push(name === undefined ? seat : ({ ...seat, name } as InviteSeat));
   }
   return listed;
 };
@@ -243,18 +228,8 @@ const librarySeatsOf = async (
   seats: readonly InviteSeat[],
   callerHash: string,
   names: NameCache,
-): Promise<readonly LibrarySeat[]> => {
-  const listed: LibrarySeat[] = [];
-  for (let index = 0; index < seats.length; index += 1) {
-    const seat = seats[index];
-    if (seat === undefined) continue;
-    const bound = boundUserHash(seat) ?? boundAgentUserHash(seat);
-    const displayName =
-      bound === undefined ? undefined : await cachedDisplayName(s3, bound, names);
-    listed.push(librarySeatOf(seat, index, callerHash, displayName));
-  }
-  return listed;
-};
+): Promise<readonly LibrarySeat[]> =>
+  (await withSeatNames(s3, seats, names)).map((seat, index) => librarySeatOf(seat, index, callerHash));
 
 /** P96 D8: the seat to move, or the winner and its label. */
 const turnFieldsOf = (

@@ -65,19 +65,20 @@ const DIFF_ROWS = [
   { prev: 'B,C', next: 'C,B', result: '(none)' },
 ] as const;
 
+// P105: one wording (docs/spec/seat-labels) — names, `<name>'s agent`, `Player X`.
 const LABEL_ROWS = [
   { letter: 'A', kind: 'human', relation: 'caller-human', owner: '(none)', sayYou: true, label: 'you' },
-  { letter: 'A', kind: 'human', relation: 'caller-human', owner: '(none)', sayYou: false, label: 'A' },
+  { letter: 'A', kind: 'human', relation: 'caller-human', owner: '(none)', sayYou: false, label: 'Player A' },
   { letter: 'C', kind: 'agent', relation: 'caller-agent', owner: 'Ada', sayYou: true, label: 'your agent' },
   { letter: 'C', kind: 'agent', relation: 'caller-agent', owner: '(none)', sayYou: true, label: 'your agent' },
   { letter: 'B', kind: 'heuristic', relation: 'other', owner: '(none)', sayYou: true, label: 'AI' },
   { letter: 'B', kind: 'byok', relation: 'other', owner: '(none)', sayYou: false, label: 'AI' },
-  { letter: 'B', kind: 'agent', relation: 'other', owner: 'Ada', sayYou: true, label: 'Ada' },
-  { letter: 'B', kind: 'agent', relation: 'other', owner: '(none)', sayYou: true, label: 'B' },
-  { letter: 'B', kind: 'human', relation: 'other', owner: '(none)', sayYou: true, label: 'B' },
-  { letter: 'B', kind: 'agent', relation: 'other', owner: '(blank)', sayYou: true, label: 'B' },
-  { letter: 'A', kind: 'human', relation: 'caller-agent', owner: '(none)', sayYou: true, label: 'A' },
-  { letter: 'C', kind: 'agent', relation: 'caller-human', owner: 'Ada', sayYou: true, label: 'Ada' },
+  { letter: 'B', kind: 'agent', relation: 'other', owner: 'Ada', sayYou: true, label: "Ada's agent" },
+  { letter: 'B', kind: 'agent', relation: 'other', owner: '(none)', sayYou: true, label: 'Agent' },
+  { letter: 'B', kind: 'human', relation: 'other', owner: '(none)', sayYou: true, label: 'Player B' },
+  { letter: 'B', kind: 'agent', relation: 'other', owner: '(blank)', sayYou: true, label: 'Agent' },
+  { letter: 'A', kind: 'human', relation: 'caller-agent', owner: '(none)', sayYou: true, label: 'Player A' },
+  { letter: 'C', kind: 'agent', relation: 'caller-human', owner: 'Ada', sayYou: true, label: "Ada's agent" },
 ] as const satisfies readonly {
   readonly letter: string;
   readonly kind: TurnSeatKind;
@@ -268,22 +269,22 @@ describe('Lost-seat and standings boundaries', () => {
       const seats = [
         { kind: 'human' as const, userHash: 'alice' },
         { kind: 'human' as const, userHash: 'bob' },
-        { kind: 'agent' as const, userHash: 'alice', label: 'Agent (Ada)' },
+        { kind: 'agent' as const, userHash: 'alice', name: 'Ada' },
       ];
       const players = ['A', 'B', 'C'];
       const label = (letter: string): string =>
         labelForOnlineSeat({ seats, userHash: 'alice', players, letter });
 
       expect(label('A')).toBe('you');
-      expect(label('B')).toBe('B');
+      expect(label('B')).toBe('Player B');
       expect(label('C')).toBe('your agent');
     });
 
     it('A missing hash or a missing chair is never you', () => {
-      expect(labelForOnlineSeat({ players: ['A'], letter: 'A' })).toBe('A');
+      expect(labelForOnlineSeat({ players: ['A'], letter: 'A' })).toBe('Player A');
     });
 
-    it('A human with an owner name and relation other is the letter, not the name', () => {
+    it('P105: a human with an owner name and relation other is the name', () => {
       expect(
         seatLabel({
           letter: 'B',
@@ -292,57 +293,57 @@ describe('Lost-seat and standings boundaries', () => {
           ownerName: 'Ada',
           sayYou: true,
         }),
-      ).toBe('B');
+      ).toBe('Ada');
     });
 
     it('Omitting the caller hash does not mark you, and passing it does', () => {
       const seats = [{ kind: 'human' as const, userHash: 'alice' }];
 
-      expect(labelForOnlineSeat({ seats, players: ['A'], letter: 'A' })).toBe('A');
+      expect(labelForOnlineSeat({ seats, players: ['A'], letter: 'A' })).toBe('Player A');
       expect(labelForOnlineSeat({ seats, userHash: 'alice', players: ['A'], letter: 'A' })).toBe('you');
     });
 
     it('Omitting seats does not throw and does not mark you', () => {
-      expect(labelForOnlineSeat({ userHash: 'alice', players: ['A'], letter: 'A' })).toBe('A');
+      expect(labelForOnlineSeat({ userHash: 'alice', players: ['A'], letter: 'A' })).toBe('Player A');
     });
 
-    it('An agent chair labeled Agent (Ada) is Ada', () => {
+    it("P105: an agent chair named Ada is Ada's agent", () => {
       expect(
         labelForChair({
           letter: 'C',
-          chair: { kind: 'agent', userHash: 'bob', label: 'Agent (Ada)' },
+          chair: { kind: 'agent', userHash: 'bob', name: 'Ada' },
           userHash: 'alice',
         }),
-      ).toBe('Ada');
+      ).toBe("Ada's agent");
     });
 
     it('A proved human chair is you only when the hash is passed', () => {
       const chair = { kind: 'human' as const, userHash: 'alice' };
 
-      expect(labelForChair({ letter: 'A', chair })).toBe('A');
+      expect(labelForChair({ letter: 'A', chair })).toBe('Player A');
       expect(labelForChair({ letter: 'A', chair, userHash: 'alice' })).toBe('you');
     });
 
     it('Without a chair, a heuristic hint is AI and a human hint is the letter, not you', () => {
       expect(labelForChair({ letter: 'B', kindHint: 'heuristic' })).toBe('AI');
-      expect(labelForChair({ letter: 'A', kindHint: 'human' })).toBe('A');
-      expect(labelForChair({ letter: 'C', kindHint: 'agent' })).toBe('C');
+      expect(labelForChair({ letter: 'A', kindHint: 'human' })).toBe('Player A');
+      expect(labelForChair({ letter: 'C', kindHint: 'agent' })).toBe('Agent');
     });
 
     it('Without a chair, a byok hint is the letter', () => {
-      expect(labelForChair({ letter: 'B', kindHint: 'byok' })).toBe('B');
+      expect(labelForChair({ letter: 'B', kindHint: 'byok' })).toBe('Player B');
     });
 
     it('Without a chair and without a kind hint, the label is the letter', () => {
-      expect(labelForChair({ letter: 'C' })).toBe('C');
+      expect(labelForChair({ letter: 'C' })).toBe('Player C');
     });
 
     it('A local hot-seat labels humans by letter', () => {
       const label = (letter: string): string =>
         labelForLocalSeat({ configKind: undefined, logSeats: HOT_SEAT, letter });
 
-      expect(label('A')).toBe('A');
-      expect(label('B')).toBe('B');
+      expect(label('A')).toBe('Player A');
+      expect(label('B')).toBe('Player B');
       expect(label('C')).toBe('AI');
     });
 
@@ -499,7 +500,7 @@ describe('Lost-seat and standings boundaries', () => {
 
       const table = asTable(view);
       const rowA = rowOf(table.rows, 'A');
-      expect(rowA.label).toBe('A');
+      expect(rowA.label).toBe('Player A');
       expect(rowA.you).toBe(false);
       const rowB = rowOf(table.rows, 'B');
       expect(rowB.label).toBe('AI');
@@ -533,7 +534,7 @@ describe('Lost-seat and standings boundaries', () => {
 
       const rowA = rowOf(asTable(view).rows, 'A');
       expect(rowA.you).toBe(false);
-      expect(rowA.label).toBe('A');
+      expect(rowA.label).toBe('Player A');
     });
 
     it('Without a chair, a heuristic standing is AI and a human is the letter', () => {
@@ -565,7 +566,7 @@ describe('Lost-seat and standings boundaries', () => {
 
       const table = asTable(view);
       const rowA = rowOf(table.rows, 'A');
-      expect(rowA.label).toBe('A');
+      expect(rowA.label).toBe('Player A');
       expect(rowA.you).toBe(false);
       const rowB = rowOf(table.rows, 'B');
       expect(rowB.label).toBe('AI');
@@ -577,7 +578,7 @@ describe('Lost-seat and standings boundaries', () => {
       const seats: readonly InviteSeat[] = [
         { kind: 'human', userHash: 'bob' },
         { kind: 'heuristic' },
-        { kind: 'agent', userHash: 'alice', label: 'Agent (Ada)' },
+        { kind: 'agent', userHash: 'alice', name: 'Ada' },
       ];
       const view = standingsForHud(
         true,
@@ -591,7 +592,7 @@ describe('Lost-seat and standings boundaries', () => {
 
       const table = asTable(view);
       const rowA = rowOf(table.rows, 'A');
-      expect(rowA.label).toBe('A');
+      expect(rowA.label).toBe('Player A');
       expect(rowA.you).toBe(false);
       expect(rowOf(table.rows, 'C').label).toBe('your agent');
     });
@@ -601,7 +602,7 @@ describe('Lost-seat and standings boundaries', () => {
       const seats: readonly InviteSeat[] = [
         { kind: 'heuristic' },
         { kind: 'heuristic' },
-        { kind: 'agent', userHash: 'bob', label: 'Agent (Ada)' },
+        { kind: 'agent', userHash: 'bob', name: 'Ada' },
       ];
       const view = standingsForHud(
         true,
@@ -614,7 +615,7 @@ describe('Lost-seat and standings boundaries', () => {
       );
 
       const table = asTable(view);
-      expect(rowOf(table.rows, 'C').label).toBe('Ada');
+      expect(rowOf(table.rows, 'C').label).toBe("Ada's agent");
     });
   });
 

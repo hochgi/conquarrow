@@ -4,12 +4,12 @@
  * @see docs/spec/remote-agent-mcp/remote-agent-mcp.edge-cases.feature
  */
 
+import { labelForSeat } from '../src/seatLabel';
 import { describe, expect, it } from 'vitest';
 import type { InviteSeat } from '@conquarrow/contracts';
 import { DEFAULT_MATCH_CONFIG } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import {
-  inGameRosterSummary,
   lobbyKindOptions,
   logFromOnlineBoard,
   pickerKindOptions,
@@ -34,9 +34,9 @@ describe('The lobby and the library tell the truth about the chair', () => {
     expect(online.adapter.seatKindOptionsFor(0)).not.toContain('agent');
     expect(pickerKindOptions('online', 1)).toContain('agent');
     expect(pickerKindOptions('online', 0)).not.toContain('agent');
-    expect(lobbyKindOptions('online', 1).map((opt) => opt.label)).toContain('Agent');
-    expect(lobbyKindOptions('online', 0).map((opt) => opt.value)).not.toContain('agent');
-    expect(lobbyKindOptions('local', 1).map((opt) => opt.value)).not.toContain('agent');
+    expect(lobbyKindOptions('online', 1, 0).map((opt) => opt.label)).toContain('Agent');
+    expect(lobbyKindOptions('online', 0, 0).map((opt) => opt.value)).not.toContain('agent');
+    expect(lobbyKindOptions('local', 1, 0).map((opt) => opt.value)).not.toContain('agent');
 
     online.adapter.selectMode('local');
     expect(online.adapter.seatKindOptions()).not.toContain('agent');
@@ -104,10 +104,13 @@ describe('The lobby and the library tell the truth about the chair', () => {
       { kind: 'heuristic' },
     ];
 
-    const summary = inGameRosterSummary(game, seats, [undefined, 'Ada', undefined]);
+    // P105: the seat line words the chair with the one table, never `Player`.
+    const named = seats.map((seat, index) => (index === 1 ? { ...seat, name: 'Ada' } : seat));
+    const players = game.players.map((id) => String(id));
+    const line = players.map((letter) => labelForSeat({ letter, online: { players, seats: named, userHash: 'a' }, local: { configKind: undefined, logSeats: [] } }));
     const log = logFromOnlineBoard(game, seats);
 
-    expect(summary).toContain('Agent (Ada)');
+    expect(line).toEqual(['you', "Ada's agent", 'AI']);
     expect(log.seats[1]?.kind).not.toBe('human');
   });
 });

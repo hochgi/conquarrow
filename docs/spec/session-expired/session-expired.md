@@ -67,7 +67,7 @@ create note, and does not set session expired.
 ### D2 — one door for an authenticated 401
 
 Every authenticated response with status 401 goes through one door. The invite
-peek that sends `auth: false` does not. The door:
+peek (`auth: 'optional'` since P105) does not. The door:
 
 1. removes the token and forgets the socket (a following `heartbeat` sends
    nothing; a following request sends no `Authorization`);

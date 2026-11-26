@@ -176,6 +176,8 @@ An unbound seat (`userHash` absent on the seat) is `other`, even when the
 caller has a hash. A match on an agent seat is `caller-agent` even when the
 caller has no human chair.
 
+> **Amended by P105** ([seat-labels](../seat-labels/seat-labels.md)): `ownerName` is the agent chair's usable `name` (trimmed, not blank, not a reserved seat word, not `Player <A–F>`); `label`, `ownerNameFromLabel` and `seatsForClient` are gone.
+
 `ownerName` is set only for an agent seat whose `label` is `Agent (${name})`
 with `name` trimmed and non-empty. `Agent`, `Agent ()`, `Agent ( )`, a missing
 label, and a label on a human or heuristic seat do not set it. The interior is

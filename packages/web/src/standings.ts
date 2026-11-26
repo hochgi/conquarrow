@@ -46,12 +46,9 @@ const rowOf = (
   const chair = seats?.[standing.seat];
   const label = labelForChair({
     letter: standing.player,
-    // Stryker disable next-line ConditionalExpression -- optional spread of undefined is the same read as an absent key; the callee treats both as missing
-    ...(chair === undefined ? {} : { chair }),
-    // Stryker disable next-line ConditionalExpression -- optional spread of undefined is the same read as an absent key; the callee treats both as missing
-    ...(standing.kind === undefined ? {} : { kindHint: standing.kind }),
-    // Stryker disable next-line ConditionalExpression -- optional spread of undefined is the same read as an absent key; the callee treats both as missing
-    ...(callerUserHash === undefined ? {} : { userHash: callerUserHash }),
+    chair,
+    kindHint: standing.kind,
+    userHash: callerUserHash,
   });
   const winner = standing.player === summary.winner;
   return {

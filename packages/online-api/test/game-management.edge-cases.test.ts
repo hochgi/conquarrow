@@ -281,7 +281,8 @@ describe('P96 row fields', () => {
     const playing = alices.find((row) => row['gameNumber'] === GAME_TWO);
     const won = alices.find((row) => row['gameNumber'] === GAME);
     expect(playing).toMatchObject({ owner: true, hidden: false, activeSeat: 1, turns: 7, section: 'waiting' });
-    expect(won?.['winner']).toEqual({ seat: 0, label: 'Player A' });
+    // P105: the caller's own chair reads `you`, so the client says `Won by you`.
+    expect(won?.['winner']).toEqual({ seat: 0, label: 'you' });
     expect(won).not.toHaveProperty('activeSeat');
     expect(bobs.every((row) => row['owner'] === false)).toBe(true);
   });

@@ -12,6 +12,7 @@ import { styleFor } from './colors';
 import { testByokConnection } from './byokBot';
 import { DEFAULT_BYOK, isByokReady } from './byokConfig';
 import { onlinePlanCreatable } from './online-pages';
+import { rosterLabel } from './seatLabel';
 import {
   CREATING_INVITE_COPY,
   GAME_DELETED_COPY,
@@ -32,8 +33,7 @@ import {
   MY_GAMES_COPY,
   NO_GAMES_COPY,
   lobbyKindOptions,
-  rosterOccupancy,
-  rosterOccupancyLabel,
+  hostSeatIndex,
   sessionExpiredNote,
 } from './online-shell-ui';
 import {
@@ -158,7 +158,11 @@ export const Lobby = ({
   const optionsForSeat = (
     index: number,
   ): readonly { readonly value: SeatKind; readonly label: string }[] => {
-    const offered = lobbyKindOptions(onlineMode ? 'online' : 'local', index);
+    const offered = lobbyKindOptions(
+      onlineMode ? 'online' : 'local',
+      index,
+      hostSeatIndex(plan.seats),
+    );
     if (!onlineMode) return offered;
     return offered.filter((opt) => online.seatKinds.includes(opt.value));
   };
@@ -245,7 +249,7 @@ export const Lobby = ({
         <fieldset className="lobby-seats">
           <legend>
             {frozen
-              ? 'Seats — Player, AI, waiting, or you'
+              ? 'Seats — you, players, agents, AI, or waiting'
               : onlineMode
                 ? 'Seats — Player, AI, or Agent'
                 : 'Seats — each can be Player or AI'}
@@ -512,7 +516,7 @@ const FrozenRoster = ({
             <span className="lobby-seat-swatch" style={{ background: color }} />
             <strong style={{ color }}>{styleFor(player).label}</strong>
             <span className="lobby-seat-occupancy">
-              {rosterOccupancyLabel(rosterOccupancy(seat, userHash))}
+              {rosterLabel(seat, index, userHash)}
             </span>
           </div>
         </div>
@@ -556,7 +560,6 @@ const SeatChips = ({ row }: { readonly row: StartedGameRow }): ReactElement => (
           aria-hidden
         />
         {seat.label}
-        {seat.you ? ' (you)' : null}
         {index === row.activeSeat ? <span className="lobby-game-to-move"> · to move</span> : null}
       </span>
     ))}

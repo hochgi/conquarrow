@@ -103,7 +103,7 @@ sequenceDiagram
 
 ## 4. Any other authenticated 401
 
-The invite peek with `auth: false` is not this exchange. A held submit is not
+The invite peek (`auth: 'optional'` since P105: it carries the bearer, and its 401 is not a session end) is not this exchange. A held submit is not
 dropped. Hide, rename, load-more, version poll, and `GET /me` are the same door
 as the alts drawn here.
 

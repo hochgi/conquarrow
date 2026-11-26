@@ -144,7 +144,8 @@ describe('Host sees the lobby', () => {
     const peeked = peeks[0];
     expect(peeked).toBeDefined();
     if (peeked === undefined) return;
-    expect(bearerOf(peeked)).toBeUndefined();
+    // P105 D3: signed in, the peek carries the bearer so a member sees names.
+    expect(bearerOf(peeked)).toBe(ALICE.bearer);
     expect(humanBoundCount(h.host.adapter().inviteSeats())).toBe(2);
     expect(h.host.startOffered()).toBe(true);
   });

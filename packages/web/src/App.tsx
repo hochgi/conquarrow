@@ -34,7 +34,7 @@ import {
   type EliminationToast,
   type LossMemory,
 } from './lostSeat';
-import { labelForLocalSeat, labelForOnlineSeat } from './seatLabel';
+import { labelForSeat, seatLineLabel } from './seatLabel';
 import { seatLineView } from './seatLine';
 import { standingsForHud } from './standings';
 import {
@@ -68,7 +68,6 @@ import { isCallerToMove } from './online-pages';
 import { usePagesHost } from './online-runtime';
 import {
   EXPORT_FAILED_COPY,
-  displaySeatKind,
   exportFileName,
   kindsForHost,
   lobbyLibraryDue,
@@ -664,7 +663,7 @@ export const App = (): ReactElement => {
   // hash changed. Identity is the hash on this render — the install render
   // already has the new hash. A hash-only flush must not write loss memory.
   // Not a server snapshot the replay has not installed, and not an animation frame.
-  // Stryker disable all -- no DOM harness; observeLosses / lostSeatIds / eliminationToasts / labelForOnlineSeat / labelForLocalSeat hold the decision and are tested.
+  // Stryker disable all -- no DOM harness; observeLosses / lostSeatIds / eliminationToasts / labelForSeat holds the decision and are tested.
   useEffect(() => {
     if (state === undefined || log === undefined) return;
     const onlineHost =
@@ -678,18 +677,11 @@ export const App = (): ReactElement => {
     const seats = onlineHost?.board()?.seats ?? onlineHost?.adapter().inviteSeats();
     const userHash = onlineHost?.adapter().userHash();
     const incoming = eliminationToasts(observed.newly, (letter) =>
-      onlineHost === undefined
-        ? labelForLocalSeat({
-            configKind: localConfigKind(seatConfigsRef.current.get(letter)),
-            logSeats: log.seats,
-            letter,
-          })
-        : labelForOnlineSeat({
-            players,
-            letter,
-            ...(seats === undefined ? {} : { seats }),
-            ...(userHash === undefined ? {} : { userHash }),
-          }),
+      labelForSeat({
+        letter,
+        online: onlineHost === undefined ? undefined : { players, seats, userHash },
+        local: { configKind: localConfigKind(seatConfigsRef.current.get(letter)), logSeats: log.seats },
+      }),
     );
     const switched = previous === undefined || previous.identity !== identity;
     if (switched) {
@@ -2307,12 +2299,22 @@ export const App = (): ReactElement => {
     host !== undefined && onlinePlayRef.current && onlineRoute.kind === 'game'
       ? gameTitle(host.board()?.name, onlineRoute.gameNumber)
       : undefined;
-  // Stryker disable all -- no DOM harness; seatLineView / lostSeatIds / standingsForHud hold the decision and are tested.
+  // Stryker disable all -- no DOM harness; seatLineView / seatLineLabel / lostSeatIds / standingsForHud hold the decision and are tested.
   const onlineHost = host !== undefined && onlinePlayRef.current ? host : undefined;
+  const seatLinePlayers = state.players.map((id) => String(id));
+  const seatLineChairs = onlineHost?.board()?.seats ?? onlineHost?.adapter().inviteSeats();
+  const seatLineUser = onlineHost?.adapter().userHash();
   const seatLine = seatLineView(
     log.seats.map((seat) => ({
       letter: String(seat.player),
-      kindLabel: displaySeatKind(seat.kind),
+      kindLabel: seatLineLabel({
+        letter: String(seat.player),
+        online:
+          onlineHost === undefined
+            ? undefined
+            : { players: seatLinePlayers, seats: seatLineChairs, userHash: seatLineUser },
+        local: { configKind: localConfigKind(seatConfigsRef.current.get(String(seat.player))), logSeats: log.seats },
+      }),
     })),
     lostSeatIds(
       state.players.map((id) => String(id)),

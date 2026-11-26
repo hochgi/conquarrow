@@ -63,23 +63,30 @@ On `GET /invites/:t`, a missing bearer, a bearer the verifier rejects, a
 verifier that throws, or a non-member all get the 200 body without names.
 The peek never answers 401 and never writes a profile.
 
-`/my-games` labels each chair with `seatLabel` (`sayYou: true`, relation
-from the caller's hash, `bound` from the chair, `name` from the profile).
+`/my-games` labels each chair with `labelInviteChair` over `withSeatNames`
+(`sayYou: true`, relation from the caller's hash, `bound` from the chair,
+`name` from the profile).
 
 ## Client (web)
 
 - `parseSeats` keeps a usable-string `name` on human and agent chairs, and
   never on heuristic ones. `label` is no longer read.
-- `onlineTurnSeat` reads `ownerName` from `name`, for humans and agents.
+- `onlineTurnSeat` reads `ownerName` from a usable `name` on an agent chair
+  only (the banner's `<name>'s agent is playing…`, cluster 03's wording).
 - `rosterLabel(seat, index, userHash)` labels the frozen roster:
-  `seatLabel` with `bound` taken from the chair and `sayYou: true`.
-- `seatLineLabels` builds the seat line (`A=you · B=Ada's agent · C=AI`).
+  `labelInviteChair` (so `bound` comes from the chair, `sayYou: true`).
+- `labelForSeat` labels the elimination toast; `seatLineLabel` is the same
+  label for the seat line (`A=you · B=Ada's agent · C=AI`), where the
+  `Player X` fallback reads `Player` because the line already prints the
+  letter (`B=Player`); `labelForChair` labels standings.
   Online it uses the board's chairs and the caller's hash. Locally it uses
   the configured kinds with P102's `sayYou` rule.
-- `peekHeldInvite` sends the bearer when a usable token exists, so a
-  signed-out peek is unchanged.
+- `peekHeldInvite` sends the bearer when a usable token exists (`auth:
+  'optional'`), so a signed-out peek is unchanged, and a 401 on the peek
+  is not a session end.
 - `lobbyKindOptions(mode, index, hostIndex)`: online, the `human` option at
-  `hostIndex` reads `Player (you)`. `hostIndex = firstHumanIndex(plan)`.
+  `hostIndex` reads `Player (you)`. `hostIndex = hostSeatIndex(kinds)`, the
+  first human chair (the server's host when the plan names none).
   Local play is unchanged.
 - Library chips print `seat.label` only.
 - CSS: the select and the occupancy column share `--seat-kind-width`.
@@ -93,6 +100,6 @@ from the caller's hash, `bound` from the chair, `name` from the profile).
 5. `withSeatNames` shall never add a key other than `name`, and never to a heuristic or unbound chair.
 6. The peek shall never answer 401.
 7. When signed out, the client's peek shall carry no `Authorization`. When signed in with a usable token, it shall carry the bearer.
-8. Online, the option list at `hostIndex` shall never contain `agent`, and its `human` option shall read `Player (you)`. Every other index reads `Player`.
+8. Online, the `human` option at `hostIndex` shall read `Player (you)` and every other index's shall read `Player`; seat 0 still never offers `agent`. Local options are unchanged.
 9. `.lobby-seat-head select` and `.lobby-seat-occupancy` shall both declare `width: var(--seat-kind-width)` and `flex: 0 0 auto` (CSS source scan).
 10. Standings `you` and the toast's `You were eliminated` shall be true only for the caller's human chair, even when another player's name is `you`.

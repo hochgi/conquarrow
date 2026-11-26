@@ -95,6 +95,47 @@ describe('SCENARIOS.md 2 — the peek, client side', () => {
   });
 });
 
+describe('SCENARIOS.md 3 — accept, client side', () => {
+  const ACCEPT_PATH = `${INVITE_PATH}/accept`;
+  const waiting = [{ kind: 'human', userHash: 'bob-hash' }, { kind: 'human' }, { kind: 'heuristic' }];
+
+  it('200: the joiner sees names on the roster', async () => {
+    rig = createScenarioRig({ sessionToken: ALICE.bearer, hash: inviteHash(INVITE_TOKEN) });
+    once(rig, 'GET', '/me', http(200, { userHash: ALICE.userHash }));
+    once(rig, 'GET', INVITE_PATH, http(200, { token: INVITE_TOKEN, seats: waiting }));
+    once(
+      rig,
+      'POST',
+      ACCEPT_PATH,
+      http(200, {
+        token: INVITE_TOKEN,
+        seats: [{ kind: 'human', userHash: 'bob-hash', name: 'Bob' }, { kind: 'human', userHash: ALICE.userHash, name: 'Alice' }, { kind: 'heuristic' }],
+      }),
+    );
+    await rig.host.boot();
+
+    await rig.host.acceptInvite();
+
+    const seats = rig.host.adapter().inviteSeats() ?? [];
+    expect(seats.map((seat, index) => rosterLabel(seat, index, ALICE.userHash))).toEqual(['Bob', 'you', 'AI']);
+  });
+
+  it('alt 409: the lobby is full and the roster keeps the peeked chairs', async () => {
+    rig = createScenarioRig({ sessionToken: ALICE.bearer, hash: inviteHash(INVITE_TOKEN) });
+    once(rig, 'GET', '/me', http(200, { userHash: ALICE.userHash }));
+    once(rig, 'GET', INVITE_PATH, http(200, { token: INVITE_TOKEN, seats: waiting }));
+    once(rig, 'POST', ACCEPT_PATH, http(409, { error: 'full' }));
+    await rig.host.boot();
+
+    await rig.host.acceptInvite();
+
+    expect({ full: rig.host.adapter().lobbyFull(), seats: rig.host.adapter().inviteSeats() }).toStrictEqual({
+      full: true,
+      seats: waiting,
+    });
+  });
+});
+
 describe('SCENARIOS.md 4 — the game body, client side', () => {
   it('names on the chairs reach board().seats', async () => {
     rig = createScenarioRig({ sessionToken: ALICE.bearer, hash: gameHash(GROUP_HASH, GAME_ONE) });

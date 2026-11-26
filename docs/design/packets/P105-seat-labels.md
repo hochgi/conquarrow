@@ -5,8 +5,10 @@
 > online-api (names on seats in the invite and game bodies; library labels
 > from the same `seatLabel`). Breaking: the agent seat's `label` on
 > `GET /games/…` is replaced by `name` on every bound human and agent seat;
-> `rosterOccupancy`, `rosterOccupancyLabel`, `inGameRosterSummary`,
-> `agentLabel` and `ownerNameFromLabel` are removed. No SPEC.md edit, no new
+> `InviteSeat`'s agent `label`, `rosterOccupancy`, `rosterOccupancyLabel`,
+> `inGameRosterSummary`, `displaySeatKind`, `agentLabel`, `seatsForClient`
+> and `ownerNameFromLabel` are removed; `lobbyKindOptions` takes the host
+> index; the request option `auth: false` becomes `auth: 'optional'`. No SPEC.md edit, no new
 > route, no new AWS, no agent-facing text (the offer and the MCP tools name
 > seats by letter only, so MCP and BYOK stay identical).
 
@@ -44,28 +46,34 @@ first). **Depends on:** P46, P92, P93, P96, P101, P102. **Issue:**
    6. another human → `<name>`, else `Player <letter>`
 
    A name is usable when it is non-empty after trimming and is not one of the
-   reserved words (`you`, `your agent`, `AI`, `waiting`, any case), so another
-   player can never be shown as "you". Callers decide "is this you" from the
+   reserved words (`you`, `your agent`, `AI`, `waiting`, any case) and is not
+   `Player <A–F>`, so another player can never be shown as "you" or as
+   another seat's fallback. Callers decide "is this you" from the
    relation, never by comparing the label to `'you'`.
 2. **Names come from the server, members only.** `InviteSeat` human and agent
    chairs gain `name?: string`: the owner's sanitised profile display name
    (P46), present only when the profile has one. Bodies that carry names:
    - `POST /invites` (201) and `POST …/accept` (200): the caller is a member.
    - `GET /invites/:t`: only when the request carries a bearer that verifies
-     and that user is the creator or a bound seat of the invite. No bearer, a
+     and that user is bound to a chair of the invite (the creator always is). No bearer, a
      bearer that fails or throws, or a non-member → the same 200 body without
      names. The peek never answers 401 (it is public, P17).
    - `GET /games/:g/:n` (members only already): `name` on every bound human
      and agent chair; the agent `label` is gone.
    A user hash is never added where it was not already sent.
-3. **The peek sends the bearer when signed in.** `peekHeldInvite` no longer
-   forces `auth: false`, so a member's lobby sees names as people join.
+3. **The peek sends the bearer when signed in.** `peekHeldInvite` asks for
+   `auth: 'optional'` instead of `auth: false`: the bearer goes when there is
+   one, so a member's lobby sees names as people join, and a 401 on the peek
+   is still not a session end (no prompt, no expiry).
 4. **Library labels use `seatLabel`.** `/my-games` rows label each chair
-   with the same table (`you`, `your agent`, names, `Player B`, `Agent`,
-   `waiting`, `AI`); the client chip drops its ` (you)` suffix. `you` stays on
+   with the same table (`you`, `your agent`, names, `<name>'s agent`,
+   `Player B`, `Agent`, `AI`; a started game's chairs are all bound, so a row
+   never reads `waiting`); the client chip drops its ` (you)` suffix. `you` stays on
    the row for the swatch and the vs-line.
 5. **Every web surface calls it.** The frozen roster (`rosterLabel`), the
-   in-game seat line (`seatLineLabels`), the toast and the standings. Local
+   in-game seat line (`seatLineLabel`: `B=Player`, the letter is already
+   printed) and the toast (`labelForSeat`), and the standings
+   (`labelForChair`). Local
    play keeps P102's `sayYou` rule (one human → `you`; hot-seat → `Player A`).
 6. **2b, by the spec's default.** Gilad's phase-1 question is still open, so
    the spec stands: online, the host seat is the first human seat and never

@@ -17,7 +17,7 @@ import {
 } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { createMatchLog, type MatchLog, type SeatDriverLog } from './matchLog';
-import { seatPlayerId, type SeatKind, type SeatPlan } from './seatPlan';
+import { seatPlayerId, type SeatPlan } from './seatPlan';
 
 export { libraryVsLine } from '@conquarrow/contracts';
 
@@ -168,63 +168,29 @@ const LOBBY_KIND_LABEL: Record<PlannedSeatKind, string> = {
   agent: 'Agent',
 };
 
-/** Labels the lobby `<select>` shows. Same kinds as `pickerKindOptions`. */
+/**
+ * P105 (2b): the host's chair online. The server makes the first human chair
+ * the host, so this is that index, or -1 when the plan has no human.
+ */
+export const hostSeatIndex = (seats: readonly { readonly kind: string }[]): number =>
+  seats.findIndex((seat) => seat.kind === 'human');
+
+/**
+ * Labels the lobby `<select>` shows. Same kinds as `pickerKindOptions`. Online,
+ * the human option on the host's chair (`hostIndex`) reads `Player (you)`.
+ */
 export const lobbyKindOptions = (
   mode: PagesLobbyMode,
   seatIndex: number,
+  hostIndex: number,
 ): readonly { readonly value: PlannedSeatKind; readonly label: string }[] =>
   pickerKindOptions(mode, seatIndex).map((kind) => ({
     value: kind,
-    label: LOBBY_KIND_LABEL[kind],
+    label:
+      mode === 'online' && kind === 'human' && seatIndex === hostIndex
+        ? 'Player (you)'
+        : LOBBY_KIND_LABEL[kind],
   }));
-
-/**
- * In-game roster line. An agent chair is `Agent (name)` or `Agent`.
- */
-export const inGameRosterSummary = (
-  game: GameState,
-  seats: readonly InviteSeat[] | undefined,
-  names: readonly (string | undefined)[],
-): string =>
-  game.players
-    .map((player, index) => {
-      const seat = seats?.[index];
-      if (seat?.kind === 'agent') {
-        const name = names[index];
-        const label = name === undefined || name === '' ? 'Agent' : `Agent (${name})`;
-        return `${String(player)}=${label}`;
-      }
-      const kind = seat?.kind === 'heuristic' ? 'heuristic' : 'human';
-      return `${String(player)}=${displaySeatKind(kind)}`;
-    })
-    .join(' · ');
-
-/** HUD / roster labels. */
-export const displaySeatKind = (kind: SeatKind): string => {
-  if (kind === 'heuristic') return 'AI';
-  if (kind === 'byok') return 'BYOK';
-  if (kind === 'agent') return 'Agent';
-  return 'Player';
-};
-
-export const rosterOccupancy = (
-  seat: InviteSeat,
-  userHash: string | undefined,
-): 'you' | 'waiting' | 'player' | 'ai' => {
-  if (seat.kind === 'heuristic') return 'ai';
-  if (seat.userHash === undefined) return 'waiting';
-  if (userHash !== undefined && seat.userHash === userHash) return 'you';
-  return 'player';
-};
-
-export const rosterOccupancyLabel = (
-  occupancy: 'you' | 'waiting' | 'player' | 'ai',
-): string => {
-  if (occupancy === 'you') return 'you';
-  if (occupancy === 'waiting') return 'waiting';
-  if (occupancy === 'ai') return 'AI';
-  return 'Player';
-};
 
 export const logFromOnlineBoard = (
   game: GameState,
