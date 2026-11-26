@@ -12,7 +12,7 @@
 > route, no new AWS, no agent-facing text (the offer and the MCP tools name
 > seats by letter only, so MCP and BYOK stay identical).
 
-**Status:** awaiting review (the reviewer accepts the Stryker suppressions
+**Status:** merged as #139 (the reviewer accepted the Stryker suppressions
 first). **Depends on:** P46, P92, P93, P96, P101, P102. **Issue:**
 [#119](https://github.com/hochgi/conquarrow/issues/119).
 **Spec:** [seat-labels](../../spec/seat-labels/seat-labels.md) ·

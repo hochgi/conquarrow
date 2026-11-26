@@ -56,6 +56,8 @@ to a log line.
 
 ## Seat and lobby
 
+> **Amended by P106** ([seat-choice](../seat-choice/seat-choice.md)): the plan names the creator's chair with the `creator` token (`Player (you)`), on any seat; `hostSeatIndex` is gone. `creator-agent` (`Agent (yours)`) reserves an agent chair for the creator's own agent. Every online seat, seat A included, offers all five choices. Create needs exactly one `creator` and at least two chairs that are not AI. MCP `join` binds all chairs reserved for the caller; another user's agent never takes them. One user's agent may hold several agent chairs and plays whichever is active. The rules below that this replaces are kept for history.
+
 Online plans may name `human`, `heuristic`, and `agent`. `byok` stays refused
 online (422, nothing stored). Length stays 3 or 6.
 
