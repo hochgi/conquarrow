@@ -110,10 +110,10 @@ export const holdAt = async (rig: HealRig, version: number): Promise<void> => {
 };
 
 /**
- * A batch from `from` to `from + 1` queued by a wake and taken by App, never
- * reported displayed.
+ * A batch from `from` to `from + 1` queued by a wake and not yet taken.
+ * Still in flight: a replay is in flight from the moment it is queued.
  */
-export const stuckBatch = async (rig: HealRig, from: number): Promise<void> => {
+export const queuedBatch = async (rig: HealRig, from: number): Promise<void> => {
   await bootAt(rig, from);
   rig.host.adapter().noteDisplayed(from);
   once(rig, 'GET', GAME_PATH, board(from + 1, 'B'));
@@ -129,5 +129,13 @@ export const stuckBatch = async (rig: HealRig, from: number): Promise<void> => {
     groupHash: GROUP_HASH,
     gameNumber: GAME_ONE,
   });
+};
+
+/**
+ * A batch from `from` to `from + 1` queued by a wake and taken by App, never
+ * reported displayed.
+ */
+export const stuckBatch = async (rig: HealRig, from: number): Promise<void> => {
+  await queuedBatch(rig, from);
   rig.host.adapter().takeReplay();
 };

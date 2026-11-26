@@ -52,8 +52,10 @@ export const replayStalled = (args: {
   readonly now: number;
   readonly stallMs: number;
 }): boolean =>
-  // Stryker disable next-line ConditionalExpression -- equivalent: without a stamp `now - undefined` is NaN and `NaN >= stallMs` is false too; the term narrows the type.
-  args.pending && args.progressAt !== undefined && args.now - args.progressAt >= args.stallMs;
+  args.pending &&
+  // Stryker disable next-line ConditionalExpression -- equivalent: without a stamp `now - undefined` is NaN and `NaN >= stallMs` is false too.
+  args.progressAt !== undefined
+  && args.now - args.progressAt >= args.stallMs;
 
 /**
  * P104 D3. After the one re-read of `/me` and the game: a guard that still

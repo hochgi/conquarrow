@@ -850,14 +850,14 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     state.displayed = undefined;
     state.replayProgressAt = undefined;
     const route = parsePagesHash(location.hash);
-    // Stryker disable next-line ConditionalExpression -- a pending batch only exists on a game route (the scenarios read the game after a flush).
     if (route.kind === 'game') await swallow(getGame(route.groupHash, route.gameNumber));
   };
 
   /**
    * P104 D1: settle a hold with what the server says now. `undefined` when
    * there is no hold to heal or it still waits; `'cleared'` when it was for
-   * another game (silently dropped); otherwise the heal's outcome.
+   * another game (silently dropped); `'no-game'` when a 404 already dropped
+   * the hold (P96); otherwise the heal's outcome.
    */
   const healHeld = async (): Promise<SubmitOutcome | 'cleared' | undefined> => {
     const held = state.held;
@@ -867,16 +867,22 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     try {
       const meOk = await loadMe();
       const route = parsePagesHash(location.hash);
+      const gameRoute =
+        // Stryker disable next-line ConditionalExpression -- a non-game PagesHash has no groupHash, so forcing this branch still compares undefined to the held hash, which is false for every hash, and the check narrows the type, but Stryker cannot disable one replacement of this mutator, so this also ignores the paired `false ? route : undefined`, which is not equivalent (a hold on its own game would be dropped).
+        route.kind === 'game' ? route : undefined;
       const onHeldGame =
-        // Stryker disable next-line ConditionalExpression -- equivalent for `route.kind`: a non-game route has no groupHash, so the next term is false anyway; the term narrows the type.
-        route.kind === 'game' && route.groupHash === held.groupHash && route.gameNumber === held.gameNumber;
+        gameRoute !== undefined &&
+        gameRoute.groupHash === held.groupHash &&
+        gameRoute.gameNumber === held.gameNumber;
       if (meOk && onHeldGame) await getGame(held.groupHash, held.gameNumber);
+      // P96 already dropped the hold on a 404. Missing version is still a wait
+      // when the hold remains — do not fold this into heldPlan.
+      if (state.held === undefined) return 'no-game';
       const plan = heldPlan({
         held,
         onHeldGame,
         meOk,
         me: state.userHash,
-        // Stryker disable next-line OptionalChaining -- equivalent: no board here only after a 404 cleared the game, and the throw lands in the catch that answers the same `wait`.
         boardVersion: state.board?.version,
       });
       if (plan === 'wait') return undefined;
@@ -899,7 +905,8 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   const healInBackground = async (): Promise<void> => {
     const healed = await healHeld();
     // An earlier outcome App has not read yet is not erased by a heal that did nothing.
-    if (healed === undefined || healed === 'cleared') return;
+    // A 404's no-game is not stored: the lobby already says the game was deleted.
+    if (healed === undefined || healed === 'cleared' || healed === 'no-game') return;
     state.healOutcome = healed;
   };
 
@@ -916,8 +923,11 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       if (healed !== 'cleared') return healed ?? 'held';
       check = guardsFor(moves);
     }
-    // Stryker disable next-line ConditionalExpression -- `not-your-turn` is only reached past `onGame`, so the target is defined; the term narrows the type.
-    if (check.refusal === 'not-your-turn' && check.target !== undefined) {
+    if (
+      check.refusal === 'not-your-turn' &&
+      // Stryker disable next-line ConditionalExpression -- `not-your-turn` is only reached past `onGame`, so the target is defined.
+      check.target !== undefined
+    ) {
       // P104 D3: one re-read before the refusal is final.
       const before = check.target.board.version;
       const { groupHash, gameNumber } = check.target.route;

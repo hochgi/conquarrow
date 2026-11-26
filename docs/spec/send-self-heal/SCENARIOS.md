@@ -51,6 +51,15 @@ sequenceDiagram
     Pages->>API: POST moves
     API-->>Pages: 401
     Pages-->>App: unauthorized, hold kept
+  else held game 404
+    API-->>Pages: 200 userHash of the hold
+    Pages->>API: GET /games/g/n
+    API-->>Pages: 404
+    Note over Pages: P96 clear — hold dropped, hash '', gameDeleted
+    Pages-->>App: no-game, no POST, hold not restored
+  else off the held game, no board loaded
+    Note over Pages: hash is not the held game, board absent (invite accept 409)
+    Pages-->>App: hold dropped, then no-game, no POST of the hold
   end
 ```
 
@@ -76,6 +85,9 @@ sequenceDiagram
   else board moved on
     API-->>Pages: 200 newer version
     Note over Pages: heal outcome held-dropped stored
+  else held game 404
+    API-->>Pages: 404
+    Note over Pages: P96 clear, no heal outcome stored
   end
   App->>Pages: takeHealOutcome()
   Pages-->>App: the stored outcome
@@ -100,13 +112,18 @@ sequenceDiagram
   Pages->>Clock: now()
   alt within replayStallMs of the last progress
     Pages-->>App: replaying, no request
-  else stalled
+  else stalled, still on the game
     Note over Pages: queue, in-flight batch and displayed version cleared
     Pages->>API: GET /games/g/n
     API-->>Pages: 200 latest board
     Pages-->>App: stale, no POST (App refreshes and installs the snapshot)
+    Note over Pages: the next Send posts without App reporting that batch displayed
+  else stalled, hash is not a game
+    Note over Pages: queue, in-flight batch and displayed version cleared
+    Note over Pages: no GET — there is no game route
+    Pages-->>App: stale, no request
   end
-  Note over Pages: a poll does the same flush, then its usual version check
+  Note over Pages: a poll does the same flush, including a batch still queued, then its usual version check
 ```
 
 ## 4. One re-check before not-your-turn
@@ -130,5 +147,9 @@ sequenceDiagram
   else still another seat's turn
     API-->>Pages: 200 another seat active
     Pages-->>App: not-your-turn, no POST
+  else game 404
+    API-->>Pages: 404
+    Note over Pages: P96 clear — hold dropped, hash '', gameDeleted
+    Pages-->>App: no-game, no POST
   end
 ```

@@ -1,6 +1,8 @@
 /**
- * EARS invariants 10 (pure) for docs/spec/send-self-heal/send-self-heal.md.
- * The wire invariants (1–9) are the scenarios suite.
+ * EARS invariant 10 (pure) for docs/spec/send-self-heal/send-self-heal.md.
+ * The wire invariants (1–9 and 11–13) are the scenarios suite: a heal GET 404
+ * answers `no-game` and stores nothing, a flush off a game route reads no
+ * game, and a heal off the held game drops the hold with no board loaded.
  */
 
 import { SUBMIT_OUTCOMES, SUBMIT_REFUSALS } from '@conquarrow/contracts';

@@ -31,11 +31,19 @@ P100 made every refused Send say why. Three refusals could still last forever:
    every poll and on every resume, with a usable token: `GET /me`, then (on the
    held game's route) `GET` the game. A pure `heldPlan` decides:
    - `/me` not 200 → wait (a 401 already ran the P98 door);
-   - not on the held game → drop silently (P95 D10: a hold belongs to its game);
+   - not on the held game → drop silently, even when no board is loaded
+     (P95 D10: a hold belongs to its game; an invite accept 409 clears the
+     board and does not clear the hold);
    - `/me` names another user than the one the hold was made for → drop;
    - the board is still at the held version → send the held rest, same ids
      and `If-Match` (outcome `held-sent` on success, else that POST's outcome);
-   - the board moved on → drop (outcome `held-dropped`).
+   - the board moved on → drop (outcome `held-dropped`);
+   - the held game's `GET` answers 404 → not a wait. P96 D12 already dropped
+     the hold and left the lobby ("That game was deleted."). `submitMoves`
+     answers `no-game` and posts nothing; the hold is not restored. A poll or
+     resume does not store a heal outcome. Not `held` (the move is not
+     waiting) and not `held-dropped` (the board did not move on). No new
+     outcome; P100's `no-game` note is not rewritten.
 
    **No rebase across a moved board.** The held moves were chosen on the held
    version; posting them against a newer one is a move chosen from the past
@@ -47,17 +55,23 @@ P100 made every refused Send say why. Three refusals could still last forever:
    makes progress (queued, taken, displayed). When a batch is queued or in
    flight and nothing has progressed for `replayStallMs` (default
    `REPLAY_STALL_MS = 20_000`, injectable), a Send or a poll flushes the queue,
-   the in-flight batch and the displayed version, and reads the game. App then
-   installs the latest snapshot. A Send that flushed answers `stale` (clear and
-   refresh). The stuck batch is never replayed again: App may already have
-   applied part of it.
+   the in-flight batch and the displayed version, and reads the game when the
+   hash is still a game. Navigation does not clear an in-flight batch, so a
+   flush off a game route still clears the queue and the in-flight batch and
+   does not `GET` a game. App then installs the latest snapshot when one was
+   read. A Send that flushed answers `stale` (clear and refresh). The next
+   Send is not `replaying` even if App has not reported the flushed batch
+   displayed. The stuck batch is never replayed again: App may already have
+   applied part of it. A batch still queued (not yet taken) is cleared the
+   same way.
 3. **One re-check before `not-your-turn`.** `GET /me` and `GET` the game once,
    then guard again. Still not the caller's turn → `not-your-turn`. The
    caller's turn now and the version unchanged → send. The caller's turn at a
-   newer version → `stale` (no POST; the board catches up).
+   newer version → `stale` (no POST; the board catches up). A re-check `GET`
+   that answers 404 is P96 D12, then the guards answer `no-game`.
 4. **A heal outside a Send still says so.** The adapter keeps the last heal
    outcome from a poll or resume; App reads it once (`takeHealOutcome`) and
-   shows its note.
+   shows its note. A 404 deletion is not stored.
 
 ## Out of scope (backlog)
 
