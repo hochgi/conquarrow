@@ -27,6 +27,10 @@ const NOTES: Readonly<Record<SubmitOutcome, string | undefined>> = {
   // P95 D10: the submit is held, not lost; the lock stays until it is sent.
   unauthorized: 'Your sign-in expired. Sign in again and your move will be sent.',
   forbidden: 'That seat is not yours to move.',
+  // P104 D1: a heal resolved the hold; the board catches up, the route clears.
+  'held-sent': 'Your waiting move was sent. The board has caught up — check it before you move again.',
+  'held-dropped':
+    'Your waiting move was dropped: the game moved on while you were signed out. The board has caught up.',
 };
 
 /** D6 / P100 D2. The one line under the buttons for an outcome; `sent` has none. */

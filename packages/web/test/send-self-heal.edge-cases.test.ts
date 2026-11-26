@@ -6,43 +6,42 @@ import { describe, expect, it } from 'vitest';
 import { afterRecheck, healedOutcome, heldPlan, REPLAY_STALL_MS, replayStalled } from '../src/online-heal';
 
 const HELD = { groupHash: 'g', gameNumber: 'n', version: 4, userHash: 'alice' } as const;
-const ROUTE = { groupHash: 'g', gameNumber: 'n' } as const;
 
 describe('Edge cases of the Send self-heal', () => {
   describe('A hold heals only on a valid session', () => {
     it('/me not ok waits, whatever else is true', () => {
-      expect(heldPlan({ held: HELD, route: ROUTE, meOk: false, me: 'alice', boardVersion: 4 })).toBe('wait');
-      expect(heldPlan({ held: HELD, route: undefined, meOk: false, me: undefined, boardVersion: undefined })).toBe(
+      expect(heldPlan({ held: HELD, onHeldGame: true, meOk: false, me: 'alice', boardVersion: 4 })).toBe('wait');
+      expect(heldPlan({ held: HELD, onHeldGame: false, meOk: false, me: undefined, boardVersion: undefined })).toBe(
         'wait',
       );
     });
 
     it('/me for another user drops the hold', () => {
-      expect(heldPlan({ held: HELD, route: ROUTE, meOk: true, me: 'bob', boardVersion: 4 })).toBe('drop-stale');
+      expect(heldPlan({ held: HELD, onHeldGame: true, meOk: true, me: 'bob', boardVersion: 4 })).toBe('drop-stale');
     });
 
     it('an unknown user on either side does not drop', () => {
-      expect(heldPlan({ held: HELD, route: ROUTE, meOk: true, me: undefined, boardVersion: 4 })).toBe('send');
+      expect(heldPlan({ held: HELD, onHeldGame: true, meOk: true, me: undefined, boardVersion: 4 })).toBe('send');
       const anonymous = { groupHash: 'g', gameNumber: 'n', version: 4 } as const;
-      expect(heldPlan({ held: anonymous, route: ROUTE, meOk: true, me: 'bob', boardVersion: 4 })).toBe('send');
+      expect(heldPlan({ held: anonymous, onHeldGame: true, meOk: true, me: 'bob', boardVersion: 4 })).toBe('send');
     });
 
     it('another game, or no game route, drops silently', () => {
       expect(
-        heldPlan({ held: HELD, route: { groupHash: 'g', gameNumber: 'm' }, meOk: true, me: 'alice', boardVersion: 4 }),
+        heldPlan({ held: HELD, onHeldGame: false, meOk: true, me: 'alice', boardVersion: 4 }),
       ).toBe('drop-other');
       expect(
-        heldPlan({ held: HELD, route: { groupHash: 'h', gameNumber: 'n' }, meOk: true, me: 'alice', boardVersion: 4 }),
+        heldPlan({ held: HELD, onHeldGame: false, meOk: true, me: 'alice', boardVersion: 4 }),
       ).toBe('drop-other');
-      expect(heldPlan({ held: HELD, route: undefined, meOk: true, me: 'alice', boardVersion: 4 })).toBe('drop-other');
+      expect(heldPlan({ held: HELD, onHeldGame: false, meOk: true, me: 'alice', boardVersion: 4 })).toBe('drop-other');
     });
 
     it('no board yet waits', () => {
-      expect(heldPlan({ held: HELD, route: ROUTE, meOk: true, me: 'alice', boardVersion: undefined })).toBe('wait');
+      expect(heldPlan({ held: HELD, onHeldGame: true, meOk: true, me: 'alice', boardVersion: undefined })).toBe('wait');
     });
 
     it('a board behind the hold is not the hold either', () => {
-      expect(heldPlan({ held: HELD, route: ROUTE, meOk: true, me: 'alice', boardVersion: 3 })).toBe('drop-stale');
+      expect(heldPlan({ held: HELD, onHeldGame: true, meOk: true, me: 'alice', boardVersion: 3 })).toBe('drop-stale');
     });
 
     it('The held POST’s own outcome passes through unless it is sent', () => {

@@ -30,9 +30,9 @@
 ```
 REPLAY_STALL_MS = 20_000
 
-heldPlan({ held, route, meOk, me, boardVersion }):
+heldPlan({ held, onHeldGame, meOk, me, boardVersion }):
   if not meOk:                                   'wait'
-  if route is not held's game:                   'drop-other'
+  if not onHeldGame:                             'drop-other'
   if held.userHash, me both known and differ:    'drop-stale'
   if boardVersion undefined:                     'wait'
   if boardVersion === held.version:              'send'

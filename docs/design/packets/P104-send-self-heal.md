@@ -6,7 +6,7 @@
 > `takeHealOutcome()`; `OnlinePagesDeps` gains an optional `replayStallMs`. No
 > `online-api` change, no new route, no SPEC.md edit, no new AWS.
 
-**Status:** spec. **Depends on:** P49, P94, P95, P98, P100. **Issue:**
+**Status:** delivered. **Depends on:** P49, P94, P95, P98, P100. **Issue:**
 [#129](https://github.com/hochgi/conquarrow/issues/129) (second half).
 **Spec:** [send-self-heal](../../spec/send-self-heal/send-self-heal.md) ·
 [SCENARIOS](../../spec/send-self-heal/SCENARIOS.md).

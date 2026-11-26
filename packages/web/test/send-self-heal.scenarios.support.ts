@@ -120,7 +120,7 @@ export const stuckBatch = async (rig: HealRig, from: number): Promise<void> => {
   once(
     rig,
     'GET',
-    `${GAME_PATH}/log?since=${String(from)}`,
+    `${GAME_PATH}/log`,
     http(200, { from, to: from + 1, gap: false, moves: [{ kind: 'endTurn' }] }),
   );
   await rig.host.adapter().receiveStateChanged({

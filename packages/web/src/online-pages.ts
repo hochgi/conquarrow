@@ -49,6 +49,7 @@ import {
   winnerOf,
   activePlayerOf,
 } from './online-parse';
+import { afterRecheck, healedOutcome, heldPlan, REPLAY_STALL_MS, replayStalled } from './online-heal';
 import { logPath, parseLogWindow, planFromWake } from './online-replay';
 import {
   clearSessionToken,
@@ -76,6 +77,8 @@ interface HeldSubmit {
   readonly moves: readonly Move[];
   readonly ids: readonly string[];
   readonly version: number;
+  /** P104 D1: who the hold was made for; a different `/me` drops it. */
+  readonly userHash: UserHash | undefined;
 }
 
 const defaultNewId = (): string => crypto.randomUUID();
@@ -110,6 +113,10 @@ interface AdapterState {
    * Cleared by `noteDisplayed`, which is exactly App reporting it finished.
    */
   inFlight: ReplayBatch | undefined;
+  /** P104 D2: when a batch was last queued, taken or finished; the watchdog reads it. */
+  replayProgressAt: number | undefined;
+  /** P104 D4: a heal outcome from a poll or a resume, until App reads it. */
+  healOutcome: SubmitOutcome | undefined;
   /** P94 D4: a `submitMoves` call has not settled yet. */
   submitting: boolean;
   /** P95 D10: the unsent rest of a submit a 401 stopped. */
@@ -149,6 +156,8 @@ const emptyState = (): AdapterState => ({
   displayed: undefined,
   replays: [],
   inFlight: undefined,
+  replayProgressAt: undefined,
+  healOutcome: undefined,
   submitting: false,
   held: undefined,
   promptedFor: undefined,
@@ -261,6 +270,15 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   const newId = deps.newId ?? defaultNewId;
   const wait = deps.wait ?? immediately;
   const now = deps.now ?? Date.now;
+  const replayStallMs = deps.replayStallMs ?? REPLAY_STALL_MS;
+  /** P104: a heal's reads may reject (fetch down); the decision then stands on what was read. */
+  const swallow = async (work: Promise<unknown>): Promise<void> => {
+    try {
+      await work;
+    } catch {
+      // The guards re-read state; a failed read leaves it as it was.
+    }
+  };
   const state = emptyState();
 
   const onlineReady = (): boolean => isOnlineEnvReady(env);
@@ -288,6 +306,8 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     state.displayed = undefined;
     state.replays = [];
     state.inFlight = undefined;
+    state.replayProgressAt = undefined;
+    state.healOutcome = undefined;
     state.library = undefined;
     state.held = undefined;
     state.promptedFor = undefined;
@@ -306,6 +326,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     state.displayed = undefined;
     state.replays = [];
     state.inFlight = undefined;
+    state.replayProgressAt = undefined;
     state.held = undefined;
     state.deleted = true;
     location.hash = '';
@@ -391,13 +412,15 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   /** True when the door already ran for this authenticated response. */
   const onUnauthorized = (status: number): boolean => status === 401;
 
-  const loadMe = async (): Promise<void> => {
-    if (!onlineReady() || token() === undefined) return;
+  /** P104 D1: true only for a 200 — the session the heal may act on. */
+  const loadMe = async (): Promise<boolean> => {
+    // Every caller is online-ready already; the token is the heal's signed-out door.
+    if (token() === undefined) return false;
     const res = await request('GET', '/me');
-    if (onUnauthorized(res.status)) return;
-    if (res.status !== 200) return;
+    if (res.status !== 200) return false;
     const hash = parseUserHash(asRecord(parseJson(res.body))?.['userHash']);
     if (hash !== undefined) state.userHash = hash;
+    return true;
   };
 
   const markInviteGone = (raw: unknown): void => {
@@ -672,7 +695,10 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
         ? undefined
         : await fetchLogWindow(groupHash, gameNumber, baseline);
     const plan = planFromWake({ baseline, to, window });
-    if (plan.kind === 'replay') state.replays.push(plan.batch);
+    if (plan.kind === 'replay') {
+      state.replays.push(plan.batch);
+      state.replayProgressAt = now();
+    }
   };
 
   /** P94 D5: the outcome a non-200 answer to a POST stops the submit with. */
@@ -763,6 +789,7 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
         moves: moves.slice(posted.rest),
         ids: ids.slice(posted.rest),
         version: posted.at,
+        userHash: state.userHash,
       };
       return posted.outcome;
     }
@@ -783,13 +810,12 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
   /** P95 D10: a submit is in flight or held for the next sign-in. */
   const submitPending = (): boolean => state.submitting || state.held !== undefined;
 
-  const submitMoves = async (moves: readonly Move[]): Promise<SubmitOutcome> => {
-    refreshTokenIfStale();
+  /** P94 D4 / P100 D1: the guards as they stand now, with the target they guard. */
+  const guardsFor = (moves: readonly Move[]) => {
     const route = parsePagesHash(location.hash);
     const board = state.board;
     const target = route.kind === 'game' && board !== undefined ? { route, board } : undefined;
-    // P94 D4 / P100 D1: every guard sends nothing and names itself. P98 D6:
-    // reading the token removes an already-unusable one.
+    // P98 D6: reading the token removes an already-unusable one.
     const refusal = submitRefusal({
       onlineReady: onlineReady(),
       signedIn: token() !== undefined,
@@ -801,7 +827,107 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       gameOver: board !== undefined && winnerOf(board.state) !== undefined,
       callerToMove: callerIsToMove(state),
     });
-    if (refusal !== undefined) return refusal;
+    return { target, refusal };
+  };
+
+  /**
+   * P104 D2: a batch nobody finished for `replayStallMs` is dropped with the
+   * baseline it owned, and the board is read fresh. It is never replayed
+   * again — App may have applied part of it — so the snapshot is installed.
+   */
+  const replayIsStalled = (): boolean =>
+    replayStalled({
+      pending: replayInFlight(),
+      progressAt: state.replayProgressAt,
+      now: now(),
+      stallMs: replayStallMs,
+    });
+
+  /** Synchronous when nothing is stalled, so a Send still marks itself pending at once (P94 D4). */
+  const flushStalled = async (): Promise<void> => {
+    state.replays = [];
+    state.inFlight = undefined;
+    state.displayed = undefined;
+    state.replayProgressAt = undefined;
+    const route = parsePagesHash(location.hash);
+    // Stryker disable next-line ConditionalExpression -- a pending batch only exists on a game route (the scenarios read the game after a flush).
+    if (route.kind === 'game') await swallow(getGame(route.groupHash, route.gameNumber));
+  };
+
+  /**
+   * P104 D1: settle a hold with what the server says now. `undefined` when
+   * there is no hold to heal or it still waits; `'cleared'` when it was for
+   * another game (silently dropped); otherwise the heal's outcome.
+   */
+  const healHeld = async (): Promise<SubmitOutcome | 'cleared' | undefined> => {
+    const held = state.held;
+    // Signed out, `loadMe` answers false and the hold waits for the sign-in.
+    if (held === undefined || state.submitting) return undefined;
+    state.submitting = true;
+    try {
+      const meOk = await loadMe();
+      const route = parsePagesHash(location.hash);
+      const onHeldGame =
+        // Stryker disable next-line ConditionalExpression -- equivalent for `route.kind`: a non-game route has no groupHash, so the next term is false anyway; the term narrows the type.
+        route.kind === 'game' && route.groupHash === held.groupHash && route.gameNumber === held.gameNumber;
+      if (meOk && onHeldGame) await getGame(held.groupHash, held.gameNumber);
+      const plan = heldPlan({
+        held,
+        onHeldGame,
+        meOk,
+        me: state.userHash,
+        // Stryker disable next-line OptionalChaining -- equivalent: no board here only after a 404 cleared the game, and the throw lands in the catch that answers the same `wait`.
+        boardVersion: state.board?.version,
+      });
+      if (plan === 'wait') return undefined;
+      if (plan === 'send') {
+        const posted = await sendAndHold(held.groupHash, held.gameNumber, held.moves, held.ids, held.version);
+        return healedOutcome(posted);
+      }
+      state.held = undefined;
+      return plan === 'drop-other' ? 'cleared' : 'held-dropped';
+    }
+    // Stryker disable next-line BlockStatement -- equivalent: an empty catch also answers undefined (the hold waits); the return says so.
+    catch {
+      return undefined;
+    } finally {
+      state.submitting = false;
+    }
+  };
+
+  /** P104 D4: a heal outside a Send keeps its outcome for App, once. */
+  const healInBackground = async (): Promise<void> => {
+    const healed = await healHeld();
+    // An earlier outcome App has not read yet is not erased by a heal that did nothing.
+    if (healed === undefined || healed === 'cleared') return;
+    state.healOutcome = healed;
+  };
+
+  const submitMoves = async (moves: readonly Move[]): Promise<SubmitOutcome> => {
+    refreshTokenIfStale();
+    if (replayIsStalled()) {
+      await flushStalled();
+      return 'stale';
+    }
+    let check = guardsFor(moves);
+    if (check.refusal === 'held') {
+      const healed = await healHeld();
+      // P104 D1: a heal answers for this Send; its own moves are not posted.
+      if (healed !== 'cleared') return healed ?? 'held';
+      check = guardsFor(moves);
+    }
+    // Stryker disable next-line ConditionalExpression -- `not-your-turn` is only reached past `onGame`, so the target is defined; the term narrows the type.
+    if (check.refusal === 'not-your-turn' && check.target !== undefined) {
+      // P104 D3: one re-read before the refusal is final.
+      const before = check.target.board.version;
+      const { groupHash, gameNumber } = check.target.route;
+      await swallow(loadMe().then(() => getGame(groupHash, gameNumber)));
+      check = guardsFor(moves);
+      const decided = afterRecheck({ refusal: check.refusal, before, after: state.board?.version });
+      if (decided !== undefined) return decided;
+    }
+    if (check.refusal !== undefined) return check.refusal;
+    const target = check.target;
     // `onGame` already refused a missing target; this only narrows it. A throw,
     // not a second `no-game`, so the guard above is the one that answers.
     // Stryker disable next-line ConditionalExpression -- unreachable: submitRefusal returned 'no-game' for an undefined target.
@@ -858,6 +984,12 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     if (!onlineReady() || token() === undefined) return;
     refreshTokenIfStale();
     if (state.socket === undefined) openSessionSocket();
+    if (replayIsStalled()) await flushStalled();
+    // P104 D1: a hold heals here too; the heal already read the game.
+    if (state.held !== undefined) {
+      await healInBackground();
+      return;
+    }
     const route = parsePagesHash(location.hash);
     if (route.kind !== 'game' || submitPending()) return;
     const res = await request('GET', `/games/${route.groupHash}/${route.gameNumber}/version`);
@@ -879,6 +1011,9 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     // P95 D12: the page may have slept past the socket and the token.
     refreshTokenIfStale();
     if (token() !== undefined && state.socket === undefined) openSessionSocket();
+    if (replayIsStalled()) await flushStalled();
+    // P104 D1: a resume heals a hold before it reads the page.
+    await healInBackground();
     const route = parsePagesHash(location.hash);
     if (route.kind === 'game') {
       await getGame(route.groupHash, route.gameNumber);
@@ -1082,12 +1217,21 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       state.displayed = version;
       // App only reports a version once the batch producing it has finished.
       state.inFlight = undefined;
+      state.replayProgressAt = now();
     },
     pendingReplays: () => [...state.replays],
     takeReplay: () => {
       const next = state.replays.shift();
-      if (next !== undefined) state.inFlight = next;
+      if (next !== undefined) {
+        state.inFlight = next;
+        state.replayProgressAt = now();
+      }
       return next;
+    },
+    takeHealOutcome: () => {
+      const outcome = state.healOutcome;
+      state.healOutcome = undefined;
+      return outcome;
     },
     onlineModeOffered: () => onlineReady(),
     seatKindOptions: () =>

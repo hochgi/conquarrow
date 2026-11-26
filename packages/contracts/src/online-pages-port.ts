@@ -90,6 +90,10 @@ export const SUBMIT_OUTCOMES = [
   'forbidden',
   'failed',
   'unauthorized',
+  // P104 D1: a heal posted the held moves (`held-sent`) or dropped a hold whose
+  // board moved on (`held-dropped`). Nothing of the current Send was posted.
+  'held-sent',
+  'held-dropped',
 ] as const;
 
 export type SubmitOutcome = (typeof SUBMIT_OUTCOMES)[number];
@@ -171,6 +175,8 @@ export interface OnlinePagesDeps {
   readonly wait?: (ms: number) => Promise<void>;
   /** P95 D12: epoch ms, to read a token's `exp`. Absent → `Date.now()`. */
   readonly now?: () => number;
+  /** P104 D2: a replay untouched this long is flushed. Absent → `REPLAY_STALL_MS`. */
+  readonly replayStallMs?: number;
 }
 
 /**
@@ -242,6 +248,11 @@ export interface OnlinePagesPort {
   pendingReplays(): readonly ReplayBatch[];
   /** Dequeue the oldest queued batch, or `undefined` when the queue is empty. */
   takeReplay(): ReplayBatch | undefined;
+  /**
+   * P104 D4. The outcome of a heal that ran outside a Send (a poll or a
+   * resume), once; `undefined` after it was read, or when none ran.
+   */
+  takeHealOutcome(): SubmitOutcome | undefined;
 
   onlineModeOffered(): boolean;
   seatKindOptions(): readonly PlannedSeatKind[];

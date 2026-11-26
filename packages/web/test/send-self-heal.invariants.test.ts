@@ -11,18 +11,18 @@ import { draftAfterSubmit, submitNote } from '../src/online-submit';
 const BOOLS = [false, true] as const;
 const VERSIONS = [undefined, 3, 4, 5] as const;
 const USERS = [undefined, 'alice', 'bob'] as const;
-const ROUTES = [undefined, { groupHash: 'g', gameNumber: 'n' }, { groupHash: 'g', gameNumber: 'm' }] as const;
+
 
 describe('send-self-heal invariants', () => {
   it('heldPlan sends only on a valid session, the held game and the held version', () => {
     for (const meOk of BOOLS) {
       for (const me of USERS) {
         for (const holder of USERS) {
-          for (const route of ROUTES) {
+          for (const onHeldGame of BOOLS) {
             for (const boardVersion of VERSIONS) {
               const held = { groupHash: 'g', gameNumber: 'n', version: 4, ...(holder === undefined ? {} : { userHash: holder }) };
-              const plan = heldPlan({ held, route, meOk, me, boardVersion });
-              const sameGame = route?.gameNumber === 'n';
+              const plan = heldPlan({ held, onHeldGame, meOk, me, boardVersion });
+              const sameGame = onHeldGame;
               const sameUser = me === undefined || holder === undefined || me === holder;
               const expected = !meOk
                 ? 'wait'
@@ -35,7 +35,7 @@ describe('send-self-heal invariants', () => {
                       : boardVersion === 4
                         ? 'send'
                         : 'drop-stale';
-              expect(plan, JSON.stringify({ meOk, me, holder, route, boardVersion })).toBe(expected);
+              expect(plan, JSON.stringify({ meOk, me, holder, onHeldGame, boardVersion })).toBe(expected);
             }
           }
         }

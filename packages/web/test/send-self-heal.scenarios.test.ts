@@ -6,11 +6,11 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { endTurn } from '@conquarrow/contracts';
+import { endTurn, GOOGLE_ID_TOKEN_SESSION_KEY } from '@conquarrow/contracts';
 import { REPLAY_STALL_MS } from '../src/online-heal';
 import { submitNote } from '../src/online-submit';
-import { BOB } from './online-web.support';
-import { byPath, jsonBody, once, sentPaths } from './session-expired.scenarios.support';
+import { BOB, GAME_ONE, GROUP_HASH, gameHash } from './online-web.support';
+import { byPath, jsonBody, once, onceThrow, sentPaths } from './session-expired.scenarios.support';
 import {
   GAME_PATH,
   MOVES_PATH,
@@ -37,6 +37,11 @@ const after = (skip: number): readonly string[] => sentPaths(rig).slice(skip);
 
 const BOOT = ['GET /me', `GET ${GAME_PATH}`];
 const HOLD = [...BOOT, `POST ${MOVES_PATH}`];
+const GAME_TWO = '000002';
+const TWO_PATH = `/games/${GROUP_HASH}/${GAME_TWO}`;
+const TWO_MOVES = `${TWO_PATH}/moves`;
+const GAME_TWO_HASH = gameHash(GROUP_HASH, GAME_TWO);
+const OTHER_GROUP_HASH = gameHash('cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd', GAME_ONE);
 
 describe('SCENARIOS.md 1 — a Send heals a hold', () => {
   it('alt board still at the held version: the held moves are posted, held-sent', async () => {
@@ -218,6 +223,8 @@ describe('SCENARIOS.md 3 — the replay watchdog', () => {
   it('alt within replayStallMs: replaying, no request', async () => {
     rig = createHealRig();
     await stuckBatch(rig, 4);
+    // An empty take leaves the stuck batch in flight and its stamp alone.
+    expect(rig.host.adapter().takeReplay()).toBeUndefined();
     const before = sentPaths(rig).length;
     rig.advance(REPLAY_STALL_MS - 1);
 
@@ -261,12 +268,17 @@ describe('SCENARIOS.md 3 — the replay watchdog', () => {
     const before = sentPaths(rig).length;
     once(rig, 'POST', MOVES_PATH, posted(6));
     once(rig, 'GET', GAME_PATH, board(6, 'B'));
+    // The reconcile replays the caller's own move from the installed baseline.
+    once(rig, 'GET', `${GAME_PATH}/log`, {
+      status: 200,
+      body: JSON.stringify({ from: 5, to: 6, gap: false, moves: [{ kind: 'endTurn' }] }),
+    });
 
     const outcome = await rig.host.submitMoves([endTurn()]);
 
     expect({ outcome, sent: after(before) }).toEqual({
       outcome: 'sent',
-      sent: [`POST ${MOVES_PATH}`, `GET ${GAME_PATH}`],
+      sent: [`POST ${MOVES_PATH}`, `GET ${GAME_PATH}`, `GET ${GAME_PATH}/log`],
     });
     expect(byPath(rig, 'POST', MOVES_PATH)[0]?.headers['If-Match']).toBe('"5"');
   });
@@ -350,5 +362,165 @@ describe('SCENARIOS.md 4 — one re-check before not-your-turn', () => {
       outcome: 'not-your-turn',
       sent: ['GET /me', `GET ${GAME_PATH}`],
     });
+  });
+});
+
+describe('SCENARIOS.md 1–3 — the heal’s own edges', () => {
+  it('/me fails without a 401: the hold waits and the game is not read', async () => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    once(rig, 'GET', '/me', { status: 503, body: '' });
+
+    const outcome = await rig.host.submitMoves([endTurn()]);
+
+    expect({ outcome, pending: rig.host.submitPending(), sent: after(HOLD.length) }).toEqual({
+      outcome: 'held',
+      pending: true,
+      sent: ['GET /me'],
+    });
+  });
+
+  it('a resume while signed out does not heal: no /me', async () => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    rig.session.removeItem(GOOGLE_ID_TOKEN_SESSION_KEY);
+    // A trap: reading /me signed out would be a bug.
+    once(rig, 'GET', '/me', me());
+
+    await rig.host.handleVisibility(true);
+
+    expect({ sent: after(HOLD.length), pending: rig.host.submitPending() }).toEqual({
+      sent: [],
+      pending: true,
+    });
+  });
+
+  it('the network fails mid-heal: the hold waits, held, and Send is free again', async () => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    once(rig, 'GET', '/me', me());
+    onceThrow(rig, 'GET', GAME_PATH);
+
+    const outcome = await rig.host.submitMoves([endTurn()]);
+    once(rig, 'GET', '/me', { status: 503, body: '' });
+    const again = await rig.host.submitMoves([endTurn()]);
+
+    expect({ outcome, again, sent: after(HOLD.length) }).toEqual({
+      outcome: 'held',
+      again: 'held',
+      sent: ['GET /me', `GET ${GAME_PATH}`, 'GET /me'],
+    });
+  });
+
+  it('a Send or a poll during a heal sends nothing more', async () => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    once(rig, 'GET', '/me', me());
+    once(rig, 'GET', GAME_PATH, board(6));
+
+    // Traps: a second heal would read /me and the game again.
+    once(rig, 'GET', '/me', me());
+    once(rig, 'GET', GAME_PATH, board(6));
+
+    const healing = rig.host.submitMoves([endTurn()]);
+    const polling = rig.host.handlePoll();
+    const second = await rig.host.submitMoves([endTurn()]);
+    await polling;
+    const first = await healing;
+
+    expect({ first, second, sent: after(HOLD.length) }).toEqual({
+      first: 'held-dropped',
+      second: 'sending',
+      sent: ['GET /me', `GET ${GAME_PATH}`],
+    });
+  });
+
+  it('a hold for a game no longer on screen is dropped silently, and this Send goes out', async () => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    rig.location.hash = gameHash(GROUP_HASH, GAME_TWO);
+    once(rig, 'GET', '/me', me());
+    once(rig, 'POST', TWO_MOVES, posted(5));
+    once(rig, 'GET', TWO_PATH, board(5, 'B'));
+
+    const outcome = await rig.host.submitMoves([endTurn()]);
+
+    expect({ outcome, sent: after(HOLD.length) }).toEqual({
+      outcome: 'sent',
+      sent: ['GET /me', `POST ${TWO_MOVES}`, `GET ${TWO_PATH}`],
+    });
+    expect(rig.host.adapter().takeHealOutcome()).toBeUndefined();
+  });
+
+  it.each([
+    ['another game number', GAME_TWO_HASH],
+    ['another group', OTHER_GROUP_HASH],
+  ])('a poll off the held game (%s) drops the hold and stores nothing', async (_label, hash) => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    rig.location.hash = hash;
+    once(rig, 'GET', '/me', me());
+    // A trap: the held game is off screen, so reading it would be a bug (and
+    // a moved board would store held-dropped, failing fast instead of hanging).
+    once(rig, 'GET', GAME_PATH, board(9));
+
+    await rig.host.handlePoll();
+
+    expect({
+      sent: after(HOLD.length),
+      pending: rig.host.submitPending(),
+      stored: rig.host.adapter().takeHealOutcome(),
+    }).toEqual({ sent: ['GET /me'], pending: false, stored: undefined });
+  });
+
+  it('a stored outcome survives a later resume with no hold', async () => {
+    rig = createHealRig();
+    await holdAt(rig, 4);
+    once(rig, 'GET', '/me', me());
+    once(rig, 'GET', GAME_PATH, board(4));
+    once(rig, 'POST', MOVES_PATH, posted(5));
+    once(rig, 'GET', GAME_PATH, board(5, 'B'));
+    await rig.host.handlePoll();
+    once(rig, 'GET', GAME_PATH, board(5, 'B'));
+    once(rig, 'GET', '/my-games', { status: 200, body: JSON.stringify({ lobbies: [], games: [] }) });
+
+    await rig.host.handleVisibility(true);
+
+    expect(rig.host.adapter().takeHealOutcome()).toBe('held-sent');
+  });
+
+  it('the re-check finds the game deleted: no-game, no POST', async () => {
+    rig = createHealRig();
+    once(rig, 'GET', '/me', me());
+    once(rig, 'GET', GAME_PATH, board(4, 'B'));
+    await rig.host.boot();
+    const before = sentPaths(rig).length;
+    once(rig, 'GET', '/me', me());
+    once(rig, 'GET', GAME_PATH, { status: 404, body: JSON.stringify({ error: 'not found' }) });
+
+    const outcome = await rig.host.submitMoves([endTurn()]);
+
+    expect({ outcome, sent: after(before) }).toEqual({
+      outcome: 'no-game',
+      sent: ['GET /me', `GET ${GAME_PATH}`],
+    });
+  });
+
+  it('a resume flushes a stalled batch before it reads the page', async () => {
+    rig = createHealRig();
+    await stuckBatch(rig, 4);
+    const before = sentPaths(rig).length;
+    rig.advance(REPLAY_STALL_MS);
+    once(rig, 'GET', GAME_PATH, board(5));
+    once(rig, 'GET', GAME_PATH, board(5));
+    once(rig, 'GET', '/my-games', { status: 200, body: JSON.stringify({ lobbies: [], games: [] }) });
+
+    await rig.host.handleVisibility(true);
+
+    expect({ sent: after(before), queued: rig.host.adapter().pendingReplays().length }).toEqual({
+      sent: [`GET ${GAME_PATH}`, `GET ${GAME_PATH}`, 'GET /my-games'],
+      queued: 0,
+    });
+    expect(rig.host.submitPending()).toBe(false);
   });
 });
