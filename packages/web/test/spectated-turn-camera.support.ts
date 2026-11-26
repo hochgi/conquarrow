@@ -4,16 +4,16 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { mintArrowId } from '@conquarrow/contracts';
 import type { ArrowId } from '@conquarrow/contracts';
 import type { CameraTarget, Pt } from '../src/spectate';
 import { FIT_PADDING } from '../src/spectate';
 import type { Viewport } from '../src/viewport';
 import { createViewport } from '../src/viewport';
+import { committedDir } from './source-scan.support';
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = committedDir(import.meta.url);
 
 export const spectateSource = (): string =>
   readFileSync(join(here, '../src/spectate.ts'), 'utf8');

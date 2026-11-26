@@ -171,6 +171,11 @@ cameraLocked({ spectating, autoFocus, inReplayWindow, paused }) =
   spectating and autoFocus and inReplayWindow
 ```
 
+App feeds `inReplayWindow` from `showingMoves` — a batch playing or queued,
+or a local seat applying its plan — not from the camera-save window, so a
+seat's think stays unlocked ([id-free-copy](../id-free-copy/id-free-copy.md),
+P103).
+
 `paused` is accepted and deliberately does not appear on the right-hand side:
 **D4** — bot pause exists to stop BYOK credit burn, not to free the camera. An
 in-flight tween finishes and holds; the lock stays. The escape hatch is the

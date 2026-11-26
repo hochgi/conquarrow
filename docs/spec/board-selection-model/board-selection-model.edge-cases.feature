@@ -28,7 +28,7 @@ Feature: Board selection model — edge cases
       And the sentry is selected
       When the active player clicks an arrow two steps from f0 and out of the sentry's reach
       Then the click is refused with reason out-of-reach
-      And the message line reads "Too far for the stack on s0"
+      And the message line reads "Too far for the selected stack"
       And the selection line names s0
 
     # Turn 17: Next stack alternated between one stack and nothing, never the front.
@@ -70,7 +70,7 @@ Feature: Board selection model — edge cases
       When the active player clicks z0
       Then the phase is blocked on z0
       And the click is refused with reason no-exit
-      And the message line reads "The stack on z0 has no move left this turn"
+      And the message line reads "The selected stack has no move left this turn"
 
     Scenario: A click elsewhere while a blocked stack is selected says why
       Given the stack on z0 is selected and blocked
@@ -191,7 +191,7 @@ Feature: Board selection model — edge cases
     Scenario: A selected stack that is not movable is reported without a lap position
       Given the stack on z0 holding 1 head is selected and not movable
       And 2 stacks are movable
-      Then the selection line reads "Selected: 1 on z0 · no move left · 2 can move"
+      Then the selection line reads "Selected: 1 head · no move left · 2 can move"
 
   Rule: Pan, zoom and motion leave selection alone
 
@@ -216,5 +216,5 @@ Feature: Board selection model — edge cases
       Examples:
         | start | ceiling | count | text                   |
         | a0    | 3       | 3     | No head stays behind   |
-        | a0    | 3       | 2     | 1 head stays on a0     |
-        | t2    | 8       | 4     | 4 heads stay on t2     |
+        | a0    | 3       | 2     | 1 head stays where the last run began  |
+        | t2    | 8       | 4     | 4 heads stay where the last run began |

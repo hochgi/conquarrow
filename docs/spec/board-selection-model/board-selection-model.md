@@ -135,8 +135,8 @@ the display form is out of scope; tests lock `String(arrow)`. `m` is the movable
 |---|---|
 | nothing selected, `m > 0` | `No stack selected · ${m} can move` |
 | nothing selected, `m = 0` | `No stack selected · nothing can move` |
-| selected, movable | `Selected: ${h} on ${arrow} · ${n} of ${m}` |
-| selected, not movable | `Selected: ${h} on ${arrow} · no move left · ${m} can move` |
+| selected, movable | `Selected: ${heads(h)} · ${n} of ${m}` (P103: `heads(1)` = `1 head`, else `${h} heads`) |
+| selected, not movable | `Selected: ${heads(h)} · no move left · ${m} can move` |
 
 **Turn status** — `turnStatus(m)`:
 
@@ -152,25 +152,25 @@ the display form is out of scope; tests lock `String(arrow)`. `m` is the movable
 |---|---|---|
 | `nothing-selected` | idle, clicked an arrow that is not a stack | `Nothing selected · click one of your stacks first` |
 | `not-yours` | idle, clicked an enemy stack | `Not your stack` |
-| `out-of-reach` | route, not clickable, not refused, not multi-run | `Too far for the stack on ${selected}` (`Too far this turn` with no selection) |
-| `no-exit` | selecting a stack with nothing clickable, or any non-own click while blocked | `The stack on ${selected} has no move left this turn` (`Nowhere to go from here` with no selection) |
+| `out-of-reach` | route, not clickable, not refused, not multi-run | `Too far for the selected stack` (`Too far this turn` with no selection) |
+| `no-exit` | selecting a stack with nothing clickable, or any non-own click while blocked | `The selected stack has no move left this turn` (`Nowhere to go from here` with no selection) |
 | `would-convert` | route, a refused grain neighbour of the tip | `No trail home — those heads would flip` |
 | `not-one-run` | route, a multi-run mark | `Reachable, but not in one run · click a lit arrow on the way first` |
 | `board-busy` | a click on an arrow while input is locked | `The board is not taking moves right now` |
 
 `REFUSAL_TEXT[reason]` keeps the selection-free text for every reason;
-`refusalText` adds the stack name where the table says so.
+`refusalText` says *the selected stack* where the table says so. No copy names an arrow id (P103, [id-free-copy](../id-free-copy/id-free-copy.md)).
 
-**Leftover** — `leftoverNote({ count, ceiling, start })`, the count strip's note.
+**Leftover** — `leftoverNote({ count, ceiling })`, the count strip's note.
 The stepper's caption reads `Heads on the last leg`.
 
 | Case | Text |
 |---|---|
 | `ceiling − count = 0` | `No head stays behind` |
-| `ceiling − count = 1` | `1 head stays on ${start}` |
-| `ceiling − count = k > 1` | `${k} heads stay on ${start}` |
+| `ceiling − count = 1` | `1 head stays where the last run began` |
+| `ceiling − count = k > 1` | `${k} heads stay where the last run began` |
 
-`start` is the arrow the **last run** began on (`CountControl.start`): the source
+The heads stay where the **last run** began (`CountControl.start`): the source
 for a one-run draft, the previous run's tip otherwise. This is the fix for "1
 stays" being read as "stays home".
 
@@ -203,7 +203,7 @@ stays" being read as "stays home".
   (`MERGE_STROKE`) over a solid `SELECTED_UNDER_STROKE` band, never
   `PREVIEW_STROKE`, so it reads on every seat's fill — and are not also painted
   with the movable gold outline. Legal, but a click on the tile selects; the
-  strip's **Merge into `${arrow}`** button drafts it. In the strip, Cancel/Send
+  strip's **Merge into your N-stack, <direction>** button (P103) drafts it. In the strip, Cancel/Send
   come before the merge buttons, which scroll sideways when they overflow, so
   Send is never pushed off the row.
 - **Refused** grain neighbours keep P28's refused treatment and `not-allowed`
@@ -283,7 +283,8 @@ seeds of own/enemy stacks and territory).
 10. **Event-driven** — When `Next stack` is pressed, the system shall emit no
     move and leave the `GameState` identical.
 11. **State-driven** — While a stack is selected, the selection line shall name
-    its arrow; while none is, it shall begin `No stack selected`.
+    its heads and never its arrow id (P103); while none is, it shall begin
+    `No stack selected`.
 12. **Ubiquitous** — The HUD markup before the end of the action row shall not
     depend on the hint, refusal, coach, BYOK, banner or illegal text.
 13. **Ubiquitous** — A pan or pinch shall not change the input snapshot.
@@ -307,7 +308,7 @@ seeds of own/enemy stacks and territory).
   selected) rather than deselecting. A toggle is what made selection
   unpredictable ("two clicks to select"). Deselect is a background click,
   Escape / Cancel, or the lap's *none* step.
-- **Merge affordance is a strip button**, one `Merge into ${arrow}` per merge
+- **Merge affordance is a strip button**, one `Merge into your N-stack, <direction>` (P103) per merge
   target in `compareArrows` order, drafting exactly what the old merge click
   drafted. A ray cannot express "stop on the own stack" without a tile click,
   and a modifier key is out of scope (keyboard shortcuts).

@@ -16,8 +16,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { speed, step } from '@conquarrow/contracts';
@@ -46,10 +45,11 @@ import {
   blankState,
   type Board,
 } from './ray-run-input.support';
+import { committedDir } from './source-scan.support';
 
 export { A, B, arrowAlong, exitOf, geometry, rules, sourceArrow, refusingRules, type Board };
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = committedDir(import.meta.url);
 const read = (file: string): string => readFileSync(join(here, '../src', file), 'utf8');
 
 export const appSource = (): string => read('App.tsx');
