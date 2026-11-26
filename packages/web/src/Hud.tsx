@@ -12,6 +12,8 @@ import type { VictoryFx } from './fx/victory';
 import type { InputPhase } from './input/modes';
 import { endTurnLabel } from './online-submit';
 import { routeHint } from './route';
+import type { SeatLineItem } from './seatLine';
+import { showMatchSummaryLine, type StandingsView } from './standings';
 import { turnBannerCopy, type TurnBannerCopy, type TurnBannerSeat } from './turnBanner';
 
 export interface HudProps {
@@ -28,7 +30,10 @@ export interface HudProps {
   readonly manualPause: boolean;
   readonly aiChair: boolean;
   readonly onTogglePause: () => void;
-  readonly seatSummary: string;
+  /** P102: seat-line items. Lost flags and the accessible name come from `seatLineView`. */
+  readonly seatLine: readonly SeatLineItem[];
+  /** P102: `standingsForHud`. Hud paints a table only for `kind: 'table'`. */
+  readonly standings: StandingsView;
   readonly moveCount: number;
   /** One-line playtest summary when the match is over. */
   readonly matchSummary: string | undefined;
@@ -275,6 +280,63 @@ const ActionRow = ({
   </div>
 );
 
+/** Space, U+00B7, space — the same dot the seat line used when it was one string. */
+const SEAT_DOT = ' \u00B7 ';
+
+// Stryker disable all -- no DOM harness; seatLineView holds the lost flags and is tested.
+const SeatLineText = ({ item }: { readonly item: SeatLineItem }): ReactElement => {
+  if (!item.lost) return <>{item.text}</>;
+  return (
+    <span className="seat-lost" aria-label={item.accessibleLabel}>
+      {item.text}
+    </span>
+  );
+};
+
+const SeatLine = ({ items }: { readonly items: readonly SeatLineItem[] }): ReactElement => (
+  <p className="meta">
+    Seats:{' '}
+    {items.map((item, index) => (
+      <span key={`${item.letter}:${String(index)}`}>
+        {index > 0 ? SEAT_DOT : null}
+        <SeatLineText item={item} />
+      </span>
+    ))}
+  </p>
+);
+// Stryker restore all
+
+// Stryker disable all -- no DOM harness; standingsView / showMatchSummaryLine hold the decision and are tested.
+const StandingsTable = ({ view }: { readonly view: StandingsView }): ReactElement | null => {
+  if (view.kind !== 'table') return null;
+  return (
+    <table className="standings">
+      <caption>{view.wonOnTurn}</caption>
+      <thead>
+        <tr>
+          <th>Seat</th>
+          <th>Territory</th>
+          <th>Shares</th>
+          <th>Heads</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {view.rows.map((row, index) => (
+          <tr key={`${row.letter}:${String(index)}`}>
+            <td className={row.lost ? 'seat-lost' : undefined}>{row.label}</td>
+            <td>{row.territory}</td>
+            <td>{row.shares}</td>
+            <td>{row.heads}</td>
+            <td>{row.marker}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
+// Stryker restore all
+
 export const Hud = ({
   state,
   victory,
@@ -289,7 +351,8 @@ export const Hud = ({
   manualPause,
   aiChair,
   onTogglePause,
-  seatSummary,
+  seatLine,
+  standings,
   moveCount,
   matchSummary,
   heads,
@@ -337,6 +400,8 @@ export const Hud = ({
     submitting,
     replaying,
   });
+  // Stryker disable next-line all -- no DOM harness; showMatchSummaryLine holds the decision and is tested.
+  const showLocalSummaryLine = showMatchSummaryLine(standings) && matchSummary !== undefined;
   return (
     <aside className="hud">
       <h1>Conquarrow</h1>
@@ -392,9 +457,10 @@ export const Hud = ({
           {land}
         </span>
       </p>
-      <p className="meta">Seats: {seatSummary}</p>
+      <SeatLine items={seatLine} />
       <p className="meta">Moves logged: {moveCount}</p>
-      {matchSummary !== undefined ? (
+      <StandingsTable view={standings} />
+      {showLocalSummaryLine ? (
         <p className="meta match-summary">Summary: {matchSummary}</p>
       ) : null}
 

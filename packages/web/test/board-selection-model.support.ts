@@ -354,7 +354,11 @@ export const renderHud = (variant: HudVariant = {}): string => {
     manualPause: false,
     aiChair: false,
     onTogglePause: noop,
-    seatSummary: 'A=human · B=human',
+    seatLine: [
+      { letter: 'A', text: 'A=human', lost: false, struck: false, greyed: false },
+      { letter: 'B', text: 'B=human', lost: false, struck: false, greyed: false },
+    ],
+    standings: { kind: 'fallback' },
     moveCount: 0,
     matchSummary: undefined,
     heads: 3,

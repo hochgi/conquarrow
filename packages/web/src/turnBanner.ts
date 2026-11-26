@@ -207,7 +207,7 @@ const relationFor = (seat: OnlineSeatFact, userHash: string | undefined): TurnRe
  * Interior between the first `Agent (` and the last `)`, trimmed and non-empty.
  * No opening or no closing parenthesis is not a name.
  */
-const ownerNameFrom = (label: string | undefined): string | undefined => {
+export const ownerNameFromLabel = (label: string | undefined): string | undefined => {
   if (label === undefined) return undefined;
   const start = label.indexOf(AGENT_PREFIX);
   if (start === -1) return undefined;
@@ -219,7 +219,7 @@ const ownerNameFrom = (label: string | undefined): string | undefined => {
 
 const withOwner = (seat: OnlineSeatFact, base: OnlineTurnSeatResult): OnlineTurnSeatResult => {
   if (seat.kind !== 'agent') return base;
-  const ownerName = ownerNameFrom(seat.label);
+  const ownerName = ownerNameFromLabel(seat.label);
   if (ownerName === undefined) return base;
   return { ...base, ownerName };
 };

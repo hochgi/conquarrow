@@ -1973,3 +1973,81 @@ body,
     animation-duration: 2.4s;
   }
 }
+
+/* P102: a lost seat is grey and struck. Colour is not the only signal. */
+.seat-lost {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* P102: the server standings table. Small and dumb — the view model already sorted and labelled. */
+.standings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.standings caption {
+  caption-side: top;
+  text-align: left;
+  font-size: 0.8rem;
+  padding-bottom: 0.25rem;
+}
+
+.standings th,
+.standings td {
+  text-align: left;
+  padding: 0.15rem 0.35rem;
+  font-weight: 400;
+}
+
+.standings th {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+/* P102: elimination toasts. Fixed, bottom centre, above the route dock and the
+   safe area, under the tutorial overlay (z-index 8). Centring is flex, not a
+   transform, so the enter animation cannot move the toast. */
+.elimination-toasts {
+  position: fixed;
+  z-index: 7;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.elimination-toast {
+  pointer-events: auto;
+  max-width: min(24rem, calc(100% - 2rem));
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 25%);
+  cursor: pointer;
+  animation: elimination-toast-in 180ms ease-out;
+}
+
+@keyframes elimination-toast-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .elimination-toast {
+    animation: none;
+  }
+}
