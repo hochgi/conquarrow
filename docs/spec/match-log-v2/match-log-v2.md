@@ -139,9 +139,9 @@ another seat, or one with no seat, is withheld while the game has no winner.
 
 ### D7 — size
 
-Measured on the 2026-11-07 playtest fixture (`moves` replayed through the
-v2 line builder): see the packet's size note. Events are ids and counts, so
-a line grows by a constant-ish amount, not by the size of a closure.
+Measured on the 2026-11-07 playtest fixture and a 6-seat AI self-play (the
+packet's size note): about ×2.2 per line, 180 B on average. Events are ids and
+counts, so a line grows by a near-constant amount, not by a closure's size.
 
 ## EARS
 

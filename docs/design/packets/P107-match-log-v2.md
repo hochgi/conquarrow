@@ -40,6 +40,21 @@ See the spec's D1–D7. In short:
 4. Export: `formatVersion: 2`, kinds `human | agent | heuristic`, v2 fields
    passed through, v1 lines exported as they are.
 
+## Size
+
+Measured with a one-off script (not committed) that replays a move list
+through `applyLogged` + `stampLogLine` and compares the P49 `{v, move}` line:
+
+| Game | Lines | v1 | v2 | Per line | Growth | Longest v2 line |
+|---|---|---|---|---|---|---|
+| playtest 2026-11-07 (3 seats, human vs AI, to the win) | 895 | 74.7 KB | 161.0 KB | 83 → 180 B | ×2.15 | 808 B |
+| 6-seat AI self-play, first 600 moves | 600 | 47.2 KB | 110.1 KB | 79 → 183 B | ×2.33 | 515 B |
+
+So a 500-move game grows from about 40 KB to about 92 KB, and the 2031-move
+6-seat match of 2026-11-25 would be about 370 KB: far under the Lambda
+response cap. `applyLogged` (apply + events) cost about 2 ms a move on the
+box, small next to the heuristic's own choice.
+
 ## Open questions (for Gilad)
 
 1. **`latencyMs`.** Worth a write per `observe` to record exactly when the
