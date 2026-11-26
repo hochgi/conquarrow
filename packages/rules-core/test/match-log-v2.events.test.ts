@@ -41,7 +41,7 @@ describe('SCENARIOS.md 5 — toLogEvent', () => {
       { kind: 'stackMerged', player: A, from: a1, to: a2, arriving: 1, existing: 2, total: 3 },
     ],
   ])('alt %s: dropped (the move says it)', (_kind, event) => {
-    expect(toLogEvent(event)).toBeUndefined();
+    expect(toLogEvent(event)).toBeNull();
   });
 
   it('alt combat with a holder: every count, ids as strings', () => {
@@ -233,7 +233,7 @@ describe('SCENARIOS.md 5 — logEventsOf over a real game', () => {
       const expected = [
         ...resolveEvents(step).flatMap((event) => {
           const logged = toLogEvent(event);
-          return logged === undefined ? [] : [logged];
+          return logged === null ? [] : [logged];
         }),
         ...resolveShareEvents(geometry, step),
       ];

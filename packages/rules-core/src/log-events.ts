@@ -22,11 +22,12 @@ const optionalId = <K extends string>(
 
 /**
  * P107 D2: the match log's record of one resolved event — its facts with arrow
- * lists reduced to counts — or `undefined` for a presentation-only event the
- * move itself already says (`moved`, `trailLaid`, `stackSplit`, `sentryLeft`,
- * `stackMerged`).
+ * lists reduced to counts — or `null` for a presentation-only event the move
+ * itself already says (`moved`, `trailLaid`, `stackSplit`, `sentryLeft`,
+ * `stackMerged`). `null`, not `undefined`: "dropped on purpose" is a value,
+ * never a missing return.
  */
-export const toLogEvent = (event: GameEvent): LogEvent | undefined => {
+export const toLogEvent = (event: GameEvent): LogEvent | null => {
   switch (event.kind) {
     case 'combat':
       return {
@@ -81,7 +82,7 @@ export const toLogEvent = (event: GameEvent): LogEvent | undefined => {
     case 'matchWon':
       return { kind: 'matchWon', player: id(event.player) };
     default:
-      return undefined;
+      return null;
   }
 };
 
@@ -110,7 +111,7 @@ export const logEventsOf = (geometry: GeometryPort, step: AppliedStep): readonly
   const out: LogEvent[] = [];
   for (const event of resolveEvents(step)) {
     const logged = toLogEvent(event);
-    if (logged !== undefined) out.push(logged);
+    if (logged !== null) out.push(logged);
   }
   out.push(...resolveShareEvents(geometry, step));
   return out;

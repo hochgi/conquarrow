@@ -340,6 +340,8 @@ describe('SCENARIOS.md 4 — the export serves v2', () => {
     legacyMove,
     bare,
     'not json',
+    '7',
+    'null',
     reply(OWN, false),
     reply(RIVAL, false),
     reply(undefined, false),

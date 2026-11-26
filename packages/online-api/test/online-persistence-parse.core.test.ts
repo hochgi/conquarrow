@@ -138,6 +138,12 @@ describe('log.jsonl lines round-trip', () => {
       expect(parseLogLine(stampLogLine(12, loggedOf(move, 'B', 'server')))).toMatchObject({ seat: 'B', by: 'server' });
     });
 
+    it(`reads an envelope whose v is absent or not an integer as unstamped (${name})`, () => {
+      for (const v of [undefined, 1.5, '3', null]) {
+        expect(parseLogLine(JSON.stringify({ v, move }))).toStrictEqual({ move });
+      }
+    });
+
     it(`reads a pre-P49 bare line of ${name} as unstamped`, () => {
       expect(parseLogLine(JSON.stringify(move))).toStrictEqual({ move });
     });
