@@ -111,13 +111,14 @@ detailed form of an item; this file is the short list and the order.
   after End turn, the human's own move and every heuristic or agent seat's
   burst should animate, and End turn should read "Sending…" until the server
   answers. CI covers the adapter, not the render.
-- **Send self-heal (issue #129, second half).** P100 made every refused Send
-  say why and keep the route. Still open: a held submit (P95 D10) should be
-  sent or rebased when `/me` is valid instead of refusing `held`, and a held
-  submit with a stale `baseVersion` dropped with a note; a replay queue that
-  has not progressed for N seconds (config) flushed to the latest snapshot;
-  `not-your-turn` re-fetches the game and `/me` once before refusing. Needs a
-  fake clock and a held-submit component test.
+- **Send self-heal leftovers (after P104).** [P104](packets/P104-send-self-heal.md)
+  heals a hold, flushes a stalled replay and re-checks `not-your-turn`, all
+  client-side. Still open: a rebase of a hold across a moved board (P104 drops
+  it with a note; a rebase needs the server to judge the move against the new
+  board, P49 D7), and a server-side hold so a second device sees it. Check
+  P104 on a phone with the P100 check below: let the token expire, Send (held),
+  sign in again or come back to the tab — the held move goes out once with
+  `Your waiting move was sent…`.
 - **Check P100 on a phone, online.** Expire the session mid-game, sign in
   again, then Send on a 4-stack: a refusal note shows and the route stays
   drawn. Pinch during a route draw: the drag ends cleanly. Also covers P94's

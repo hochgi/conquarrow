@@ -1045,6 +1045,14 @@ export const App = (): ReactElement => {
     })();
   }, [gen, playBatch, refresh]);
 
+  // P104 D4: a poll or a resume healed a held Send — say what happened, once.
+  // Stryker disable all -- no DOM harness for App; takeHealOutcome is read-once and tested in send-self-heal.scenarios, the wiring by a source scan.
+  useEffect(() => {
+    const healed = hostRef.current?.adapter().takeHealOutcome();
+    if (healed !== undefined) setSubmitNoteText(submitNote(healed));
+  }, [gen]);
+  // Stryker restore all
+
   // The restore happens when control returns to this client — never between two
   // spectated seats, and exactly once, because it closes the window itself.
   useEffect(() => {
