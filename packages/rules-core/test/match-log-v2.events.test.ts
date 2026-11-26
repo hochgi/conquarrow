@@ -186,7 +186,7 @@ describe('SCENARIOS.md 5 — resolveShareEvents', () => {
     expect(resolveShareEvents(geometry, { before: state, after: state, move: endTurn() })).toEqual([]);
   });
 
-  it('a share taken from B by C: one event each, in player order, with counts before and after', () => {
+  it('a share taken from B by C: one event each, in turn order, with counts before and after', () => {
     const before = withBorderOwners(opening, [A, B, B]).state;
     const after = withBorderOwners(opening, [A, C, B]).state;
     const events = resolveShareEvents(geometry, { before, after, move: endTurn() });
@@ -197,6 +197,17 @@ describe('SCENARIOS.md 5 — resolveShareEvents', () => {
     const [lost, gained] = events;
     expect(lost?.kind === 'sharesChanged' && lost.to - lost.from).toBe(-1);
     expect(gained?.kind === 'sharesChanged' && gained.to - gained.from).toBe(1);
+  });
+
+  it('events follow the players list (turn order), not the id order', () => {
+    const before = withBorderOwners(opening, [A, B, B]).state;
+    const after = withBorderOwners(opening, [A, C, B]).state;
+    const reversed = (state: GameState): GameState => ({ ...state, players: [...state.players].reverse() });
+    expect(
+      resolveShareEvents(geometry, { before: reversed(before), after: reversed(after), move: endTurn() }).map((e) =>
+        'player' in e ? e.player : '',
+      ),
+    ).toEqual(['C', 'B']);
   });
 
   it('a seat that drops to zero shares still gets its event', () => {

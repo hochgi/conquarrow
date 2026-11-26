@@ -69,12 +69,13 @@ const replyOf = (raw: string): ExportReplyEntry | undefined => {
   const rec = asRecord(value);
   const reply = asRecord(rec?.['agentReply']);
   const v = rec?.['v'];
-  if (rec === undefined || reply === undefined || typeof v !== 'number') return undefined;
+  if (reply === undefined || typeof v !== 'number') return undefined;
   const moves = numberList(reply['moves']);
   const endTurn = reply['endTurn'];
   if (moves === undefined || typeof endTurn !== 'boolean') return undefined;
-  const { at } = rec;
-  const seat = typeof rec['seat'] === 'string' ? rec['seat'] : reply['seat'];
+  const at = rec?.['at'];
+  const lineSeat = rec?.['seat'];
+  const seat = typeof lineSeat === 'string' ? lineSeat : reply['seat'];
   const { why, plan, resolved, offerVersion } = reply;
   return {
     v,

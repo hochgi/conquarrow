@@ -9,7 +9,6 @@
 
 import type { AppliedStep, ArrowId, GameEvent, GeometryPort, LogEvent, PlayerId } from '@conquarrow/contracts';
 import { resolveEvents } from './events';
-import { comparePlayers } from './order';
 import { shareCountOf } from './victory';
 
 const id = (value: ArrowId | PlayerId): string => String(value);
@@ -88,14 +87,14 @@ export const toLogEvent = (event: GameEvent): LogEvent | undefined => {
 
 /**
  * P107 D1: one `sharesChanged` per player whose spawner-share count
- * (`shareCountOf`) differs between `before` and `after`, in player-id order.
+ * (`shareCountOf`) differs between `before` and `after`, in turn order (`players`).
  * Geometry-aware, which is why it is beside `resolveEvents` and not inside it.
  */
 export const resolveShareEvents = (geometry: GeometryPort, step: AppliedStep): readonly LogEvent[] => {
   const { before, after } = step;
   const out: LogEvent[] = [];
-  // `players` is never reordered or shrunk (GameState), so `before`'s list is every seat.
-  for (const player of before.players.toSorted(comparePlayers)) {
+  // `players` is never reordered or shrunk (GameState): `before`'s list is every seat, in turn order.
+  for (const player of before.players) {
     const from = shareCountOf(before, player, geometry);
     const to = shareCountOf(after, player, geometry);
     if (from !== to) out.push({ kind: 'sharesChanged', player: id(player), from, to });

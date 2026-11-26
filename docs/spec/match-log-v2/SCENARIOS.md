@@ -129,6 +129,6 @@ sequenceDiagram
       Resolver->>Resolver: toLogEvent: lists → counts, absent optionals left out
     end
   end
-  Resolver->>Resolver: resolveShareEvents: sharesChanged per player whose share count changed (player order)
+  Resolver->>Resolver: resolveShareEvents: sharesChanged per player whose share count changed (turn order)
   Resolver-->>Caller: LogEvent[]
 ```

@@ -78,9 +78,8 @@ export const parseLogLine = (raw: string): LogLine | undefined => {
   const inner = asRecord(move);
   if (inner === undefined) return undefined;
   const v = rec['v'];
-  const fields = v2Fields(rec);
-  if (typeof v !== 'number' || !Number.isInteger(v)) return { ...fields, move: move as Move };
-  return { v, ...fields, move: move as Move };
+  const stamped = typeof v === 'number' && Number.isInteger(v);
+  return { ...(stamped ? { v } : {}), ...v2Fields(rec), move: move as Move };
 };
 
 const parseLogLines = (raw: string | undefined): readonly LogLine[] => {

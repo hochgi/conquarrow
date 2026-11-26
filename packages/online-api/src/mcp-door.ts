@@ -991,6 +991,8 @@ const move = async (
   if (indices.length === 0 && !endTurn && stepsRemain(turn.game)) {
     return offerResult(id, { stop: false, ...turn.named }, turn.game, seat, option);
   }
+  // P107 D4: the reply's time is when it arrived, before any of its moves applied.
+  const receivedAt = new Date(deps.clock()).toISOString();
   const applied = applyPrefix(turn.game, indices, deps.clock);
   if (applied === undefined) {
     return toolResult(id, { error: 'an index is unknown or illegal now', stop: false }, true);
@@ -1011,7 +1013,7 @@ const move = async (
     logged.push(...advanced.logged);
   }
   const version = turn.version + 1;
-  const extra = replyLine(version, new Date(deps.clock()).toISOString(), String(seat), {
+  const extra = replyLine(version, receivedAt, String(seat), {
     moves: indices,
     resolved: applied.logged.map((entry) => entry.move),
     offerVersion: turn.version,

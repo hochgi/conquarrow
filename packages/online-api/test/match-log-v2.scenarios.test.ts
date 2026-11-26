@@ -233,6 +233,8 @@ describe('SCENARIOS.md 3 — an agent move is logged with what it resolved to', 
       expect(Object.keys(reply ?? {})).toEqual(['v', 'at', 'seat', 'agentReply']);
       expect(reply).toMatchObject({ v: 5, seat: 'B' });
       expect(reply?.['at']).toMatch(ISO);
+      // D4: received before its moves applied.
+      expect(String(reply?.['at']) < String(stepLine?.['at'])).toBe(true);
       expect(reply?.['agentReply']).toStrictEqual({
         moves: [0],
         resolved: [offered],

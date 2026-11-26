@@ -47,7 +47,7 @@ Share ownership needs the board geometry (a share is a spawner-border arrow
 of the player's territory, `shareCountOf`), and `resolveEvents` is
 geometry-free. So the same module adds `resolveShareEvents(geometry, step)`:
 one `sharesChanged {player, from, to}` per player whose share count changed,
-in player-id order.
+in turn order (`players`).
 
 ### D2 — what a move line records
 
@@ -106,11 +106,13 @@ record, not the replay).
   applied). `[]` when it sent only `endTurn: true`.
 - `offerVersion` — the version of the position the offer was built from (the
   version the call acted on, so `v - 1`).
+- `at` — when the server received the reply: the clock read before any of
+  its moves applied (so it is earlier than its own move lines' `at`).
 - `seat` moves from inside `agentReply` to the line, like every line.
 - **No `latencyMs`.** The server does not record when an `observe` served an
   offer, and storing it would add a write to every observe. The time an
   agent spent is readable as this line's `at` minus the `at` of the last line
-  before it (the move that handed it the turn). Backlog.
+  of an earlier version (the move that handed it the turn). Backlog.
 
 A refused or unusable call writes nothing (unchanged).
 
