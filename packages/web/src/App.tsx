@@ -16,15 +16,33 @@ import {
   type ReplayBatch,
 } from '@conquarrow/contracts';
 import { makeLayout, makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
-import { makeRules } from '@conquarrow/rules-core';
+import { isLost, makeRules } from '@conquarrow/rules-core';
 import { styleFor } from './colors';
 import { hasLegalStep, onlinePassMove, passIfExhausted } from './autoEndTurn';
 import { Board } from './Board';
 import { cullArrows, cullVertices } from './cull';
 import { COARSE_HIT_PADDING_PX, hitArrow, hitSpawnerVertex } from './hit';
+import { EliminationToasts } from './EliminationToasts';
 import { Hud } from './Hud';
 import type { TutorialHud } from './Hud';
-import { localConfigKind, localTurnSeat, onlineTurnSeat, type TurnBannerSeat } from './turnBanner';
+import {
+  ELIMINATION_TOAST_MS,
+  eliminationToasts,
+  lostSeatIds,
+  matchIdentity,
+  observeLosses,
+  type EliminationToast,
+  type LossMemory,
+} from './lostSeat';
+import { labelForLocalSeat, labelForOnlineSeat } from './seatLabel';
+import { seatLineView } from './seatLine';
+import { standingsForHud } from './standings';
+import {
+  localConfigKind,
+  localTurnSeat,
+  onlineTurnSeat,
+  type TurnBannerSeat,
+} from './turnBanner';
 import type { InputMode, InputSnapshot } from './input/modes';
 import { createInputMode } from './input/modes';
 import { cancelPointer, pointerUpIntent, type PointerUpIntent } from './input/pointer';
@@ -403,6 +421,18 @@ const onlineBannerSeat = (
 };
 // Stryker restore all
 
+/**
+ * The displayed rules state's lost letters. `isLost` is the only loss fact.
+ * A letter that is not a player is not lost — `lostSeatIds` only asks about players.
+ */
+// Stryker disable all -- no DOM harness; lostSeatIds / observeLosses / eliminationToasts hold the decision and are tested.
+const lostAt = (state: GameState, letter: string): boolean => {
+  const player = state.players.find((id) => String(id) === letter);
+  if (player === undefined) return false;
+  return isLost(state, player, geometry);
+};
+// Stryker restore all
+
 export const App = (): ReactElement => {
   const { host, gen, refresh } = usePagesHost();
   // P95 D12: the token lives in the host's store (localStorage), so ask the host.
@@ -429,6 +459,15 @@ export const App = (): ReactElement => {
   };
   const [state, setState] = useState<GameState | undefined>(undefined);
   const [log, setLog] = useState<MatchLog | undefined>(undefined);
+  // Stryker disable all -- no DOM harness; lostSeatIds / observeLosses / eliminationToasts hold the decision and are tested.
+  const [toasts, setToasts] = useState<readonly EliminationToast[]>([]);
+  // Stryker restore all
+  const lossMemoryRef = useRef<LossMemory | undefined>(undefined);
+  // Stryker disable all -- no DOM harness; lostSeatIds / observeLosses / eliminationToasts hold the decision and are tested.
+  const dismissToast = useCallback((id: string): void => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+  // Stryker restore all
   const [resumeStore] = useState(() => createResumeStore(browserResumeBacking()));
   const [resumeFault, setResumeFault] = useState<string | undefined>(undefined);
   const [snap, setSnap] = useState<InputSnapshot>(idleSnap);
@@ -615,6 +654,48 @@ export const App = (): ReactElement => {
     // A snapshot install is a displayed position too (D4, EARS 6).
     current.adapter().noteDisplayed(board.version);
   }, [gen, mode]);
+
+  const pageHash = window.location.hash;
+  // Observe when the displayed rules state or the log changes, not because the
+  // hash changed. Identity is the hash on this render — the install render
+  // already has the new hash. A hash-only flush must not write loss memory.
+  // Not a server snapshot the replay has not installed, and not an animation frame.
+  // Stryker disable all -- no DOM harness; observeLosses / lostSeatIds / eliminationToasts / labelForOnlineSeat / labelForLocalSeat hold the decision and are tested.
+  useEffect(() => {
+    if (state === undefined || log === undefined) return;
+    const onlineHost =
+      hostRef.current !== undefined && onlinePlayRef.current ? hostRef.current : undefined;
+    const identity = matchIdentity(onlineHost !== undefined, pageHash, log.startedAt);
+    const players = state.players.map((id) => String(id));
+    const nextLost = lostSeatIds(players, (letter) => lostAt(state, letter));
+    const previous = lossMemoryRef.current;
+    const observed = observeLosses(previous, identity, nextLost);
+    lossMemoryRef.current = observed.memory;
+    const seats = onlineHost?.board()?.seats ?? onlineHost?.adapter().inviteSeats();
+    const userHash = onlineHost?.adapter().userHash();
+    const incoming = eliminationToasts(observed.newly, (letter) =>
+      onlineHost === undefined
+        ? labelForLocalSeat({
+            configKind: localConfigKind(seatConfigsRef.current.get(letter)),
+            logSeats: log.seats,
+            letter,
+          })
+        : labelForOnlineSeat({
+            players,
+            letter,
+            ...(seats === undefined ? {} : { seats }),
+            ...(userHash === undefined ? {} : { userHash }),
+          }),
+    );
+    const switched = previous === undefined || previous.identity !== identity;
+    if (switched) {
+      setToasts(incoming);
+      return;
+    }
+    if (incoming.length === 0) return;
+    setToasts((current) => [...current, ...incoming]);
+  }, [state, log]);
+  // Stryker restore all
 
   useEffect(() => {
     const current = host;
@@ -2200,6 +2281,25 @@ export const App = (): ReactElement => {
     host !== undefined && onlinePlayRef.current && onlineRoute.kind === 'game'
       ? gameTitle(host.board()?.name, onlineRoute.gameNumber)
       : undefined;
+  // Stryker disable all -- no DOM harness; seatLineView / lostSeatIds / standingsForHud hold the decision and are tested.
+  const onlineHost = host !== undefined && onlinePlayRef.current ? host : undefined;
+  const seatLine = seatLineView(
+    log.seats.map((seat) => ({
+      letter: String(seat.player),
+      kindLabel: displaySeatKind(seat.kind),
+    })),
+    lostSeatIds(
+      state.players.map((id) => String(id)),
+      (letter) => lostAt(state, letter),
+    ),
+  );
+  const standings = standingsForHud(
+    victory.kind === 'over',
+    onlineHost?.board()?.summary,
+    onlineHost === undefined ? undefined : (onlineHost.board()?.seats ?? onlineHost.adapter().inviteSeats()),
+    onlineHost?.adapter().userHash(),
+  );
+  // Stryker restore all
 
   return (
     <div className="app">
@@ -2224,7 +2324,8 @@ export const App = (): ReactElement => {
         onTogglePause={() => {
           setManualPause((prev) => !prev);
         }}
-        seatSummary={log.seats.map((s) => `${String(s.player)}=${displaySeatKind(s.kind)}`).join(' · ')}
+        seatLine={seatLine}
+        standings={standings}
         moveCount={log.moves.length}
         matchSummary={matchSummaryLine(victory.kind === 'over', log.summary)}
         heads={activeTotals.heads}
@@ -2393,6 +2494,7 @@ export const App = (): ReactElement => {
           commitSnap(liveInput().cancel());
         }}
       />
+      <EliminationToasts toasts={toasts} dismissMs={ELIMINATION_TOAST_MS} onDismiss={dismissToast} />
     </div>
   );
 };

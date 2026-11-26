@@ -5,6 +5,7 @@
  */
 
 import type {
+  GameSummary,
   InviteSeat,
   LibraryChangedPayload,
   LibraryCounts,
@@ -16,6 +17,7 @@ import type {
   MyGamesBody,
   OnlineGameBoard,
   OpenLobbyRow,
+  SeatStanding,
   StartedGameRow,
   StateChangedPayload,
   UserHash,
@@ -108,6 +110,69 @@ export const parseStartIds = (
   return { groupHash, gameNumber };
 };
 
+const summaryText = (value: unknown): value is string => typeof value === 'string' && value !== '';
+
+const nonNegativeInt = (value: unknown): value is number =>
+  // Stryker disable next-line ConditionalExpression -- Number.isInteger already rejects every non-number; no D8 drop-or-keep assertion can fail
+  typeof value === 'number'
+  && Number.isInteger(value)
+  && value >= 0;
+
+/** `human` / `agent` / `heuristic` are kept. Any other kind, including `byok`, is absent. */
+const standingKind = (value: unknown): InviteSeat['kind'] | undefined => {
+  if (value === 'human' || value === 'agent' || value === 'heuristic') return value;
+  return undefined;
+};
+
+const parseStanding = (raw: unknown): SeatStanding | undefined => {
+  const rec = asRecord(raw);
+  if (rec === undefined) return undefined;
+  const player = rec['player'];
+  const seat = rec['seat'];
+  const territory = rec['territory'];
+  const shares = rec['shares'];
+  const heads = rec['heads'];
+  const lost = rec['lost'];
+  if (!summaryText(player)) return undefined;
+  if (!nonNegativeInt(seat)) return undefined;
+  if (!nonNegativeInt(territory)) return undefined;
+  if (!nonNegativeInt(shares)) return undefined;
+  if (!nonNegativeInt(heads)) return undefined;
+  if (typeof lost !== 'boolean') return undefined;
+  return {
+    player,
+    seat,
+    kind: standingKind(rec['kind']),
+    territory,
+    shares,
+    heads,
+    lost,
+  };
+};
+
+/**
+ * P102 D8. A `GameSummary`, or `undefined` when the field is absent or invalid.
+ * An invalid summary is dropped whole — no partial table. Extra keys are ignored.
+ * `parseBoard` attaches `summary` only when this returns a value.
+ */
+export const parseGameSummary = (raw: unknown): GameSummary | undefined => {
+  const rec = asRecord(raw);
+  if (rec === undefined) return undefined;
+  const winner = rec['winner'];
+  const turns = rec['turns'];
+  const standingsRaw = rec['standings'];
+  if (!summaryText(winner)) return undefined;
+  if (!nonNegativeInt(turns)) return undefined;
+  if (!Array.isArray(standingsRaw)) return undefined;
+  const standings: SeatStanding[] = [];
+  for (const entry of standingsRaw) {
+    const standing = parseStanding(entry);
+    if (standing === undefined) return undefined;
+    standings.push(standing);
+  }
+  return { winner, turns, standings };
+};
+
 export const parseBoard = (raw: unknown): OnlineGameBoard | undefined => {
   const rec = asRecord(raw);
   if (rec === undefined) return undefined;
@@ -122,11 +187,13 @@ export const parseBoard = (raw: unknown): OnlineGameBoard | undefined => {
     ...(typeof name === 'string' && name !== '' ? { name } : {}),
     ...(typeof owner === 'boolean' ? { owner } : {}),
   };
+  const summary = parseGameSummary(rec['summary']);
+  const withSummary = summary === undefined ? {} : { summary };
   const rawSeats = rec['seats'];
-  if (rawSeats === undefined) return { version, state: rec['state'], ...extra };
+  if (rawSeats === undefined) return { version, state: rec['state'], ...extra, ...withSummary };
   const seats = parseSeats(rawSeats);
   if (seats === undefined) return undefined;
-  return { version, state: rec['state'], seats, ...extra };
+  return { version, state: rec['state'], seats, ...extra, ...withSummary };
 };
 
 const parseLobbyRow = (raw: unknown): OpenLobbyRow | undefined => {

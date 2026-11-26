@@ -11,6 +11,7 @@
 import type { Move } from './move';
 import type {
   GameNumber,
+  GameSummary,
   GroupHash,
   InviteSeat,
   InviteToken,
@@ -41,6 +42,8 @@ export interface OnlineGameBoard {
   readonly name?: string;
   /** P96 D4: the caller owns the game. */
   readonly owner?: boolean;
+  /** P102: a valid finished-game summary. Absent when GET omitted it or it was invalid. */
+  readonly summary?: GameSummary;
 }
 
 /**
