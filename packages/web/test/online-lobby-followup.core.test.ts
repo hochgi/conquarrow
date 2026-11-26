@@ -9,7 +9,7 @@ import {
   coerceOnlineSeatPlan,
   defaultSeat,
   defaultSeatPlan,
-  onlineSeatKindAllowed,
+  pickOnlineSeat,
   type SeatKind,
   type SeatPlan,
 } from '../src/seatPlan';
@@ -96,16 +96,16 @@ describe('Online Player floor', () => {
     expect(online.seats[2]?.kind).toBe('heuristic');
   });
 
-  it('Two Player chairs cannot become AI', () => {
+  it('P106: a Player chair may become AI; the plan note says what is missing', () => {
     const plan = planFromKinds(['human', 'human', 'heuristic']);
 
-    expect(onlineSeatKindAllowed(plan, 0, 'heuristic')).toBe(false);
+    expect(pickOnlineSeat(plan, 0, 'heuristic').seats[0]?.kind).toBe('heuristic');
   });
 
   it('Three Player chairs can become two Player and one AI', () => {
     const plan = planFromKinds(['human', 'human', 'human']);
 
-    expect(onlineSeatKindAllowed(plan, 2, 'heuristic')).toBe(true);
+    expect(pickOnlineSeat(plan, 2, 'heuristic').seats[2]?.kind).toBe('heuristic');
   });
 });
 

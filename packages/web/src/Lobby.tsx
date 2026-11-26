@@ -11,7 +11,6 @@ import { DELETE_GAME_CONFIRM, GAME_NAME_MAX } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { testByokConnection } from './byokBot';
 import { DEFAULT_BYOK, isByokReady } from './byokConfig';
-import { onlinePlanCreatable } from './online-pages';
 import { rosterLabel } from './seatLabel';
 import {
   CREATING_INVITE_COPY,
@@ -24,28 +23,26 @@ import {
   libraryWinnerLine,
   type LibrarySectionView,
   chooserSlotOffered,
-  createPlanNote,
   formatLibraryStartedAt,
-  kindsForHost,
   libraryNotice,
   libraryOffered,
   libraryRowTint,
   MY_GAMES_COPY,
   NO_GAMES_COPY,
   lobbyKindOptions,
-  hostSeatIndex,
+  seatPlanNote,
   sessionExpiredNote,
 } from './online-shell-ui';
 import {
   PLAYTEST_PLAYER_COUNTS,
   byokConfigForSeat,
-  onlineSeatKindAllowed,
+  pickOnlineSeat,
   resizeSeatPlan,
   seatPlanReady,
   seatPlayerId,
   updateSeat,
   type PlaytestPlayerCount,
-  type SeatKind,
+  type LobbySeatKind,
   type SeatPlan,
 } from './seatPlan';
 
@@ -155,17 +152,12 @@ export const Lobby = ({
   const startDisabled = onlineMode ? !online.startOffered : incomplete;
   const frozen = onlineMode && !online.seatEditsOffered;
   const rosterSeats = frozen ? online.inviteSeats : undefined;
-  const optionsForSeat = (
-    index: number,
-  ): readonly { readonly value: SeatKind; readonly label: string }[] => {
-    const offered = lobbyKindOptions(
-      onlineMode ? 'online' : 'local',
-      index,
-      hostSeatIndex(plan.seats),
-    );
+  // P106: every seat offers the same choices, seat A included.
+  const seatOptions = ((): readonly { readonly value: LobbySeatKind; readonly label: string }[] => {
+    const offered = lobbyKindOptions(onlineMode ? 'online' : 'local');
     if (!onlineMode) return offered;
     return offered.filter((opt) => online.seatKinds.includes(opt.value));
-  };
+  })();
   const [probeSeat, setProbeSeat] = useState<number | undefined>(undefined);
   const [probeMsg, setProbeMsg] = useState<string | undefined>(undefined);
   const [probeOk, setProbeOk] = useState<boolean | undefined>(undefined);
@@ -251,7 +243,7 @@ export const Lobby = ({
             {frozen
               ? 'Seats — you, players, agents, AI, or waiting'
               : onlineMode
-                ? 'Seats — Player, AI, or Agent'
+                ? 'Seats — pick Player (you) for your own seat'
                 : 'Seats — each can be Player or AI'}
           </legend>
           {rosterSeats !== undefined ? (
@@ -271,26 +263,14 @@ export const Lobby = ({
                     aria-label={`${styleFor(player).label} driver`}
                     disabled={frozen}
                     onChange={(e) => {
-                      const kind = e.target.value as SeatKind;
-                      if (onlineMode && !onlineSeatKindAllowed(plan, index, kind)) {
-                        return;
-                      }
-                      onPlan(updateSeat(plan, index, { kind }));
+                      const kind = e.target.value as LobbySeatKind;
+                      onPlan(onlineMode ? pickOnlineSeat(plan, index, kind) : updateSeat(plan, index, { kind }));
                       setProbeMsg(undefined);
                       setProbeOk(undefined);
                     }}
                   >
-                    {optionsForSeat(index).map((opt) => (
-                      <option
-                        key={opt.value}
-                        value={opt.value}
-                        disabled={
-                          onlineMode &&
-                          opt.value === 'heuristic' &&
-                          seat.kind === 'human' &&
-                          !onlineSeatKindAllowed(plan, index, 'heuristic')
-                        }
-                      >
+                    {seatOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
                     ))}
@@ -816,7 +796,7 @@ const SeatPlanNote = ({
   readonly online: LobbyOnline;
 }): ReactElement | null => {
   if (!online.signedIn || !online.seatEditsOffered || online.createInvitePending) return null;
-  const note = createPlanNote(onlinePlanCreatable(kindsForHost(plan, true)));
+  const note = seatPlanNote(plan);
   if (note === undefined) return null;
   return <p className="lobby-byok-note">{note}</p>;
 };

@@ -44,13 +44,13 @@ export const GAME_TWO = '000002';
 export const GROUP_ABSENT = 'f'.repeat(32);
 
 export const TWO_HUMAN_HEURISTIC: readonly PlannedSeatKind[] = [
-  'human',
+  'creator',
   'human',
   'heuristic',
 ];
 
 export const SIX_HUMAN: readonly PlannedSeatKind[] = [
-  'human',
+  'creator',
   'human',
   'human',
   'human',
@@ -58,16 +58,16 @@ export const SIX_HUMAN: readonly PlannedSeatKind[] = [
   'human',
 ];
 
-export const THREE_HUMAN: readonly PlannedSeatKind[] = ['human', 'human', 'human'];
+export const THREE_HUMAN: readonly PlannedSeatKind[] = ['creator', 'human', 'human'];
 
 export const HEURISTIC_THEN_TWO_HUMANS: readonly PlannedSeatKind[] = [
   'heuristic',
-  'human',
+  'creator',
   'human',
 ];
 
 export const HUMAN_THEN_FOUR_HEURISTIC_THEN_HUMAN: readonly PlannedSeatKind[] = [
-  'human',
+  'creator',
   'heuristic',
   'heuristic',
   'heuristic',
@@ -593,14 +593,16 @@ export const playLogKeys = (s3: ReadonlyMap<string, string>): readonly string[] 
     .filter((key) => key.endsWith('/state.json') || key.endsWith('/log.jsonl'))
     .sort();
 
+/** P106: `kinds` with the creator's chair (`Player (you)`) at `index`. */
+export const hostAt = (kinds: readonly PlannedSeatKind[], index: number): PlannedSeatKind[] =>
+  kinds.map((kind, i) => (i === index ? 'creator' : kind === 'creator' ? 'human' : kind));
+
 export const createOpenInvite = async (
   api: OnlinePort,
   creator: TestUser,
   seats: readonly PlannedSeatKind[] = TWO_HUMAN_HEURISTIC,
-  hostSeatIndex?: number,
 ): Promise<string> => {
-  const body: CreateInviteBody =
-    hostSeatIndex === undefined ? { seats } : { seats, hostSeatIndex };
+  const body: CreateInviteBody = { seats };
   const res = await postInvites(api, creator.bearer, body);
   expectStatus(res, 201);
   return tokenOf(parseBody(res));
@@ -635,7 +637,7 @@ export const startAliceBobCarol = async (api: OnlinePort): Promise<string> => {
 };
 
 export const HUMAN_HEURISTIC_HUMAN: readonly PlannedSeatKind[] = [
-  'human',
+  'creator',
   'heuristic',
   'human',
 ];
@@ -650,7 +652,7 @@ export const startAliceHeuristicBob = async (api: OnlinePort): Promise<string> =
 
 /** Seats heuristic, human, human — Alice at seat 1, Bob at seat 2. */
 export const startHeuristicThenAliceBob = async (api: OnlinePort): Promise<string> => {
-  const token = await createOpenInvite(api, ALICE, HEURISTIC_THEN_TWO_HUMANS, 1);
+  const token = await createOpenInvite(api, ALICE, hostAt(HEURISTIC_THEN_TWO_HUMANS, 1));
   expectStatus(await postAccept(api, token, BOB.bearer), 200);
   expectStatus(await postStart(api, token, ALICE.bearer), 200);
   return token;
@@ -658,7 +660,7 @@ export const startHeuristicThenAliceBob = async (api: OnlinePort): Promise<strin
 
 /** Seats human, human, heuristic — Alice at seat 1, Bob at seat 0. */
 export const startBobAliceHeuristic = async (api: OnlinePort): Promise<string> => {
-  const token = await createOpenInvite(api, ALICE, TWO_HUMAN_HEURISTIC, 1);
+  const token = await createOpenInvite(api, ALICE, hostAt(TWO_HUMAN_HEURISTIC, 1));
   expectStatus(await postAccept(api, token, BOB.bearer), 200);
   expectStatus(await postStart(api, token, ALICE.bearer), 200);
   return token;

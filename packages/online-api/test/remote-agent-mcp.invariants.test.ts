@@ -36,31 +36,29 @@ import { aliceHash, groupHashOfUserHashes, postStart, userHashOf, BOB } from './
 const REFUSED: readonly {
   readonly name: string;
   readonly seats: readonly PlannedSeatKind[];
-  readonly host?: number;
 }[] = [
   { name: 'no human', seats: ['agent', 'agent', 'heuristic'] },
-  { name: 'one human, no agent', seats: ['human', 'heuristic', 'heuristic'] },
-  { name: 'byok', seats: ['byok', 'human', 'human'] },
-  { name: 'host is agent', seats: ['agent', 'human', 'heuristic'], host: 0 },
-  { name: 'length 2', seats: ['human', 'agent'] },
-  { name: 'length 4', seats: ['human', 'agent', 'human', 'heuristic'] },
+  { name: 'one human, no agent', seats: ['creator', 'heuristic', 'heuristic'] },
+  { name: 'byok', seats: ['byok', 'creator', 'human'] },
+  { name: 'two creator chairs (P106)', seats: ['creator', 'agent', 'creator'] },
+  { name: 'length 2', seats: ['creator', 'agent'] },
+  { name: 'length 4', seats: ['creator', 'agent', 'human', 'heuristic'] },
   { name: 'length 6 with no human', seats: ['agent', 'agent', 'heuristic', 'heuristic', 'heuristic', 'heuristic'] },
 ];
 
 const ACCEPTED: readonly {
   readonly name: string;
   readonly seats: readonly PlannedSeatKind[];
-  readonly host?: number;
 }[] = [
-  { name: 'one human and one agent', seats: ['human', 'agent', 'heuristic'] },
-  { name: 'one human and two agents', seats: ['human', 'agent', 'agent'] },
-  { name: 'six seats, one human, one agent', seats: ['human', 'agent', 'heuristic', 'heuristic', 'heuristic', 'heuristic'] },
-  { name: 'two humans', seats: ['human', 'human', 'heuristic'] },
-  { name: 'host is the second human', seats: ['agent', 'human', 'heuristic'], host: 1 },
+  { name: 'one human and one agent', seats: ['creator', 'agent', 'heuristic'] },
+  { name: 'one human and two agents', seats: ['creator', 'agent', 'agent'] },
+  { name: 'six seats, one human, one agent', seats: ['creator', 'agent', 'heuristic', 'heuristic', 'heuristic', 'heuristic'] },
+  { name: 'two humans', seats: ['creator', 'human', 'heuristic'] },
+  { name: 'an agent on seat A, the creator on B (P106)', seats: ['agent', 'creator', 'heuristic'] },
 ];
 
-const createBody = (plan: { readonly seats: readonly PlannedSeatKind[]; readonly host?: number }): string =>
-  JSON.stringify(plan.host === undefined ? { seats: plan.seats } : { seats: plan.seats, hostSeatIndex: plan.host });
+const createBody = (plan: { readonly seats: readonly PlannedSeatKind[] }): string =>
+  JSON.stringify({ seats: plan.seats });
 
 describe('remote-agent-mcp invariants', () => {
   it('invariant 1: refused plans are 422 and write no invite', async () => {

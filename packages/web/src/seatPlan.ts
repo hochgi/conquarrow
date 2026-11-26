@@ -20,7 +20,14 @@ export const SEAT_PLAN_STORAGE_KEY = 'conquarrow:seat-plan';
 export const PLAYTEST_PLAYER_COUNTS = [3, 6] as const;
 export type PlaytestPlayerCount = (typeof PLAYTEST_PLAYER_COUNTS)[number];
 
+/** How a seat is driven in a match (local play, logs, banners). */
 export type SeatKind = 'human' | 'heuristic' | 'byok' | 'agent';
+
+/**
+ * A lobby pick (P106): a driver kind, or one of the online-only choices
+ * `creator` (Player (you)) and `creator-agent` (Agent (yours)).
+ */
+export type LobbySeatKind = SeatKind | 'creator' | 'creator-agent';
 
 export interface SeatByokFields {
   readonly baseUrl: string;
@@ -35,15 +42,33 @@ export interface SeatByokFields {
 }
 
 export interface SeatConfig {
-  readonly kind: SeatKind;
+  readonly kind: LobbySeatKind;
   /** Edited whenever kind is byok; ignored otherwise. */
   readonly byok: SeatByokFields;
 }
+
+/** A seat as a match drives it: the lobby pick mapped by `driverSeat`. */
+export interface DriverSeatConfig extends Omit<SeatConfig, 'kind'> {
+  readonly kind: SeatKind;
+}
+
+/** P106: `creator` drives as `human`, `creator-agent` as `agent`; every other kind as itself. */
+export const driverSeat = (seat: SeatConfig): DriverSeatConfig => {
+  if (seat.kind === 'creator') return { ...seat, kind: 'human' };
+  if (seat.kind === 'creator-agent') return { ...seat, kind: 'agent' };
+  return { ...seat, kind: seat.kind };
+};
 
 export interface SeatPlan {
   readonly playerCount: PlaytestPlayerCount;
   readonly seats: readonly SeatConfig[];
 }
+
+/** P106: seat `index` of `plan` as a match drives it; `undefined` past the plan. */
+export const driverSeatAt = (plan: SeatPlan, index: number): DriverSeatConfig | undefined => {
+  const seat = plan.seats[index];
+  return seat === undefined ? undefined : driverSeat(seat);
+};
 
 export const PLAYER_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 
@@ -72,7 +97,7 @@ export const byokConfigForSeat = (seat: SeatConfig): ByokConfig => ({
   ...seat.byok,
 });
 
-export const defaultSeat = (kind: SeatKind = 'heuristic'): SeatConfig => ({
+export const defaultSeat = (kind: LobbySeatKind = 'heuristic'): SeatConfig => ({
   kind,
   byok: emptyByokFields(),
 });
@@ -87,7 +112,10 @@ export const defaultSeatPlan = (playerCount: PlaytestPlayerCount = 3): SeatPlan 
 
 const hasAgentChair = (plan: SeatPlan): boolean => plan.seats.some((seat) => seat.kind === 'agent');
 
-/** Local → Online: seats 0 and 1 become `human` unless an agent chair is already there. */
+/**
+ * Local → Online: seats 0 and 1 become `human` unless an agent chair is
+ * already there. Never picks `creator`: the creator picks their own seat (P106).
+ */
 export const coerceOnlineSeatPlan = (plan: SeatPlan): SeatPlan => ({
   playerCount: plan.playerCount,
   seats: plan.seats.map((seat, index) => {
@@ -97,23 +125,42 @@ export const coerceOnlineSeatPlan = (plan: SeatPlan): SeatPlan => ({
   }),
 });
 
-/** Online: a `human` → `heuristic` change is applied only when the plan has ≥ 3 `human` chairs. */
-export const onlineSeatKindAllowed = (
+/** P106, Online → Local: `creator` → `human`; both agent choices → `heuristic`. */
+export const coerceLocalSeatPlan = (plan: SeatPlan): SeatPlan => ({
+  playerCount: plan.playerCount,
+  seats: plan.seats.map((seat) => {
+    if (seat.kind === 'creator') return { ...seat, kind: 'human' };
+    if (seat.kind === 'agent' || seat.kind === 'creator-agent') return { ...seat, kind: 'heuristic' };
+    return seat;
+  }),
+});
+
+/**
+ * P106: the plan after a lobby mode switch; the same plan when the mode is kept.
+ * Local → Online coerces with `coerceOnlineSeatPlan`, Online → Local with
+ * `coerceLocalSeatPlan`.
+ */
+export const planForModeSwitch = (
   plan: SeatPlan,
-  index: number,
-  nextKind: SeatKind,
-): boolean => {
-  const current = plan.seats[index];
-  if (index === 0 && nextKind === 'agent') return false;
-  if (current?.kind === 'human' && nextKind !== 'human') {
-    const humans = plan.seats.filter((seat) => seat.kind === 'human').length;
-    const agents = plan.seats.filter((seat) => seat.kind === 'agent').length;
-    const nextHumans = humans - 1;
-    const nextAgents = agents + (nextKind === 'agent' ? 1 : 0);
-    return nextHumans >= 1 && (nextAgents >= 1 || nextHumans >= 2);
-  }
-  return true;
+  from: 'local' | 'online',
+  to: 'local' | 'online',
+): SeatPlan => {
+  if (from === to) return plan;
+  return to === 'online' ? coerceOnlineSeatPlan(plan) : coerceLocalSeatPlan(plan);
 };
+
+/**
+ * P106: one online pick. `creator` moves Player (you): the seat that held it
+ * becomes `human`. Any other pick changes only that seat; none is refused.
+ */
+export const pickOnlineSeat = (plan: SeatPlan, index: number, kind: LobbySeatKind): SeatPlan => ({
+  playerCount: plan.playerCount,
+  seats: plan.seats.map((seat, i) => {
+    if (i === index) return { ...seat, kind };
+    if (kind === 'creator' && seat.kind === 'creator') return { ...seat, kind: 'human' };
+    return seat;
+  }),
+});
 
 export const resizeSeatPlan = (plan: SeatPlan, playerCount: PlaytestPlayerCount): SeatPlan => {
   const seats = [...plan.seats];

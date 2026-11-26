@@ -99,8 +99,8 @@ export const waitingSeats = (): readonly InviteSeat[] => [
   { kind: 'heuristic' },
 ];
 
-export const TWO_PLAYERS: readonly PlannedSeatKind[] = ['human', 'human'];
-export const PLAYER_AND_AGENT: readonly PlannedSeatKind[] = ['human', 'agent'];
+export const TWO_PLAYERS: readonly PlannedSeatKind[] = ['creator', 'human', 'heuristic'];
+export const PLAYER_AND_AGENT: readonly PlannedSeatKind[] = ['creator', 'agent', 'heuristic'];
 
 export const storedToken = (h: HostHarness): string | null =>
   h.session.getItem(GOOGLE_ID_TOKEN_SESSION_KEY);

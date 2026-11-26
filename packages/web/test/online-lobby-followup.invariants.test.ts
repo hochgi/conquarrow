@@ -16,7 +16,7 @@ import {
   coerceOnlineSeatPlan,
   defaultSeat,
   defaultSeatPlan,
-  onlineSeatKindAllowed,
+  pickOnlineSeat,
   type PlaytestPlayerCount,
   type SeatKind,
   type SeatPlan,
@@ -146,36 +146,20 @@ describe('online-lobby-followup invariants', () => {
     }
   });
 
-  it('When Online mode has fewer than 3 human chairs, the system shall not apply a change of a human chair to heuristic', () => {
-    const cases: readonly { readonly playerCount: PlaytestPlayerCount; readonly humans: number }[] =
-      [
-        { playerCount: 3, humans: 1 },
-        { playerCount: 3, humans: 2 },
-        { playerCount: 6, humans: 1 },
-        { playerCount: 6, humans: 2 },
-      ];
+  it('P106 (replaces the 3-human-chair rule): every online pick is applied', () => {
+    const cases: readonly { readonly playerCount: PlaytestPlayerCount; readonly humans: number }[] = [
+      { playerCount: 3, humans: 1 },
+      { playerCount: 3, humans: 2 },
+      { playerCount: 3, humans: 3 },
+      { playerCount: 6, humans: 1 },
+      { playerCount: 6, humans: 6 },
+    ];
     for (const { playerCount, humans } of cases) {
       const plan = planWithHumans(playerCount, humans);
       expect(
-        onlineSeatKindAllowed(plan, 0, 'heuristic'),
+        pickOnlineSeat(plan, 0, 'heuristic').seats[0]?.kind,
         `${String(playerCount)}p ${String(humans)} humans`,
-      ).toBe(false);
-    }
-  });
-
-  it('When Online mode has 3 or more human chairs, the system shall apply a change of a human chair to heuristic', () => {
-    const cases: readonly { readonly playerCount: PlaytestPlayerCount; readonly humans: number }[] =
-      [
-        { playerCount: 3, humans: 3 },
-        { playerCount: 6, humans: 3 },
-        { playerCount: 6, humans: 6 },
-      ];
-    for (const { playerCount, humans } of cases) {
-      const plan = planWithHumans(playerCount, humans);
-      expect(
-        onlineSeatKindAllowed(plan, 0, 'heuristic'),
-        `${String(playerCount)}p ${String(humans)} humans`,
-      ).toBe(true);
+      ).toBe('heuristic');
     }
   });
 

@@ -62,7 +62,7 @@ const keysOf = (body: unknown): readonly (readonly string[])[] =>
 describe('SCENARIOS.md 1 — create', () => {
   it('ok: the creator’s own chair carries the creator’s name', async () => {
     const h = named();
-    const res = await postInvites(h.api, ALICE.bearer, { seats: ['human', 'human', 'heuristic'] });
+    const res = await postInvites(h.api, ALICE.bearer, { seats: ['creator', 'human', 'heuristic'] });
     expectStatus(res, 201);
     expect(seatsOf(parseBody(res))).toEqual([
       { kind: 'human', userHash: aliceHash(), name: 'Alice' },
@@ -73,7 +73,7 @@ describe('SCENARIOS.md 1 — create', () => {
 
   it('alt bearer rejected: 401 and no invite written', async () => {
     const h = named();
-    const res = await postInvites(h.api, EXPIRED_BEARER, { seats: ['human', 'human', 'heuristic'] });
+    const res = await postInvites(h.api, EXPIRED_BEARER, { seats: ['creator', 'human', 'heuristic'] });
     expectStatus(res, 401);
     expect([...h.s3.keys()].some((key) => key.includes('/invites/'))).toBe(false);
   });
@@ -87,7 +87,7 @@ describe('SCENARIOS.md 1 — create', () => {
 
   it('a creator with no profile name gets no name key', async () => {
     const h = makeHarness();
-    const res = await postInvites(h.api, ALICE.bearer, { seats: ['human', 'human', 'heuristic'] });
+    const res = await postInvites(h.api, ALICE.bearer, { seats: ['creator', 'human', 'heuristic'] });
     expect(keysOf(parseBody(res))).toEqual([['kind', 'userHash'], ['kind'], ['kind']]);
   });
 });
@@ -114,9 +114,9 @@ describe('SCENARIOS.md 2 — peek', () => {
 
   it('alt verified member through an agent chair only: names', async () => {
     const h = named();
-    const token = await createOpenInvite(h.api, ALICE, ['human', 'agent', 'heuristic']);
+    const token = await createOpenInvite(h.api, ALICE, ['creator', 'agent', 'heuristic']);
     // Carol's agent took seat B; Carol holds no human chair.
-    await postInvites(h.api, CAROL.bearer, { seats: ['human', 'human', 'heuristic'] });
+    await postInvites(h.api, CAROL.bearer, { seats: ['creator', 'human', 'heuristic'] });
     const raw = JSON.parse(h.s3.get(inviteKey(token)) ?? '{}') as { seats: unknown[] };
     raw.seats[1] = { kind: 'agent', userHash: carolHash() };
     h.s3.set(inviteKey(token), JSON.stringify(raw));
@@ -150,7 +150,7 @@ describe('SCENARIOS.md 2 — peek', () => {
 
   it('alt verified, not a member: no names', async () => {
     const { h, token } = await joined();
-    await postInvites(h.api, CAROL.bearer, { seats: ['human', 'human', 'heuristic'] });
+    await postInvites(h.api, CAROL.bearer, { seats: ['creator', 'human', 'heuristic'] });
     const res = await getInvite(h.api, token, CAROL.bearer);
     expectStatus(res, 200);
     expect(names(parseBody(res))).toEqual([undefined, undefined, undefined]);
@@ -288,7 +288,7 @@ describe('SCENARIOS.md 5 — my games', () => {
 
   const agentGame = async () => {
     const h = named();
-    const token = await createOpenInvite(h.api, ALICE, ['human', 'agent', 'human']);
+    const token = await createOpenInvite(h.api, ALICE, ['creator', 'agent', 'human']);
     await postAccept(h.api, token, BOB.bearer);
     // Start needs the agent bound (409 otherwise); bind it to Alice, as the MCP door would.
     {

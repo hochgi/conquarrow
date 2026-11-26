@@ -77,11 +77,11 @@ describe('online-web invariants', () => {
     const h = makePagesHarness({ sessionToken: ALICE.bearer });
     await h.adapter.boot();
     h.adapter.selectMode('online');
-    expect(h.adapter.seatKindOptions()).toEqual(['human', 'heuristic', 'agent']);
+    expect(h.adapter.seatKindOptions()).toEqual(['creator', 'human', 'creator-agent', 'agent', 'heuristic']);
     expect(h.adapter.seatKindOptions().includes('byok')).toBe(false);
   });
 
-  it('When Online create is offered, the seat plan shall contain at least two human seats', async () => {
+  it('When Online create is offered, the seat plan shall hold Player (you) and one more Player or Agent (P106)', async () => {
     const h = makePagesHarness({ sessionToken: ALICE.bearer });
     await h.adapter.boot();
     h.adapter.selectMode('online');

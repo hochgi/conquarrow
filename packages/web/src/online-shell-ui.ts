@@ -6,11 +6,13 @@
 import {
   DEFAULT_MATCH_CONFIG,
   gameTitle,
+  onlinePlanProblem,
   type GameState,
   type InviteSeat,
   type LibraryGameStatus,
   type LibraryList,
   type MyGamesBody,
+  type OnlinePlanProblem,
   type StartedGameRow,
   type PagesLobbyMode,
   type PlannedSeatKind,
@@ -104,8 +106,9 @@ export const CREATE_FAILED_COPY = "Couldn't create the invite — try again";
 /** P98. A library read that was not 200 and not 401. */
 export const LIBRARY_FAILED_COPY = "Couldn't load your games — Retry";
 
-/** P98. The seat-plan sentence. Shown only when the plan is not creatable. */
-export const CREATE_PLAN_NOTE = 'Create needs two Players, or a Player and an Agent.';
+/** P106. The seat-plan sentences. Shown only when the plan is not creatable. */
+export const PICK_YOUR_SEAT_NOTE = 'Pick your seat: choose Player (you) on one seat.';
+export const NEEDS_ANOTHER_NOTE = 'Create needs you and at least one more Player or Agent.';
 
 /** `SESSION_EXPIRED_COPY` when the session expired and the player is signed out. */
 export const sessionExpiredNote = (
@@ -117,9 +120,14 @@ export const sessionExpiredNote = (
 export const createRefusedNote = (reason: string | undefined): string =>
   reason !== undefined && reason !== '' ? `${CREATE_REFUSED_COPY}: ${reason}` : CREATE_REFUSED_COPY;
 
-/** Absent when the plan is creatable. */
-export const createPlanNote = (creatable: boolean): string | undefined =>
-  creatable ? undefined : CREATE_PLAN_NOTE;
+/**
+ * Absent when the plan is creatable. The lobby never builds `size`, `byok` or
+ * two `creator` seats, so every problem but `needs-another` asks for the seat.
+ */
+export const createPlanNote = (problem: OnlinePlanProblem | undefined): string | undefined => {
+  if (problem === undefined) return undefined;
+  return problem === 'needs-another' ? NEEDS_ANOTHER_NOTE : PICK_YOUR_SEAT_NOTE;
+};
 
 /** What My games should paint. `NO_GAMES_COPY` only for `empty`; `LIBRARY_FAILED_COPY` only for `failed`. */
 export type LibraryNotice = 'hidden' | 'failed' | 'unset' | 'empty' | 'list';
@@ -140,6 +148,10 @@ export const libraryNotice = (
   return libraryCountsEmpty(library) ? 'empty' : 'list';
 };
 
+/** P106: the lobby's seat-plan note for `plan` as the host would send it online. */
+export const seatPlanNote = (plan: SeatPlan): string | undefined =>
+  createPlanNote(onlinePlanProblem(kindsForHost(plan, true)));
+
 export const kindsForHost = (
   plan: SeatPlan,
   online: boolean,
@@ -147,50 +159,28 @@ export const kindsForHost = (
   plan.seats.map((seat) => (online && seat.kind === 'byok' ? 'heuristic' : seat.kind));
 
 /**
- * Kind control the lobby dropdown shows. Online offers human, heuristic, and
- * agent, except seat 0 which is never agent. Local stays human, heuristic, byok.
+ * Kind control the lobby dropdown shows. Online (P106), every seat — seat A
+ * included — offers the same five choices. Local stays human, heuristic, byok.
  */
-export const pickerKindOptions = (
-  mode: PagesLobbyMode,
-  seatIndex: number,
-): readonly PlannedSeatKind[] => {
-  if (mode === 'online') {
-    const kinds: readonly PlannedSeatKind[] = ['human', 'heuristic', 'agent'];
-    return seatIndex === 0 ? kinds.filter((kind) => kind !== 'agent') : kinds;
-  }
-  return ['human', 'heuristic', 'byok'];
-};
+export const pickerKindOptions = (mode: PagesLobbyMode): readonly PlannedSeatKind[] =>
+  mode === 'online'
+    ? ['creator', 'human', 'creator-agent', 'agent', 'heuristic']
+    : ['human', 'heuristic', 'byok'];
 
 const LOBBY_KIND_LABEL: Record<PlannedSeatKind, string> = {
+  creator: 'Player (you)',
   human: 'Player',
+  'creator-agent': 'Agent (yours)',
+  agent: 'Agent',
   heuristic: 'AI',
   byok: 'BYOK LLM',
-  agent: 'Agent',
 };
 
-/**
- * P105 (2b): the host's chair online. The server makes the first human chair
- * the host, so this is that index, or -1 when the plan has no human.
- */
-export const hostSeatIndex = (seats: readonly { readonly kind: string }[]): number =>
-  seats.findIndex((seat) => seat.kind === 'human');
-
-/**
- * Labels the lobby `<select>` shows. Same kinds as `pickerKindOptions`. Online,
- * the human option on the host's chair (`hostIndex`) reads `Player (you)`.
- */
+/** Labels the lobby `<select>` shows, in `pickerKindOptions` order. */
 export const lobbyKindOptions = (
   mode: PagesLobbyMode,
-  seatIndex: number,
-  hostIndex: number,
 ): readonly { readonly value: PlannedSeatKind; readonly label: string }[] =>
-  pickerKindOptions(mode, seatIndex).map((kind) => ({
-    value: kind,
-    label:
-      mode === 'online' && kind === 'human' && seatIndex === hostIndex
-        ? 'Player (you)'
-        : LOBBY_KIND_LABEL[kind],
-  }));
+  pickerKindOptions(mode).map((kind) => ({ value: kind, label: LOBBY_KIND_LABEL[kind] }));
 
 export const logFromOnlineBoard = (
   game: GameState,

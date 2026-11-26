@@ -113,15 +113,14 @@ const refusal = (status: number): boolean => status >= 400 && status < 500;
 
 describe('Create still refuses a plan that is not one human plus an agent, or two humans', () => {
   it.each([
-    { seats: ['agent', 'agent', 'heuristic'], host: undefined, name: 'no human' },
-    { seats: ['human', 'heuristic', 'heuristic'], host: undefined, name: 'one human and no agent' },
-    { seats: ['byok', 'human', 'human'], host: undefined, name: 'byok' },
-    { seats: ['agent', 'human', 'heuristic'], host: 0, name: 'host is not human' },
-    { seats: ['human', 'agent'], host: undefined, name: 'length other than 3 or 6' },
-  ] as const)('Create refuses and stores nothing — $name', async ({ seats, host }) => {
+    { seats: ['agent', 'agent', 'heuristic'], name: 'no human' },
+    { seats: ['creator', 'heuristic', 'heuristic'], name: 'one human and no agent' },
+    { seats: ['byok', 'creator', 'human'], name: 'byok' },
+    { seats: ['creator', 'agent', 'creator'], name: 'two creator chairs (P106)' },
+    { seats: ['creator', 'agent'], name: 'length other than 3 or 6' },
+  ] as const)('Create refuses and stores nothing — $name', async ({ seats }) => {
     await withRig(async (rig) => {
-      const body =
-        host === undefined ? { seats: [...seats] } : { seats: [...seats], hostSeatIndex: host };
+      const body = { seats: [...seats] };
       const response = await rig.api.handle({
         method: 'POST',
         path: '/invites',
@@ -595,7 +594,7 @@ describe('The reply record is not a move', () => {
           method: 'POST',
           path: '/invites',
           headers: { authorization: `Bearer ${ALICE.bearer}` },
-          body: JSON.stringify({ seats: ['human', 'human', 'heuristic'] }),
+          body: JSON.stringify({ seats: ['creator', 'human', 'heuristic'] }),
         }),
         201,
       );
@@ -1186,7 +1185,7 @@ describe('Ping and burst stay inside one invocation', () => {
           method: 'POST',
           path: '/invites',
           headers: { authorization: `Bearer ${ALICE.bearer}` },
-          body: JSON.stringify({ seats: ['human', 'human', 'heuristic'] }),
+          body: JSON.stringify({ seats: ['creator', 'human', 'heuristic'] }),
         }),
         201,
       );

@@ -29,7 +29,7 @@ import type {
   SubmitRefusal,
   UserHash,
 } from '@conquarrow/contracts';
-import { DELETE_GAME_CONFIRM, FINISHED_PAGE, normalizeGameName } from '@conquarrow/contracts';
+import { DELETE_GAME_CONFIRM, FINISHED_PAGE, normalizeGameName, onlinePlanProblem } from '@conquarrow/contracts';
 import { isOnlineEnvReady } from './online-env';
 import { copiedInviteUrl, formatGameHash, parsePagesHash } from './online-hash';
 import { CREATE_FAILED_COPY, createRefusedNote } from './online-shell-ui';
@@ -85,7 +85,7 @@ const defaultNewId = (): string => crypto.randomUUID();
 const immediately = (): Promise<void> => Promise.resolve();
 
 const LOCAL_SEAT_KINDS: readonly PlannedSeatKind[] = ['human', 'heuristic', 'byok'];
-const ONLINE_SEAT_KINDS: readonly PlannedSeatKind[] = ['human', 'heuristic', 'agent'];
+const ONLINE_SEAT_KINDS: readonly PlannedSeatKind[] = ['creator', 'human', 'creator-agent', 'agent', 'heuristic'];
 
 interface AdapterState {
   mode: PagesLobbyMode;
@@ -170,17 +170,9 @@ const emptyState = (): AdapterState => ({
   deleted: false,
 });
 
-const humanCount = (plan: readonly PlannedSeatKind[]): number =>
-  plan.filter((kind) => kind === 'human').length;
-
-const agentCount = (plan: readonly PlannedSeatKind[]): number =>
-  plan.filter((kind) => kind === 'agent').length;
-
-/** Two Players, or a Player and an Agent. The lobby sentence uses this; do not copy it. */
-export const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean => {
-  const humans = humanCount(plan);
-  return humans >= 2 || (humans >= 1 && agentCount(plan) >= 1);
-};
+/** P106: the server's own check (contracts), so Create is offered iff create would be 201. */
+export const onlinePlanCreatable = (plan: readonly PlannedSeatKind[]): boolean =>
+  onlinePlanProblem(plan) === undefined;
 
 const joinApi = (apiBase: string, path: string): string => {
   const base = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
@@ -522,6 +514,9 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
     if (!named.ok || named.name === undefined) return { seats: state.seatPlan };
     return { seats: state.seatPlan, name: named.name };
   };
+
+  const seatKindOptions = (): readonly PlannedSeatKind[] =>
+    state.mode === 'online' && onlineReady() ? ONLINE_SEAT_KINDS : LOCAL_SEAT_KINDS;
 
   /** Online, a creatable plan, a valid name, and a usable token. */
   const createGatesPass = (): boolean =>
@@ -1244,13 +1239,9 @@ export const createOnlinePages = (deps: OnlinePagesDeps): OnlinePagesPort => {
       return outcome;
     },
     onlineModeOffered: () => onlineReady(),
-    seatKindOptions: () =>
-      state.mode === 'online' && onlineReady() ? ONLINE_SEAT_KINDS : LOCAL_SEAT_KINDS,
-    seatKindOptionsFor: (seatIndex) => {
-      const kinds = state.mode === 'online' && onlineReady() ? ONLINE_SEAT_KINDS : LOCAL_SEAT_KINDS;
-      if (state.mode === 'online' && seatIndex === 0) return kinds.filter((kind) => kind !== 'agent');
-      return kinds;
-    },
+    seatKindOptions,
+    // P106: every seat, seat A included, offers the same choices.
+    seatKindOptionsFor: () => seatKindOptions(),
     createOffered: () =>
       state.mode === 'online' &&
       onlineReady() &&

@@ -68,7 +68,7 @@ describe('One human and one agent can open a lobby', () => {
         method: 'POST',
         path: '/invites',
         headers: { authorization: `Bearer ${ALICE.bearer}` },
-        body: JSON.stringify({ seats: ['human', 'agent', 'heuristic'] }),
+        body: JSON.stringify({ seats: ['creator', 'agent', 'heuristic'] }),
       });
 
       expect(response.statusCode).toBe(201);

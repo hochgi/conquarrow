@@ -16,6 +16,11 @@
 **Protocol:** [SCENARIOS.md](./SCENARIOS.md). Every path is a component test: server paths in `packages/online-api/test/seat-labels.scenarios.test.ts`, client paths in `packages/web/test/seat-labels.scenarios.test.ts`.
 **Features:** [core](./seat-labels.core.feature) · [edge cases](./seat-labels.edge-cases.feature)
 
+
+> **Amended by P106** ([seat-choice](../seat-choice/seat-choice.md)): the plan names the creator's chair with the `creator` token (`Player (you)`), on any seat; `hostSeatIndex` is gone. `creator-agent` (`Agent (yours)`) reserves an agent chair for the creator's own agent. Every online seat, seat A included, offers all five choices. Create needs exactly one `creator` and at least two chairs that are not AI. MCP `join` binds all chairs reserved for the caller; another user's agent never takes them. One user's agent may hold several agent chairs and plays whichever is active. The rules below that this replaces are kept for history.
+
+P106 also replaces `hostSeatIndex(kinds)` / the 3-argument `lobbyKindOptions` (invariant 8): the `Player (you)` option is the `creator` choice, offered on every seat. An unbound agent chair reserved for the caller reads `your agent (waiting)`.
+
 ## Terms
 
 | Term | Means |

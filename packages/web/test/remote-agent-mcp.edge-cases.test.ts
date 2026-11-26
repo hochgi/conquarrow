@@ -31,16 +31,17 @@ describe('The lobby and the library tell the truth about the chair', () => {
     online.adapter.selectMode('online');
 
     expect(online.adapter.seatKindOptions()).toContain('agent');
-    expect(online.adapter.seatKindOptionsFor(0)).not.toContain('agent');
-    expect(pickerKindOptions('online', 1)).toContain('agent');
-    expect(pickerKindOptions('online', 0)).not.toContain('agent');
-    expect(lobbyKindOptions('online', 1, 0).map((opt) => opt.label)).toContain('Agent');
-    expect(lobbyKindOptions('online', 0, 0).map((opt) => opt.value)).not.toContain('agent');
-    expect(lobbyKindOptions('local', 1, 0).map((opt) => opt.value)).not.toContain('agent');
+    // P106: seat A offers agent too.
+    expect(online.adapter.seatKindOptionsFor(0)).toEqual(online.adapter.seatKindOptions());
+    expect(online.adapter.seatKindOptionsFor(0)).toContain('agent');
+    expect(pickerKindOptions('online')).toContain('agent');
+    expect(lobbyKindOptions('online').map((opt) => opt.label)).toContain('Agent');
+    expect(lobbyKindOptions('local').map((opt) => opt.value)).not.toContain('agent');
 
     online.adapter.selectMode('local');
     expect(online.adapter.seatKindOptions()).not.toContain('agent');
-    expect(pickerKindOptions('local', 1)).not.toContain('agent');
+    expect(pickerKindOptions('local')).not.toContain('agent');
+    expect(online.adapter.seatKindOptionsFor(0)).not.toContain('agent');
   });
 
   it('Local to Online keeps an agent chair and does not force a second human', () => {

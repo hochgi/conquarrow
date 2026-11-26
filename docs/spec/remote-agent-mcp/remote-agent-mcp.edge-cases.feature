@@ -17,17 +17,18 @@ Feature: Remote agent seat boundaries
 
     Scenario Outline: Create refuses and stores nothing
       Given a valid Google ID token for user A
-      When A POSTs /invites with seats <seats> and host <host>
+      When A POSTs /invites with seats <seats>
       Then the response is 422
       And fake S3 holds no invite, lobby pointer, group, or game object
 
+      # P106: the creator's chair is the `creator` token; hostSeatIndex is gone.
       Examples:
-        | seats                              | host    |
-        | agent, agent, heuristic            | omitted |
-        | human, heuristic, heuristic        | omitted |
-        | byok, human, human                 | omitted |
-        | agent, human, heuristic            | 0       |
-        | human, agent                       | omitted |
+        | seats                              |
+        | agent, agent, heuristic            |
+        | creator, heuristic, heuristic      |
+        | byok, creator, human               |
+        | creator, agent, creator            |
+        | creator, agent                     |
 
   Rule: Accept and join do not take each other's chairs
 
@@ -289,7 +290,7 @@ Feature: Remote agent seat boundaries
     Scenario: The online picker offers agent and the local picker does not
       When the lobby is online
       Then the kind options include agent
-      And seat 0's options do not include agent
+      And seat 0's options include agent (P106)
       When the lobby is local
       Then the kind options do not include agent
 

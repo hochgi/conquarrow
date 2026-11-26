@@ -36,10 +36,13 @@ export type GroupHash = string;
 export type GameNumber = string;
 
 /**
- * Seat kinds a create request may name. `byok` is refused online (422).
- * `agent` is an online chair; it is never the host.
+ * Seat kinds a create request may name (P106). Online: `creator` is the
+ * creator's own chair (`Player (you)`, exactly one), `human` an open chair,
+ * `creator-agent` an agent chair reserved for the creator's agent
+ * (`Agent (yours)`), `agent` an open agent chair, `heuristic` the AI.
+ * `byok` is local only and refused online (422).
  */
-export type PlannedSeatKind = 'human' | 'heuristic' | 'byok' | 'agent';
+export type PlannedSeatKind = 'creator' | 'human' | 'creator-agent' | 'agent' | 'heuristic' | 'byok';
 
 /**
  * A chair on an invite or game meta.
@@ -49,12 +52,12 @@ export type PlannedSeatKind = 'human' | 'heuristic' | 'byok' | 'agent';
 export type InviteSeat =
   // P105: `name` is the bound user's profile display name, sent to members only.
   | { readonly kind: 'human'; readonly userHash?: UserHash; readonly name?: string }
-  | { readonly kind: 'agent'; readonly userHash?: UserHash; readonly name?: string }
+  // P106: `reservedFor` keeps an unbound agent chair for that user's own agent; binding drops it.
+  | { readonly kind: 'agent'; readonly userHash?: UserHash; readonly name?: string; readonly reservedFor?: UserHash }
   | { readonly kind: 'heuristic' };
 
 export interface CreateInviteBody {
   readonly seats: readonly PlannedSeatKind[];
-  readonly hostSeatIndex?: number;
   /** P96 D6: optional; `normalizeGameName` decides it. */
   readonly name?: string;
 }

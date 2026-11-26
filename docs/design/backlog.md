@@ -127,9 +127,11 @@ detailed form of an item; this file is the short list and the order.
 - **Event animations are too fast to read.** P92/P93 issue review
   2026-11-16: conversions, battles and encirclements play faster than a
   human can follow, now that every seat replays (P94). Pace them.
-- **Seat A: keep it the creator's, or let the creator pick?** [P105](packets/P105-seat-labels.md)
-  keeps the spec default (the first human chair is the host and reads
-  `Player (you)`). Gilad's call; issue #119's grill question.
+- **Seat choice (Gilad, 2026-11-26) — P106.** The creator is not pinned to
+  seat A; every online seat offers `Player (you)`, `Player`, `Agent (yours)`,
+  `Agent` and `AI`; create needs `Player (you)` picked (once); `Agent (yours)`
+  may repeat. Shipped as [P106](packets/P106-seat-choice.md) (branch `p106-seat-choice`, awaiting review). Open: may
+  the creator hold only `Agent (yours)` seats (no human seat)?
 - **A BYOK seat reads `AI` on the seat line.** P105 follows P102's table
   (`byok` → `AI`). If a local BYOK seat should read `LLM` or the model
   name, that is one row in `seatLabel` plus its tests.

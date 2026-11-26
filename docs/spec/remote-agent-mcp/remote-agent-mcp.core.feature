@@ -17,7 +17,7 @@ Feature: A remote agent seat on an online match
 
     Scenario: Create stores a lobby with one human and one agent
       Given a valid Google ID token for user A
-      When A POSTs /invites with seats human, agent, heuristic
+      When A POSTs /invites with seats creator, agent, heuristic
       Then the response is 201
       And seat 0 is human bound to A's userHash
       And seat 1 is agent and unbound

@@ -7,9 +7,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { onlinePlanCreatable } from '../src/online-pages';
+import { onlinePlanProblem } from '@conquarrow/contracts';
 import {
-  CREATE_PLAN_NOTE,
+  NEEDS_ANOTHER_NOTE,
   LIBRARY_FAILED_COPY,
   NO_GAMES_COPY,
   SESSION_EXPIRED_COPY,
@@ -175,12 +175,12 @@ describe('The seat-plan sentence matches the rule (D7)', () => {
 
     expect({
       signedIn: h.host.signedIn(),
-      note: createPlanNote(onlinePlanCreatable(PLAYER_AND_AGENT)),
-      sentence: CREATE_PLAN_NOTE,
+      note: createPlanNote(onlinePlanProblem(PLAYER_AND_AGENT)),
+      sentence: NEEDS_ANOTHER_NOTE,
     }).toEqual({
       signedIn: true,
       note: undefined,
-      sentence: 'Create needs two Players, or a Player and an Agent.',
+      sentence: 'Create needs you and at least one more Player or Agent.',
     });
   });
 });

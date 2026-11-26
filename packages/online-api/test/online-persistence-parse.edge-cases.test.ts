@@ -15,13 +15,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { InviteSeat, PlannedSeatKind } from '@conquarrow/contracts';
+import type { InviteSeat } from '@conquarrow/contracts';
 import { mintArrowId } from '@conquarrow/contracts';
 import { parseLogLine } from '../src/game-log';
 import { parsePersistedEnvelope } from '../src/game-snapshot';
 import {
   asRecord,
-  firstHumanIndex,
   indexOfBoundUser,
   nextUnboundHumanIndex,
   parseGameMeta,
@@ -407,23 +406,13 @@ describe('asRecord accepts only a plain object', () => {
 
 describe('seat plans and seat lookups', () => {
   it('reads every planned seat kind, byok included', () => {
-    const kinds = ['human', 'heuristic', 'byok'];
+    const kinds = ['creator', 'human', 'creator-agent', 'agent', 'heuristic', 'byok'];
 
     expect(parseKinds(kinds)).toStrictEqual(kinds);
   });
 
   it('refuses a plan with an unknown seat kind', () => {
     expect(parseKinds(['human', 'robot'])).toBeUndefined();
-  });
-
-  it('finds the first human seat past leading heuristics', () => {
-    const kinds: readonly PlannedSeatKind[] = ['heuristic', 'heuristic', 'human', 'human'];
-
-    expect(firstHumanIndex(kinds)).toBe(2);
-  });
-
-  it('reports no human seat as -1', () => {
-    expect(firstHumanIndex(['heuristic', 'heuristic'])).toBe(-1);
   });
 
   const seats: readonly InviteSeat[] = [

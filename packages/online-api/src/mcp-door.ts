@@ -19,6 +19,8 @@ import { summaryOf } from './game-summary';
 import { bytesToHex, groupHashFromUserHashes, userHashFromSub } from './hashing';
 import {
   boundHumanHashes,
+  bindReservedAgents,
+  holdsAgentSeatAt,
   indexOfBoundAgent,
   nextUnboundAgentIndex,
   parseInvite,
@@ -243,6 +245,18 @@ const bindAgent = async (
     if (invite.status === 'revoked') return toolResult(1, { error: 'revoked' }, true);
     if (invite.status === 'started') return toolResult(1, { error: 'started' }, true);
     if (invite.status === 'deleted') return toolResult(1, { error: 'deleted' }, true);
+    const reserved = bindReservedAgents(invite.seats, userHash);
+    if (reserved !== undefined) {
+      try {
+        await putObject(deps.store, inviteKey(token), serializeInvite({ ...invite, seats: reserved }), { ifMatch: raw });
+      } catch (error: unknown) {
+        if (isPreconditionFailed(error)) continue;
+        throw error;
+      }
+      await putObject(deps.store, lobbyKey(userHash, token), '{}');
+      const first = indexOfBoundAgent(reserved, userHash);
+      return toolResult(1, { seatIndex: first, kind: 'agent', status: 'joined' }, false);
+    }
     const held = indexOfBoundAgent(invite.seats, userHash);
     if (held >= 0) {
       await putObject(deps.store, lobbyKey(userHash, token), '{}');
@@ -736,7 +750,7 @@ const toolsList = (id: unknown): McpHttpResult =>
       tools: [
         {
           name: 'join',
-          description: `Bind the next unbound agent seat. Does not Start. ${STOP_CLAUSE} On a correctable error, correct once, then stop.`,
+          description: `Bind the agent seats reserved for you, or else the next open agent seat. Does not Start. ${STOP_CLAUSE} On a correctable error, correct once, then stop.`,
           inputSchema: { type: 'object', properties: { handle: { type: 'string' } }, required: ['handle'] },
         },
         {
@@ -841,10 +855,12 @@ const loadedTurn = async (
     userHash,
   );
   if ('statusCode' in position) return { kind: 'stop', reason: 'not-started' };
+  // P106: an agent holding several chairs plays whichever of them is active.
+  const active = seatIndexOf(position.game);
   return {
     kind: 'ready',
     invite: loaded.invite,
-    seatIndex,
+    seatIndex: holdsAgentSeatAt(loaded.invite.seats, userHash, active) ? active : seatIndex,
     groupHash: located.groupHash,
     gameNumber: located.gameNumber,
     game: position.game,

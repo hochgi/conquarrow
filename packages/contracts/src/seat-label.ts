@@ -19,9 +19,11 @@ export interface SeatLabelInput {
   readonly ownerName?: string | undefined;
   /** May this chair read `you`? Absent means no (a stranger's chair never asks). */
   readonly sayYou?: boolean;
+  /** P106: an unbound agent chair kept for the caller's own agent. Absent means no. */
+  readonly reservedForCaller?: boolean;
 }
 
-const RESERVED_SEAT_WORDS: ReadonlySet<string> = new Set(['you', 'your agent', 'ai', 'waiting']);
+const RESERVED_SEAT_WORDS: ReadonlySet<string> = new Set(['you', 'your agent', 'your agent (waiting)', 'ai', 'waiting']);
 
 /** A name that could pose as another seat's fallback (`Player C` on seat B). */
 const SEAT_FALLBACK = /^player [a-f]$/;
@@ -41,7 +43,7 @@ export const usableSeatName = (name: string | undefined): string | undefined => 
 /** First matching row wins (spec table). */
 export const seatLabel = (input: SeatLabelInput): string => {
   if (input.kind === 'heuristic' || input.kind === 'byok') return 'AI';
-  if (input.bound === false) return 'waiting';
+  if (input.bound === false) return input.reservedForCaller === true ? 'your agent (waiting)' : 'waiting';
   if (input.sayYou && input.relation === 'caller-human' && input.kind === 'human') return 'you';
   if (input.relation === 'caller-agent' && input.kind === 'agent') return 'your agent';
   const name = usableSeatName(input.ownerName);
@@ -60,6 +62,10 @@ export const seatLetter = (index: number): string => SEAT_LETTERS.charAt(index);
  */
 export const chairUserHash = (chair: InviteSeat): string | undefined =>
   (chair as { readonly userHash?: string }).userHash;
+
+/** P106: the user an unbound agent chair is kept for; other chairs have none. */
+const chairReservedFor = (chair: InviteSeat): string | undefined =>
+  (chair as { readonly reservedFor?: string }).reservedFor;
 
 /** The owner name the server put on the chair; a heuristic chair has none. */
 const chairName = (chair: InviteSeat): string | undefined => (chair as { readonly name?: string }).name;
@@ -91,5 +97,6 @@ export const labelInviteChair = (input: {
     bound: chairHash !== undefined,
     ownerName: chairName(chair),
     sayYou: true,
+    reservedForCaller: input.userHash !== undefined && chairReservedFor(chair) === input.userHash,
   });
 };

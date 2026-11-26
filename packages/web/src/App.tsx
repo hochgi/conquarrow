@@ -106,7 +106,9 @@ import { clearTargetLocks } from './targets';
 import {
   aiSeatIds,
   byokConfigForSeat,
-  coerceOnlineSeatPlan,
+  driverSeatAt,
+  planForModeSwitch,
+  type DriverSeatConfig,
   firstHumanSeat,
   hasAiSeat,
   hasByokSeat,
@@ -515,7 +517,7 @@ export const App = (): ReactElement => {
   const shellRef = useRef<HTMLDivElement>(null);
   /** Non-human seats for the live match. */
   const aiSeatsRef = useRef<ReadonlySet<string>>(new Set());
-  const seatConfigsRef = useRef<ReadonlyMap<string, SeatConfig>>(new Map());
+  const seatConfigsRef = useRef<ReadonlyMap<string, DriverSeatConfig>>(new Map());
   const botEpoch = useRef(0);
   const stateRef = useRef<GameState | undefined>(undefined);
   const passEpoch = useRef(0);
@@ -1868,11 +1870,11 @@ export const App = (): ReactElement => {
       playerCount: plan.playerCount,
     };
     const opening = makeMatch(config);
-    const configs = new Map<string, SeatConfig>();
+    const configs = new Map<string, DriverSeatConfig>();
     const aiKeys = new Set<string>();
     const seatLogs: SeatDriverLog[] = [];
     for (let i = 0; i < plan.seats.length; i += 1) {
-      const seat = plan.seats[i];
+      const seat = driverSeatAt(plan, i);
       const player = opening.players[i] ?? seatPlayerId(i);
       if (seat === undefined) continue;
       configs.set(String(player), seat);
@@ -1954,12 +1956,10 @@ export const App = (): ReactElement => {
                 offered: host.onlineModeOffered(),
                 mode: lobbyMode,
                 onMode: (next: PagesLobbyMode) => {
-                  let nextPlan = seatPlan;
-                  if (lobbyMode === 'local' && next === 'online') {
-                    nextPlan = coerceOnlineSeatPlan(seatPlan);
-                    setSeatPlan(nextPlan);
-                    saveSeatPlan(nextPlan);
-                  }
+                  // P106: planForModeSwitch decides (and is tested); the same mode keeps the plan.
+                  const nextPlan = planForModeSwitch(seatPlan, lobbyMode, next);
+                  setSeatPlan(nextPlan);
+                  saveSeatPlan(nextPlan);
                   setLobbyMode(next);
                   host.selectMode(next);
                   host.setSeatPlan(kindsForHost(nextPlan, next === 'online'));
