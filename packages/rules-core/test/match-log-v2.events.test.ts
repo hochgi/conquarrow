@@ -238,7 +238,8 @@ describe('SCENARIOS.md 5 — logEventsOf over a real game', () => {
       }
       state = after;
     }
-    for (const kind of ['turnPassed', 'unitsProduced', 'enclosureClosed', 'territoryCaptured', 'sharesChanged'] as const) {
+    // The playable prefix holds these; the other kinds are pinned by the toLogEvent cases.
+    for (const kind of ['turnPassed', 'trailCut', 'enclosureClosed', 'territoryCaptured', 'sharesChanged'] as const) {
       expect(seen.has(kind), kind).toBe(true);
     }
     // JSON round-trip: what the log writes is what it reads.

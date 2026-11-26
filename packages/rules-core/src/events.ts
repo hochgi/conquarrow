@@ -21,16 +21,7 @@
  * exactly the kind of ordering bug ADR 0001 warns about.
  */
 
-import type {
-  AppliedStep,
-  ArrowId,
-  GameEvent,
-  GameState,
-  GeometryPort,
-  LogEvent,
-  Move,
-  PlayerId,
-} from '@conquarrow/contracts';
+import type { AppliedStep, ArrowId, GameEvent, GameState, Move, PlayerId } from '@conquarrow/contracts';
 
 const byId = (left: ArrowId, right: ArrowId): number => {
   const a = String(left);
@@ -423,21 +414,4 @@ export const resolveBatch = (steps: readonly AppliedStep[]): readonly GameEvent[
   const out: GameEvent[] = [];
   for (const step of steps) out.push(...resolveEvents(step));
   return out;
-};
-
-// ── P107: the match log's compact record ─────────────────────────────────────
-
-/** P107 D2 (skeleton). */
-export const toLogEvent = (_event: GameEvent): LogEvent | undefined => {
-  throw new Error('not implemented');
-};
-
-/** P107 D1 (skeleton). */
-export const resolveShareEvents = (_geometry: GeometryPort, _step: AppliedStep): readonly LogEvent[] => {
-  throw new Error('not implemented');
-};
-
-/** P107 D2 (skeleton). */
-export const logEventsOf = (_geometry: GeometryPort, _step: AppliedStep): readonly LogEvent[] => {
-  throw new Error('not implemented');
 };
