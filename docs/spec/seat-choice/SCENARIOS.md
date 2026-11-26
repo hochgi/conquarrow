@@ -35,6 +35,10 @@ sequenceDiagram
   end
 ```
 
+`one-seat`, `size` and `byok` cannot be built in the lobby (one `Player (you)`,
+3/6 seats, BYOK sent as AI by `seatPlanNote`); `createPlanNote` answers them
+with the pick-your-seat note.
+
 Mode switches: Local → Online never adds `creator`; Online → Local maps
 `creator` → `human` and `agent` / `creator-agent` → `heuristic`.
 
@@ -126,9 +130,9 @@ sequenceDiagram
   participant Door
   participant Store
   Door->>Store: get invite, meta, state
-  alt caller holds no agent chair
+  alt caller holds no agent chair (P92 tests)
     Door-->>Door: stop not-seated
-  else game over
+  else game over (P95 tests)
     Door-->>Door: stop game-over
   else active seat is one of the caller's agent chairs
     Door-->>Door: offer for that seat (byok-offer text, same as BYOK)

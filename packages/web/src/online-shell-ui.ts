@@ -6,6 +6,7 @@
 import {
   DEFAULT_MATCH_CONFIG,
   gameTitle,
+  onlinePlanProblem,
   type GameState,
   type InviteSeat,
   type LibraryGameStatus,
@@ -146,6 +147,10 @@ export const libraryNotice = (
   if (library === undefined) return 'unset';
   return libraryCountsEmpty(library) ? 'empty' : 'list';
 };
+
+/** P106: the lobby's seat-plan note for `plan` as the host would send it online. */
+export const seatPlanNote = (plan: SeatPlan): string | undefined =>
+  createPlanNote(onlinePlanProblem(kindsForHost(plan, true)));
 
 export const kindsForHost = (
   plan: SeatPlan,

@@ -25,7 +25,7 @@ Feature: Online auth, invites, and library
 
     Scenario: Creator opens a 3-seat lobby with two humans
       Given a valid Google ID token for user A
-      When POST /invites with seats human, human, heuristic
+      When POST /invites with seats creator, human, heuristic
       Then the response is 201
       And the body includes an invite token
       And seat 0 is human bound to A's userHash

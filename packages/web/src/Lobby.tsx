@@ -7,7 +7,7 @@ import type {
   PlannedSeatKind,
   StartedGameRow,
 } from '@conquarrow/contracts';
-import { DELETE_GAME_CONFIRM, GAME_NAME_MAX, onlinePlanProblem } from '@conquarrow/contracts';
+import { DELETE_GAME_CONFIRM, GAME_NAME_MAX } from '@conquarrow/contracts';
 import { styleFor } from './colors';
 import { testByokConnection } from './byokBot';
 import { DEFAULT_BYOK, isByokReady } from './byokConfig';
@@ -23,15 +23,14 @@ import {
   libraryWinnerLine,
   type LibrarySectionView,
   chooserSlotOffered,
-  createPlanNote,
   formatLibraryStartedAt,
-  kindsForHost,
   libraryNotice,
   libraryOffered,
   libraryRowTint,
   MY_GAMES_COPY,
   NO_GAMES_COPY,
   lobbyKindOptions,
+  seatPlanNote,
   sessionExpiredNote,
 } from './online-shell-ui';
 import {
@@ -797,7 +796,7 @@ const SeatPlanNote = ({
   readonly online: LobbyOnline;
 }): ReactElement | null => {
   if (!online.signedIn || !online.seatEditsOffered || online.createInvitePending) return null;
-  const note = createPlanNote(onlinePlanProblem(kindsForHost(plan, true)));
+  const note = seatPlanNote(plan);
   if (note === undefined) return null;
   return <p className="lobby-byok-note">{note}</p>;
 };

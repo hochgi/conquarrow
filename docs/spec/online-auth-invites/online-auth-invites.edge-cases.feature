@@ -22,25 +22,25 @@ Feature: Online auth and invites — boundaries
 
     Scenario: One human and two heuristics is 422 and writes nothing
       Given a valid Google ID token for user A
-      When POST /invites with seats human, heuristic, heuristic
+      When POST /invites with seats creator, heuristic, heuristic
       Then the response is 422
       And fake S3 has no new keys
 
     Scenario: BYOK seat is 422 and writes nothing
       Given a valid Google ID token for user A
-      When POST /invites with seats human, human, byok
+      When POST /invites with seats creator, human, byok
       Then the response is 422
       And fake S3 has no new keys
 
     Scenario: Seat count other than 3 or 6 is 422
       Given a valid Google ID token for user A
-      When POST /invites with 4 human seats
+      When POST /invites with a creator and 3 human seats
       Then the response is 422
       And fake S3 has no new keys
 
-    Scenario: hostSeatIndex on a heuristic chair is 422
+    Scenario: P106: a plan with no creator chair (the pre-P106 shape) is 422
       Given a valid Google ID token for user A
-      When POST /invites with seats human, human, heuristic and hostSeatIndex 2
+      When POST /invites with seats human, human, heuristic
       Then the response is 422
       And fake S3 has no new keys
 
@@ -59,14 +59,14 @@ Feature: Online auth and invites — boundaries
         | {}                                                      |
         | {"seats":5}                                             |
         | {"seats":["human","human","wizard"]}                    |
-        | {"seats":["human","human","heuristic"],"hostSeatIndex":"1"} |
-        | {"seats":["human","human","heuristic"],"hostSeatIndex":0.5} |
+        | {"seats":["creator","creator","heuristic"]}             |
+        | {"seats":["creator","human","heuristic"],"name":5}      |
 
   Rule: Creator chair
 
-    Scenario: hostSeatIndex binds the creator to a later human seat
+    Scenario: P106: the creator chair binds the creator wherever it is
       Given a valid Google ID token for user A
-      When POST /invites with seats human, heuristic, human and hostSeatIndex 2
+      When POST /invites with seats human, heuristic, creator
       Then the response is 201
       And seat 2 is human bound to A's userHash
       And seat 0 is human unbound

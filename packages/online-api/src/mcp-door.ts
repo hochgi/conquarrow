@@ -19,8 +19,8 @@ import { summaryOf } from './game-summary';
 import { bytesToHex, groupHashFromUserHashes, userHashFromSub } from './hashing';
 import {
   boundHumanHashes,
-  agentSeatIndices,
   bindReservedAgents,
+  holdsAgentSeatAt,
   indexOfBoundAgent,
   nextUnboundAgentIndex,
   parseInvite,
@@ -860,7 +860,7 @@ const loadedTurn = async (
   return {
     kind: 'ready',
     invite: loaded.invite,
-    seatIndex: agentSeatIndices(loaded.invite.seats, userHash).includes(active) ? active : seatIndex,
+    seatIndex: holdsAgentSeatAt(loaded.invite.seats, userHash, active) ? active : seatIndex,
     groupHash: located.groupHash,
     gameNumber: located.gameNumber,
     game: position.game,

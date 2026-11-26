@@ -64,6 +64,12 @@ export interface SeatPlan {
   readonly seats: readonly SeatConfig[];
 }
 
+/** P106: seat `index` of `plan` as a match drives it; `undefined` past the plan. */
+export const driverSeatAt = (plan: SeatPlan, index: number): DriverSeatConfig | undefined => {
+  const seat = plan.seats[index];
+  return seat === undefined ? undefined : driverSeat(seat);
+};
+
 export const PLAYER_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 
 export const emptyByokFields = (): SeatByokFields => ({
@@ -104,8 +110,7 @@ export const defaultSeatPlan = (playerCount: PlaytestPlayerCount = 3): SeatPlan 
   return { playerCount, seats };
 };
 
-const hasAgentChair = (plan: SeatPlan): boolean =>
-  plan.seats.some((seat) => seat.kind === 'agent' || seat.kind === 'creator-agent');
+const hasAgentChair = (plan: SeatPlan): boolean => plan.seats.some((seat) => seat.kind === 'agent');
 
 /**
  * Local → Online: seats 0 and 1 become `human` unless an agent chair is
@@ -129,6 +134,20 @@ export const coerceLocalSeatPlan = (plan: SeatPlan): SeatPlan => ({
     return seat;
   }),
 });
+
+/**
+ * P106: the plan after a lobby mode switch; the same plan when the mode is kept.
+ * Local → Online coerces with `coerceOnlineSeatPlan`, Online → Local with
+ * `coerceLocalSeatPlan`.
+ */
+export const planForModeSwitch = (
+  plan: SeatPlan,
+  from: 'local' | 'online',
+  to: 'local' | 'online',
+): SeatPlan => {
+  if (from === to) return plan;
+  return to === 'online' ? coerceOnlineSeatPlan(plan) : coerceLocalSeatPlan(plan);
+};
 
 /**
  * P106: one online pick. `creator` moves Player (you): the seat that held it

@@ -107,11 +107,17 @@ export const parseInvite = (raw: string): InviteRecord | undefined => {
   };
 };
 
+/** A chair as written: `reservedFor` may be `undefined`, which JSON.stringify omits. */
+type StoredSeat =
+  | Exclude<InviteSeat, { readonly kind: 'agent' }>
+  | { readonly kind: 'agent'; readonly userHash: string }
+  | { readonly kind: 'agent'; readonly reservedFor: string | undefined };
+
 export const serializeInvite = (invite: InviteRecord): string => {
   const body: {
     status: InviteStatus;
     creatorUserHash: string;
-    seats: InviteSeat[];
+    seats: StoredSeat[];
     gameNumber?: string;
     name?: string;
   } = {
@@ -122,9 +128,8 @@ export const serializeInvite = (invite: InviteRecord): string => {
       if (seat.kind === 'agent') {
         const userHash = seat.userHash;
         if (userHash !== undefined) return { kind: 'agent' as const, userHash };
-        const reservedFor = seat.reservedFor;
-        if (reservedFor === undefined) return { kind: 'agent' as const };
-        return { kind: 'agent' as const, reservedFor };
+        // JSON.stringify drops an undefined field: an open chair stores `{ kind: 'agent' }`.
+        return { kind: 'agent' as const, reservedFor: seat.reservedFor };
       }
       const userHash = seat.userHash;
       if (userHash === undefined) return { kind: 'human' as const };
@@ -195,9 +200,9 @@ export const indexOfBoundAgent = (seats: readonly InviteSeat[], userHash: string
 export const nextUnboundAgentIndex = (seats: readonly InviteSeat[]): number =>
   seats.findIndex((seat) => seat.kind === 'agent' && seat.userHash === undefined && seat.reservedFor === undefined);
 
-/** P106: the caller's agent chairs, in seat order. */
-export const agentSeatIndices = (seats: readonly InviteSeat[], userHash: string): number[] =>
-  seats.flatMap((seat, index) => (boundAgentUserHash(seat) === userHash ? [index] : []));
+/** P106: does `userHash`'s agent hold the chair at `index`? */
+export const holdsAgentSeatAt = (seats: readonly InviteSeat[], userHash: string, index: number): boolean =>
+  seats.some((seat, i) => i === index && boundAgentUserHash(seat) === userHash);
 
 /**
  * P106: an unbound agent chair kept for `userHash`'s own agent. Only an

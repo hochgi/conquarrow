@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { offerText } from '@conquarrow/byok-offer';
 import { onlinePlanProblem, type CreateInviteBody, type PlannedSeatKind } from '@conquarrow/contracts';
 import { inviteKey, lobbyKey } from '../src/s3-keys';
+import { parseInvite, serializeInvite } from '../src/invite-record';
+import { getExport } from './game-management.support';
 import {
   EXPIRED_BEARER,
   expectStatus,
@@ -39,6 +41,7 @@ import {
   postDoor,
   seedInvite,
   seedStarted,
+  toolContent,
   toolJson,
   toolsCall,
   withRig,
@@ -148,6 +151,7 @@ describe('SCENARIOS.md 3 — MCP join', () => {
       rig.data.delete(lobbyKey(A(), token));
       const result = await join(rig, ALICE.sub, token);
       expect(toolJson(result)).toEqual({ seatIndex: 1, kind: 'agent', status: 'joined' });
+      expect(toolContent(result)?.isError).toBe(false);
       expect(inviteAt(rig, token)?.seats).toEqual([
         { kind: 'human', userHash: A() },
         { kind: 'agent', userHash: A() },
@@ -355,6 +359,7 @@ describe('SCENARIOS.md 8 — creator in seat C, an agent in seat A', () => {
       expectStatus(await postAccept(rig.api, token, BOB.bearer), 200);
       const started = parseBody(expectStatus(await postStart(rig.api, token, ALICE.bearer), 200)) as {
         groupHash: string;
+        gameNumber: string;
       };
       expect(started.groupHash).toBe(groupHashOfUserHashes([A(), B()]));
       const observed = await postDoor(rig, toolsCall('observe', { handle: inviteHandle(token) }), accessToken(rig, BOB.sub));
@@ -363,6 +368,15 @@ describe('SCENARIOS.md 8 — creator in seat C, an agent in seat A', () => {
         games: { status: string; seats: { label: string; you: boolean }[] }[];
       };
       expect(rows.games[0]?.status).toBe('waiting');
+      const exported = parseBody(expectStatus(await getExport(rig.api, started.groupHash, started.gameNumber, ALICE.bearer), 200)) as {
+        seats: Record<string, unknown>[];
+      };
+      expect(exported.seats.map((seat) => [seat['seat'], seat['kind'], seat['name']])).toEqual([
+        [0, 'agent', 'Agent'],
+        [1, 'human', 'Bob'],
+        [2, 'human', 'Alice'],
+      ]);
+      expect(exported.seats[0]?.['owner']).toBe('Bob');
       expect(rows.games[0]?.seats.map((seat) => [seat.label, seat.you])).toEqual([
         ["Bob's agent", false],
         ['Bob', false],
@@ -386,5 +400,35 @@ describe('EARS 2 — the server agrees with onlinePlanProblem on every 3-seat pl
         }
       }
     });
+  });
+});
+
+describe('Stored chairs: reservedFor round-trips on an open agent chair only', () => {
+  const raw = (seats: unknown[]): string => JSON.stringify({ status: 'open', creatorUserHash: 'c', seats });
+  it('parse keeps a non-empty string on an unbound agent chair, drops everything else', () => {
+    expect(
+      parseInvite(
+        raw([
+          { kind: 'agent', reservedFor: 'c' },
+          { kind: 'agent', reservedFor: '' },
+          { kind: 'agent', reservedFor: 7 },
+          { kind: 'agent', userHash: 'b', reservedFor: 'c' },
+          { kind: 'human', reservedFor: 'c' },
+        ]),
+      )?.seats,
+    ).toEqual([{ kind: 'agent', reservedFor: 'c' }, { kind: 'agent' }, { kind: 'agent' }, { kind: 'agent', userHash: 'b' }, { kind: 'human' }]);
+  });
+  it('serialize writes it, and writes a plain open or bound chair without it', () => {
+    const text = serializeInvite({
+      status: 'open',
+      creatorUserHash: 'c',
+      seats: [{ kind: 'agent', reservedFor: 'c' }, { kind: 'agent' }, { kind: 'agent', userHash: 'b' }],
+    });
+    expect((JSON.parse(text) as { seats: unknown }).seats).toEqual([
+      { kind: 'agent', reservedFor: 'c' },
+      { kind: 'agent' },
+      { kind: 'agent', userHash: 'b' },
+    ]);
+    expect(text).not.toContain('"reservedFor":null');
   });
 });

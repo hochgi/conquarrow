@@ -16,13 +16,16 @@ import {
   createPlanNote,
   lobbyKindOptions,
   pickerKindOptions,
+  seatPlanNote,
 } from '../src/online-shell-ui';
 import {
   coerceLocalSeatPlan,
   coerceOnlineSeatPlan,
   defaultSeat,
   driverSeat,
+  driverSeatAt,
   pickOnlineSeat,
+  planForModeSwitch,
   type LobbySeatKind,
   type SeatPlan,
 } from '../src/seatPlan';
@@ -155,6 +158,33 @@ describe('SCENARIOS.md 1 — mode switches', () => {
       'heuristic',
     ]);
     expect(kindsOf(coerceLocalSeatPlan(plan('human', 'heuristic', 'byok')))).toEqual(['human', 'heuristic', 'byok']);
+  });
+});
+
+describe('SCENARIOS.md 1 — the switch and the note, as the lobby calls them', () => {
+  it('planForModeSwitch: same mode keeps the plan; each direction coerces', () => {
+    const p = plan('creator', 'creator-agent', 'byok');
+    expect(planForModeSwitch(p, 'online', 'online')).toBe(p);
+    expect(planForModeSwitch(p, 'local', 'local')).toBe(p);
+    expect(kindsOf(planForModeSwitch(p, 'online', 'local'))).toEqual(['human', 'heuristic', 'byok']);
+    expect(kindsOf(planForModeSwitch(plan('heuristic', 'heuristic', 'byok'), 'local', 'online'))).toEqual([
+      'human',
+      'human',
+      'heuristic',
+    ]);
+  });
+
+  it('seatPlanNote sends a leftover BYOK seat as AI (it is never shown as a byok problem)', () => {
+    expect(seatPlanNote(plan('creator', 'byok', 'heuristic'))).toBe(NEEDS_ANOTHER_NOTE);
+    expect(seatPlanNote(plan('creator', 'byok', 'human'))).toBeUndefined();
+    expect(seatPlanNote(plan('human', 'human', 'heuristic'))).toBe(PICK_YOUR_SEAT_NOTE);
+  });
+
+  it('driverSeatAt: the driver kind at an index; undefined past the plan', () => {
+    const p = plan('creator', 'creator-agent', 'heuristic');
+    expect(driverSeatAt(p, 0)?.kind).toBe('human');
+    expect(driverSeatAt(p, 1)?.kind).toBe('agent');
+    expect(driverSeatAt(p, 3)).toBeUndefined();
   });
 });
 
