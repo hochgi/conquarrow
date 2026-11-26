@@ -6,7 +6,7 @@ Packet: [P106](../../design/packets/P106-seat-choice.md). Issue
 (seat 0, the host chair, one agent seat per user) and
 [seat-labels](../seat-labels/seat-labels.md) (a reserved agent chair).
 [SCENARIOS](./SCENARIOS.md).
-**Status:** awaiting review. **SPEC:** not edited. No game rule.
+**Status:** merged as #140. **SPEC:** not edited. No game rule.
 
 ## Glossary
 

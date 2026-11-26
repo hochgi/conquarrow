@@ -54,23 +54,25 @@ the P95 heal (`ensurePosition`), so what it exports is what `GET` serves.
 
 ```
 {
-  format: "conquarrow-online-export", formatVersion: 1,
+  format: "conquarrow-online-export", formatVersion: 2,
   groupHash, gameNumber, name?, startedAt?, lastActivityAt?, exportedAt,
   config: MatchConfig,            // the config the server opened the game with
-  seats: [{ seat, player, kind: "human"|"agent"|"bot", name, owner? }],
+  seats: [{ seat, player, kind: "human"|"agent"|"heuristic", name, owner? }],
   version, activePlayer, winner?, turns,
   summary?,                       // P95 D4, finished games only
   moves: Move[],                  // every move in the log, in order
-  log: ({ v?, move } | { v, agentReply })[],
+  log: ({ v?, at?, seat?, by?, move, events? } | { v, at?, seat?, agentReply })[],
   withheldReplies: number
 }
 ```
 
+- The log entries' fields and the version-2 changes are
+  [match-log-v2](../match-log-v2/match-log-v2.md) D3–D6.
 - `config` is the object the server passes to `makeMatch` (its
   `DEFAULT_MATCH_CONFIG` with the seat count), read from the same function
   that opens games, never restated. `replay(makeMatch(config), moves)` is the
   served state.
-- `seats[i].name`: a human seat's profile name, else `Player A`…; a bot seat
+- `seats[i].name`: a human seat's profile name, else `Player A`…; a heuristic seat
   `AI`; an agent seat `Agent`, with `owner` its owner's profile name when
   known. No user hash, Google `sub` or email is in the export.
 - `exportedAt` is the server clock; `startedAt` and `lastActivityAt` come from
@@ -80,8 +82,8 @@ the P95 heal (`ensurePosition`), so what it exports is what `GET` serves.
 
 ### D2 — agent replies in the export
 
-From this packet an agent's reply record carries the seat that sent it:
-`{v, agentReply: {seat, moves, endTurn, why?, plan?}}`. While the game has no
+An agent's reply record carries the seat that sent it (its shape is
+[match-log-v2](../match-log-v2/match-log-v2.md) D4). While the game has no
 winner the export holds only the reply records of the caller's own seats;
 every other reply record (another seat's, or one written before P96 with no
 `seat`) is left out and counted in `withheldReplies`. Once the game has a

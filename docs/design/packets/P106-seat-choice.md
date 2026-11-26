@@ -11,7 +11,7 @@
 > unchanged (MCP and BYOK stay identical); the MCP `join` tool description
 > names reserved chairs.
 
-**Status:** awaiting review. **Depends on:** P92, P96, P105. **Issue:**
+**Status:** merged as #140. **Depends on:** P92, P96, P105. **Issue:**
 [#119](https://github.com/hochgi/conquarrow/issues/119) follow-up (Gilad's 2b
 answer, 2026-11-26).
 **Spec:** [seat-choice](../../spec/seat-choice/seat-choice.md) ·
