@@ -10,11 +10,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { onlinePlanCreatable } from '../src/online-pages';
+import { onlinePlanProblem } from '@conquarrow/contracts';
 import { submitNote } from '../src/online-submit';
 import {
   CREATE_FAILED_COPY,
-  CREATE_PLAN_NOTE,
+  NEEDS_ANOTHER_NOTE,
   LIBRARY_FAILED_COPY,
   SESSION_EXPIRED_COPY,
   createPlanNote,
@@ -76,7 +76,8 @@ const lobbySource = (): string =>
 
 const REFUSED = 'The server refused this seat plan';
 const FAILED = "Couldn't create the invite — try again";
-const PLAN_NOTE = 'Create needs two Players, or a Player and an Agent.';
+const PLAN_NOTE = 'Create needs you and at least one more Player or Agent.';
+const SEAT_NOTE = 'Pick your seat: choose Player (you) on one seat.';
 const P95_UNAUTHORIZED = 'Your sign-in expired. Sign in again and your move will be sent.';
 
 describe('An unusable token is removed and is not session expired (D1)', () => {
@@ -400,7 +401,7 @@ describe('The held create is one shot (D3)', () => {
       retry: invitePostBody(h, 1),
     }).toEqual({
       posts: 2,
-      retry: { seats: ['human', 'agent'], name: 'Rematch' },
+      retry: { seats: [...PLAYER_AND_AGENT], name: 'Rematch' },
     });
   });
 });
@@ -847,17 +848,17 @@ describe('Sign-out and the seat sentence (D7)', () => {
   it.each([
     { plan: 'two Players', seats: TWO_PLAYERS, note: undefined },
     { plan: 'one Player and one Agent', seats: PLAYER_AND_AGENT, note: undefined },
-    { plan: 'one Player and one AI', seats: ['human', 'heuristic'] as const, note: PLAN_NOTE },
-    { plan: 'one Player', seats: ['human'] as const, note: PLAN_NOTE },
-    { plan: 'one Agent', seats: ['agent'] as const, note: PLAN_NOTE },
+    { plan: 'Player (you) and two AI', seats: ['creator', 'heuristic', 'heuristic'] as const, note: PLAN_NOTE },
+    { plan: 'two Players, none of them you', seats: ['human', 'human', 'heuristic'] as const, note: SEAT_NOTE },
+    { plan: 'one Agent', seats: ['agent', 'heuristic', 'heuristic'] as const, note: SEAT_NOTE },
   ])('The seat-plan note follows the creatable rule — $plan', ({ seats, note }) => {
     const h = frozenHost({ sessionToken: hourToken() });
     h.host.setSeatPlan(seats);
 
     expect({
       signedIn: h.host.signedIn(),
-      note: createPlanNote(onlinePlanCreatable(seats)),
-      sentence: CREATE_PLAN_NOTE,
+      note: createPlanNote(onlinePlanProblem(seats)),
+      sentence: NEEDS_ANOTHER_NOTE,
     }).toEqual({
       signedIn: true,
       note,
@@ -872,7 +873,7 @@ describe('Sign-out and the seat sentence (D7)', () => {
     h.host.adapter().setInviteName('x'.repeat(49));
 
     expect({
-      note: createPlanNote(onlinePlanCreatable(TWO_PLAYERS)),
+      note: createPlanNote(onlinePlanProblem(TWO_PLAYERS)),
       offered: h.host.createOffered(),
     }).toEqual({
       note: undefined,

@@ -21,8 +21,9 @@ import {
   coerceLocalSeatPlan,
   coerceOnlineSeatPlan,
   defaultSeat,
+  driverSeat,
   pickOnlineSeat,
-  type SeatKind,
+  type LobbySeatKind,
   type SeatPlan,
 } from '../src/seatPlan';
 import {
@@ -35,19 +36,24 @@ import {
   type ScenarioRig,
 } from './session-expired.scenarios.support';
 import { hourToken } from './session-expired.scenarios.support';
+import { makePagesHarness } from './online-web.support';
 
-const plan = (...kinds: SeatKind[]): SeatPlan => ({
+const plan = (...kinds: LobbySeatKind[]): SeatPlan => ({
   playerCount: kinds.length === 6 ? 6 : 3,
   seats: kinds.map((kind) => defaultSeat(kind)),
 });
-const kindsOf = (p: SeatPlan): readonly SeatKind[] => p.seats.map((seat) => seat.kind);
+const kindsOf = (p: SeatPlan): readonly LobbySeatKind[] => p.seats.map((seat) => seat.kind);
 
 const FIVE = ['creator', 'human', 'creator-agent', 'agent', 'heuristic'];
 
 describe('SCENARIOS.md 1 — every online seat offers five choices', () => {
-  it.each([0, 1, 2, 3, 4, 5])('seat %i, seat A included', (index) => {
-    expect(pickerKindOptions('online', index)).toEqual(FIVE);
-    expect(lobbyKindOptions('online', index)).toEqual([
+  it.each([0, 1, 2, 3, 4, 5])('seat %i, seat A included', async (index) => {
+    const pages = makePagesHarness({ sessionToken: 'alice-token' });
+    await pages.adapter.boot();
+    pages.adapter.selectMode('online');
+    expect(pages.adapter.seatKindOptionsFor(index)).toEqual(FIVE);
+    expect(pickerKindOptions('online')).toEqual(FIVE);
+    expect(lobbyKindOptions('online')).toEqual([
       { value: 'creator', label: 'Player (you)' },
       { value: 'human', label: 'Player' },
       { value: 'creator-agent', label: 'Agent (yours)' },
@@ -57,7 +63,7 @@ describe('SCENARIOS.md 1 — every online seat offers five choices', () => {
   });
 
   it('local is unchanged', () => {
-    expect(lobbyKindOptions('local', 0)).toEqual([
+    expect(lobbyKindOptions('local')).toEqual([
       { value: 'human', label: 'Player' },
       { value: 'heuristic', label: 'AI' },
       { value: 'byok', label: 'BYOK LLM' },
@@ -149,6 +155,20 @@ describe('SCENARIOS.md 1 — mode switches', () => {
       'heuristic',
     ]);
     expect(kindsOf(coerceLocalSeatPlan(plan('human', 'heuristic', 'byok')))).toEqual(['human', 'heuristic', 'byok']);
+  });
+});
+
+describe('A lobby pick drives a match as a driver kind', () => {
+  it.each([
+    ['creator', 'human'],
+    ['creator-agent', 'agent'],
+    ['human', 'human'],
+    ['agent', 'agent'],
+    ['heuristic', 'heuristic'],
+    ['byok', 'byok'],
+  ] as const)('%s drives as %s, other fields kept', (picked, driven) => {
+    const seat = defaultSeat(picked);
+    expect(driverSeat(seat)).toEqual({ ...seat, kind: driven });
   });
 });
 

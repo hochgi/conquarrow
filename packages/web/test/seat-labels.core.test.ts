@@ -9,7 +9,6 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { InviteSeat } from '@conquarrow/contracts';
 import { parseSeats } from '../src/online-parse';
-import { hostSeatIndex, lobbyKindOptions } from '../src/online-shell-ui';
 import { labelForSeat, rosterLabel, seatLineLabel } from '../src/seatLabel';
 import { onlineTurnSeat, turnBannerCopy } from '../src/turnBanner';
 import { eliminationSentence } from '../src/lostSeat';
@@ -192,40 +191,7 @@ describe('"you" needs proof (EARS 10)', () => {
   });
 });
 
-describe('Seat A says it is you (2b)', () => {
-  it('online: the host Player option reads Player (you) and has no Agent', () => {
-    expect(lobbyKindOptions('online', 0, 0)).toEqual([
-      { value: 'human', label: 'Player (you)' },
-      { value: 'heuristic', label: 'AI' },
-    ]);
-    expect(lobbyKindOptions('online', 1, 0)).toEqual([
-      { value: 'human', label: 'Player' },
-      { value: 'heuristic', label: 'AI' },
-      { value: 'agent', label: 'Agent' },
-    ]);
-  });
-
-  it('when seat A is AI the first human seat is the host', () => {
-    const host = hostSeatIndex([{ kind: 'heuristic' }, { kind: 'human' }, { kind: 'human' }]);
-    expect(host).toBe(1);
-    expect(lobbyKindOptions('online', 1, host)[0]).toEqual({ value: 'human', label: 'Player (you)' });
-    expect(lobbyKindOptions('online', 2, host)[0]).toEqual({ value: 'human', label: 'Player' });
-  });
-
-  it('no human seat: no host', () => {
-    expect(hostSeatIndex([{ kind: 'heuristic' }, { kind: 'agent' }, { kind: 'heuristic' }])).toBe(-1);
-    expect(hostSeatIndex([{ kind: 'human' }, { kind: 'human' }])).toBe(0);
-    expect(lobbyKindOptions('online', 0, -1)[0]).toEqual({ value: 'human', label: 'Player' });
-  });
-
-  it('local is unchanged', () => {
-    expect(lobbyKindOptions('local', 0, 0)).toEqual([
-      { value: 'human', label: 'Player' },
-      { value: 'heuristic', label: 'AI' },
-      { value: 'byok', label: 'BYOK LLM' },
-    ]);
-  });
-});
+// P105's seat-A (2b) options are superseded by P106: see seat-choice.scenarios.test.ts.
 
 describe('Wiring (source scans — no DOM harness)', () => {
   it('EARS 9: the select and the roster column share one width', () => {
@@ -243,10 +209,11 @@ describe('Wiring (source scans — no DOM harness)', () => {
     expect(rule('.lobby-seat-occupancy')).toMatch(/text-overflow:\s*ellipsis/);
   });
 
-  it('the Lobby labels the roster with rosterLabel and the host seat with hostSeatIndex', () => {
+  it('the Lobby labels the roster with rosterLabel and picks seats with pickOnlineSeat (P106)', () => {
     const lobby = code(src('Lobby.tsx'));
     expect(lobby).toMatch(/rosterLabel\(seat, index, userHash\)/);
-    expect(lobby).toMatch(/lobbyKindOptions\([^)]*hostSeatIndex\(/);
+    expect(lobby).toMatch(/lobbyKindOptions\(onlineMode \? 'online' : 'local'\)/);
+    expect(lobby).toMatch(/pickOnlineSeat\(plan, index, kind\)/);
     expect(lobby).not.toMatch(/\(you\)'/);
   });
 
@@ -268,7 +235,8 @@ describe('Wiring (source scans — no DOM harness)', () => {
         .map((f) => join(root, f)),
     );
     // The banner's "is playing" sentence is cluster 03's wording; it reads its name through usableSeatName.
-    const allowed = new Set(['turnBanner.ts']);
+    // P106: online-shell-ui names the lobby choice `Agent (yours)` — a pick, not a chair's label.
+    const allowed = new Set(['turnBanner.ts', 'online-shell-ui.ts']);
     const offenders = files.filter((file) => {
       const base = file.split(/[\\/]/).pop() ?? '';
       if (allowed.has(base)) return false;

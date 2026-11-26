@@ -141,7 +141,7 @@ describe('SCENARIOS.md 2 — create invite', () => {
     });
 
     // The retry posts the plan and name at credential time, not the body frozen at the 401.
-    rig.host.setSeatPlan(['human', 'agent']);
+    rig.host.setSeatPlan(['creator', 'agent', 'heuristic']);
     rig.host.adapter().setInviteName('Rematch');
     await rig.host.handleGisCredential(credentialToken());
 
@@ -164,7 +164,7 @@ describe('SCENARIOS.md 2 — create invite', () => {
       posts: 2,
       firstBearer: hourToken(),
       retryBearer: credentialToken(),
-      retryBody: { seats: ['human', 'agent'], name: 'Rematch' },
+      retryBody: { seats: ['creator', 'agent', 'heuristic'], name: 'Rematch' },
       library: 1,
     });
   });

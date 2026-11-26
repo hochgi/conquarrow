@@ -24,12 +24,14 @@ import { parseLibraryChanged, parseStateChanged } from './online-parse';
 import { readUsableSessionToken } from './online-session';
 import { submitNote } from './online-submit';
 
-const humansAllBound = (seats: readonly InviteSeat[] | undefined): boolean => {
+/**
+ * P106: Start is offered on the server's rule — every human and every agent
+ * chair is bound (a reserved `Agent (yours)` chair waits for its agent).
+ * A heuristic chair carries no `userHash`, so it is skipped by kind.
+ */
+const bindableChairsAllBound = (seats: readonly InviteSeat[] | undefined): boolean => {
   if (seats === undefined) return false;
-  for (const seat of seats) {
-    if (seat.kind === 'human' && seat.userHash === undefined) return false;
-  }
-  return true;
+  return seats.every((seat) => seat.kind === 'heuristic' || seat.userHash !== undefined);
 };
 
 const requestPath = (url: string): string => {
@@ -109,7 +111,7 @@ export const createOnlineHost = (deps: OnlineHostDeps): OnlineHostPort => {
 
   const startOffered = (): boolean => {
     if (mode === 'online' && pages.onlineModeOffered()) {
-      return humansAllBound(pages.inviteSeats());
+      return bindableChairsAllBound(pages.inviteSeats());
     }
     return true;
   };

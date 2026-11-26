@@ -97,6 +97,7 @@ import {
   wsConnect,
   wsDisconnect,
   versionOfPayload,
+  hostAt,
 } from './support';
 
 describe('Authz', () => {
@@ -414,7 +415,7 @@ describe('Concurrency and legality', () => {
 
   it('Without a heuristic chooser the opening heuristic seat waits', async () => {
     const { api, s3 } = harnessWithoutHeuristic();
-    const token = await createOpenInvite(api, ALICE, HEURISTIC_THEN_TWO_HUMANS, 1);
+    const token = await createOpenInvite(api, ALICE, hostAt(HEURISTIC_THEN_TWO_HUMANS, 1));
     expectStatus(await postAccept(api, token, BOB.bearer), 200);
     expectStatus(await postStart(api, token, ALICE.bearer), 200);
     const groupHash = aliceBobGroupHash();

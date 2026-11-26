@@ -1,4 +1,4 @@
-import type { InviteSeat, PlannedSeatKind } from '@conquarrow/contracts';
+import { onlinePlanProblem, type InviteSeat, type PlannedSeatKind } from '@conquarrow/contracts';
 
 /** `deleted`: the game it started was deleted by its owner (P96 D5). */
 export type InviteStatus = 'open' | 'revoked' | 'started' | 'deleted';
@@ -19,53 +19,35 @@ export const asRecord = (value: unknown): Record<string, unknown> | undefined =>
   return value as Record<string, unknown>;
 };
 
+const PLANNED_KINDS: ReadonlySet<unknown> = new Set<PlannedSeatKind>([
+  'creator',
+  'human',
+  'creator-agent',
+  'agent',
+  'heuristic',
+  'byok',
+]);
+
 export const parseKinds = (seats: readonly unknown[]): PlannedSeatKind[] | undefined => {
   const kinds: PlannedSeatKind[] = [];
   for (const seat of seats) {
-    if (seat !== 'human' && seat !== 'heuristic' && seat !== 'byok' && seat !== 'agent') {
-      return undefined;
-    }
-    kinds.push(seat);
+    if (!PLANNED_KINDS.has(seat)) return undefined;
+    kinds.push(seat as PlannedSeatKind);
   }
   return kinds;
 };
 
-export const firstHumanIndex = (kinds: readonly PlannedSeatKind[]): number => {
-  for (let i = 0; i < kinds.length; i += 1) {
-    if (kinds[i] === 'human') return i;
-  }
-  return -1;
-};
+/** P106: the shared check; the creator's chair is wherever `creator` is. */
+export const validatePlan = (kinds: readonly PlannedSeatKind[]): boolean => onlinePlanProblem(kinds) === undefined;
 
-export const validatePlan = (
-  kinds: readonly PlannedSeatKind[],
-  hostSeatIndex: number | undefined,
-): { readonly host: number } | undefined => {
-  if (kinds.length !== 3 && kinds.length !== 6) return undefined;
-  let humans = 0;
-  let agents = 0;
-  for (const kind of kinds) {
-    if (kind === 'byok') return undefined;
-    if (kind === 'human') humans += 1;
-    if (kind === 'agent') agents += 1;
-  }
-  if (humans < 1) return undefined;
-  if (agents === 0 && humans < 2) return undefined;
-  const host = hostSeatIndex ?? firstHumanIndex(kinds);
-  if (kinds[host] !== 'human') return undefined;
-  return { host };
-};
-
-export const seatsFromPlan = (
-  kinds: readonly PlannedSeatKind[],
-  host: number,
-  userHash: string,
-): InviteSeat[] =>
-  kinds.map((kind, index) => {
-    if (kind === 'heuristic') return { kind: 'heuristic' };
+/** P106: `creator` binds the creator; `creator-agent` keeps an agent chair for them. */
+export const seatsFromPlan = (kinds: readonly PlannedSeatKind[], userHash: string): InviteSeat[] =>
+  kinds.map((kind): InviteSeat => {
+    if (kind === 'creator') return { kind: 'human', userHash };
+    if (kind === 'creator-agent') return { kind: 'agent', reservedFor: userHash };
     if (kind === 'agent') return { kind: 'agent' };
-    if (index === host) return { kind: 'human', userHash };
-    return { kind: 'human' };
+    if (kind === 'human') return { kind: 'human' };
+    return { kind: 'heuristic' };
   });
 
 const parseSeat = (value: unknown): InviteSeat | undefined => {
@@ -76,6 +58,8 @@ const parseSeat = (value: unknown): InviteSeat | undefined => {
   if (kind === 'agent') {
     const userHash = rec['userHash'];
     if (typeof userHash === 'string') return { kind: 'agent', userHash };
+    const reservedFor = rec['reservedFor'];
+    if (typeof reservedFor === 'string' && reservedFor !== '') return { kind: 'agent', reservedFor };
     return { kind: 'agent' };
   }
   if (kind !== 'human') return undefined;
@@ -137,8 +121,10 @@ export const serializeInvite = (invite: InviteRecord): string => {
       if (seat.kind === 'heuristic') return { kind: 'heuristic' as const };
       if (seat.kind === 'agent') {
         const userHash = seat.userHash;
-        if (userHash === undefined) return { kind: 'agent' as const };
-        return { kind: 'agent' as const, userHash };
+        if (userHash !== undefined) return { kind: 'agent' as const, userHash };
+        const reservedFor = seat.reservedFor;
+        if (reservedFor === undefined) return { kind: 'agent' as const };
+        return { kind: 'agent' as const, reservedFor };
       }
       const userHash = seat.userHash;
       if (userHash === undefined) return { kind: 'human' as const };
@@ -205,12 +191,29 @@ export const indexOfBoundAgent = (seats: readonly InviteSeat[], userHash: string
   return -1;
 };
 
-export const nextUnboundAgentIndex = (seats: readonly InviteSeat[]): number => {
-  for (let i = 0; i < seats.length; i += 1) {
-    const seat = seats[i];
-    if (seat !== undefined && seat.kind === 'agent' && seat.userHash === undefined) return i;
-  }
-  return -1;
+/** The next open (unbound, unreserved) agent chair; a reserved chair is never offered to anyone. */
+export const nextUnboundAgentIndex = (seats: readonly InviteSeat[]): number =>
+  seats.findIndex((seat) => seat.kind === 'agent' && seat.userHash === undefined && seat.reservedFor === undefined);
+
+/** P106: the caller's agent chairs, in seat order. */
+export const agentSeatIndices = (seats: readonly InviteSeat[], userHash: string): number[] =>
+  seats.flatMap((seat, index) => (boundAgentUserHash(seat) === userHash ? [index] : []));
+
+/**
+ * P106: an unbound agent chair kept for `userHash`'s own agent. Only an
+ * unbound agent chair ever carries `reservedFor` (create writes it; `parseSeat`
+ * drops it on a bound or human chair; binding drops it), so one read answers.
+ */
+const reservedUnboundFor = (seat: InviteSeat, userHash: string): boolean =>
+  (seat as { readonly reservedFor?: string }).reservedFor === userHash;
+
+/** P106: every chair reserved for `userHash`, bound to them (reservation dropped); `undefined` when none. */
+export const bindReservedAgents = (
+  seats: readonly InviteSeat[],
+  userHash: string,
+): InviteSeat[] | undefined => {
+  if (!seats.some((seat) => reservedUnboundFor(seat, userHash))) return undefined;
+  return seats.map((seat) => (reservedUnboundFor(seat, userHash) ? { kind: 'agent', userHash } : seat));
 };
 
 export const allAgentSeatsBound = (seats: readonly InviteSeat[]): boolean => {

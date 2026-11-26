@@ -226,7 +226,7 @@ export const startOpenedGame = async (
   seats: readonly PlannedSeatKind[],
 ): Promise<StartedGame> => {
   const token = await createOpenInvite(api, ALICE, seats);
-  const humans = seats.filter((kind) => kind === 'human').length;
+  const humans = seats.filter((kind) => kind === 'human').length + 1;
   const joiners = JOINERS.slice(0, humans - 1);
   for (const user of joiners) {
     expectStatus(await postAccept(api, token, user.bearer), 200);

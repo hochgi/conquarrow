@@ -79,14 +79,15 @@ export const CAROL = {
   userHash: 'carol-user-hash',
 } as const;
 
+/** P106: the creator's own chair is `creator` (Player (you)). */
 export const TWO_HUMAN_HEURISTIC: readonly PlannedSeatKind[] = [
-  'human',
+  'creator',
   'human',
   'heuristic',
 ];
 
 export const ONE_HUMAN_TWO_HEURISTIC: readonly PlannedSeatKind[] = [
-  'human',
+  'creator',
   'heuristic',
   'heuristic',
 ];

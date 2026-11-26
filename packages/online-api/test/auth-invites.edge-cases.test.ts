@@ -14,7 +14,6 @@ import {
   EXPIRED_BEARER,
   GAME_ONE,
   GINA,
-  TWO_HUMAN_HEURISTIC,
   aliceBobGroupHash,
   aliceHash,
   bindAliceAndBob,
@@ -56,26 +55,19 @@ describe('Seat plan must be an online lobby', () => {
   });
 
   it('One human and two heuristics is 422 and writes nothing', async () => {
-    await expectCreateWritesNothing(['human', 'heuristic', 'heuristic']);
+    await expectCreateWritesNothing(['creator', 'heuristic', 'heuristic']);
   });
 
   it('BYOK seat is 422 and writes nothing', async () => {
-    await expectCreateWritesNothing(['human', 'human', 'byok']);
+    await expectCreateWritesNothing(['creator', 'human', 'byok']);
   });
 
   it('Seat count other than 3 or 6 is 422', async () => {
-    await expectCreateWritesNothing(['human', 'human', 'human', 'human']);
+    await expectCreateWritesNothing(['creator', 'human', 'human', 'human']);
   });
 
-  it('hostSeatIndex on a heuristic chair is 422', async () => {
-    const { api, s3 } = makeHarness();
-    const before = new Map(s3);
-    const res = await postInvites(api, ALICE.bearer, {
-      seats: TWO_HUMAN_HEURISTIC,
-      hostSeatIndex: 2,
-    });
-    expectStatus(res, 422);
-    expect(s3).toEqual(before);
+  it('P106: a plan with no creator chair (the pre-P106 shape) is 422', async () => {
+    await expectCreateWritesNothing(['human', 'human', 'heuristic']);
   });
 
   it.each([
@@ -86,8 +78,8 @@ describe('Seat plan must be an online lobby', () => {
     { body: '{}' },
     { body: '{"seats":5}' },
     { body: '{"seats":["human","human","wizard"]}' },
-    { body: '{"seats":["human","human","heuristic"],"hostSeatIndex":"1"}' },
-    { body: '{"seats":["human","human","heuristic"],"hostSeatIndex":0.5}' },
+    { body: '{"seats":["creator","creator","heuristic"]}' },
+    { body: '{"seats":["creator","human","heuristic"],"name":5}' },
   ])('A create body that is not a seat plan is 422 — $body', async ({ body }) => {
     const { api, s3 } = makeHarness();
     const before = new Map(s3);
@@ -105,11 +97,10 @@ describe('Seat plan must be an online lobby', () => {
 });
 
 describe('Creator chair', () => {
-  it('hostSeatIndex binds the creator to a later human seat', async () => {
+  it('P106: the creator chair binds the creator wherever it is', async () => {
     const { api } = makeHarness();
     const res = await postInvites(api, ALICE.bearer, {
-      seats: ['human', 'heuristic', 'human'],
-      hostSeatIndex: 2,
+      seats: ['human', 'heuristic', 'creator'],
     });
 
     expectStatus(res, 201);

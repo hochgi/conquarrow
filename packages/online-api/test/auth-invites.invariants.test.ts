@@ -75,14 +75,14 @@ describe('online-auth-invites invariants', () => {
   it('When create lists fewer than two human seats, or a length other than 3 or 6, or a byok seat, the system shall respond 422 and shall not write S3', async () => {
     const plans: readonly { name: string; seats: readonly PlannedSeatKind[] }[] = [
       { name: 'all heuristic 3', seats: ['heuristic', 'heuristic', 'heuristic'] },
-      { name: 'one human 3', seats: ['human', 'heuristic', 'heuristic'] },
-      { name: 'byok', seats: ['human', 'human', 'byok'] },
-      { name: 'length 2', seats: ['human', 'human'] },
-      { name: 'length 4', seats: ['human', 'human', 'human', 'human'] },
-      { name: 'length 5', seats: ['human', 'human', 'human', 'human', 'human'] },
+      { name: 'one human 3', seats: ['creator', 'heuristic', 'heuristic'] },
+      { name: 'byok', seats: ['creator', 'human', 'byok'] },
+      { name: 'length 2', seats: ['creator', 'human'] },
+      { name: 'length 4', seats: ['creator', 'human', 'human', 'human'] },
+      { name: 'length 5', seats: ['creator', 'human', 'human', 'human', 'human'] },
       { name: 'length 0', seats: [] },
-      { name: 'six with byok', seats: ['human', 'human', 'human', 'human', 'human', 'byok'] },
-      { name: 'six with one human', seats: ['human', 'heuristic', 'heuristic', 'heuristic', 'heuristic', 'heuristic'] },
+      { name: 'six with byok', seats: ['creator', 'human', 'human', 'human', 'human', 'byok'] },
+      { name: 'six with one human', seats: ['creator', 'heuristic', 'heuristic', 'heuristic', 'heuristic', 'heuristic'] },
     ];
     for (const plan of plans) {
       const { api, s3 } = makeHarness();
@@ -93,25 +93,20 @@ describe('online-auth-invites invariants', () => {
     }
   });
 
-  it('When create succeeds, the system shall bind the creator to hostSeatIndex (default: first human seat) and shall write only invite and lobby-pointer objects', async () => {
+  it('When create succeeds, the system shall bind the creator to the creator chair (P106; was hostSeatIndex) and shall write only invite and lobby-pointer objects', async () => {
     const cases: readonly {
       name: string;
       seats: readonly PlannedSeatKind[];
-      hostSeatIndex?: number;
       boundIndex: number;
     }[] = [
-      { name: 'default first human at 0', seats: TWO_HUMAN_HEURISTIC, boundIndex: 0 },
-      { name: 'default first human at 1', seats: ['heuristic', 'human', 'human'], boundIndex: 1 },
-      { name: 'explicit 0', seats: TWO_HUMAN_HEURISTIC, hostSeatIndex: 0, boundIndex: 0 },
-      { name: 'explicit 2', seats: ['human', 'heuristic', 'human'], hostSeatIndex: 2, boundIndex: 2 },
+      { name: 'creator at 0', seats: TWO_HUMAN_HEURISTIC, boundIndex: 0 },
+      { name: 'creator at 1', seats: ['heuristic', 'creator', 'human'], boundIndex: 1 },
+      { name: 'creator last (P106)', seats: ['human', 'heuristic', 'creator'], boundIndex: 2 },
+      { name: 'six seats, creator at 4 (P106)', seats: ['human', 'heuristic', 'heuristic', 'heuristic', 'creator', 'heuristic'], boundIndex: 4 },
     ];
     for (const c of cases) {
       const { api, s3 } = makeHarness();
-      const body =
-        c.hostSeatIndex === undefined
-          ? { seats: c.seats }
-          : { seats: c.seats, hostSeatIndex: c.hostSeatIndex };
-      const res = await postInvites(api, ALICE.bearer, body);
+      const res = await postInvites(api, ALICE.bearer, { seats: c.seats });
       expectStatus(res, 201);
       const parsed = parseBody(res);
       const token = tokenOf(parsed);

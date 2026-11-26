@@ -106,6 +106,9 @@ import { clearTargetLocks } from './targets';
 import {
   aiSeatIds,
   byokConfigForSeat,
+  coerceLocalSeatPlan,
+  driverSeat,
+  type DriverSeatConfig,
   coerceOnlineSeatPlan,
   firstHumanSeat,
   hasAiSeat,
@@ -515,7 +518,7 @@ export const App = (): ReactElement => {
   const shellRef = useRef<HTMLDivElement>(null);
   /** Non-human seats for the live match. */
   const aiSeatsRef = useRef<ReadonlySet<string>>(new Set());
-  const seatConfigsRef = useRef<ReadonlyMap<string, SeatConfig>>(new Map());
+  const seatConfigsRef = useRef<ReadonlyMap<string, DriverSeatConfig>>(new Map());
   const botEpoch = useRef(0);
   const stateRef = useRef<GameState | undefined>(undefined);
   const passEpoch = useRef(0);
@@ -1868,13 +1871,14 @@ export const App = (): ReactElement => {
       playerCount: plan.playerCount,
     };
     const opening = makeMatch(config);
-    const configs = new Map<string, SeatConfig>();
+    const configs = new Map<string, DriverSeatConfig>();
     const aiKeys = new Set<string>();
     const seatLogs: SeatDriverLog[] = [];
     for (let i = 0; i < plan.seats.length; i += 1) {
-      const seat = plan.seats[i];
+      const picked = plan.seats[i];
       const player = opening.players[i] ?? seatPlayerId(i);
-      if (seat === undefined) continue;
+      if (picked === undefined) continue;
+      const seat = driverSeat(picked);
       configs.set(String(player), seat);
       if (seat.kind !== 'human') aiKeys.add(String(player));
       seatLogs.push({
@@ -1957,6 +1961,12 @@ export const App = (): ReactElement => {
                   let nextPlan = seatPlan;
                   if (lobbyMode === 'local' && next === 'online') {
                     nextPlan = coerceOnlineSeatPlan(seatPlan);
+                    setSeatPlan(nextPlan);
+                    saveSeatPlan(nextPlan);
+                  }
+                  // P106: the online-only choices have no local driver.
+                  if (lobbyMode === 'online' && next === 'local') {
+                    nextPlan = coerceLocalSeatPlan(seatPlan);
                     setSeatPlan(nextPlan);
                     saveSeatPlan(nextPlan);
                   }

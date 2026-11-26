@@ -30,7 +30,6 @@ import {
   accessToken,
   agent,
   atSeat,
-  heuristicSeat,
   human,
   inviteAt,
   inviteHandle,
@@ -47,7 +46,6 @@ import {
 
 const A = () => userHashOf(ALICE.sub);
 const B = () => userHashOf(BOB.sub);
-const C = () => userHashOf(CAROL.sub);
 const NAMES = {
   [ALICE.bearer]: { given_name: 'Alice' },
   [BOB.bearer]: { given_name: 'Bob' },
@@ -146,6 +144,8 @@ describe('SCENARIOS.md 3 — MCP join', () => {
   it('alt reserved for the caller: binds every reserved chair at once, joined with the first', async () => {
     await withRig(async (rig) => {
       const token = await created(rig, ['creator', 'creator-agent', 'agent', 'creator-agent', 'heuristic', 'heuristic']);
+      // The lobby pointer is written again if it went missing (as for a held chair, P92).
+      rig.data.delete(lobbyKey(A(), token));
       const result = await join(rig, ALICE.sub, token);
       expect(toolJson(result)).toEqual({ seatIndex: 1, kind: 'agent', status: 'joined' });
       expect(inviteAt(rig, token)?.seats).toEqual([
@@ -164,17 +164,18 @@ describe('SCENARIOS.md 3 — MCP join', () => {
     await withRig(async (rig) => {
       const token = await created(rig, ['creator', 'creator-agent', 'human']);
       const key = inviteKey(token);
-      const realPut = rig.storeMock.target.put;
+      const realGet = rig.data.get.bind(rig.data);
       let raced = false;
-      rig.storeMock.target.put = async (k, body, options) => {
-        if (!raced && k === key && options?.ifMatch !== undefined) {
+      // Bob accepts right after the door's read, so its If-Match write is refused once.
+      rig.data.get = (k: string): string | undefined => {
+        const value = realGet(k);
+        if (!raced && k === key && value !== undefined) {
           raced = true;
-          // Bob accepts between the read and the write.
-          const current = JSON.parse(rig.data.get(key) ?? '{}') as { seats: unknown[] };
+          const current = JSON.parse(value) as { seats: unknown[] };
           current.seats[2] = { kind: 'human', userHash: B() };
-          rig.data.set(key, JSON.stringify(current));
+          rig.data.set(k, JSON.stringify(current));
         }
-        return realPut(k, body, options);
+        return value;
       };
       expect(toolJson(await join(rig, ALICE.sub, token))).toEqual({ seatIndex: 1, kind: 'agent', status: 'joined' });
       expect(raced).toBe(true);
@@ -183,6 +184,21 @@ describe('SCENARIOS.md 3 — MCP join', () => {
         { kind: 'agent', userHash: A() },
         { kind: 'human', userHash: B() },
       ]);
+    });
+  });
+
+  it('alt reserved, a store failure that is not a 412: thrown, nothing bound', async () => {
+    await withRig(async (rig) => {
+      const token = await created(rig, ['creator', 'creator-agent', 'human']);
+      const key = inviteKey(token);
+      const realSet = rig.data.set.bind(rig.data);
+      rig.data.set = (k: string, v: string) => {
+        if (k === key) throw new Error('store down');
+        return realSet(k, v);
+      };
+      await expect(join(rig, ALICE.sub, token)).rejects.toThrow('store down');
+      rig.data.set = realSet;
+      expect(inviteAt(rig, token)?.seats[1]).toEqual({ kind: 'agent', reservedFor: A() });
     });
   });
 

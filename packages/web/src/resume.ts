@@ -18,8 +18,8 @@ import {
 } from './matchLog';
 import type { ByokRunStats, MatchLog, MatchSummary, SeatDriverLog } from './matchLog';
 import { parseMove } from './moves';
-import { emptyByokFields } from './seatPlan';
-import type { SeatConfig, SeatKind, SeatPlan } from './seatPlan';
+import { driverSeat, emptyByokFields } from './seatPlan';
+import type { DriverSeatConfig, SeatKind, SeatPlan } from './seatPlan';
 
 const rules = makeRules(makeTiling());
 
@@ -430,16 +430,16 @@ export const seatRuntimeFromPlan = (
   plan: SeatPlan,
   players: readonly PlayerId[],
 ): {
-  readonly configs: ReadonlyMap<string, SeatConfig>;
+  readonly configs: ReadonlyMap<string, DriverSeatConfig>;
   readonly aiKeys: ReadonlySet<string>;
 } => {
-  const configs = new Map<string, SeatConfig>();
+  const configs = new Map<string, DriverSeatConfig>();
   const aiKeys = new Set<string>();
   for (let i = 0; i < plan.seats.length; i += 1) {
     const seat = plan.seats[i];
     const player = players[i];
     if (seat === undefined || player === undefined) continue;
-    configs.set(String(player), seat);
+    configs.set(String(player), driverSeat(seat));
     if (seat.kind === 'heuristic' || seat.kind === 'byok') aiKeys.add(String(player));
   }
   return { configs, aiKeys };

@@ -6,13 +6,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GOOGLE_ID_TOKEN_SESSION_KEY, type PlannedSeatKind } from '@conquarrow/contracts';
+import { GOOGLE_ID_TOKEN_SESSION_KEY, onlinePlanProblem, type PlannedSeatKind } from '@conquarrow/contracts';
 import { onlinePlanCreatable } from '../src/online-pages';
 import { tokenExpiryMs } from '../src/online-session';
 import { submitNote } from '../src/online-submit';
 import {
   CREATE_FAILED_COPY,
-  CREATE_PLAN_NOTE,
+  NEEDS_ANOTHER_NOTE,
+  PICK_YOUR_SEAT_NOTE,
   CREATE_REFUSED_COPY,
   createPlanNote,
   createRefusedNote,
@@ -405,29 +406,24 @@ describe('session-expired invariants', () => {
     );
   });
 
-  it('the seat-plan note is the two-Players-or-a-Player-and-an-Agent sentence, and only when the plan is not creatable', () => {
-    const plans: readonly (readonly PlannedSeatKind[])[] = [
-      ['human', 'human'],
-      ['human', 'human', 'heuristic'],
-      ['human', 'agent'],
-      ['human', 'agent', 'heuristic'],
-      ['human', 'heuristic'],
-      ['human'],
-      ['agent'],
-      ['heuristic', 'heuristic'],
+  it('P106: the seat-plan note names what is missing, and only when the plan is not creatable', () => {
+    const S = PICK_YOUR_SEAT_NOTE;
+    const N = NEEDS_ANOTHER_NOTE;
+    const cases: readonly (readonly [readonly PlannedSeatKind[], boolean, string | undefined])[] = [
+      [['creator', 'human', 'heuristic'], true, undefined],
+      [['creator', 'agent', 'heuristic'], true, undefined],
+      [['creator', 'creator-agent', 'heuristic'], true, undefined],
+      [['heuristic', 'agent', 'creator'], true, undefined],
+      [['creator', 'heuristic', 'heuristic'], false, N],
+      [['human', 'human', 'heuristic'], false, S],
+      [['human', 'agent', 'heuristic'], false, S],
+      [['creator', 'creator', 'human'], false, S],
+      [['creator', 'human'], false, S],
     ];
 
     expect(
-      plans.map((plan) => ({
-        creatable: onlinePlanCreatable(plan),
-        note: createPlanNote(onlinePlanCreatable(plan)),
-      })),
-    ).toEqual(
-      plans.map((plan) => {
-        const creatable = onlinePlanCreatable(plan);
-        return { creatable, note: creatable ? undefined : CREATE_PLAN_NOTE };
-      }),
-    );
+      cases.map(([plan]) => ({ creatable: onlinePlanCreatable(plan), note: createPlanNote(onlinePlanProblem(plan)) })),
+    ).toEqual(cases.map(([, creatable, note]) => ({ creatable, note })));
   });
 
   it('sign-out clears session expired, the create note, the library failure, and a held create', async () => {

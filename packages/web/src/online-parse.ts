@@ -60,12 +60,20 @@ const personSeat = (kind: 'human' | 'agent', rec: Record<string, unknown>): Invi
   };
 };
 
+/** P106: an agent chair keeps a non-empty `reservedFor`; a human chair never has one. */
+const agentSeat = (rec: Record<string, unknown>): InviteSeat => {
+  const reservedFor = nameField(rec['reservedFor']);
+  const seat = { ...personSeat('agent', rec), kind: 'agent' as const };
+  return reservedFor === undefined ? seat : { ...seat, reservedFor };
+};
+
 const parseSeat = (raw: unknown): InviteSeat | undefined => {
   const rec = asRecord(raw);
   if (rec === undefined) return undefined;
   const kind = rec['kind'];
   if (kind === 'heuristic') return { kind: 'heuristic' };
-  if (kind === 'human' || kind === 'agent') return personSeat(kind, rec);
+  if (kind === 'agent') return agentSeat(rec);
+  if (kind === 'human') return personSeat(kind, rec);
   return undefined;
 };
 

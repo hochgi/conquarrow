@@ -94,6 +94,8 @@ export type { LibraryGameStatus, LibrarySummary } from './library-status';
 export { libraryStatusFor } from './library-status';
 
 export { PLAYER_SEAT_LABELS, libraryVsLine, playerLetterLabel } from './library-row';
+export { onlinePlanProblem } from './seat-plan';
+export type { OnlinePlanProblem } from './seat-plan';
 export { chairUserHash, labelInviteChair, seatLabel, seatLetter, usableSeatName } from './seat-label';
 export type { SeatLabelInput, SeatLabelKind, SeatLabelRelation } from './seat-label';
 

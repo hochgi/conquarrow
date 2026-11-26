@@ -113,7 +113,6 @@ const parseCreateArgs = (
 ):
   | {
       readonly kinds: NonNullable<ReturnType<typeof parseKinds>>;
-      readonly hostSeatIndex?: number;
       readonly name?: string;
     }
   | undefined => {
@@ -133,12 +132,7 @@ const parseCreateArgs = (
   const named = normalizeGameName(rec['name']);
   if (!named.ok) return undefined;
   const name = named.name === undefined ? {} : { name: named.name };
-  if (!Object.hasOwn(rec, 'hostSeatIndex')) {
-    return { kinds, ...name };
-  }
-  const host = rec['hostSeatIndex'];
-  if (typeof host !== 'number' || !Number.isInteger(host)) return undefined;
-  return { kinds, hostSeatIndex: host, ...name };
+  return { kinds, ...name };
 };
 
 export const handleMe = async (
@@ -159,10 +153,9 @@ export const handleCreate = async (
   await upsertCallerProfile(deps.s3, user);
   const args = parseCreateArgs(request.body);
   if (args === undefined) return unprocessable();
-  const plan = validatePlan(args.kinds, args.hostSeatIndex);
-  if (plan === undefined) return unprocessable();
+  if (!validatePlan(args.kinds)) return unprocessable();
   const token = bytesToHex(deps.randomBytes(32));
-  const seats = seatsFromPlan(args.kinds, plan.host, user.userHash);
+  const seats = seatsFromPlan(args.kinds, user.userHash);
   await writeInvite(deps.s3, token, {
     status: 'open',
     creatorUserHash: user.userHash,

@@ -10,7 +10,7 @@ import {
   coerceOnlineSeatPlan,
   defaultSeat,
   defaultSeatPlan,
-  onlineSeatKindAllowed,
+  pickOnlineSeat,
   type SeatKind,
   type SeatPlan,
 } from '../src/seatPlan';
@@ -104,7 +104,7 @@ describe('Local and extra chairs', () => {
   it('Online AI to Player is always allowed', () => {
     const plan = planFromKinds(['human', 'human', 'heuristic']);
 
-    expect(onlineSeatKindAllowed(plan, 2, 'human')).toBe(true);
+    expect(pickOnlineSeat(plan, 2, 'human').seats[2]?.kind).toBe('human');
   });
 });
 
