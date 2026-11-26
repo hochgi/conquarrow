@@ -75,7 +75,7 @@ Feature: Board selection model
     Scenario: The selection line reports n of m and names the selected arrow
       Given movable arrows m1, m2 and m3 in compareArrows order
       And m2 holding 2 heads is selected
-      Then the selection line reads "Selected: 2 on m2 · 2 of 3"
+      Then the selection line reads "Selected: 2 heads · 2 of 3"
 
     Scenario: The selection line says so in words when nothing is selected
       Given movable arrows m1, m2 and m3
@@ -101,7 +101,7 @@ Feature: Board selection model
       Given S2 is selected
       When the active player clicks an empty arrow S2 cannot reach this turn
       Then the click is refused with reason out-of-reach
-      And the message line reads "Too far for the stack on b0"
+      And the message line reads "Too far for the selected stack"
 
   Rule: The count strip says what the count means
 
@@ -109,7 +109,7 @@ Feature: Board selection model
       Given S1 holding 3 heads is selected
       And the active player has drafted a one step run from a0
       When the count on the last leg is lowered to 2
-      Then the leftover reads "1 head stays on a0"
+      Then the leftover reads "1 head stays where the last run began"
 
   Rule: The layout and the turn flow are stated
 

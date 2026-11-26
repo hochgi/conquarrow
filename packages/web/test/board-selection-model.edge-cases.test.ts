@@ -105,7 +105,7 @@ describe('Rule: The five playtest incidents cannot recur', () => {
     const snap = click(s, target);
     expect(snap.refusal).toEqual({ arrow: target, reason: 'out-of-reach' });
     const movable = movableArrows(rules, state);
-    expect(messageLine(snap, movable.length)).toBe(`Too far for the stack on ${String(s0)}`);
+    expect(messageLine(snap, movable.length)).toBe('Too far for the selected stack');
     expect(selectionLine({ selected: selectedOf(snap), heads: 1, movable })).toContain(String(s0));
   });
 
@@ -189,7 +189,7 @@ describe('Rule: Own-stack clicks select before any other reading', () => {
     expect(snap.phase).toEqual({ kind: 'blocked', from: z0 });
     expect(snap.refusal).toEqual({ arrow: z0, reason: 'no-exit' });
     expect(messageLine(snap, movableArrows(rules, state).length)).toBe(
-      `The stack on ${String(z0)} has no move left this turn`,
+      'The selected stack has no move left this turn',
     );
   });
 
@@ -512,7 +512,7 @@ describe('Rule: The lap is exact at its boundaries', () => {
     const z0 = mintArrowId('z0');
     const movable = ['m1', 'm2'].map(mintArrowId);
     expect(selectionLine({ selected: z0, heads: 1, movable })).toBe(
-      'Selected: 1 on z0 · no move left · 2 can move',
+      'Selected: 1 head · no move left · 2 can move',
     );
   });
 });
@@ -584,12 +584,13 @@ describe('Rule: Pan, zoom and motion leave selection alone', () => {
 describe('Rule: The count strip and leftover wording hold for every run', () => {
   it.each([
     ['a0', 3, 3, 'No head stays behind'],
-    ['a0', 3, 2, '1 head stays on a0'],
-    ['t2', 8, 4, '4 heads stay on t2'],
+    ['a0', 3, 2, '1 head stays where the last run began'],
+    ['t2', 8, 4, '4 heads stay where the last run began'],
   ] as const)(
-    'The leftover names where it stands, or says none stays (start %s, ceiling %i, count %i)',
-    (start, ceiling, count, text) => {
-      expect(leftoverNote({ count, ceiling, start: mintArrowId(start) })).toBe(text);
+    'The leftover says how many stay where the last run began, or none (start %s, ceiling %i, count %i)',
+    (_start, ceiling, count, text) => {
+      // P103: the note names no arrow, so the start no longer reaches the copy.
+      expect(leftoverNote({ count, ceiling })).toBe(text);
     },
   );
 

@@ -600,7 +600,7 @@ describe('P34 edge — the carry rewrites the last run and nothing earlier', () 
     const phase = routePhaseOf(snap);
     expect(phase.tipHeads).toBe(12);
     expect(phase.offer.carries.length).toBeGreaterThan(0);
-    // The ceiling is the heads standing where the run began, not at its tip.
+    // The ceiling is the heads standing where the last run began, not at its tip.
     for (const carry of phase.offer.carries) expect(carry).toBeLessThanOrEqual(12);
     const lowered = selected.mode.setCarry(4);
     expect(routePhaseOf(lowered).tipHeads).toBe(4);

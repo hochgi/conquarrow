@@ -563,7 +563,7 @@ export const runCeiling = (inputs: RouteInputs): number =>
  * engine is the one that decides.
  *
  * The ceiling falls out of the same measurement: no count above the heads
- * standing where the run began can step at all — and where the run's final step
+ * standing where the last run began can step at all — and where the run's final step
  * attacks, §6.2's stay-behind takes the ceiling down to `heads - 1`.
  *
  * Measuring is what makes it right about **spent allowance**: `spent` travels

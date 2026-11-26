@@ -19,7 +19,7 @@ import { leftoverNote, type CountControl } from './route';
  * the arrow.
  *
  * It asks the one question a named run has: how many heads walk it, the rest
- * staying where the run began as a sentry (§5). Changing the count repaints the
+ * staying where the last run began as a sentry (§5). Changing the count repaints the
  * rays live, which is how a player learns that distance is bought with heads
  * (§3); no numeral says how far, because the ray's painted length is the display
  * and nothing should be able to disagree with it.

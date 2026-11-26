@@ -155,11 +155,11 @@ describe('Rule: Next stack walks every movable stack, then none', () => {
     expect(nextStack(undefined, [m1])).toBe(m1);
   });
 
-  it('The selection line reports n of m and names the selected arrow', () => {
+  it('The selection line reports n of m and counts the selected heads', () => {
     const [m1, m2, m3] = ['m1', 'm2', 'm3'].map(mintArrowId);
     if (m1 === undefined || m2 === undefined || m3 === undefined) throw new Error('setup');
     expect(selectionLine({ selected: m2, heads: 2, movable: [m3, m1, m2] })).toBe(
-      'Selected: 2 on m2 · 2 of 3',
+      'Selected: 2 heads · 2 of 3',
     );
   });
 
@@ -210,13 +210,13 @@ describe('Rule: Lit means legal, and every refused click says why', () => {
     const snap = click(s, far);
     expect(snap.refusal).toEqual({ arrow: far, reason: 'out-of-reach' });
     expect(messageLine(snap, movableArrows(rules, state).length)).toBe(
-      `Too far for the stack on ${String(b0)}`,
+      'Too far for the selected stack',
     );
   });
 });
 
 describe('Rule: The count strip says what the count means', () => {
-  it('The leftover names the arrow it stands on', () => {
+  it('The leftover says how many stay where the last run began', () => {
     const a0 = sourceArrow(geometry);
     const state = boardWith([{ arrow: a0, owner: A, heads: 3 }]);
     const s = session(state);
@@ -228,8 +228,8 @@ describe('Rule: The count strip says what the count means', () => {
     expect(strip?.count).toBe(2);
     expect(strip?.start).toBe(a0);
     if (strip === undefined) return;
-    expect(leftoverNote({ count: strip.count, ceiling: strip.ceiling, start: strip.start })).toBe(
-      `1 head stays on ${String(a0)}`,
+    expect(leftoverNote({ count: strip.count, ceiling: strip.ceiling })).toBe(
+      '1 head stays where the last run began',
     );
     // The stepper's caption, and the note drawn from `leftoverNote`.
     const dock = codeOf(dockSource());

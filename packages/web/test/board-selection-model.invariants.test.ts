@@ -572,8 +572,8 @@ describe('P77 normative strip copy', () => {
 
   it('refusalText names the selected stack where the table says so', () => {
     const z = mintArrowId('-4,6,2');
-    expect(refusalText('out-of-reach', z)).toBe('Too far for the stack on -4,6,2');
-    expect(refusalText('no-exit', z)).toBe('The stack on -4,6,2 has no move left this turn');
+    expect(refusalText('out-of-reach', z)).toBe('Too far for the selected stack');
+    expect(refusalText('no-exit', z)).toBe('The selected stack has no move left this turn');
     for (const reason of ['nothing-selected', 'not-yours', 'would-convert', 'not-one-run', 'board-busy'] as const) {
       expect(refusalText(reason, z), reason).toBe(REFUSAL_TEXT[reason]);
     }
@@ -585,14 +585,13 @@ describe('P77 normative strip copy', () => {
     expect(turnStatus(0)).toBe('Nothing can move · the turn passes by itself');
     const movable = ['m1', 'm2'].map(mintArrowId);
     expect(selectionLine({ selected: undefined, heads: 0, movable })).toBe('No stack selected · 2 can move');
-    expect(selectionLine({ selected: movable[1], heads: 5, movable })).toBe('Selected: 5 on m2 · 2 of 2');
+    expect(selectionLine({ selected: movable[1], heads: 5, movable })).toBe('Selected: 5 heads · 2 of 2');
   });
 
   it('the leftover note and the route hints read as the tables say', () => {
-    const t = mintArrowId('t');
-    expect(leftoverNote({ count: 2, ceiling: 2, start: t })).toBe('No head stays behind');
-    expect(leftoverNote({ count: 1, ceiling: 2, start: t })).toBe('1 head stays on t');
-    expect(leftoverNote({ count: 1, ceiling: 6, start: t })).toBe('5 heads stay on t');
+    expect(leftoverNote({ count: 2, ceiling: 2 })).toBe('No head stays behind');
+    expect(leftoverNote({ count: 1, ceiling: 2 })).toBe('1 head stays where the last run began');
+    expect(leftoverNote({ count: 1, ceiling: 6 })).toBe('5 heads stay where the last run began');
     expect(ROUTE_HINT_EMPTY).toBe(
       'Click a lit arrow to draft a run · one turn at the end is free · dashed = needs more than one run',
     );
