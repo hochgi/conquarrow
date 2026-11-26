@@ -50,6 +50,8 @@ export type {
   CreateInviteBody,
   ExportAgentReply,
   ExportLogEntry,
+  ExportMoveEntry,
+  ExportReplyEntry,
   ExportSeat,
   FinishedBody,
   GameExport,
@@ -126,4 +128,4 @@ export type {
 export type { OnlineHostDeps, OnlineHostPort } from './online-host-port';
 
 
-export type { AppliedStep, GameEvent, GameEventKind } from './game-events';
+export type { AppliedStep, GameEvent, GameEventKind, LogEvent, LogEventKind } from './game-events';

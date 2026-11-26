@@ -134,3 +134,57 @@ export interface AppliedStep {
   readonly move: Move;
 }
 
+
+/**
+ * P107 D2: one event as the server's match log writes it — the facts of a
+ * {@link GameEvent} with arrow lists reduced to counts, ids as strings, and an
+ * absent optional left out. `sharesChanged` comes from the geometry-aware
+ * `resolveShareEvents` (rules-core), not from `resolveEvents`.
+ */
+export type LogEvent =
+  | {
+      readonly kind: 'combat';
+      readonly arrow: string;
+      readonly attacker: string;
+      readonly defender: string;
+      readonly attackerSent: number;
+      readonly defenderBefore: number;
+      readonly attackerLost: number;
+      readonly defenderLost: number;
+      readonly holder?: string;
+    }
+  | {
+      readonly kind: 'trailCut';
+      readonly victim: string;
+      readonly attacker: string;
+      readonly cutArrow?: string;
+      readonly arrowCount: number;
+    }
+  | {
+      readonly kind: 'enclosureClosed';
+      readonly player: string;
+      readonly closingArrow?: string;
+      readonly boundaryCount: number;
+      readonly claimedCount: number;
+    }
+  | {
+      readonly kind: 'territoryCaptured';
+      readonly player: string;
+      readonly arrowCount: number;
+      readonly takenFrom: readonly string[];
+    }
+  | { readonly kind: 'territoryLost'; readonly player: string; readonly to?: string; readonly arrowCount: number }
+  | {
+      readonly kind: 'unitsConverted';
+      readonly arrow: string;
+      readonly from: string;
+      readonly to: string;
+      readonly heads: number;
+    }
+  | { readonly kind: 'unitsProduced'; readonly player: string; readonly arrow: string; readonly amount: number }
+  | { readonly kind: 'seatVanished'; readonly player: string; readonly arrowCount: number }
+  | { readonly kind: 'sharesChanged'; readonly player: string; readonly from: number; readonly to: number }
+  | { readonly kind: 'turnPassed'; readonly from: string; readonly to: string }
+  | { readonly kind: 'matchWon'; readonly player: string };
+
+export type LogEventKind = LogEvent['kind'];
