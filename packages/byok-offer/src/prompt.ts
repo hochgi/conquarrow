@@ -31,7 +31,7 @@ const MAX_LISTED_ARROWS = 24;
 
 /** P108 D6: every index of one reply refers to the same offer. */
 export const BATCH_RULE =
-  'Batch rule: every index refers to this offer. A step is applied only while it is still legal, and a stack that moved has no rows here; move it again from the next offer.';
+  'Batch rule: every index refers to this offer, so move each stack at most once per reply. A stack\'s rows here describe it before it moves; walk it further from the next offer. A step that is no longer legal when it is reached spoils the reply.';
 /**
  * Keep the board summary small — huge spawner dumps make models restate state until max_tokens.
  * Caps tier-1 rows only: a vertex incident to the seat's stacks or offer is always listed (P75).

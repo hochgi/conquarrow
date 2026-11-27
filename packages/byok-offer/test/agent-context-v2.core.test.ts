@@ -196,7 +196,7 @@ describe('D6 — the batch rule is stated before the reply instruction', () => {
     const { state, b } = seatBTurn();
     const lines = offerText(state, b).split('\n');
     expect(BATCH_RULE).toBe(
-      'Batch rule: every index refers to this offer. A step is applied only while it is still legal, and a stack that moved has no rows here; move it again from the next offer.',
+      'Batch rule: every index refers to this offer, so move each stack at most once per reply. A stack\'s rows here describe it before it moves; walk it further from the next offer. A step that is no longer legal when it is reached spoils the reply.',
     );
     expect(lines.at(-2)).toBe(BATCH_RULE);
     expect(lines.at(-1)).toMatch(/^Reply with only JSON/);

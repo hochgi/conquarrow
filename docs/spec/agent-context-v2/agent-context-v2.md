@@ -151,7 +151,9 @@ have is refused, and `why` / `plan` are clipped and redacted.
 The protocol is unchanged: indices only, no `{from, exit, count}` steps. The
 offer and the `move` description now say it:
 
-> Batch rule: every index refers to this offer. A step is applied only while it is still legal, and a stack that moved has no rows here; move it again from the next offer.
+> Batch rule: every index refers to this offer, so move each stack at most once per reply. A stack's rows here describe it before it moves; walk it further from the next offer. A step that is no longer legal when it is reached spoils the reply.
+
+"Spoils" is deliberately one word for both paths: the door refuses the whole reply and writes nothing (all or nothing, [remote-agent-mcp: Door](../remote-agent-mcp/remote-agent-mcp.md#door)); a BYOK seat keeps the legal prefix and falls back to the heuristic for the rest. The text is the same for both.
 
 ### D7 — one builder, one text
 

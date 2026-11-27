@@ -190,8 +190,14 @@ detailed form of an item; this file is the short list and the order.
 - **Backfill pre-P107 match logs** (P107 open question). Games started
   before P107 export without `at`, `seat`, `by` or `events`. Seats and events
   could be recomputed at export time by replay; times cannot.
-- **Agent context v2.** P92/P93 issue review 2026-11-16: what the agent is
-  told about the board and the match beyond P93's map.
+- **Agent context v2, second slice (P109, issue #123).**
+  [P108](packets/P108-agent-context-v2.md) shipped the seat table, the
+  starvation line, "since your last turn", honest row tempo (`then=`), the
+  batch rule and the `move` schema. Still owed: a closing-path hint per
+  exposed tip and for outward steps (the exit sequence and its step count), a
+  reason line for a stuck tip ("lone head can't attack", "self-convert
+  refused"), and dropping or trimming `STATE_JSON` (its `dominationN` and
+  streaks are now also in the starvation line).
 - **OAuth hardening** for the remote MCP. P92/P93 issue review 2026-11-16.
 - **The advance still runs inside the request.** Since
   [P95](packets/P95-online-reliability.md) it is bounded by
@@ -199,9 +205,6 @@ detailed form of an item; this file is the short list and the order.
   continues on the next read, and a gateway timeout is retried with the same
   submit id. Moving it to an async worker (ADR 0011) would free the request
   entirely.
-- **Agent context v2 also owes an off-turn observe** (P95 playtest R5): seat
-  kinds in the offer, the event log since the agent's last turn, and a
-  read-only `observe` when it is not the agent's turn.
 
 ## Online
 

@@ -218,6 +218,8 @@ socket is not an error. The payload is the existing one.
 
 ## Offer
 
+> **Amended by P108** ([agent-context-v2](../agent-context-v2/agent-context-v2.md)): the door calls `offerText(state, seat, about)`. `about` is read after the call's own write: the seat table from the invite's chairs and the profile names, and the P107 lines of `log.jsonl` for "since your last turn". The offer also carries the starvation line, `then=` on every row and the batch rule. The `move` tool declares `moves` (integer items), `why` and `plan`, and its description states the batch rule. For the same `about`, the BYOK user prompt is still the same string.
+
 `offerText(state, seat)` in `@conquarrow/byok-offer` is a pure function of
 state and seat: fresh target locks, no plan echo. `observe`'s offer block is that
 string. The web's user prompt, with target locks and the plan echo cleared, is
