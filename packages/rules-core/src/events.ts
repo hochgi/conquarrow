@@ -21,7 +21,15 @@
  * exactly the kind of ordering bug ADR 0001 warns about.
  */
 
-import type { AppliedStep, ArrowId, GameEvent, GameState, Move, PlayerId } from '@conquarrow/contracts';
+import type {
+  AppliedStep,
+  ArrowId,
+  GameEvent,
+  GameState,
+  Move,
+  PlayerId,
+  StepMove,
+} from '@conquarrow/contracts';
 
 const byId = (left: ArrowId, right: ArrowId): number => {
   const a = String(left);
@@ -168,6 +176,44 @@ const anchorOf = (move: Move): ArrowId | undefined =>
 
 // ── what the move itself did to the stacks it named ───────────────────────────
 
+/** Where the moving stack landed: an empty arrow, a friendly stack, or a fight. */
+const landingEvent = (
+  before: GameState,
+  after: GameState,
+  move: StepMove,
+  player: PlayerId,
+): GameEvent => {
+  const target = before.groups.get(move.exit);
+  const landed = after.groups.get(move.exit);
+  if (target === undefined) {
+    return { kind: 'moved', player, from: move.from, to: move.exit, heads: move.count };
+  }
+  if (target.owner === player) {
+    return {
+      kind: 'stackMerged',
+      player,
+      from: move.from,
+      to: move.exit,
+      arriving: move.count,
+      existing: target.heads,
+      total: landed?.heads ?? move.count + target.heads,
+    };
+  }
+  const attackerLeft = landed?.owner === player ? landed.heads : 0;
+  const defenderLeft = landed?.owner === target.owner ? landed.heads : 0;
+  return {
+    kind: 'combat',
+    arrow: move.exit,
+    attacker: player,
+    defender: target.owner,
+    attackerSent: move.count,
+    defenderBefore: target.heads,
+    attackerLost: move.count - attackerLeft,
+    defenderLost: target.heads - defenderLeft,
+    holder: landed?.owner,
+  };
+};
+
 /** Split / sentry / merge / combat / plain advance, all read off `from` and `exit`. */
 const stackEvents = (step: AppliedStep): readonly GameEvent[] => {
   const { before, after, move } = step;
@@ -190,35 +236,7 @@ const stackEvents = (step: AppliedStep): readonly GameEvent[] => {
     out.push({ kind: 'sentryLeft', player, arrow: move.from, heads: stayed });
   }
 
-  const target = before.groups.get(move.exit);
-  const landed = after.groups.get(move.exit);
-  if (target === undefined) {
-    out.push({ kind: 'moved', player, from: move.from, to: move.exit, heads: move.count });
-  } else if (target.owner === player) {
-    out.push({
-      kind: 'stackMerged',
-      player,
-      from: move.from,
-      to: move.exit,
-      arriving: move.count,
-      existing: target.heads,
-      total: landed?.heads ?? move.count + target.heads,
-    });
-  } else {
-    const attackerLeft = landed?.owner === player ? landed.heads : 0;
-    const defenderLeft = landed?.owner === target.owner ? landed.heads : 0;
-    out.push({
-      kind: 'combat',
-      arrow: move.exit,
-      attacker: player,
-      defender: target.owner,
-      attackerSent: move.count,
-      defenderBefore: target.heads,
-      attackerLost: move.count - attackerLeft,
-      defenderLost: target.heads - defenderLeft,
-      holder: landed?.owner,
-    });
-  }
+  out.push(landingEvent(before, after, move, player));
   return out;
 };
 
