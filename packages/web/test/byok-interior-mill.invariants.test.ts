@@ -43,7 +43,7 @@ import {
   withoutIds,
 } from './byok-interior-mill.support';
 import type { Case, Row } from './byok-interior-mill.support';
-import { withoutBordersSpawner, withoutP75 } from './byok-offer-vertex-join.support';
+import { withoutBordersSpawner, withoutP75, withoutTempo } from './byok-offer-vertex-join.support';
 
 const bank: readonly Case[] = [
   ...minusOneCases(spacious),
@@ -193,9 +193,9 @@ describe('P80 byok-interior-mill invariants', () => {
       const id = positionId(position.log, position.moveIndex);
       // P75 retired borders_spawner for advances= clauses and two tags (Decision 5);
       // the frozen golden keeps the pre-P75 text, so both sides drop exactly that.
-      const now = offTerritoryLines(position).map(withoutP75);
+      const now = offTerritoryLines(position).map((line) => withoutTempo(withoutP75(line)));
       rows += now.length;
-      expect(now, id).toEqual((offTerritoryRows[id] ?? []).map(withoutBordersSpawner));
+      expect(now, id).toEqual((offTerritoryRows[id] ?? []).map((line) => withoutTempo(withoutBordersSpawner(line))));
     }
     expect(rows).toBeGreaterThan(100);
   });

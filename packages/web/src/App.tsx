@@ -101,6 +101,8 @@ import {
 import type { ResumeOffer } from './resume';
 import { useResumeLeaveGuard } from './resumeLeave';
 import { clearByokPlans, playLlmBotTurn } from './byokBot';
+import type { OfferAbout } from '@conquarrow/byok-offer';
+import { byokTurnAbout } from './byokAbout';
 import { isByokReady } from './byokConfig';
 import { clearTargetLocks } from './targets';
 import {
@@ -283,7 +285,7 @@ type LocalAiPlan = {
   readonly byok: { readonly delta: ByokRunStats; readonly seat: PlayerId } | undefined;
 };
 
-const planLocalAiTurn = async (seat: SeatConfig, start: GameState): Promise<LocalAiPlan> => {
+const planLocalAiTurn = async (seat: SeatConfig, start: GameState, about: OfferAbout | undefined): Promise<LocalAiPlan> => {
   if (seat.kind === 'byok') {
     const turn = await playLlmBotTurn(
       geometry,
@@ -291,6 +293,8 @@ const planLocalAiTurn = async (seat: SeatConfig, start: GameState): Promise<Loca
       start,
       start.activePlayer,
       byokConfigForSeat(seat),
+      fetch,
+      about,
     );
     return {
       moves: turn.moves,
@@ -544,6 +548,11 @@ export const App = (): ReactElement => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+  /** P108: the match log a BYOK seat's offer reads its seat table and history from. */
+  const logRef = useRef<MatchLog | undefined>(undefined);
+  useEffect(() => {
+    logRef.current = log;
+  }, [log]);
 
   // ---- P48 spectated-turn camera -----------------------------------------
   /** The two persisted preferences; one `conquarrow:prefs` key. */
@@ -1286,7 +1295,12 @@ export const App = (): ReactElement => {
       try {
         await adapterSleep(30);
         if (cancelled()) return;
-        const plan = await planLocalAiTurn(seatConfig, start);
+        const matchLog = logRef.current;
+        const plan = await planLocalAiTurn(
+          seatConfig,
+          start,
+          seatConfig.kind !== 'byok' || matchLog === undefined ? undefined : byokTurnAbout(matchLog, start.activePlayer),
+        );
         if (cancelled()) return;
         if (plan.moves.length === 0) return;
         if (plan.byok !== undefined) {

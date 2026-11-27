@@ -419,6 +419,13 @@ export const asSnapRows = (snap: unknown): SnapRows => {
 export const withoutP75 = (line: string): string =>
   dropTags(line.replace(CLAUSE, ''), ['completes_spawner', 'double_fed']);
 
+/**
+ * P108 D4 made a row's tempo honest: `spd` is the stack's allowance (not the
+ * portion's speed), `left` follows it and `then=` is new. Those fields are
+ * pinned in agent-context-v2; the frozen goldens compare everything else.
+ */
+export const withoutTempo = (line: string): string => line.replace(/ spd=\d+ spent=\d+ left=-?\d+( then=\d+)?/, '');
+
 /** Drop the retired tag from a pre-P75 row. */
 export const withoutBordersSpawner = (line: string): string => dropTags(line, ['borders_spawner']);
 

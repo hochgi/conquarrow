@@ -38,6 +38,7 @@ import {
   tagsOf,
   tiling,
   withoutBordersSpawner,
+  withoutTempo,
   withoutP75,
 } from './byok-offer-vertex-join.support';
 import type { Board, Seen } from './byok-offer-vertex-join.support';
@@ -232,10 +233,10 @@ describe('P75 byok-offer-vertex-join invariants', () => {
         const prior = was[i] ?? '';
         if (flanksSpawner(tiling.geometry, position.state, move.exit)) {
           flanked += 1;
-          expect(withoutP75(line), `${id}: ${line}`).toBe(withoutBordersSpawner(prior));
+          expect(withoutTempo(withoutP75(line)), `${id}: ${line}`).toBe(withoutTempo(withoutBordersSpawner(prior)));
         } else {
           plain += 1;
-          expect(withoutP75(line), `${id}: ${line}`).toBe(prior);
+          expect(withoutTempo(withoutP75(line)), `${id}: ${line}`).toBe(withoutTempo(prior));
           expect(line, `${id}: ${line}`).not.toContain('advances=');
         }
       }

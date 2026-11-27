@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildUserPrompt } from '../src/byokBot';
 import { readTeachingFile } from './byok-teaching-prompt.support';
+import { withoutTempo } from './byok-offer-vertex-join.support';
 import {
   A,
   SP_EDGE,
@@ -78,7 +79,8 @@ describe('P80 byok-interior-mill edge cases', () => {
         expect(row.line).not.toContain('edgeDist=');
         expect(row.tags).not.toContain('to_edge');
       }
-      expect(rows.map((row) => row.line)).toEqual([...PRE_P80_OFF_TERRITORY_ROWS]);
+      // P108 D4 changed only the tempo fields (pinned in agent-context-v2).
+      expect(rows.map((row) => withoutTempo(row.line))).toEqual(PRE_P80_OFF_TERRITORY_ROWS.map(withoutTempo));
     });
 
     it('The exposed-tips header still prints tipDist', () => {

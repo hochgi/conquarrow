@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { BATCH_RULE } from '@conquarrow/byok-offer';
 import { compareArrows, compareVertices } from '@conquarrow/rules-core';
 import type { ArrowId, GameState, Move, StepMove } from '@conquarrow/contracts';
 import { buildUserPrompt, formatLegalMoves, snapshotForPrompt } from '../src/byokBot';
@@ -27,6 +28,7 @@ import {
   clausesOf,
   cycleOf,
   dropTags,
+  withoutTempo,
   feederOf,
   flanksSorted,
   flanksSpawner,
@@ -197,7 +199,7 @@ describe('P75 byok-offer-vertex-join edge cases', () => {
           if (flanksSpawner(tiling.geometry, position.state, move.exit)) continue;
           compared += 1;
           // Decision 5/7(b): the only tag P75 may add to such a row is completes_spawner.
-          expect(dropTags(line, ['completes_spawner']), id).toBe(was[i]);
+          expect(withoutTempo(dropTags(line, ['completes_spawner'])), id).toBe(withoutTempo(was[i] ?? ''));
         }
       }
       expect(compared).toBeGreaterThan(200);
@@ -247,7 +249,13 @@ describe('P75 byok-offer-vertex-join edge cases', () => {
         tiling.rules,
       );
       expect(user, 'the P75 clauses are not in the measured prompt').toContain('advances=');
-      expect(user.length).toBeLessThanOrEqual(BUDGET_CEILING);
+      // P108's starvation line, batch rule and then= fields are its own text, not P75's growth.
+      const p75Only = user
+        .split('\n')
+        .filter((line) => !line.startsWith('Starvation: ') && line !== BATCH_RULE)
+        .join('\n')
+        .replace(/ then=\d+/g, '');
+      expect(p75Only.length).toBeLessThanOrEqual(BUDGET_CEILING);
     });
   });
 });

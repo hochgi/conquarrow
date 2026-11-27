@@ -127,8 +127,9 @@ describe('byokBot parsing', () => {
     expect(listed).toMatch(/edgeDist=\d+→\d+/);
     expect(listed).toContain('trailLen=');
     expect(listed).toMatch(/leave_home|home_mill|onto_home/);
-    expect(listed).toMatch(/count=1 leave=2 spd=1 spent=0/);
-    expect(listed).toMatch(/count=2 leave=1 spd=2 spent=0/);
+    // P108 D4: spd is the 3-head stack's allowance for every portion; then= is what the moved portion keeps.
+    expect(listed).toMatch(/count=1 leave=2 spd=2 spent=0 left=2 then=0 /);
+    expect(listed).toMatch(/count=2 leave=1 spd=2 spent=0 left=2 then=1 /);
     expect(buildUserPrompt(geometry, state, me, moves, true, rules)).toContain('spd-spent');
     expect(buildSystemPrompt(me, true)).toContain('leave_home');
     expect(buildSystemPrompt(me, true)).toContain('spawner');
@@ -137,7 +138,7 @@ describe('byokBot parsing', () => {
     expect(buildSystemPrompt(me, true)).toMatch(/leftover/);
   });
 
-  it('keeps spd as speed(count) after a split, and prints inherited spent', () => {
+  it('after a split each stack reads its own allowance and inherited spent', () => {
     const geometry = makeTiling();
     const rules = makeRules(geometry);
     const state = makeMatch({

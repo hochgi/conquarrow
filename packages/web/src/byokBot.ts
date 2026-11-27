@@ -28,6 +28,8 @@ import {
   rememberByokPlan,
   unusableReplyError,
   type ParsedMoveBatch,
+  recentLinesOf,
+  type OfferAbout,
 } from '@conquarrow/byok-offer';
 import { chooseTurnGreedy } from './botSearch';
 import type { ByokConfig } from './byokConfig';
@@ -283,6 +285,17 @@ export const fetchLlmMoveBatch = async (
   };
 };
 
+/** P108 D3: the about for this completion — the window so far plus this turn's applied steps. */
+const withTurnSoFar = (
+  geometry: GeometryPort,
+  about: OfferAbout | undefined,
+  start: GameState,
+  moves: readonly Move[],
+): OfferAbout | undefined =>
+  about?.recent === undefined
+    ? about
+    : { ...about, recent: [...about.recent, ...recentLinesOf(geometry, start, moves)] };
+
 /** Tiny probe so the lobby can verify base URL + key + model before a match. */
 export type ByokProbeResult =
   | { readonly ok: true; readonly sample: string }
@@ -507,6 +520,7 @@ export const playLlmBotTurn = async (
   me: PlayerId,
   config: ByokConfig,
   fetchImpl: FetchLike = fetch,
+  about?: OfferAbout,
 ): Promise<LlmBotTurn> => {
   if (state.activePlayer !== me || state.winner !== undefined) {
     return { state, moves: [], llmHits: 0, llmFallbacks: 0, lastError: undefined, ...ZERO_TURN_STATS };
@@ -542,7 +556,7 @@ export const playLlmBotTurn = async (
     if (completions === 7) console.warn('BYOK batch turn: 8th completion this seat-turn');
     completions += 1;
     const targets = syncTargetLocks(geometry, rules, at, me);
-    const prompt = buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets);
+    const prompt = buildUserPrompt(geometry, at, me, offer, config.reasoning, rules, targets, withTurnSoFar(geometry, about, state, moves));
     // P93 decision 14: the map rides on the first request of the seat-turn, as an MCP agent asks for "ascii" once per turn.
     const context = agentContext(prompt, geometry, at, me, completions === 1 ? 'ascii' : 'off');
     const fetched = await fetchLlmMoveBatch(config, agentPromptText(context), me, fetchImpl);
