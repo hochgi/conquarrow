@@ -255,3 +255,6 @@ detailed form of an item; this file is the short list and the order.
 - **`02-work-packets.md` carries history in its text.** Its "Open items this
   plan inherits" section narrates long-closed §11 items, and older rows use
   strikethroughs. Clean it to the AGENTS.md rule, alongside or after P86.
+- **Stale export Then.** P107 review: `game-management.server.core.feature`
+  still says seat 2 is a bot named "AI". The spec and the test say
+  `heuristic`. One line; the decision is already consistent.
