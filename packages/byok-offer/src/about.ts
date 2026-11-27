@@ -183,3 +183,13 @@ export const recentFromMoves = (
   }
   return recentLinesOf(geometry, start.state, moves.slice(start.index));
 };
+
+/** D1 + D2: the lines after the offer's first line. */
+export const aboutHeadLines = (state: GameState, about: OfferAbout | undefined): readonly string[] => [
+  ...(about?.seats === undefined ? [] : seatTableLines(about.seats)),
+  starvationLine(state),
+];
+
+/** D3: the history block, or nothing when the caller has no history. */
+export const aboutHistoryLines = (about: OfferAbout | undefined, me: string): readonly string[] =>
+  about?.recent === undefined ? [] : recentBlockLines(about.recent, me);

@@ -25,7 +25,7 @@ import { makeTiling } from '@conquarrow/geometry-tiling';
 import { compareArrows, compareVertices, makeRules } from '@conquarrow/rules-core';
 import { chooseMove, closeUrgency, distanceToTerritory } from '../../web/src/opponent';
 import { edgeDistance } from '../../web/src/botEvaluate';
-import { recentBlockLines, seatTableLines, starvationLine, type OfferAbout } from './about';
+import { aboutHeadLines, aboutHistoryLines, type OfferAbout } from './about';
 
 const MAX_LISTED_ARROWS = 24;
 
@@ -884,12 +884,11 @@ const renderUserPrompt = (
     rules === undefined ? [] : greedyBaselineLines(geometry, rules, state, me, moves, rows);
   return [
     `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
-    ...(about?.seats === undefined ? [] : seatTableLines(about.seats)),
-    starvationLine(state),
+    ...aboutHeadLines(state, about),
     `Shares=${String(myShares)}, trailLen=${String(trail)}.`,
     tipLines.length > 0 ? `Exposed tips: ${tipLines.join('; ')}` : 'Exposed tips: none',
     threat,
-    ...(about?.recent === undefined ? [] : recentBlockLines(about.recent, String(me))),
+    ...aboutHistoryLines(about, String(me)),
     ...planEcho,
     '',
     'STATE_JSON:',
