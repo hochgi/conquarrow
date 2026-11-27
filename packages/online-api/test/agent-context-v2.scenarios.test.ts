@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { GameState, InviteSeat, Move } from '@conquarrow/contracts';
-import { endTurn } from '@conquarrow/contracts';
+import { chairUserHash, endTurn } from '@conquarrow/contracts';
 import { BATCH_RULE, offerText, type RecentLine } from '@conquarrow/byok-offer';
 import { applyLogged } from '../src/game-advance';
 import { stampLogLine } from '../src/game-log';
@@ -41,13 +41,18 @@ import {
 const C = () => carolHash();
 const A = () => aliceHash();
 const GROUP = () => groupHashOfUserHashes([C()]);
+/** The door finds the game under the group of the bound human chairs. */
+const groupOfSeats = (seats: readonly InviteSeat[]): string =>
+  groupHashOfUserHashes(
+    seats.flatMap((seat) => (seat.kind === 'human' ? [chairUserHash(seat)].filter((h): h is string => h !== undefined) : [])),
+  );
 const GAME = '000001';
 const clock = () => Date.parse('2026-11-27T10:00:00.000Z');
 
 const seed = (rig: RemoteRig, seats: readonly InviteSeat[], state: GameState, log?: string): void => {
   seedStarted(rig, {
     token: TOKEN,
-    groupHash: GROUP(),
+    groupHash: groupOfSeats(seats),
     gameNumber: GAME,
     seats,
     state,

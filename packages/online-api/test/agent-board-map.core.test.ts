@@ -32,6 +32,7 @@ import {
   toolsCall,
   withRig,
   type RemoteRig,
+  doorOfferText,
 } from './remote-agent-mcp.support';
 
 const A = () => aliceHash();
@@ -104,7 +105,7 @@ describe('The offer is its own plain-text block', () => {
       expect(blocks).toHaveLength(2);
       expect(blocks.every((block) => block.type === 'text')).toBe(true);
       expect(toolJson(result)).toEqual({ stop: false, blocks: ['offer'] });
-      expect(blocks[1]?.text).toBe(offerText(state, seat));
+      expect(blocks[1]?.text).toBe(doorOfferText(rig, state, seat));
       expect(String(blocks[1]?.text)).toContain('\n');
       expect(String(blocks[1]?.text)).not.toContain('\\n');
       expect(blocks.some((block) => String(block.text).includes('"offer":'))).toBe(false);
@@ -121,7 +122,7 @@ describe('The offer is its own plain-text block', () => {
 
       expect(blocks).toHaveLength(2);
       expect(toolJson(result)).toEqual({ applied: true, version: 2, stop: false, blocks: ['offer'] });
-      expect(blocks[1]?.text).toBe(offerText(after, seat));
+      expect(blocks[1]?.text).toBe(doorOfferText(rig, after, seat));
     });
   });
 });
@@ -140,7 +141,7 @@ describe('board "json" adds the board to the JSON block', () => {
       expect(blocks).toHaveLength(2);
       expect(toolContent(result)?.isError).toBe(false);
       expect(text).toEqual({ stop: false, blocks: ['offer'], board: plain(boardView(geometry, state, seat)) });
-      expect(blocks[1]?.text).toBe(offerText(state, seat));
+      expect(blocks[1]?.text).toBe(doorOfferText(rig, state, seat));
       expect(board['me']).toBe(String(seat));
       expect(board['activePlayer']).toBe(String(state.activePlayer));
       const territory = asRecord(board['territory']);
@@ -177,7 +178,7 @@ describe('board "ascii" adds the map as its own text block', () => {
       expect(toolContent(result)?.isError).toBe(false);
       expect(blocks).toHaveLength(3);
       expect(toolJson(result)).toEqual({ stop: false, blocks: ['offer', 'map'] });
-      expect(blocks[1]?.text).toBe(offerText(state, seat));
+      expect(blocks[1]?.text).toBe(doorOfferText(rig, state, seat));
       expect(blocks[2]?.type).toBe('text');
       expect(blocks[2]?.text).toBe(boardMap(boardView(geometry, state, seat)));
       expect(String(blocks[2]?.text).startsWith('map me=')).toBe(true);
@@ -195,7 +196,7 @@ describe('board "ascii" adds the map as its own text block', () => {
 
       expect(blocks).toHaveLength(3);
       expect(toolJson(result)).toEqual({ stop: false, blocks: ['offer', 'map'], board: plain(board) });
-      expect(blocks[1]?.text).toBe(offerText(state, seat));
+      expect(blocks[1]?.text).toBe(doorOfferText(rig, state, seat));
       expect(blocks[2]?.text).toBe(boardMap(board));
     });
   });
@@ -234,7 +235,7 @@ describe('move takes board too', () => {
         blocks: ['offer', 'map'],
         board: plain(board),
       });
-      expect(blocks[1]?.text).toBe(offerText(after, seat));
+      expect(blocks[1]?.text).toBe(doorOfferText(rig, after, seat));
       expect(blocks[2]?.text).toBe(boardMap(board));
     });
   });

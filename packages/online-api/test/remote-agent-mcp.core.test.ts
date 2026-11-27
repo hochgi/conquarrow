@@ -9,7 +9,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { offerText } from '@conquarrow/byok-offer';
 import { buildUserPrompt, clearByokPlans } from '../../web/src/byokBot';
 import { clearTargetLocks } from '../../web/src/targets';
 import {
@@ -54,6 +53,8 @@ import {
   openInvite,
   logRaw,
   storedActive,
+  doorAbout,
+  doorOfferText,
 } from './remote-agent-mcp.support';
 
 const A = () => aliceHash();
@@ -186,7 +187,7 @@ describe('The agent plays through the shared offer', () => {
       clearTargetLocks();
       const seat = state.players[1];
       if (seat === undefined) throw new Error('setup: missing agent player');
-      const webPrompt = buildUserPrompt(geometry, state, seat, rules.legalMoves(state), false, rules);
+      const webPrompt = buildUserPrompt(geometry, state, seat, rules.legalMoves(state), false, rules, [], doorAbout(rig, state, seat));
       const token = accessToken(rig, CAROL.sub);
 
       const result = await postDoor(rig, toolsCall('observe', { handle: inviteHandle() }), token);
@@ -194,7 +195,7 @@ describe('The agent plays through the shared offer', () => {
       const offer = offerBlock(result);
 
       expect(text).toEqual({ stop: false, blocks: ['offer'] });
-      expect(offer).toBe(offerText(state, seat));
+      expect(offer).toBe(doorOfferText(rig, state, seat));
       expect(offer).toContain('[0]');
       expect(offer).toContain(REPLY_INSTRUCTION);
       expect(webPrompt).toBe(offer);

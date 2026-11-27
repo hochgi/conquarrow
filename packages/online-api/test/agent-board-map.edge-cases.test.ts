@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ArrowId, GameState, PlayerId } from '@conquarrow/contracts';
-import { boardMap, boardView, offerText } from '@conquarrow/byok-offer';
+import { boardMap, boardView } from '@conquarrow/byok-offer';
 import { aliceHash, carolHash, groupHashOfUserHashes } from './support';
 import {
   CAROL,
@@ -34,6 +34,7 @@ import {
   toolsCall,
   withRig,
   type RemoteRig,
+  doorOfferText,
 } from './remote-agent-mcp.support';
 
 const A = () => aliceHash();
@@ -141,7 +142,7 @@ describe('Only a board-bearing result carries a board or a map', () => {
 
       expect(blockCount(result)).toBe(2);
       expect(toolJson(result)).toEqual({ stop: false, blocks: ['offer'] });
-      expect(toolTexts(result)[1]).toBe(offerText(state, seat));
+      expect(toolTexts(result)[1]).toBe(doorOfferText(rig, state, seat));
     });
   });
 
@@ -191,7 +192,7 @@ describe('Only a board-bearing result carries a board or a map', () => {
 
       expect(texts).toHaveLength(3);
       expect(toolJson(result)).toEqual({ stop: false, blocks: ['offer', 'map'] });
-      expect(texts[1]).toBe(offerText(state, seat));
+      expect(texts[1]).toBe(doorOfferText(rig, state, seat));
       expect(texts[2]).toBe(boardMap(boardView(geometry, state, seat)));
     });
   });

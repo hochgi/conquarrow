@@ -8,7 +8,8 @@
 import { createHash } from 'node:crypto';
 import type { GameState, InviteSeat, Move } from '@conquarrow/contracts';
 import { endTurn as endTurnMove, movesEqual } from '@conquarrow/contracts';
-import { BOARD_OPTIONS, MAP_LEGEND, agentContext, offerText, type BoardOption } from '@conquarrow/byok-offer';
+import { BATCH_RULE, BOARD_OPTIONS, MAP_LEGEND, agentContext, offerText, type BoardOption } from '@conquarrow/byok-offer';
+import { readOfferAbout } from './agent-about';
 import { isPreconditionFailed, type OnlineApiDeps } from './api-types';
 import { advance, applyLogged, geometry, hasStep, rules } from './game-advance';
 import type { LoggedMove } from './game-log';
@@ -741,16 +742,20 @@ const RESULT_CLAUSE =
 /**
  * A result that carries an offer (P93): the JSON block of machine `fields`
  * plus `blocks` (and `board` when asked), then the offer as its own text
- * block, then the map when asked. Built from the shared `agentContext`.
+ * block, then the map when asked. Built from the shared `agentContext`, with
+ * the P108 about (seat table and recent lines) read after any write.
  */
-const offerResult = (
+const offerResult = async (
+  deps: McpHttpDeps,
   id: unknown,
   fields: Readonly<Record<string, unknown>>,
+  turn: ReadyTurn,
   state: GameState,
-  seat: GameState['activePlayer'],
   option: BoardOption,
-): McpHttpResult => {
-  const context = agentContext(offerText(state, seat), geometry, state, seat, option);
+): Promise<McpHttpResult> => {
+  const seat = state.activePlayer;
+  const about = await readOfferAbout(deps.store, turn, turn.invite.seats, state.players.map(String), turn.seatIndex);
+  const context = agentContext(offerText(state, seat, about), geometry, state, seat, option);
   const texts = context.map === undefined ? [context.offer] : [context.offer, context.map];
   const blocks = context.map === undefined ? ['offer'] : ['offer', 'map'];
   // JSON drops an undefined board, so "off" and "ascii" carry no board key.
@@ -782,13 +787,15 @@ const toolsList = (id: unknown): McpHttpResult =>
         },
         {
           name: 'move',
-          description: `Apply a BYOK reply. When steps remain the result also has applied and version in the JSON block, and the new offer as plain text in its own block. ${RESULT_CLAUSE} On a correctable error, correct once, then stop. ${STOP_CLAUSE} ${BOARD_CLAUSE} On move the board is of the position after the move, sent only when the result has an offer.`,
+          description: `Apply a BYOK reply: moves are offer row indices, endTurn ends the turn, why and plan are short reasons kept in the game's record. ${BATCH_RULE} When steps remain the result also has applied and version in the JSON block, and the new offer as plain text in its own block. ${RESULT_CLAUSE} On a correctable error, correct once, then stop. ${STOP_CLAUSE} ${BOARD_CLAUSE} On move the board is of the position after the move, sent only when the result has an offer.`,
           inputSchema: {
             type: 'object',
             properties: {
               handle: { type: 'string' },
-              moves: { type: 'array' },
+              moves: { type: 'array', items: { type: 'integer', minimum: 0 } },
               endTurn: { type: 'boolean' },
+              why: { type: 'string' },
+              plan: { type: 'string' },
               board: BOARD_PROPERTY,
             },
             required: ['handle', 'moves', 'endTurn'],
@@ -960,7 +967,7 @@ const observe = async (
   const seat = turn.game.players[turn.seatIndex];
   // Stryker disable next-line ConditionalExpression -- unreachable: seatIndexOf just matched this index in players.
   if (seat === undefined) return stop(id, 'not-your-turn');
-  return offerResult(id, { stop: false, ...turn.named }, turn.game, seat, option);
+  return offerResult(deps, id, { stop: false, ...turn.named }, turn, turn.game, option);
 };
 
 const move = async (
@@ -989,7 +996,7 @@ const move = async (
   const plan = clip(redactSecrets(stringOrEmpty(args['plan']), secrets));
   deps.log.write('agent-move');
   if (indices.length === 0 && !endTurn && stepsRemain(turn.game)) {
-    return offerResult(id, { stop: false, ...turn.named }, turn.game, seat, option);
+    return offerResult(deps, id, { stop: false, ...turn.named }, turn, turn.game, option);
   }
   // P107 D4: the reply's time is when it arrived, before any of its moves applied.
   const receivedAt = new Date(deps.clock()).toISOString();
@@ -1038,7 +1045,7 @@ const move = async (
     return toolResult(id, { error: 'the position changed; observe and try once', stop: false }, true);
   }
   if (!finish) {
-    return offerResult(id, { applied: true, version, stop: false, ...turn.named }, game, seat, option);
+    return offerResult(deps, id, { applied: true, version, stop: false, ...turn.named }, turn, game, option);
   }
   if (game.winner !== undefined) {
     const summary = await summaryFor(deps, turn, game);

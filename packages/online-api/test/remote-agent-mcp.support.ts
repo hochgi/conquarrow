@@ -19,14 +19,18 @@ import type {
   OnlineWsPort,
   WsPayload,
 } from '@conquarrow/contracts';
-import { DEFAULT_MATCH_CONFIG, endTurn } from '@conquarrow/contracts';
+import { DEFAULT_MATCH_CONFIG, chairUserHash, endTurn } from '@conquarrow/contracts';
 import { makeMatch, makeTiling } from '@conquarrow/geometry-tiling';
 import { makeRules } from '@conquarrow/rules-core';
 import { createOnlineApi, createOnlineWs } from '../src/create-online-api';
 import type { GoogleVerifier, GoogleVerifyResult, ObjectPutOptions, ObjectStore } from '../src/api-types';
 import { PreconditionFailed } from '../src/api-types';
 import { persistEnvelope } from '../src/game-snapshot';
+import { offerText, type OfferAbout } from '@conquarrow/byok-offer';
+import { offerSeatsOf, recentOfLog } from '../src/agent-about';
+import { groupHashFromUserHashes } from '../src/hashing';
 import {
+  boundHumanHashes,
   parseInvite,
   serializeInvite,
   type InviteRecord,
@@ -563,3 +567,37 @@ export const failNextPut = (rig: RemoteRig, key: string): void => {
     .once()
     .reject(new PreconditionFailed());
 };
+
+/**
+ * P108: the offer the door sends for `seat`, from what the rig holds — the
+ * invite's chairs, any seeded profile names and the game's log. The seat
+ * table and recent-line wording are pinned literally in agent-context-v2.
+ */
+export const doorAbout = (
+  rig: RemoteRig,
+  state: GameState,
+  seat: GameState['activePlayer'],
+  token: string = TOKEN,
+): OfferAbout => {
+  const invite = inviteAt(rig, token);
+  if (invite?.gameNumber === undefined) throw new Error('setup: no started invite');
+  const names = new Map<string, string>();
+  for (const chair of invite.seats) {
+    const hash = chairUserHash(chair);
+    const body = hash === undefined ? undefined : rig.data.get(userProfileKey(hash));
+    if (hash !== undefined && body !== undefined) names.set(hash, (JSON.parse(body) as { displayName: string }).displayName);
+  }
+  const players = state.players.map(String);
+  const groupHash = groupHashFromUserHashes(boundHumanHashes(invite.seats));
+  return {
+    seats: offerSeatsOf(invite.seats, players, players.indexOf(String(seat)), names),
+    recent: recentOfLog(rig.data.get(gameLogKey(groupHash, invite.gameNumber))),
+  };
+};
+
+export const doorOfferText = (
+  rig: RemoteRig,
+  state: GameState,
+  seat: GameState['activePlayer'],
+  token: string = TOKEN,
+): string => offerText(state, seat, doorAbout(rig, state, seat, token));

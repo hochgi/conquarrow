@@ -6,7 +6,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { offerText } from '@conquarrow/byok-offer';
 import { onlinePlanProblem, type CreateInviteBody, type PlannedSeatKind } from '@conquarrow/contracts';
 import { inviteKey, lobbyKey } from '../src/s3-keys';
 import { parseInvite, serializeInvite } from '../src/invite-record';
@@ -45,6 +44,7 @@ import {
   toolJson,
   toolsCall,
   withRig,
+  doorOfferText,
 } from './remote-agent-mcp.support';
 
 const A = () => userHashOf(ALICE.sub);
@@ -326,7 +326,7 @@ describe('SCENARIOS.md 6 — one user, several agent chairs', () => {
       if (seat === undefined) throw new Error('setup');
       const result = await observe(rig);
       expect(toolJson(result)).toEqual({ stop: false, blocks: ['offer'] });
-      expect(offerBlock(result)).toBe(offerText(state, seat));
+      expect(offerBlock(result)).toBe(doorOfferText(rig, state, seat, 'a4'.repeat(32)));
     });
   });
 
