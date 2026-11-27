@@ -103,6 +103,7 @@ import { useResumeLeaveGuard } from './resumeLeave';
 import { clearByokPlans, playLlmBotTurn } from './byokBot';
 import type { OfferAbout } from '@conquarrow/byok-offer';
 import { byokSeatAbout } from './byokAbout';
+import { trackedSetter } from './trackedState';
 import { isByokReady } from './byokConfig';
 import { clearTargetLocks } from './targets';
 import {
@@ -464,7 +465,10 @@ export const App = (): ReactElement => {
     setTutorialGen((n) => n + 1);
   };
   const [state, setState] = useState<GameState | undefined>(undefined);
-  const [log, setLog] = useState<MatchLog | undefined>(undefined);
+  const [log, setLogState] = useState<MatchLog | undefined>(undefined);
+  /** P108: the match log a BYOK seat's offer reads its seat table and history from; written by setLog itself. */
+  const logRef = useRef<MatchLog | undefined>(undefined);
+  const setLog = useRef(trackedSetter(setLogState, logRef)).current;
   // Stryker disable all -- no DOM harness; lostSeatIds / observeLosses / eliminationToasts hold the decision and are tested.
   const [toasts, setToasts] = useState<readonly EliminationToast[]>([]);
   // Stryker restore all
@@ -548,16 +552,6 @@ export const App = (): ReactElement => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-  /** P108: the match log a BYOK seat's offer reads its seat table and history from. */
-  const logRef = useRef<MatchLog | undefined>(undefined);
-  useEffect(
-    // Stryker disable next-line BlockStatement -- no DOM harness for App; byokSeatAbout (tested) decides what the ref feeds.
-    () => {
-      logRef.current = log;
-    },
-    // Stryker disable next-line ArrayDeclaration -- no DOM harness for App; the same ref sync as stateRef above.
-    [log],
-  );
 
   // ---- P48 spectated-turn camera -----------------------------------------
   /** The two persisted preferences; one `conquarrow:prefs` key. */
