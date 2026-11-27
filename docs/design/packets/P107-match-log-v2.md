@@ -70,4 +70,6 @@ box, small next to the heuristic's own choice.
 events, `logEventsOf`), `packages/online-api/test/match-log-v2.scenarios.test.ts`
 (SCENARIOS 1–4), and the updated P49/P92/P96 tests that read the line or
 the export shape. The web's event-legibility and seat-vanish tests run
-against the moved resolver unchanged.
+against the moved resolver unchanged, and rules-core now pins the resolver's
+landing event (moved, merged, combat by holder) in its own package, so the
+scoped mutation run reaches it.

@@ -37,7 +37,9 @@ facts down when the move is applied.
 ### D1 — one event resolver, shared
 
 `resolveEvents` / `resolveBatch` move to `packages/rules-core/src/events.ts`
-unchanged and are exported from `@conquarrow/rules-core`. The `GameEvent`
+and are exported from `@conquarrow/rules-core`. Their behavior is unchanged;
+the one edit is `landingEvent` split out of `stackEvents`, because rules-core
+is under the P24 complexity ratchet and the web was not. The `GameEvent`
 union and `AppliedStep` move to `packages/contracts/src/game-events.ts`. The
 web imports both from the packages; `packages/web/src/fx/events.ts` is gone.
 Nothing else about the resolver changes: same events, same order. Agent
