@@ -23,7 +23,7 @@ Feature: The server's export, and naming, deleting, hiding and listing games
       When Alice gets the export
       Then seat 0 is a human named "Alice"
       And seat 1 is an agent named "Agent" owned by "Bob"
-      And seat 2 is a bot named "AI"
+      And seat 2 is a heuristic seat named "AI"
       And no user hash appears anywhere in the body
 
   Rule: Rival agent replies wait for the end of the game (D2)
