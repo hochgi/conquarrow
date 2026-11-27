@@ -60,6 +60,8 @@ export {
 export {
   RUN_EVENT_CAP,
   SEAT_NAME_CAP,
+  aboutHeadLines,
+  aboutHistoryLines,
   eventText,
   recentBlockLines,
   recentFromMoves,

@@ -74,8 +74,16 @@ sequenceDiagram
 sequenceDiagram
   participant Seat
   participant Builder
+  alt not a BYOK seat, or no match log yet (byokSeatAbout)
+    Seat->>Builder: buildUserPrompt(…) with no about: no seat table, no history
+  else BYOK seat with a match log
   Seat->>Builder: recentFromMoves(geometry, opening, log moves, me)
-  Builder-->>Seat: the window's recent lines
+  alt the log does not replay
+    Builder-->>Seat: throws; about = {seats} only, the history block is left out
+  else
+    Builder-->>Seat: the window's recent lines
+  end
+  end
   loop each completion of the turn
     Seat->>Builder: buildUserPrompt(state, me, offer, …, about{seats, recent + this turn's lines})
     Seat->>Seat: apply the reply's legal prefix

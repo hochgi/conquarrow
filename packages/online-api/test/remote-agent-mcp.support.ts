@@ -581,16 +581,18 @@ export const doorAbout = (
 ): OfferAbout => {
   const invite = inviteAt(rig, token);
   if (invite?.gameNumber === undefined) throw new Error('setup: no started invite');
-  const names = new Map<string, string>();
+  const names = new Map<string | undefined, string>();
   for (const chair of invite.seats) {
     const hash = chairUserHash(chair);
     const body = hash === undefined ? undefined : rig.data.get(userProfileKey(hash));
     if (hash !== undefined && body !== undefined) names.set(hash, (JSON.parse(body) as { displayName: string }).displayName);
   }
-  const players = state.players.map(String);
+  const meIndex = state.players.indexOf(seat);
+  const agentUser = chairUserHash(invite.seats[meIndex] ?? { kind: 'heuristic' });
+  if (agentUser === undefined) throw new Error('setup: the seat has no bound agent');
   const groupHash = groupHashFromUserHashes(boundHumanHashes(invite.seats));
   return {
-    seats: offerSeatsOf(invite.seats, players, players.indexOf(String(seat)), names),
+    seats: offerSeatsOf(invite.seats, meIndex, agentUser, names),
     recent: recentOfLog(rig.data.get(gameLogKey(groupHash, invite.gameNumber))),
   };
 };

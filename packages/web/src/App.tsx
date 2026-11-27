@@ -102,7 +102,7 @@ import type { ResumeOffer } from './resume';
 import { useResumeLeaveGuard } from './resumeLeave';
 import { clearByokPlans, playLlmBotTurn } from './byokBot';
 import type { OfferAbout } from '@conquarrow/byok-offer';
-import { byokTurnAbout } from './byokAbout';
+import { byokSeatAbout } from './byokAbout';
 import { isByokReady } from './byokConfig';
 import { clearTargetLocks } from './targets';
 import {
@@ -550,8 +550,10 @@ export const App = (): ReactElement => {
   }, [state]);
   /** P108: the match log a BYOK seat's offer reads its seat table and history from. */
   const logRef = useRef<MatchLog | undefined>(undefined);
+  // Stryker disable next-line BlockStatement -- no DOM harness for App; byokSeatAbout (tested) decides what the ref feeds.
   useEffect(() => {
     logRef.current = log;
+    // Stryker disable next-line ArrayDeclaration -- no DOM harness for App; the same ref sync as stateRef above.
   }, [log]);
 
   // ---- P48 spectated-turn camera -----------------------------------------
@@ -1295,11 +1297,10 @@ export const App = (): ReactElement => {
       try {
         await adapterSleep(30);
         if (cancelled()) return;
-        const matchLog = logRef.current;
         const plan = await planLocalAiTurn(
           seatConfig,
           start,
-          seatConfig.kind !== 'byok' || matchLog === undefined ? undefined : byokTurnAbout(matchLog, start.activePlayer),
+          byokSeatAbout(seatConfig.kind, logRef.current, start.activePlayer),
         );
         if (cancelled()) return;
         if (plan.moves.length === 0) return;

@@ -27,7 +27,6 @@ import {
   offerBlock,
   opening,
   postDoor,
-  putRaw,
   requireStepAt,
   rules,
   seedProfile,
@@ -141,7 +140,10 @@ describe('SCENARIOS.md 1 — the door\'s offer says who is who', () => {
       // B (the agent) steps and ends; C (AI) and A pass; B is to move again.
       const history = played(start, [first, endTurn(), endTurn(), endTurn()]);
       const legacy = JSON.stringify({ v: 1, move: endTurn() });
-      seed(rig, [human(C()), agent(C()), heuristicSeat()], history.at, `${legacy}\n${history.raw}`);
+      // A v2-looking line whose events did not survive the type checks is skipped too.
+      const broken = JSON.stringify({ v: 1, at: '2026-11-27T09:00:00.000Z', seat: 'B', move: endTurn(), events: 'lost' });
+      const reply = JSON.stringify({ v: 1, at: '2026-11-27T09:00:00.000Z', seat: 'B', agentReply: { moves: [], resolved: [], offerVersion: 0, endTurn: true } });
+      seed(rig, [human(C()), agent(C()), heuristicSeat()], history.at, `${legacy}\n${broken}\n${reply}\n${history.raw}`);
       const seat = history.at.activePlayer;
       const offer = offerBlock(await observe(rig)) ?? '';
       const [pa, pb, pc] = letters(history.at).map(String);
@@ -164,7 +166,7 @@ describe('SCENARIOS.md 1 — the door\'s offer says who is who', () => {
   it('offer: no log at all says nothing recorded yet', async () => {
     await withRig(async (rig) => {
       seed(rig, [human(C()), agent(C()), heuristicSeat()], atSeat(opening(3), 1));
-      putRaw(rig, gameLogKey(GROUP(), GAME), '');
+      expect(rig.data.has(gameLogKey(GROUP(), GAME))).toBe(false);
       const offer = offerBlock(await observe(rig)) ?? '';
       expect(offer.split('\n')).toContain('Since your last turn: nothing recorded yet.');
     });

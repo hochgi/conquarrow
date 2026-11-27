@@ -91,6 +91,19 @@ describe('D4 — honest step counts', () => {
     expect(row).toContain('combat');
   });
 
+  it('a fight that empties the exit (both sides lost) reads then=0', () => {
+    const { state, arrow } = withActiveStack(seatBTurn().state, 3, 0);
+    const target = steps(state).find((m) => m.from === arrow && m.count === 2);
+    const rival = state.players.find((p) => p !== state.activePlayer);
+    if (target === undefined || rival === undefined) throw new Error('setup');
+    const groups = new Map(state.groups);
+    groups.set(target.exit, { owner: rival, heads: 3, spent: 0 });
+    const fight = { ...state, groups };
+    expect(rules.apply(fight, target).groups.get(target.exit), 'setup: the exit empties').toBeUndefined();
+    const row = rowsOf(fight).find((r) => r.includes(`exit=${String(target.exit)} count=2 `));
+    expect(row).toContain(' then=0 ');
+  });
+
   it('E4 — over the smoke game and random play, every row has left ≥ 1, then ≥ 0 and spd = the group\'s allowance', () => {
     const fixture = loadFixture();
     let state = makeMatch(fixture.config);

@@ -72,7 +72,7 @@ export const windowStart = (lines: readonly SeatMove[], me: string): number => {
   let start = 0;
   let runStart = 0;
   for (const [index, line] of lines.entries()) {
-    if (index > 0 && lines[index - 1]?.seat !== line.seat) runStart = index;
+    if (lines[index - 1]?.seat !== line.seat) runStart = index;
     if (line.seat === me && line.move.kind === 'endTurn') start = runStart;
   }
   return start;
@@ -132,15 +132,13 @@ const runLine = (seat: string, lines: readonly RecentLine[]): string => {
 export const recentBlockLines = (recent: readonly RecentLine[], me: string): readonly string[] => {
   const window = recentWindow(recent, me);
   if (window.length === 0) return ['Since your last turn: nothing recorded yet.'];
-  const out = [`Since your last turn (oldest first; ${me} is you):`];
-  let runStart = 0;
-  for (let index = 1; index <= window.length; index += 1) {
-    const seat = window[runStart]?.seat;
-    if (index < window.length && window[index]?.seat === seat) continue;
-    out.push(runLine(String(seat), window.slice(runStart, index)));
-    runStart = index;
+  const runs: { readonly seat: string; readonly lines: RecentLine[] }[] = [];
+  for (const line of window) {
+    const last = runs[runs.length - 1];
+    if (last?.seat === line.seat) last.lines.push(line);
+    else runs.push({ seat: line.seat, lines: [line] });
   }
-  return out;
+  return [`Since your last turn (oldest first; ${me} is you):`, ...runs.map((run) => runLine(run.seat, run.lines))];
 };
 
 /** Every move's recent line from `start`, in order (seat = the mover, events = `logEventsOf`). */
@@ -177,7 +175,7 @@ export const recentFromMoves = (
   let at = opening;
   for (const [index, move] of moves.entries()) {
     const seat = at.activePlayer;
-    if (index > 0 && seat !== run.state.activePlayer) run = { index, state: at };
+    if (seat !== run.state.activePlayer) run = { index, state: at };
     if (seat === me && move.kind === 'endTurn') start = run;
     at = rules.apply(at, move);
   }

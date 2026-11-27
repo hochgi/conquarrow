@@ -754,7 +754,7 @@ const offerResult = async (
   option: BoardOption,
 ): Promise<McpHttpResult> => {
   const seat = state.activePlayer;
-  const about = await readOfferAbout(deps.store, turn, turn.invite.seats, state.players.map(String), turn.seatIndex);
+  const about = await readOfferAbout(deps.store, turn, turn.invite.seats, turn.seatIndex, turn.userHash);
   const context = agentContext(offerText(state, seat, about), geometry, state, seat, option);
   const texts = context.map === undefined ? [context.offer] : [context.offer, context.map];
   const blocks = context.map === undefined ? ['offer'] : ['offer', 'map'];
@@ -855,6 +855,8 @@ const loadedTurn = async (
   | {
       readonly kind: 'ready';
       readonly invite: InviteRecord;
+      /** P108: the caller, whose other chairs read `also you` / `your owner`. */
+      readonly userHash: string;
       readonly seatIndex: number;
       readonly groupHash: string;
       readonly gameNumber: string;
@@ -882,6 +884,7 @@ const loadedTurn = async (
   return {
     kind: 'ready',
     invite: loaded.invite,
+    userHash,
     seatIndex: holdsAgentSeatAt(loaded.invite.seats, userHash, active) ? active : seatIndex,
     groupHash: located.groupHash,
     gameNumber: located.gameNumber,

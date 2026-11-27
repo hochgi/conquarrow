@@ -44,3 +44,10 @@ export const byokTurnAbout = (
     return { seats };
   }
 };
+
+/** The local AI loop's about: only a BYOK seat reads one, and only once the match log exists. */
+export const byokSeatAbout = (
+  kind: SeatKind,
+  log: Parameters<typeof byokTurnAbout>[0] | undefined,
+  me: PlayerId,
+): OfferAbout | undefined => (kind === 'byok' && log !== undefined ? byokTurnAbout(log, me) : undefined);

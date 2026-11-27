@@ -12,7 +12,7 @@ import { endTurn } from '@conquarrow/contracts';
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import { clearByokPlans, recentFromMoves, type OfferAbout } from '@conquarrow/byok-offer';
 import { playLlmBotTurn } from '../src/byokBot';
-import { byokTurnAbout, localOfferSeats } from '../src/byokAbout';
+import { byokSeatAbout, byokTurnAbout, localOfferSeats } from '../src/byokAbout';
 import { clearTargetLocks } from '../src/targets';
 import { THREE_MATCH, batchJson, geometry, mockChat, postedMessage, readyConfig, rules } from './byok-batch-turn.support';
 
@@ -58,6 +58,24 @@ describe('SCENARIOS.md 4 — byokTurnAbout: the window from the local log', () =
     const about = byokTurnAbout({ config: THREE_MATCH, moves: [bogus], seats }, p('A'));
     expect(about.recent).toBeUndefined();
     expect(about.seats).toEqual(localOfferSeats(seats, p('A')));
+  });
+});
+
+describe('SCENARIOS.md 4 — only a BYOK seat with a match log gets an about', () => {
+  const opening = makeMatch(THREE_MATCH);
+  const me = opening.activePlayer;
+  const log = { config: THREE_MATCH, moves: [] as Move[], seats: opening.players.map((player) => ({ player, kind: 'byok' as const })) };
+
+  it('a BYOK seat with a log: its turn about', () => {
+    expect(byokSeatAbout('byok', log, me)).toEqual(byokTurnAbout(log, me));
+  });
+
+  it.each(['heuristic', 'human', 'agent'] as const)('alt a %s seat: none', (kind) => {
+    expect(byokSeatAbout(kind, log, me)).toBeUndefined();
+  });
+
+  it('alt no match log yet: none', () => {
+    expect(byokSeatAbout('byok', undefined, me)).toBeUndefined();
   });
 });
 

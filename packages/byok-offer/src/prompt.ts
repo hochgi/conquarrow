@@ -403,10 +403,11 @@ const allowanceOf = (group: Group): number => group.speedOverride ?? speed(group
  * `exit` has left after this step, read off `apply`.
  */
 const portionSlot = (state: GameState, after: GameState, me: PlayerId, move: StepMove): string => {
-  const fromGroup = state.groups.get(move.from);
-  const leave = (fromGroup?.heads ?? move.count) - move.count;
-  const spent = fromGroup?.spent ?? 0;
-  const spd = fromGroup === undefined ? speed(move.count) : allowanceOf(fromGroup);
+  // A legal step always leaves an own group; the stand-in only keeps the type total.
+  const fromGroup = state.groups.get(move.from) ?? { owner: me, heads: move.count, spent: 0 };
+  const leave = fromGroup.heads - move.count;
+  const spent = fromGroup.spent;
+  const spd = allowanceOf(fromGroup);
   const landed = after.groups.get(move.exit);
   const mine = landed !== undefined && landed.owner === me;
   const then = mine ? Math.max(0, allowanceOf(landed) - landed.spent) : 0;

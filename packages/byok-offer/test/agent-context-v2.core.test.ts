@@ -16,6 +16,9 @@ import {
   eventText,
   offerText,
   recentWindow,
+  aboutHeadLines,
+  aboutHistoryLines,
+  starvationLine,
 } from '../src/index';
 import { geometry, rules } from './agent-board-map.support';
 import { SEAT_BLOCK, line, pass, seatBTurn, seats3, step } from './agent-context-v2.support';
@@ -213,5 +216,22 @@ describe('D7 / E6 — one builder, one text', () => {
     );
     expect(buildUserPrompt(geometry, state, b, rules.legalMoves(state), false, rules, [])).toBe(offerText(state, b));
     expect(endTurn().kind).toBe('endTurn');
+  });
+});
+
+describe('D7 — an absent about leaves its blocks out, and adds nothing else', () => {
+  it('no about, or an about with neither field: the starvation line alone, and no history lines', () => {
+    const { state } = seatBTurn();
+    for (const about of [undefined, {}]) {
+      expect(aboutHeadLines(state, about)).toEqual([starvationLine(state)]);
+      expect(aboutHistoryLines(about, String(state.activePlayer))).toEqual([]);
+    }
+  });
+
+  it('the offer with no about is the first line, the starvation line, then the existing lines', () => {
+    const { state } = seatBTurn();
+    const lines = offerText(state, state.activePlayer).split('\n');
+    expect(lines[1]).toBe(starvationLine(state));
+    expect(lines.some((l) => l.startsWith('Seats in turn order') || l.startsWith('Since your last turn'))).toBe(false);
   });
 });
