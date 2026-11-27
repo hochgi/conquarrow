@@ -16,9 +16,9 @@ import {
 import { makeMatch } from '@conquarrow/geometry-tiling';
 import type { ObjectStore, OnlineApiDeps } from './api-types';
 import { isPreconditionFailed } from './api-types';
-import { activeSeat, advance, applyMove } from './game-advance';
+import { activeSeat, advance, applyLogged } from './game-advance';
 import { persistEnvelope, parsePersistedEnvelope, type LastSubmit } from './game-snapshot';
-import { stampLogLine } from './game-log';
+import { stampLogLine, type LoggedMove } from './game-log';
 import { gameOwner, requireMember } from './game-member';
 import { summaryOf, turnsInLog } from './game-summary';
 import { asRecord, boundAgentUserHash, boundUserHash } from './invite-record';
@@ -82,11 +82,11 @@ export const loadPosition = async (
 const appendLog = (
   existing: string | undefined,
   version: number,
-  moves: readonly Move[],
+  moves: readonly LoggedMove[],
   extraLine?: string,
 ): string => {
   const stamped =
-    moves.length === 0 ? '' : moves.map((move) => stampLogLine(version, move)).join('\n') + '\n';
+    moves.length === 0 ? '' : moves.map((entry) => stampLogLine(version, entry)).join('\n') + '\n';
   const extra = extraLine === undefined || extraLine === '' ? '' : `${extraLine}\n`;
   const lines = stamped + extra;
   if (lines === '') return existing ?? '';
@@ -98,7 +98,8 @@ const appendLog = (
 export interface PositionWrite {
   readonly version: number;
   readonly game: GameState;
-  readonly logMoves: readonly Move[];
+  /** P107 D3: the moves this version applied, with their line data. */
+  readonly logMoves: readonly LoggedMove[];
   /** The state body this write replaces; `undefined` for the opening. */
   readonly previousRaw: string | undefined;
   /** A non-move record (an agent reply) appended after the moves. */
@@ -169,7 +170,7 @@ const ensureOpening = async (
     const raw = await persistPosition(deps.s3, groupHash, gameNumber, {
       version: 0,
       game: opened.game,
-      logMoves: opened.moves,
+      logMoves: opened.logged,
       previousRaw: undefined,
       now: deps.clock(),
     });
@@ -199,13 +200,13 @@ export const ensurePosition = async (
   const position = await ensureOpening(deps, groupHash, gameNumber, seats, also);
   if ('statusCode' in position) return position;
   const healed = advance(position.game, seats, deps.heuristic, deps.clock);
-  if (healed.moves.length === 0) return position;
+  if (healed.logged.length === 0) return position;
   const version = position.version + 1;
   try {
     const raw = await persistPosition(deps.s3, groupHash, gameNumber, {
       version,
       game: healed.game,
-      logMoves: healed.moves,
+      logMoves: healed.logged,
       previousRaw: position.raw,
       ...(position.lastSubmit === undefined ? {} : { lastSubmit: position.lastSubmit }),
       now: deps.clock(),
@@ -338,16 +339,16 @@ const applySubmitted = (
   game: GameState,
   seats: readonly InviteSeat[],
   move: Move,
-): { readonly game: GameState; readonly moves: readonly Move[] } | undefined => {
-  let after: GameState;
+): { readonly game: GameState; readonly logged: readonly LoggedMove[] } | undefined => {
+  let first: ReturnType<typeof applyLogged>;
   try {
-    after = applyMove(game, move);
+    first = applyLogged(game, move, deps.clock);
   } catch (error: unknown) {
     if (error instanceof ContractViolation) return undefined;
     throw error;
   }
-  const advanced = advance(after, seats, deps.heuristic, deps.clock);
-  return { game: advanced.game, moves: [move, ...advanced.moves] };
+  const advanced = advance(first.game, seats, deps.heuristic, deps.clock);
+  return { game: advanced.game, logged: [first.entry, ...advanced.logged] };
 };
 
 /** A lost write: a duplicate when the winner was this very submit, else 412. */
@@ -396,7 +397,7 @@ export const handlePostMove = async (
     await persistPosition(deps.s3, groupHash, gameNumber, {
       version,
       game: applied.game,
-      logMoves: applied.moves,
+      logMoves: applied.logged,
       previousRaw: position.raw,
       ...(lastSubmit === undefined ? {} : { lastSubmit }),
       now: deps.clock(),

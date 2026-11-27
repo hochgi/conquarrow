@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ArrowId, GameState, Move, PlayerId } from '@conquarrow/contracts';
-import { resolveEvents, type GameEvent } from '../src/fx/events';
+import type { GameEvent } from '@conquarrow/contracts';
+import { resolveEvents } from '@conquarrow/rules-core';
 import { MAX_FX_CELLS, presentEvents, type FxOverlay } from '../src/fx/present';
 import { emptyMatchSummary, foldMatchSummary, type MatchSummary } from '../src/matchLog';
 import { A, B, C, geometry, pick, state, tile } from './event-legibility.support';
@@ -375,6 +376,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 export const readWebSrc = (...parts: readonly string[]): string =>
   readFileSync(join(here, '../src', ...parts), 'utf8');
+
+/** P107: the event resolver moved to rules-core; the web imports it. */
+export const readResolverSrc = (): string =>
+  readFileSync(join(here, '../../rules-core/src/events.ts'), 'utf8');
 
 export const VANISH_PAIRS: readonly (readonly [string, StepPair])[] = [
   ['trail heads vacated', vanishCLeavingRemnants()],

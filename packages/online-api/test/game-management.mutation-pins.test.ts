@@ -136,7 +136,7 @@ describe('Export seats and records (D1, D2)', () => {
 
       expect(logOf(body)).toEqual([
         { v: 2, agentReply: { moves: [2], endTurn: false, plan: 'p' } },
-        { v: 2, agentReply: { seat: P1, moves: [], endTurn: true, why: 'w' } },
+        { v: 2, seat: P1, agentReply: { moves: [], endTurn: true, why: 'w' } },
       ]);
       expect(body['withheldReplies']).toBe(0);
       expect(body['moves']).toEqual([]);
@@ -161,7 +161,7 @@ describe('Export seats and records (D1, D2)', () => {
 
       const body = bodyOf(await getExport(rig.api, groupHash, GAME, ALICE.bearer));
 
-      expect(logOf(body)).toEqual([{ v: 1, agentReply: reply }]);
+      expect(logOf(body)).toEqual([{ v: 1, seat: P0, agentReply: { moves: [], endTurn: true } }]);
     });
   });
 

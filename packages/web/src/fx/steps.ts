@@ -19,7 +19,7 @@
  */
 
 import type { GameState, Move, RulesPort } from '@conquarrow/contracts';
-import type { AppliedStep } from './events';
+import type { AppliedStep } from '@conquarrow/contracts';
 
 /**
  * The chain for `moves` applied from `before`, ending at `after`.

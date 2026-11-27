@@ -15,6 +15,7 @@
  * @see docs/spec/online-game-library/online-game-library.md
  */
 
+import type { LogEvent } from './game-events';
 import type { LibraryGameStatus } from './library-status';
 import type { MatchConfig } from './match-config';
 import type { Move } from './move';
@@ -204,34 +205,59 @@ export interface GameSummary {
   readonly standings: readonly SeatStanding[];
 }
 
-/** P96 D1: one seat of an export — never a user hash. */
+/** P96 D1: one seat of an export — never a user hash. P107 D5: kinds are the invite's. */
 export interface ExportSeat {
   readonly seat: number;
   readonly player: string;
-  readonly kind: 'human' | 'agent' | 'bot';
+  readonly kind: InviteSeat['kind'];
   readonly name: string;
   /** An agent seat's owner's profile name, when known. */
   readonly owner?: string;
 }
 
-/** P96 D2: an agent's reply record as the export carries it. */
+/** P96 D2 / P107 D4: an agent's reply record as the export carries it. */
 export interface ExportAgentReply {
-  readonly seat?: string;
   readonly moves: readonly number[];
+  /** The moves `moves` became. Absent on records written before P107. */
+  readonly resolved?: readonly Move[];
+  /** The version of the position the offer was built from. Absent before P107. */
+  readonly offerVersion?: number;
   readonly endTurn: boolean;
   readonly why?: string;
   readonly plan?: string;
 }
 
-/** P96 D1: one `log.jsonl` line; `v` is absent on lines written before P49. */
-export type ExportLogEntry =
-  | { readonly v?: number; readonly move: Move }
-  | { readonly v: number; readonly agentReply: ExportAgentReply };
+/**
+ * P107 D3/D6: one move line. `v` is absent before P49; `at`, `seat`, `by` and
+ * `events` are absent before P107 (never backfilled).
+ */
+export interface ExportMoveEntry {
+  readonly v?: number;
+  /** Server time (ISO 8601) the move was applied. */
+  readonly at?: string;
+  /** The player id whose turn it was. */
+  readonly seat?: string;
+  /** `server` when the server's advance chose the move. */
+  readonly by?: 'server';
+  readonly move: Move;
+  readonly events?: readonly LogEvent[];
+}
+
+/** P107 D4/D6: one reply line; `seat` is lifted from a pre-P107 record's `agentReply`. */
+export interface ExportReplyEntry {
+  readonly v: number;
+  readonly at?: string;
+  readonly seat?: string;
+  readonly agentReply: ExportAgentReply;
+}
+
+/** P96 D1: one `log.jsonl` line. */
+export type ExportLogEntry = ExportMoveEntry | ExportReplyEntry;
 
 /** P96 D1: the server's record of one game. */
 export interface GameExport {
   readonly format: 'conquarrow-online-export';
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly groupHash: GroupHash;
   readonly gameNumber: GameNumber;
   readonly name?: string;

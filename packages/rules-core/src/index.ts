@@ -15,6 +15,8 @@
  * `apply`.
  */
 
+export { resolveBatch, resolveEvents } from './events';
+export { logEventsOf, resolveShareEvents, toLogEvent } from './log-events';
 export { makeRules } from './movement';
 export { compareArrows, comparePlayers, comparePoints, compareVertices } from './order';
 export {

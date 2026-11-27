@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { endTurn, type GameState, type Move } from '@conquarrow/contracts';
 import { replay } from '@conquarrow/rules-core';
 import { parseLogLine, stampLogLine, windowOfLog } from '../src/game-log';
+import { loggedOf } from './support';
 import { persistEnvelope } from '../src/game-snapshot';
 import {
   atSeat,
@@ -34,9 +35,9 @@ describe('an agent prefix then endTurn replays without the agentReply line', () 
     const afterEnd = rules.apply(afterPrefix, endTurn());
     const moves: readonly Move[] = [step, endTurn()];
     const log = [
-      stampLogLine(1, step),
+      stampLogLine(1, loggedOf(step)),
       agentReply(1, [0], false),
-      stampLogLine(2, endTurn()),
+      stampLogLine(2, loggedOf(endTurn())),
       agentReply(2, [], true),
     ].join('\n');
 

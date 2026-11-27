@@ -178,8 +178,18 @@ detailed form of an item; this file is the short list and the order.
 ## Agent play (MCP)
 
 - **Score logged agent replies.** [P92](packets/P92-remote-agent-mcp.md)
-  records the reply on the match log. A harness that treats those records
-  as free BYOK samples, and gates a prompt change on them, is not written.
+  records the reply on the match log, and since
+  [P107](packets/P107-match-log-v2.md) the reply carries the moves its indices
+  became (`resolved`) and its `offerVersion`. A harness that treats those
+  records as free BYOK samples, and gates a prompt change on them, is not
+  written.
+- **Agent reply latency** (P107 open question). The reply line has no
+  `latencyMs`: the server does not record when `observe` served the offer.
+  Today the time is the reply's `at` minus the last line of the version
+  before. Recording it exactly costs a write per `observe`.
+- **Backfill pre-P107 match logs** (P107 open question). Games started
+  before P107 export without `at`, `seat`, `by` or `events`. Seats and events
+  could be recomputed at export time by replay; times cannot.
 - **Agent context v2.** P92/P93 issue review 2026-11-16: what the agent is
   told about the board and the match beyond P93's map.
 - **OAuth hardening** for the remote MCP. P92/P93 issue review 2026-11-16.
@@ -245,3 +255,6 @@ detailed form of an item; this file is the short list and the order.
 - **`02-work-packets.md` carries history in its text.** Its "Open items this
   plan inherits" section narrates long-closed §11 items, and older rows use
   strikethroughs. Clean it to the AGENTS.md rule, alongside or after P86.
+- **Stale export Then.** P107 review: `game-management.server.core.feature`
+  still says seat 2 is a bot named "AI". The spec and the test say
+  `heuristic`. One line; the decision is already consistent.

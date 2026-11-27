@@ -58,7 +58,8 @@ wants the whole history downloads the match log (P20+), not this.
 
 ### D2 — log lines carry the version their batch produced
 
-`log.jsonl` lines become `{"v":<version>,"move":{…}}`. The stamp is the version
+`log.jsonl` lines carry `"v":<version>` beside the move (the full line is
+[match-log-v2](../match-log-v2/match-log-v2.md) D3). The stamp is the version
 `persistPosition` is writing, so a batch's moves all carry one version and the file
 stays append-only and ordered.
 

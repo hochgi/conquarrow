@@ -10,7 +10,8 @@ import type { GameState, InviteSeat, Move } from '@conquarrow/contracts';
 import { endTurn as endTurnMove, movesEqual } from '@conquarrow/contracts';
 import { BOARD_OPTIONS, MAP_LEGEND, agentContext, offerText, type BoardOption } from '@conquarrow/byok-offer';
 import { isPreconditionFailed, type OnlineApiDeps } from './api-types';
-import { advance, applyMove, geometry, hasStep, rules } from './game-advance';
+import { advance, applyLogged, geometry, hasStep, rules } from './game-advance';
+import type { LoggedMove } from './game-log';
 import { buildGameExport } from './game-export';
 import { ensurePosition, persistPosition } from './game-handlers';
 import { readGameMeta } from './game-member';
@@ -309,24 +310,38 @@ const clip = (value: string | undefined): string | undefined => {
   return trimmed.slice(0, PLAN_CAP);
 };
 
-/** P96 D2: the record names the agent's seat, so the export can withhold a rival's plan. */
+/**
+ * P96 D2 / P107 D4: the reply line — the indices the agent sent, the moves they
+ * became, the version its offer was built from, and the seat (on the line, so
+ * the export can withhold a rival's plan). An absent `why` / `plan` is
+ * `undefined`, which `JSON.stringify` drops.
+ */
 const replyLine = (
   version: number,
+  at: string,
   seat: string,
-  moves: readonly number[],
-  endTurn: boolean,
-  why: string | undefined,
-  plan: string | undefined,
-): string => {
-  const agentReply: { seat: string; moves: readonly number[]; endTurn: boolean; why?: string; plan?: string } = {
+  reply: {
+    readonly moves: readonly number[];
+    readonly resolved: readonly Move[];
+    readonly offerVersion: number;
+    readonly endTurn: boolean;
+    readonly why: string | undefined;
+    readonly plan: string | undefined;
+  },
+): string =>
+  JSON.stringify({
+    v: version,
+    at,
     seat,
-    moves,
-    endTurn,
-  };
-  if (why !== undefined) agentReply.why = why;
-  if (plan !== undefined) agentReply.plan = plan;
-  return JSON.stringify({ v: version, agentReply });
-};
+    agentReply: {
+      moves: reply.moves,
+      resolved: reply.resolved,
+      offerVersion: reply.offerVersion,
+      endTurn: reply.endTurn,
+      why: reply.why,
+      plan: reply.plan,
+    },
+  });
 
 const ping = async (
   deps: McpHttpDeps,
@@ -354,7 +369,7 @@ const commit = async (
   gameNumber: string,
   version: number,
   game: GameState,
-  moves: readonly Move[],
+  moves: readonly LoggedMove[],
   raw: string,
   extra: string,
   seats: readonly InviteSeat[],
@@ -976,34 +991,43 @@ const move = async (
   if (indices.length === 0 && !endTurn && stepsRemain(turn.game)) {
     return offerResult(id, { stop: false, ...turn.named }, turn.game, seat, option);
   }
-  const applied = applyPrefix(turn.game, indices);
+  // P107 D4: the reply's time is when it arrived, before any of its moves applied.
+  const receivedAt = new Date(deps.clock()).toISOString();
+  const applied = applyPrefix(turn.game, indices, deps.clock);
   if (applied === undefined) {
     return toolResult(id, { error: 'an index is unknown or illegal now', stop: false }, true);
   }
   const remain = stepsRemain(applied.game);
   const finish = endTurn || !remain || applied.game.winner !== undefined;
   let game = applied.game;
-  const moves = [...applied.moves];
+  const logged = [...applied.logged];
   if (finish && game.winner === undefined && String(game.activePlayer) === String(turn.game.activePlayer)) {
-    const ended = applyMove(game, endTurnMove());
-    moves.push(endTurnMove());
-    game = ended;
+    const ended = applyLogged(game, endTurnMove(), deps.clock);
+    logged.push(ended.entry);
+    game = ended.game;
   }
   if (finish && game.winner === undefined) {
     // P95 D2: every pass-only seat and every heuristic seat after the agent.
     const advanced = advance(game, turn.invite.seats, deps.heuristic, deps.clock);
     game = advanced.game;
-    moves.push(...advanced.moves);
+    logged.push(...advanced.logged);
   }
   const version = turn.version + 1;
-  const extra = replyLine(version, String(seat), indices, endTurn, why, plan);
+  const extra = replyLine(version, receivedAt, String(seat), {
+    moves: indices,
+    resolved: applied.logged.map((entry) => entry.move),
+    offerVersion: turn.version,
+    endTurn,
+    why,
+    plan,
+  });
   const wrote = await commit(
     deps,
     turn.groupHash,
     turn.gameNumber,
     version,
     game,
-    moves,
+    logged,
     turn.raw,
     extra,
     turn.invite.seats,
@@ -1038,18 +1062,20 @@ const integerList = (value: unknown): number[] | undefined => {
 const applyPrefix = (
   state: GameState,
   indices: readonly number[],
-): { readonly game: GameState; readonly moves: readonly Move[] } | undefined => {
+  clock: () => number,
+): { readonly game: GameState; readonly logged: readonly LoggedMove[] } | undefined => {
   const offer = rules.legalMoves(state);
-  const moves: Move[] = [];
+  const logged: LoggedMove[] = [];
   let at = state;
   for (const index of indices) {
     const mapped = index >= 0 ? offer[index] : undefined;
     // The offer numbers steps only. endTurn is a flag, not a row.
     if (mapped === undefined || mapped.kind !== 'step' || !legalNow(at, mapped)) return undefined;
-    at = applyMove(at, mapped);
-    moves.push(mapped);
+    const applied = applyLogged(at, mapped, clock);
+    at = applied.game;
+    logged.push(applied.entry);
   }
-  return { game: at, moves };
+  return { game: at, logged };
 };
 
 

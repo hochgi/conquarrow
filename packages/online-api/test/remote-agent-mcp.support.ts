@@ -13,6 +13,7 @@ import { createRig, type Rig } from '@hochgi/test-kit';
 import { createProbedMock, type ProbedMock } from '@hochgi/test-kit-mock';
 import type {
   GameState,
+  Move,
   InviteSeat,
   OnlinePort,
   OnlineWsPort,
@@ -121,6 +122,8 @@ export interface RemoteRig {
 export interface RigOptions {
   readonly names?: FakeGoogleNames;
   readonly clock?: () => number;
+  /** P107: a real chooser instead of the recording `endTurn` one. */
+  readonly heuristic?: (state: GameState) => Move;
   readonly googleAuthClientId?: string;
 }
 
@@ -220,9 +223,9 @@ export const createRemoteRig = (options: RigOptions = {}): RemoteRig => {
   };
   const postToConnection = (connectionId: string, payload: WsPayload) =>
     notifier.adapter.post(connectionId, payload);
-  const heuristic = (state: GameState) => {
+  const heuristic = (state: GameState): Move => {
     chooserPlayers.push(String(state.activePlayer));
-    return endTurn();
+    return options.heuristic === undefined ? endTurn() : options.heuristic(state);
   };
   const deps: McpHttpDeps = {
     store,

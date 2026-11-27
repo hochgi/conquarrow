@@ -88,6 +88,7 @@ import {
   seedStateAtVersion,
   sequentialBytes,
   stampedLine,
+  v1View,
   startAliceBob,
   startAliceBobCarol,
   stateOfBody,
@@ -397,7 +398,7 @@ describe('Concurrency and legality', () => {
     const { api, s3 } = makeHarness();
     await startAliceBob(api);
     const groupHash = aliceBobGroupHash();
-    const log = (): string | undefined => s3.get(gameLogKey(groupHash, GAME_ONE));
+    const log = (): string | undefined => v1View(s3.get(gameLogKey(groupHash, GAME_ONE)));
     const lines = (...stamped: readonly string[]): string =>
       stamped.map((line) => `${line}\n`).join('');
 
@@ -440,7 +441,7 @@ describe('Concurrency and legality', () => {
     expect(versionOf(parseBody(expectStatus(res, 200)))).toBe(2);
     const state = stateOfBody(parseBody(expectStatus(await getGame(api, groupHash, GAME_ONE, ALICE.bearer), 200)));
     expect(activePlayerOf(state)).toBe(playersOf(state)[2]);
-    expect(s3.get(gameLogKey(groupHash, GAME_ONE))).toBe(
+    expect(v1View(s3.get(gameLogKey(groupHash, GAME_ONE)))).toBe(
       `${stampedLine(1, endTurn())}\n${stampedLine(2, endTurn())}\n`,
     );
   });

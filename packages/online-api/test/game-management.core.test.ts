@@ -181,7 +181,7 @@ describe('A member exports the server\'s whole log (D1)', () => {
       const seats = bodyOf(res)['seats'] as readonly Record<string, unknown>[];
       expect(seats[0]).toMatchObject({ seat: 0, kind: 'human', name: 'Alice' });
       expect(seats[1]).toMatchObject({ seat: 1, kind: 'agent', name: 'Agent', owner: 'Bob' });
-      expect(seats[2]).toMatchObject({ seat: 2, kind: 'bot', name: 'AI' });
+      expect(seats[2]).toMatchObject({ seat: 2, kind: 'heuristic', name: 'AI' });
       expect(res.body).not.toContain(A());
       expect(res.body).not.toContain(B());
     });
@@ -211,7 +211,8 @@ describe('Rival agent replies wait for the end of the game (D2)', () => {
       expectStatus(res, 200);
       const replies = replyEntries(bodyOf(res));
       expect(replies).toHaveLength(1);
-      expect(replies[0]?.['agentReply']).toMatchObject({ seat: P1, plan: 'take the centre' });
+      // P107 D6: the seat is the entry's, lifted from a pre-P107 record.
+      expect(replies[0]).toMatchObject({ seat: P1, agentReply: { plan: 'take the centre' } });
       expect(bodyOf(res)['withheldReplies']).toBe(0);
     });
   });

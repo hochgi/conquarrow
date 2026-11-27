@@ -127,7 +127,7 @@ describe('Edges of the export and game management', () => {
 
       const body = bodyOf(await getExport(rig.api, groupHash, GAME, BOB.bearer));
 
-      expect(replies(body)).toEqual([{ v: 1, agentReply: reply }]);
+      expect(replies(body)).toEqual([{ v: 1, seat: P1, agentReply: { moves: [], endTurn: true } }]);
       expect(body['withheldReplies']).toBe(0);
     });
   });
@@ -345,8 +345,10 @@ describe('Agent reply records carry their seat (D2)', () => {
       const lines = (logRaw(rig, groupHash, GAME) ?? '')
         .split('\n')
         .filter((line) => line.includes('agentReply'))
-        .map((line) => JSON.parse(line) as { agentReply: Record<string, unknown> });
-      expect(lines[0]?.agentReply['seat']).toBe(P1);
+        .map((line) => JSON.parse(line) as { seat?: unknown; agentReply: Record<string, unknown> });
+      // P107 D4: the seat is on the line, not inside the reply.
+      expect(lines[0]?.seat).toBe(P1);
+      expect(lines[0]?.agentReply).not.toHaveProperty('seat');
     });
   });
 });

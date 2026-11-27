@@ -15,8 +15,9 @@
 import type { GameState, InviteSeat, Move } from '@conquarrow/contracts';
 import { endTurn } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
-import { makeRules } from '@conquarrow/rules-core';
+import { logEventsOf, makeRules } from '@conquarrow/rules-core';
 import type { HeuristicChooser } from './api-types';
+import type { LoggedMove } from './game-log';
 
 /** Wall-clock budget of one advance, in ms (a transport limit, not balance). */
 export const ADVANCE_BUDGET_MS = 20_000;
@@ -29,6 +30,30 @@ export const geometry = makeTiling();
 export const rules = makeRules(geometry);
 
 export const applyMove = (game: GameState, move: Move): GameState => rules.apply(game, move);
+
+/**
+ * P107 D3: apply `move` and say what its log line records — the mover, the
+ * clock read right after it applied, the events (`logEventsOf`, the web's
+ * resolver), and `by: 'server'` when the advance chose it.
+ */
+export const applyLogged = (
+  game: GameState,
+  move: Move,
+  clock: () => number,
+  by?: 'server',
+): { readonly game: GameState; readonly entry: LoggedMove } => {
+  const after = applyMove(game, move);
+  return {
+    game: after,
+    entry: {
+      move,
+      at: new Date(clock()).toISOString(),
+      seat: String(game.activePlayer),
+      by,
+      events: logEventsOf(geometry, { before: game, after, move }),
+    },
+  };
+};
 
 export const hasStep = (game: GameState): boolean =>
   rules.legalMoves(game).some((move) => move.kind === 'step');
@@ -45,7 +70,8 @@ export const activeSeat = (
 
 export interface Advanced {
   readonly game: GameState;
-  readonly moves: readonly Move[];
+  /** The server's moves, each with its P107 log line data. */
+  readonly logged: readonly LoggedMove[];
 }
 
 /**
@@ -71,18 +97,19 @@ export const advance = (
   clock: () => number,
 ): Advanced => {
   const started = clock();
-  const moves: Move[] = [];
+  const logged: LoggedMove[] = [];
   let at = game;
   let seat = at.activePlayer;
   let choices = 0;
-  while (at.winner === undefined && moves.length < ADVANCE_MAX_MOVES) {
+  while (at.winner === undefined && logged.length < ADVANCE_MAX_MOVES) {
     if (clock() - started >= ADVANCE_BUDGET_MS) break;
     const move = serverMove(at, seats, heuristic, choices);
     if (move === undefined) break;
-    at = applyMove(at, move);
-    moves.push(move);
+    const applied = applyLogged(at, move, clock, 'server');
+    at = applied.game;
+    logged.push(applied.entry);
     choices = at.activePlayer === seat ? choices + 1 : 0;
     seat = at.activePlayer;
   }
-  return { game: at, moves };
+  return { game: at, logged };
 };

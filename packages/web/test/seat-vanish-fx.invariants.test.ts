@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { GameEvent } from '../src/fx/events';
+import type { GameEvent } from '@conquarrow/contracts';
 import { overlayLifetimeMs, type FxOverlay } from '../src/fx/present';
 import { emptyQueue, enqueue, queueSettleMs } from '../src/fx/queue';
 import {
@@ -16,6 +16,7 @@ import {
   hadPieces,
   LIVING_PAIRS,
   presentOf,
+  readResolverSrc,
   readWebSrc,
   remnantArrows,
   resolveOf,
@@ -206,16 +207,18 @@ describe('seat-vanish-fx invariants', () => {
     for (const group of pair.after.groups.values()) expect(group.owner).not.toBe(C);
     for (const owner of pair.after.territory.values()) expect(owner).not.toBe(C);
 
-    const sources = [
-      readWebSrc('fx/events.ts'),
-      readWebSrc('fx/present.ts'),
-      readWebSrc('matchLog.ts'),
-    ];
-    for (const src of sources) {
-      expect(src).not.toMatch(/from ['"]@conquarrow\/rules-core['"]/);
+    // P107: the resolver lives in rules-core now, and is still only a reading:
+    // it imports nothing from the engine beside it, and the adapters take only it.
+    const resolver = readResolverSrc();
+    expect(resolver).not.toMatch(/from ['"]\.\//);
+    expect(resolver).not.toContain('vanishSeat');
+    expect(resolver).not.toContain('isLost');
+    for (const src of [readWebSrc('fx/present.ts'), readWebSrc('matchLog.ts')]) {
+      for (const match of src.matchAll(/import\s+(type\s+)?\{([^}]*)\}\s+from\s+['"]@conquarrow\/rules-core['"]/g)) {
+        expect(match[2]?.trim()).toBe('resolveEvents');
+      }
       expect(src).not.toContain('vanishSeat');
     }
-    expect(readWebSrc('fx/events.ts')).not.toContain('isLost');
   });
 
   it("12. When a vanished player's trail shrinks, foldMatchSummary shall not increment cuts for that shrink", () => {
@@ -258,8 +261,10 @@ describe('seat-vanish-fx invariants', () => {
 
   it('14. resolveEvents and presentEvents shall reference neither a clock nor a random source', () => {
     const banned = ['Date.now', 'new Date', 'Math.random', 'performance.now'] as const;
-    for (const file of ['fx/events.ts', 'fx/present.ts'] as const) {
-      const src = readWebSrc(file);
+    for (const [file, src] of [
+      ['rules-core events.ts', readResolverSrc()],
+      ['fx/present.ts', readWebSrc('fx/present.ts')],
+    ] as const) {
       expect(src.length).toBeGreaterThan(200);
       for (const token of banned) expect(src.includes(token), `${file} ${token}`).toBe(false);
     }

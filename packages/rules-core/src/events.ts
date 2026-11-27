@@ -21,129 +21,15 @@
  * exactly the kind of ordering bug ADR 0001 warns about.
  */
 
-import type { ArrowId, GameState, Move, PlayerId } from '@conquarrow/contracts';
-
-export type GameEvent =
-  /** A portion walked one arrow onto empty or own-but-unoccupied ground. Tier 3. */
-  | {
-      readonly kind: 'moved';
-      readonly player: PlayerId;
-      readonly from: ArrowId;
-      readonly to: ArrowId;
-      readonly heads: number;
-    }
-  /** Arrows that joined the mover's open trail — the exposed part of an expansion. */
-  | { readonly kind: 'trailLaid'; readonly player: PlayerId; readonly arrows: readonly ArrowId[] }
-  /** The stack divided: `moved` went on, `stayed` did not. Tier 2. */
-  | {
-      readonly kind: 'stackSplit';
-      readonly player: PlayerId;
-      readonly from: ArrowId;
-      readonly to: ArrowId;
-      readonly moved: number;
-      readonly stayed: number;
-    }
-  /** Heads the player chose to leave behind (§5 sentry). Always paired with a split. */
-  | {
-      readonly kind: 'sentryLeft';
-      readonly player: PlayerId;
-      readonly arrow: ArrowId;
-      readonly heads: number;
-    }
-  /** Arriving heads joined heads already standing there. Convergence, not conflict. */
-  | {
-      readonly kind: 'stackMerged';
-      readonly player: PlayerId;
-      readonly from: ArrowId;
-      readonly to: ArrowId;
-      readonly arriving: number;
-      readonly existing: number;
-      readonly total: number;
-    }
-  /** Contact combat on one arrow (§6.2). `holder` is whoever is left standing. */
-  | {
-      readonly kind: 'combat';
-      readonly arrow: ArrowId;
-      readonly attacker: PlayerId;
-      readonly defender: PlayerId;
-      readonly attackerSent: number;
-      readonly defenderBefore: number;
-      readonly attackerLost: number;
-      readonly defenderLost: number;
-      readonly holder: PlayerId | undefined;
-    }
-  /**
-   * The loop closed. `boundary` is the trail that became territory — the actual
-   * geometry of the loop, not a bounding box — and `claimed` is everything the
-   * closure took.
-   */
-  | {
-      readonly kind: 'enclosureClosed';
-      readonly player: PlayerId;
-      readonly closingArrow: ArrowId | undefined;
-      readonly boundary: readonly ArrowId[];
-      readonly claimed: readonly ArrowId[];
-    }
-  /** Ground that changed to this player. `fromArrow` anchors the fill in space. */
-  | {
-      readonly kind: 'territoryCaptured';
-      readonly player: PlayerId;
-      readonly arrows: readonly ArrowId[];
-      readonly fromArrow: ArrowId | undefined;
-      readonly takenFrom: readonly PlayerId[];
-    }
-  /** Ground this player no longer holds — a separate consequence from losing heads. */
-  | {
-      readonly kind: 'territoryLost';
-      readonly player: PlayerId;
-      readonly to: PlayerId | undefined;
-      readonly arrows: readonly ArrowId[];
-      readonly atArrow: ArrowId | undefined;
-    }
-  /** Trail destroyed by someone crossing it (§6.1). Severing, not damage. */
-  | {
-      readonly kind: 'trailCut';
-      readonly victim: PlayerId;
-      readonly attacker: PlayerId;
-      readonly cutArrow: ArrowId | undefined;
-      readonly arrows: readonly ArrowId[];
-    }
-  /** Encircled heads changed owner without moving (§6.3). */
-  | {
-      readonly kind: 'unitsConverted';
-      readonly arrow: ArrowId;
-      readonly from: PlayerId;
-      readonly to: PlayerId;
-      readonly heads: number;
-    }
-  /** Heads that appeared where no move put them — a spawner share paid out (§7). */
-  | {
-      readonly kind: 'unitsProduced';
-      readonly player: PlayerId;
-      readonly arrow: ArrowId;
-      readonly amount: number;
-    }
-  /**
-   * A seat that had pieces before this step and has none after (P39).
-   * `arrows` is the remnant set — empty when the last land was captured.
-   * Adapter-only; the engine still clears without a §6.1 trigger.
-   */
-  | {
-      readonly kind: 'seatVanished';
-      readonly player: PlayerId;
-      readonly arrows: readonly ArrowId[];
-    }
-  | { readonly kind: 'turnPassed'; readonly from: PlayerId; readonly to: PlayerId }
-  | { readonly kind: 'matchWon'; readonly player: PlayerId };
-
-export type GameEventKind = GameEvent['kind'];
-
-/** One applied move and the states either side of it. */
-export interface AppliedStep {
-  readonly before: GameState;
-  readonly after: GameState;
-  readonly move: Move;
-}
+import type {
+  AppliedStep,
+  ArrowId,
+  GameEvent,
+  GameState,
+  Move,
+  PlayerId,
+  StepMove,
+} from '@conquarrow/contracts';
 
 const byId = (left: ArrowId, right: ArrowId): number => {
   const a = String(left);
@@ -290,6 +176,44 @@ const anchorOf = (move: Move): ArrowId | undefined =>
 
 // ── what the move itself did to the stacks it named ───────────────────────────
 
+/** Where the moving stack landed: an empty arrow, a friendly stack, or a fight. */
+const landingEvent = (
+  before: GameState,
+  after: GameState,
+  move: StepMove,
+  player: PlayerId,
+): GameEvent => {
+  const target = before.groups.get(move.exit);
+  const landed = after.groups.get(move.exit);
+  if (target === undefined) {
+    return { kind: 'moved', player, from: move.from, to: move.exit, heads: move.count };
+  }
+  if (target.owner === player) {
+    return {
+      kind: 'stackMerged',
+      player,
+      from: move.from,
+      to: move.exit,
+      arriving: move.count,
+      existing: target.heads,
+      total: landed?.heads ?? move.count + target.heads,
+    };
+  }
+  const attackerLeft = landed?.owner === player ? landed.heads : 0;
+  const defenderLeft = landed?.owner === target.owner ? landed.heads : 0;
+  return {
+    kind: 'combat',
+    arrow: move.exit,
+    attacker: player,
+    defender: target.owner,
+    attackerSent: move.count,
+    defenderBefore: target.heads,
+    attackerLost: move.count - attackerLeft,
+    defenderLost: target.heads - defenderLeft,
+    holder: landed?.owner,
+  };
+};
+
 /** Split / sentry / merge / combat / plain advance, all read off `from` and `exit`. */
 const stackEvents = (step: AppliedStep): readonly GameEvent[] => {
   const { before, after, move } = step;
@@ -312,35 +236,7 @@ const stackEvents = (step: AppliedStep): readonly GameEvent[] => {
     out.push({ kind: 'sentryLeft', player, arrow: move.from, heads: stayed });
   }
 
-  const target = before.groups.get(move.exit);
-  const landed = after.groups.get(move.exit);
-  if (target === undefined) {
-    out.push({ kind: 'moved', player, from: move.from, to: move.exit, heads: move.count });
-  } else if (target.owner === player) {
-    out.push({
-      kind: 'stackMerged',
-      player,
-      from: move.from,
-      to: move.exit,
-      arriving: move.count,
-      existing: target.heads,
-      total: landed?.heads ?? move.count + target.heads,
-    });
-  } else {
-    const attackerLeft = landed?.owner === player ? landed.heads : 0;
-    const defenderLeft = landed?.owner === target.owner ? landed.heads : 0;
-    out.push({
-      kind: 'combat',
-      arrow: move.exit,
-      attacker: player,
-      defender: target.owner,
-      attackerSent: move.count,
-      defenderBefore: target.heads,
-      attackerLost: move.count - attackerLeft,
-      defenderLost: target.heads - defenderLeft,
-      holder: landed?.owner,
-    });
-  }
+  out.push(landingEvent(before, after, move, player));
   return out;
 };
 

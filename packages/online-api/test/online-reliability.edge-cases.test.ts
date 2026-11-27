@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { endTurn } from '@conquarrow/contracts';
 import { createWsHandler } from '../src/ws-event';
-import { ADVANCE_BUDGET_MS } from '../src/game-advance';
+import { ADVANCE_BUDGET_MS, ADVANCE_MAX_MOVES, advance } from '../src/game-advance';
 import {
   ALICE,
   BOB,
@@ -217,5 +217,16 @@ describe('online-reliability server edge cases', () => {
       bytes: Buffer.byteLength(res.body, 'utf8'),
     });
     expect(lines.some((line) => line.includes(groupHash))).toBe(false);
+  });
+});
+
+describe('The advance is bounded (D2)', () => {
+  it('Against a position that passes forever it stops at ADVANCE_MAX_MOVES, every move a server pass', () => {
+    // SPEC §11 item 44: every seat lost at once leaves no winner and no step.
+    const forever = { ...openingMatch(3), groups: new Map(), territory: new Map(), trails: new Map() };
+    const stopped = advance(forever, [{ kind: 'heuristic' }, { kind: 'heuristic' }, { kind: 'heuristic' }], undefined, () => 0);
+    expect(stopped.game.winner).toBeUndefined();
+    expect(stopped.logged).toHaveLength(ADVANCE_MAX_MOVES);
+    expect(stopped.logged.every((entry) => entry.move.kind === 'endTurn' && entry.by === 'server')).toBe(true);
   });
 });
