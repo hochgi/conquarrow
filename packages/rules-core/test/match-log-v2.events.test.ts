@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { ArrowId, GameEvent, GameState, LogEvent, PlayerId } from '@conquarrow/contracts';
+import type { ArrowId, GameEvent, GameState, Group, LogEvent, PlayerId, StepMove } from '@conquarrow/contracts';
 import { endTurn, mintArrowId, mintPlayerId } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import {
@@ -256,5 +256,99 @@ describe('SCENARIOS.md 5 — logEventsOf over a real game', () => {
     // JSON round-trip: what the log writes is what it reads.
     const sample = logEventsOf(geometry, { before: log.opening, after: rules.apply(log.opening, endTurn()), move: endTurn() });
     expect(JSON.parse(JSON.stringify(sample))).toStrictEqual(sample);
+  });
+});
+
+/**
+ * The resolver moved here from the web (P107 D1). Its landing event — the one
+ * thing every step records — is pinned in its own package too, not only by the
+ * web's event-legibility tests. Hand-authored pairs: `resolveEvents` is a diff,
+ * so `after` says what happened, consistent or not.
+ */
+describe('SCENARIOS.md 5 — resolveEvents: where the moving stack landed', () => {
+  const opening = playtestLog().opening;
+  const withGroups = (groups: readonly (readonly [ArrowId, PlayerId, number])[]): GameState => ({
+    ...opening,
+    activePlayer: A,
+    groups: new Map<ArrowId, Group>(groups.map(([arrow, owner, heads]) => [arrow, { owner, heads, spent: 0 }])),
+  });
+  const go = (count: number): StepMove => ({ kind: 'step', from: a1, exit: a2, count });
+  const landing = (before: GameState, after: GameState, move: StepMove): readonly GameEvent[] =>
+    resolveEvents({ before, after, move }).filter((e) => ['moved', 'stackMerged', 'combat'].includes(e.kind));
+
+  it('an empty arrow: moved, with the heads sent', () => {
+    const before = withGroups([[a1, A, 3]]);
+    const after = withGroups([[a2, A, 3]]);
+    expect(landing(before, after, go(3))).toStrictEqual([{ kind: 'moved', player: A, from: a1, to: a2, heads: 3 }]);
+  });
+
+  it("a friendly stack: stackMerged, the total read off after's stack", () => {
+    const before = withGroups([[a1, A, 3], [a2, A, 2]]);
+    const after = withGroups([[a2, A, 4]]);
+    expect(landing(before, after, go(3))).toStrictEqual([
+      { kind: 'stackMerged', player: A, from: a1, to: a2, arriving: 3, existing: 2, total: 4 },
+    ]);
+  });
+
+  it('a friendly stack with nothing on the arrow after: the total is arriving plus existing', () => {
+    const before = withGroups([[a1, A, 3], [a2, A, 2]]);
+    const after = withGroups([]);
+    expect(landing(before, after, go(3))).toStrictEqual([
+      { kind: 'stackMerged', player: A, from: a1, to: a2, arriving: 3, existing: 2, total: 5 },
+    ]);
+  });
+
+  it('a rival stack, the attacker holds: combat with both losses and the holder', () => {
+    const before = withGroups([[a1, A, 5], [a2, B, 2]]);
+    const after = withGroups([[a2, A, 3]]);
+    expect(landing(before, after, go(5))).toStrictEqual([
+      {
+        kind: 'combat',
+        arrow: a2,
+        attacker: A,
+        defender: B,
+        attackerSent: 5,
+        defenderBefore: 2,
+        attackerLost: 2,
+        defenderLost: 2,
+        holder: A,
+      },
+    ]);
+  });
+
+  it('a rival stack, the defender holds: the attacker lost everything it sent', () => {
+    const before = withGroups([[a1, A, 2], [a2, B, 5]]);
+    const after = withGroups([[a2, B, 4]]);
+    expect(landing(before, after, go(2))).toStrictEqual([
+      {
+        kind: 'combat',
+        arrow: a2,
+        attacker: A,
+        defender: B,
+        attackerSent: 2,
+        defenderBefore: 5,
+        attackerLost: 2,
+        defenderLost: 1,
+        holder: B,
+      },
+    ]);
+  });
+
+  it('a rival stack, nobody left: both lost everything, no holder', () => {
+    const before = withGroups([[a1, A, 3], [a2, B, 3]]);
+    const after = withGroups([]);
+    expect(landing(before, after, go(3))).toStrictEqual([
+      {
+        kind: 'combat',
+        arrow: a2,
+        attacker: A,
+        defender: B,
+        attackerSent: 3,
+        defenderBefore: 3,
+        attackerLost: 3,
+        defenderLost: 3,
+        holder: undefined,
+      },
+    ]);
   });
 });
