@@ -25,10 +25,10 @@ const relationOf = (
   index: number,
   meIndex: number,
   agentUser: string,
-): OfferRelation | undefined => {
-  if (index === meIndex) return 'you';
-  if (chairUserHash(seat) !== agentUser) return undefined;
-  return seat.kind === 'agent' ? 'also you' : 'your owner';
+): { readonly relation?: OfferRelation } => {
+  if (index === meIndex) return { relation: 'you' };
+  if (chairUserHash(seat) !== agentUser) return {};
+  return { relation: seat.kind === 'agent' ? 'also you' : 'your owner' };
 };
 
 /**
@@ -45,8 +45,7 @@ export const offerSeatsOf = (
   seats.map((seat, index) => {
     const player = seatLetter(index);
     const name = seatLabel({ letter: player, kind: seat.kind, relation: 'other', ownerName: names.get(chairUserHash(seat)) });
-    const relation = relationOf(seat, index, meIndex, agentUser);
-    return { player, kind: seat.kind, name, ...(relation === undefined ? {} : { relation }) };
+    return { player, kind: seat.kind, name, ...relationOf(seat, index, meIndex, agentUser) };
   });
 
 /** D3: every P107 move line (one with a seat and events), in order; older lines are skipped. */

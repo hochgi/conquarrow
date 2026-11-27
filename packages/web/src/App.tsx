@@ -550,11 +550,14 @@ export const App = (): ReactElement => {
   }, [state]);
   /** P108: the match log a BYOK seat's offer reads its seat table and history from. */
   const logRef = useRef<MatchLog | undefined>(undefined);
-  // Stryker disable next-line BlockStatement -- no DOM harness for App; byokSeatAbout (tested) decides what the ref feeds.
-  useEffect(() => {
-    logRef.current = log;
+  useEffect(
+    // Stryker disable next-line BlockStatement -- no DOM harness for App; byokSeatAbout (tested) decides what the ref feeds.
+    () => {
+      logRef.current = log;
+    },
     // Stryker disable next-line ArrayDeclaration -- no DOM harness for App; the same ref sync as stateRef above.
-  }, [log]);
+    [log],
+  );
 
   // ---- P48 spectated-turn camera -----------------------------------------
   /** The two persisted preferences; one `conquarrow:prefs` key. */
