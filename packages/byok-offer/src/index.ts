@@ -8,6 +8,7 @@
  */
 
 export {
+  BATCH_RULE,
   PLAN_CAP,
   annotateMove,
   baselineIndexFromTags,
@@ -56,3 +57,20 @@ export {
   type AgentContext,
   type BoardOption,
 } from './agent-context';
+export {
+  RUN_EVENT_CAP,
+  SEAT_NAME_CAP,
+  eventText,
+  recentBlockLines,
+  recentFromMoves,
+  recentLinesOf,
+  recentWindow,
+  seatTableLines,
+  starvationLine,
+  windowStart,
+  type OfferAbout,
+  type OfferRelation,
+  type OfferSeat,
+  type OfferSeatKind,
+  type RecentLine,
+} from './about';

@@ -75,17 +75,18 @@ describe('D4 — honest step counts', () => {
     expect(majority).toContain(' then=0 ');
   });
 
-  it('a step that loses its fight reads then=0', () => {
-    const { state, arrow } = withActiveStack(seatBTurn().state, 1, 0);
-    const exits = steps(state).filter((m) => m.from === arrow);
-    const target = exits[0];
-    if (target === undefined) throw new Error('setup: no exit');
+  it('a step that loses its fight reads then=0 (the same step onto empty ground keeps a step)', () => {
+    const { state, arrow } = withActiveStack(seatBTurn().state, 3, 0);
+    const target = steps(state).find((m) => m.from === arrow && m.count === 2);
+    if (target === undefined) throw new Error('setup: no 2-head step');
+    const open = rowsOf(state).find((r) => r.includes(`exit=${String(target.exit)} count=2 `));
+    expect(open).toContain(' then=1 ');
     const rival = state.players.find((p) => p !== state.activePlayer);
     if (rival === undefined) throw new Error('setup: no rival');
     const groups = new Map(state.groups);
     groups.set(target.exit, { owner: rival, heads: 9, spent: 0 });
     const fight = { ...state, groups };
-    const row = rowsOf(fight).find((r) => r.includes(`exit=${String(target.exit)} count=1 `));
+    const row = rowsOf(fight).find((r) => r.includes(`exit=${String(target.exit)} count=2 `));
     expect(row).toContain(' then=0 ');
     expect(row).toContain('combat');
   });

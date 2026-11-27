@@ -20,12 +20,18 @@ import type {
   VertexId,
 } from '@conquarrow/contracts';
 import { movesEqual, speed } from '@conquarrow/contracts';
+import type { Group } from '@conquarrow/contracts';
 import { makeTiling } from '@conquarrow/geometry-tiling';
 import { compareArrows, compareVertices, makeRules } from '@conquarrow/rules-core';
 import { chooseMove, closeUrgency, distanceToTerritory } from '../../web/src/opponent';
 import { edgeDistance } from '../../web/src/botEvaluate';
+import { recentBlockLines, seatTableLines, starvationLine, type OfferAbout } from './about';
 
 const MAX_LISTED_ARROWS = 24;
+
+/** P108 D6: every index of one reply refers to the same offer. */
+export const BATCH_RULE =
+  'Batch rule: every index refers to this offer. A step is applied only while it is still legal, and a stack that moved has no rows here; move it again from the next offer.';
 /**
  * Keep the board summary small — huge spawner dumps make models restate state until max_tokens.
  * Caps tier-1 rows only: a vertex incident to the seat's stacks or offer is always listed (P75).
@@ -387,14 +393,25 @@ const courseFacts = (
   return { slot: home.slot, tags };
 };
 
-/** ` leave= spd= spent= left=`: the portion's tempo on `from`. */
-const portionSlot = (state: GameState, move: StepMove): string => {
+/** The engine's step budget for a group this turn (P04 D4): its merge override, else its speed. */
+const allowanceOf = (group: Group): number => group.speedOverride ?? speed(group.heads);
+
+/**
+ * P108 D4 — ` leave= spd= spent= left= then=`. `spd` is the allowance of the
+ * group on `from` (the engine checks the whole group's, not the portion's),
+ * so `left` is at least 1 on every offered row; `then` is what the stack on
+ * `exit` has left after this step, read off `apply`.
+ */
+const portionSlot = (state: GameState, after: GameState, me: PlayerId, move: StepMove): string => {
   const fromGroup = state.groups.get(move.from);
   const leave = (fromGroup?.heads ?? move.count) - move.count;
   const spent = fromGroup?.spent ?? 0;
-  const portionSpd = fromGroup?.speedOverride ?? speed(move.count);
+  const spd = fromGroup === undefined ? speed(move.count) : allowanceOf(fromGroup);
+  const landed = after.groups.get(move.exit);
+  const mine = landed !== undefined && landed.owner === me;
+  const then = mine ? Math.max(0, allowanceOf(landed) - landed.spent) : 0;
   const leaveStr = leave > 0 ? ` leave=${String(leave)}` : '';
-  return `${leaveStr} spd=${String(portionSpd)} spent=${String(spent)} left=${String(portionSpd - spent)}`;
+  return `${leaveStr} spd=${String(spd)} spent=${String(spent)} left=${String(spd - spent)} then=${String(then)}`;
 };
 
 /** `k(P, v)`: how many of `vertex`'s border arrows are `player`'s territory in `s`. */
@@ -503,7 +520,7 @@ const annotateStep = (
   const join = spawnerJoin(geometry, state, after, me, move.exit);
   const tags = [...gainTags(geometry, state, after, me), ...join.tags, ...course.tags];
   return (
-    `${head}${portionSlot(state, move)} ${course.slot} trailLen=${String(trailAfter)}${join.clauses}` +
+    `${head}${portionSlot(state, after, me, move)} ${course.slot} trailLen=${String(trailAfter)}${join.clauses}` +
     (tags.length > 0 ? ` tags=${tags.join(',')}` : '')
   );
 };
@@ -833,6 +850,7 @@ const renderUserPrompt = (
     readonly rules: RulesPort | undefined;
     readonly targets: readonly OfferTarget[];
     readonly plan: string | undefined;
+    readonly about?: OfferAbout | undefined;
   },
 ): string => {
   const trail = state.trails.get(me)?.size ?? 0;
@@ -847,7 +865,7 @@ const renderUserPrompt = (
       `${String(arrow)} tipDist=${String(distanceToTerritory(geometry, state, me, arrow))} heads=${String(group.heads)}`,
     );
   }
-  const { rules, targets, plan: echoedPlan } = extras;
+  const { rules, targets, plan: echoedPlan, about } = extras;
   const rows =
     rules === undefined ? [] : offerTagRows(geometry, rules, state, me, moves);
   const counts = seatCountMaps(geometry, state);
@@ -866,19 +884,23 @@ const renderUserPrompt = (
     rules === undefined ? [] : greedyBaselineLines(geometry, rules, state, me, moves, rows);
   return [
     `Seat ${String(me)}. Return an ordered moves index array from this offer and set endTurn when this seat is done.`,
+    ...(about?.seats === undefined ? [] : seatTableLines(about.seats)),
+    starvationLine(state),
     `Shares=${String(myShares)}, trailLen=${String(trail)}.`,
     tipLines.length > 0 ? `Exposed tips: ${tipLines.join('; ')}` : 'Exposed tips: none',
     threat,
+    ...(about?.recent === undefined ? [] : recentBlockLines(about.recent, String(me))),
     ...planEcho,
     '',
     'STATE_JSON:',
     JSON.stringify(snapshotForPrompt(geometry, state, me, moves)),
     '',
-    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=speed(count) or merge override; spent=already walked on from, leftover keeps it; steps left this turn = spd-spent; leave=heads staying on from; tags=outcomes. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
+    'LEGAL_MOVES grouped by from (arrow id). Global [i]. count=heads in the portion; spd=the step budget of the whole stack on from (speed(heads), or its merge override); spent=already walked by that stack; left=spd-spent, steps it may still take this turn; then=steps the stack on exit has left after this step (0: this step is its last); leave=heads staying on from; tags=outcomes. advances=<vertex> h/3→h+1/3 force=f: your territory shares of that spawner now → once this exit is your territory (absent when the exit is already your trail or territory); denies=<seat>:k/3→k-1/3: that seat\'s shares if you take this exit. endTurn is a flag, not a numbered row:',
     formatLegalMoves(moves, geometry, rules, state, me, targets),
     '',
     ...baseline,
     ...(baseline.length > 0 ? [''] : []),
+    BATCH_RULE,
     'Reply with only JSON: {"moves":[i,...],"endTurn":true|false,"why":"short","plan":"short"}',
   ].join('\n');
 };
@@ -891,20 +913,23 @@ export const buildUserPrompt = (
   _reasoning: boolean,
   rules?: RulesPort,
   targets: readonly OfferTarget[] = [],
+  about?: OfferAbout,
 ): string =>
   renderUserPrompt(geometry, state, me, moves, {
     rules,
     targets,
     plan: byokPlans.get(me),
+    about,
   });
 
 /** Numbered rows and the reply instruction. Fresh locks, no plan echo. */
-export const offerText = (state: GameState, seat: PlayerId): string => {
+export const offerText = (state: GameState, seat: PlayerId, about?: OfferAbout): string => {
   const geometry = makeTiling();
   const rules = makeRules(geometry);
   return renderUserPrompt(geometry, state, seat, rules.legalMoves(state), {
     rules,
     targets: [],
     plan: undefined,
+    about,
   });
 };
