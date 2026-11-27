@@ -52,8 +52,16 @@ fixes. The next slice (P109) is the geometry hints:
 2. **Window length.** It runs from the agent's last completed turn. Should it also keep the turn before that, so a slow plan can see two rounds?
 3. **Batch protocol.** Should `{from, exit, count}` steps be accepted so one reply can walk a stack twice? Today the rule is stated instead.
 
+## Cost
+
+- The door: per offer, one profile read per bound user and one read of `log.jsonl`, parsed whole (a 2,000-move log is about 370 KB).
+- The BYOK seat: per turn, one replay of the local match log from the opening; events are computed for the window only.
+- The offer grows by the starvation line, the batch rule, ` then=k` per row, the seat table (one line per seat) and the history (one line per turn in the window, at most 12 events each).
+
 ## Tests
 
 - `packages/byok-offer/test/agent-context-v2.*.test.ts`: the seat table, the starvation line, the window and its rendering, the row tempo with a property test over played positions, and the identical-text invariant.
 - `packages/online-api/test/agent-context-v2.scenarios.test.ts`: SCENARIOS 1–3.
-- `packages/web/test/agent-context-v2.byok.test.ts`: SCENARIOS 4.
+- `packages/web/test/agent-context-v2.byok.test.ts`: SCENARIOS 4. `agent-context-v2.tracked-state.test.ts`: the setter that keeps the log the seat reads.
+- `packages/online-api/test/agent-context-v2.about.test.ts`: one profile read per bound user.
+- Changed: the door tests compare against `doorOfferText` (the builder's text for the rig's about); the P75/P80 goldens compare every row field except the tempo fields (`withoutTempo`), which agent-context-v2 pins; the P75 budget measures P75's text without P108's lines.
